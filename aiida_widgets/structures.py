@@ -39,10 +39,7 @@ class StructureUploadWidget(ipw.VBox):
             self.data_format = None
             store = ipw.HBox([self.btn_store, self.structure_label])
 
-        children = [
-            ipw.VBox([self.file_upload, self.output,
-                      ipw.VBox([self.viewer])]), store
-        ]
+        children = [self.file_upload, self.output, self.viewer, store]
 
         super(StructureUploadWidget, self).__init__(
             children=children, **kwargs)
