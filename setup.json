@@ -1,0 +1,34 @@
+{
+    "name": "aiida-widgets",
+    "author": "AiiDA Team",
+    "author_email": "aiidateam@gmail.com",
+    "description": "AiiDA widgets for the [AiiDA Lab](aiidalab.materialscloud.org).",
+    "url": "https://github.com/materialscloud-org/mc-aiida-widgets",
+    "license": "MIT",
+    "classifiers": [
+        "Programming Language :: Python"
+    ],
+    "version": "0.1-alpha",
+    "install_requires": [
+        "aiida-core[jupyter] >= 0.11",
+        "ase",
+        "numpy",
+        "ipywidgets",
+        "fileupload",
+        "nglview"
+    ],
+    "extras_require": {
+        "testing": [
+            "aiida-core[testing]"
+        ],
+        "pre-commit": [
+            "pre-commit",
+            "yapf",
+            "prospector",
+            "pylint"
+        ],
+        "docs": [
+            "sphinx"
+        ]
+    }
+}
