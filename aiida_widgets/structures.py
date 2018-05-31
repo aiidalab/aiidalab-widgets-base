@@ -5,7 +5,6 @@ import ipywidgets as ipw
 from IPython.display import clear_output
 from fileupload import FileUploadWidget
 from tempfile import NamedTemporaryFile
-
 import nglview
 
 
@@ -28,8 +27,9 @@ class StructureUploadWidget(ipw.VBox):
         self.btn_store = ipw.Button(description='Store in AiiDA', disable=True)
         self.structure_label = ipw.Text(placeholder="Label (optional)")
 
-        self.node_class = node_class
         self.atoms = None
+        self.structure_node_class = node_class
+        self.structure_node = None
         if node_class is None:
             self.data_format = ipw.RadioButtons(
                 options=['CifData', 'StructureData'], description='Data type:')
@@ -97,35 +97,36 @@ class StructureUploadWidget(ipw.VBox):
             source_format = 'ASE'
 
         # determine target format
-        if self.node_class is None:
+        if self.structure_node_class is None:
             target_format = self.data_format.value
         else:
-            target_format = self.node_class
+            target_format = self.structure_node_class
 
         # perform conversion
         if target_format == 'CifData':
             if source_format == 'CIF':
                 from aiida.orm.data.cif import CifData
-                atoms_node = CifData(
+                structure_node = CifData(
                     file=self.tmp_file.name,
                     scan_type='flex',
                     parse_policy='lazy')
             else:
                 from aiida.orm.data.cif import cif_from_ase
-                atoms_node = cif_from_ase(self.atoms)
+                structure_node = cif_from_ase(self.atoms)
         else:
             # Target format is StructureData
             from aiida.orm.data.structure import StructureData
-            atoms_node = StructureData(ase=self.atoms)
+            structure_node = StructureData(ase=self.atoms)
 
             #TODO: Figure out whether this is still necessary for structuredata
             # ensure that tags got correctly translated into kinds
             for t1, k in zip(self.atoms.get_tags(),
-                             atoms_node.get_site_kindnames()):
+                             structure_node.get_site_kindnames()):
                 t2 = int(k[-1]) if k[-1].isnumeric() else 0
                 assert t1 == t2
 
-        atoms_node.description = self.structure_label.value
-        atoms_node.store()
+        structure_node.description = self.structure_label.value
+        structure_node.store()
+        self.structure_node = structure_node
 
-        print("Stored in AiiDA: " + repr(atoms_node))
+        print("Stored in AiiDA: " + repr(structure_node))

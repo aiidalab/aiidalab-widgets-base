@@ -21,6 +21,19 @@ widget = StructureUploadWidget()
 display(widget)
 ```
 
+## Codes
+
+Selecting codes
+```python
+from aiida_widgets import CodeDropdown
+from IPython.display import display
+
+# Select from installed codes for 'zeopp.network' input plugin
+dropdown = CodeDropdown(input_plugin='zeopp.network')
+display(widget)
+
+dropdown.selected_code  # returns selected code
+```
 
 # License
 
