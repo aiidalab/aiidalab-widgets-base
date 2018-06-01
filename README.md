@@ -1,6 +1,6 @@
-# mc-aiida_widgets
+# mc-aiida-widgets
 
-Handy AiiDA widgets to be used in the AiidaLab applications
+Reusable AiiDA widgets for applications in the AiiDA Lab.
 
 # Usage
 
@@ -30,7 +30,7 @@ from IPython.display import display
 
 # Select from installed codes for 'zeopp.network' input plugin
 dropdown = CodeDropdown(input_plugin='zeopp.network')
-display(widget)
+display(dropdown)
 
 dropdown.selected_code  # returns selected code
 ```
