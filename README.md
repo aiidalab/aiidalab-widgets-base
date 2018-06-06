@@ -2,13 +2,13 @@
 
 Reusable AiiDA widgets for applications in the AiiDA Lab.
 
-# Usage
+## Usage
 
 Using the widgets usually just involves importing and displaying them.
 For demos, have a look at the jupyter notebooks (`.ipynb` extension) in
 this folder.
 
-## Structures
+### Structures
 
 Uploading structures
 ```python
@@ -21,7 +21,9 @@ widget = StructureUploadWidget()
 display(widget)
 ```
 
-## Codes
+![Demo](https://preview.ibb.co/bFSHco/structure.gif "Using the StructureUploadWidget.")
+
+### Codes
 
 Selecting codes
 ```python
@@ -35,10 +37,10 @@ display(dropdown)
 dropdown.selected_code  # returns selected code
 ```
 
-# License
+## License
 
 MIT
 
-# Contact
+## Contact
 
 aiidalab@materialscloud.org
