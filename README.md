@@ -2,6 +2,16 @@
 
 Reusable AiiDA widgets for applications in the AiiDA Lab.
 
+## Installation
+
+`aiida_widgets` python package:
+```
+pip install aiida-widgets
+```
+
+`mc-aiida-widgets` Materials Cloud app:  
+Via the app manager as usual.
+
 ## Usage
 
 Using the widgets usually just involves importing and displaying them.
