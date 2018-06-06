@@ -76,10 +76,17 @@ class StructureUploadWidget(ipw.VBox):
             self.btn_store.disabled = False
 
     def refresh_view(self):
-        self.viewer.add_component(nglview.ASEStructure(
+        viewer = self.viewer
+
+        # Note: viewer.clear() only removes the 1st component
+        # pylint: disable=protected-access
+        for comp_id in viewer._ngl_component_ids:
+            viewer.remove_component(comp_id)
+
+        viewer.add_component(nglview.ASEStructure(
             self.atoms))  # adds ball+stick
-        self.viewer.add_unitcell()
-        self.viewer.center()
+        viewer.add_unitcell()
+        #self.viewer.center()
 
     # pylint: disable=unused-argument
     def _on_click_store(self, change):
