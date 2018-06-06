@@ -37,6 +37,8 @@ display(dropdown)
 dropdown.selected_code  # returns selected code
 ```
 
+![Demo](https://image.ibb.co/gSFFf8/codes.gif "Using the CodeDropDown.")
+
 ## License
 
 MIT
