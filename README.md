@@ -21,7 +21,7 @@ widget = StructureUploadWidget()
 display(widget)
 ```
 
-![Demo](https://preview.ibb.co/bFSHco/structure.gif "Using the StructureUploadWidget.")
+![Demo](https://image.ibb.co/fjnHco/structure.gif "Using the StructureUploadWidget.")
 
 ### Codes
 
