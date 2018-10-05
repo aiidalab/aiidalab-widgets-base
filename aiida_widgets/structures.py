@@ -4,7 +4,7 @@ import ase.io
 import ipywidgets as ipw
 from IPython.display import clear_output
 from fileupload import FileUploadWidget
-from tempfile import NamedTemporaryFile
+import tempfile
 import nglview
 
 
@@ -24,7 +24,7 @@ class StructureUploadWidget(ipw.VBox):
         self.output = ipw.Output()
         self.viewer = nglview.NGLWidget()
 
-        self.btn_store = ipw.Button(description='Store in AiiDA', disable=True)
+        self.btn_store = ipw.Button(description='Store in AiiDA', disabled=True)
         self.structure_label = ipw.Text(placeholder="Label (optional)")
 
         self.atoms = None
@@ -59,12 +59,12 @@ class StructureUploadWidget(ipw.VBox):
         with self.output:
             clear_output()
 
-            tmp = NamedTemporaryFile(suffix=self.file_upload.filename)
-            with open(tmp.name, 'w') as f:
+            tmp = tempfile.mkdtemp() + '/' + self.file_upload.filename
+            with open(tmp, 'w') as f:
                 f.write(self.file_upload.data)
             self.tmp_file = tmp
 
-            traj = ase.io.read(tmp.name, index=":")
+            traj = ase.io.read(tmp, index=":")
             if len(traj) > 1:
                 print("Error: Uploaded file contained more than one structure")
             atoms = traj[0]
@@ -93,7 +93,7 @@ class StructureUploadWidget(ipw.VBox):
 
         filename = self.file_upload.filename
 
-        if filename is None:
+        if self.atoms is None:
             print("Upload a structure first!")
             return
 
@@ -114,12 +114,13 @@ class StructureUploadWidget(ipw.VBox):
             if source_format == 'CIF':
                 from aiida.orm.data.cif import CifData
                 structure_node = CifData(
-                    file=self.tmp_file.name,
+                    file=self.tmp_file,
                     scan_type='flex',
                     parse_policy='lazy')
             else:
-                from aiida.orm.data.cif import cif_from_ase
-                structure_node = cif_from_ase(self.atoms)
+                from aiida.orm.data.cif import CifData
+                structure_node = CifData()
+                structure_node.set_ase(self.atoms)
         else:
             # Target format is StructureData
             from aiida.orm.data.structure import StructureData
@@ -135,5 +136,6 @@ class StructureUploadWidget(ipw.VBox):
         structure_node.description = self.structure_label.value
         structure_node.store()
         self.structure_node = structure_node
+
 
         print("Stored in AiiDA: " + repr(structure_node))
