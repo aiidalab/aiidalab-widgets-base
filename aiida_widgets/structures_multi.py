@@ -93,6 +93,7 @@ class MultiStructureUploadWidget(ipw.VBox):
 
     # pylint: disable=unused-argument
     def _on_file_upload(self, change):
+
         with self.output:
             clear_output()
 
