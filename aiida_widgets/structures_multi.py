@@ -12,14 +12,13 @@ import nglview
 
 class MultiStructureUploadWidget(ipw.VBox):
     def __init__(self, text="Upload Structure", node_class=None, **kwargs):
-        """ Upload a structure and store it in AiiDA database.
+        """ Upload multiple structures and store them in AiiDA database.
 
         :param text: Text to display before upload button
         :type text: str
         :param node_class: AiiDA node class for storing the structure.
             Possible values: 'StructureData', 'CifData' or None (let the user decide).
             Note: If your workflows require a specific node class, better fix it here.
-
         """
 
         self.file_upload = FileUploadWidget(text)
@@ -39,7 +38,7 @@ class MultiStructureUploadWidget(ipw.VBox):
         self.selection_slider.on_trait_change(self.change_structure, 'value')
         self.btn_store_all = ipw.Button(description='Store all in AiiDA', disabled=True)
         self.btn_store_selected = ipw.Button(description='Store selected', disabled=True)
-        self.structure_label = ipw.Text(placeholder="Label (optional)")
+        self.structure_description = ipw.Text(placeholder="Description (optional)")
         
         self.description = ipw.HTML("""
         <h1> Instructions </h1>
@@ -60,19 +59,18 @@ class MultiStructureUploadWidget(ipw.VBox):
         <font color='red'> Warning: do not put structures into a subfolder, as they will be ignored. Do exactly as it is described in the step 1. </font> 
         """)
 
-        self.atoms = None
-        self.structure_node_class = node_class
-        self.structure_node = None
-        self.structure_names = []
-        if node_class is None:
-            self.data_format = ipw.RadioButtons(
-                options=['CifData', 'StructureData'], description='Data type:')
-            store = ipw.HBox(
-                [self.btn_store_all, self.data_format, self.structure_label, self.btn_store_selected])
-        else:
-            self.data_format = None
-            store = ipw.HBox([self.btn_store_all, self.structure_label, self.btn_store_selected])
+        self.structure_ase = None # contains the selected structure in the ase format
+        self.structure_node = None # always points to the latest stored structure object
+        self.structure_names = [] # list of uploaded structures
+        self.data_format = ipw.RadioButtons(
+            options=['StructureData', 'CifData'], description='Data type:')
 
+        if node_class is None:
+            store = ipw.HBox(
+                [self.btn_store_all, self.data_format, self.structure_description, self.btn_store_selected])
+        else:
+            store = ipw.HBox([self.btn_store_all, self.structure_description, self.btn_store_selected])
+            self.data_format.value = node_class
         children = [self.file_upload, self.description, self.output, view, store]
 
         super(MultiStructureUploadWidget, self).__init__(
@@ -97,7 +95,10 @@ class MultiStructureUploadWidget(ipw.VBox):
     def _on_file_upload(self, change):
         with self.output:
             clear_output()
+
+            # I need to redefine it, since we are now uploading a different archive
             self.structure_names = []
+
             # download an archive and put its content into a file
             tarball = tempfile.NamedTemporaryFile(suffix=self.file_upload.filename)
             with open(tarball.name, 'w') as f:
@@ -117,20 +118,22 @@ class MultiStructureUploadWidget(ipw.VBox):
                     f.write(struct.read())
             tar.close()
             
+            # redefining the options for the slider and its default value
+            # together with slider's value update the structure selection also changes,
+            # as change_structure() called on slider's value change
             self.selection_slider.options = self.structure_names
             self.selection_slider.value = self.structure_names[0]
-            self.select_structure(name = self.structure_names[0])
 
     def select_structure(self, name=None):
         self.tmp_file = self.tmp_folder + '/' + name
         traj = ase.io.read(self.tmp_file, index=":")
         if len(traj) > 1:
-            print("Error: Uploaded file contained more than one structure")
-        atoms = traj[0]
-        formula = atoms.get_chemical_formula()
-        self.structure_label.value = "{} ({})".format(
+            print("Warning: Uploaded file {} contained more than one structure. I take the first one.".format(name))
+        structure_ase = traj[0]
+        formula = structure_ase.get_chemical_formula()
+        self.structure_description.value = "{} ({})".format(
             formula, name)
-        self.atoms = atoms
+        self.structure_ase = structure_ase
         self.refresh_view()
         self.btn_store_all.disabled = False
         self.btn_store_selected.disabled = False
@@ -141,9 +144,8 @@ class MultiStructureUploadWidget(ipw.VBox):
         # pylint: disable=protected-access
         for comp_id in viewer._ngl_component_ids:
             viewer.remove_component(comp_id)
-
         viewer.add_component(nglview.ASEStructure(
-            self.atoms))  # adds ball+stick
+            self.structure_ase))  # adds ball+stick
         viewer.add_unitcell()
 
     # pylint: disable=unused-argument
@@ -157,7 +159,7 @@ class MultiStructureUploadWidget(ipw.VBox):
 
     def store_structure(self, filename):
         self.select_structure(name=filename)
-        if self.atoms is None:
+        if self.structure_ase is None:
             print("Upload a structure first!")
             return
 
@@ -167,14 +169,8 @@ class MultiStructureUploadWidget(ipw.VBox):
         else:
             source_format = 'ASE'
 
-        # determine target format
-        if self.structure_node_class is None:
-            target_format = self.data_format.value
-        else:
-            target_format = self.structure_node_class
-
         # perform conversion
-        if target_format == 'CifData':
+        if self.data_format.value == 'CifData':
             if source_format == 'CIF':
                 from aiida.orm.data.cif import CifData
                 structure_node = CifData(
@@ -184,20 +180,21 @@ class MultiStructureUploadWidget(ipw.VBox):
             else:
                 from aiida.orm.data.cif import CifData
                 structure_node = CifData()
-                structure_node.set_ase(self.atoms)
+                structure_node.set_ase(self.structure_ase)
         else:
             # Target format is StructureData
             from aiida.orm.data.structure import StructureData
-            structure_node = StructureData(ase=self.atoms)
+            structure_node = StructureData(ase=self.structure_ase)
 
-            #TODO: Figure out whether this is still necessary for structuredata
+            #TODO: Figure out whether this is still necessary for StructureData
             # ensure that tags got correctly translated into kinds
-            for t1, k in zip(self.atoms.get_tags(),
+            for t1, k in zip(self.structure_ase.get_tags(),
                              structure_node.get_site_kindnames()):
                 t2 = int(k[-1]) if k[-1].isnumeric() else 0
                 assert t1 == t2
 
-        structure_node.description = self.structure_label.value
+        structure_node.description = self.structure_description.value
+        structure_node.label = ".".join(filename.split('.')[:-1])
         structure_node.store()
         self.structure_node = structure_node
         print("Stored in AiiDA: " + repr(structure_node))
