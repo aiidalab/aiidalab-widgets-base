@@ -137,5 +137,4 @@ class StructureUploadWidget(ipw.VBox):
         structure_node.store()
         self.structure_node = structure_node
 
-
         print("Stored in AiiDA: " + repr(structure_node))
