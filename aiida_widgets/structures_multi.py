@@ -95,17 +95,19 @@ class MultiStructureUploadWidget(ipw.VBox):
                         tar.extract(path=self.tmp_folder, member=member)
             except tarfile.ReadError:
                 raise ValueError("The input tar file is corrupted.")
+
         # extract zip archive
         elif zipfile.is_zipfile(self.archive_name):
+            print("Extracting zip")
             try:
-                with zipfile.ZipFile(self.archive_name, "r", allowZip64=True) as zip:
-                    if not zip.namelist():
+                with zipfile.ZipFile(self.archive_name, "r", allowZip64=True) as zipf:
+                    if not zipf.namelist():
                         raise ValueError("The zip file is empty.")
-                        for member in zip.namelist():
-                            zip.extract(path=outfolder, member=member)
+                    for member in zipf.namelist():
+                        zipf.extract(path=self.tmp_folder, member=member)
             except zipfile.BadZipfile:
                 raise ValueError("The input zip file is corrupted.")
-        
+        print("Extracted to {}".format(self.tmp_folder))
         for (dirpath, dirnames, filenames) in os.walk(self.tmp_folder):
             for filename in filenames:
                 self.structure_names.append(dirpath+'/'+filename)
