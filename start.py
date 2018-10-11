@@ -3,7 +3,7 @@ import ipywidgets as ipw
 template = """
 <table>
 <tr>
-  <th style="text-align:center">AiiDA widgets</th>
+  <th style="text-align:center">AiiDA Lab widgets</th>
 <tr>
   <td valign="top"><ul>
     <li><a href="{appbase}/structures.ipynb" target="_blank">Dealing with structures</a></li>

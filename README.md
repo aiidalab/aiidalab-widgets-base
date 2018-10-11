@@ -1,15 +1,15 @@
-# mc-aiida-widgets
+# aiidalab-widgets-base 
 
-Reusable AiiDA widgets for applications in the AiiDA Lab.
+Reusable AiiDA Lab widgets for applications in the AiiDA Lab.
 
 ## Installation
 
-`aiida_widgets` python package:
+`aiidalab_widgets_base` python package:
 ```
-pip install aiida-widgets
+pip install aiidalab-widgets-base 
 ```
 
-`mc-aiida-widgets` Materials Cloud app:  
+`aiidalab-widgets-base` AiiDA Lab application:  
 Via the app manager as usual.
 
 ## Usage
@@ -22,7 +22,7 @@ this folder.
 
 Uploading structures
 ```python
-from aiida_widgets import StructureUploadWidget
+from aiidalab_widgets_base import StructureUploadWidget
 from IPython.display import display
 
 widget = StructureUploadWidget()
@@ -37,7 +37,7 @@ display(widget)
 
 Selecting codes
 ```python
-from aiida_widgets import CodeDropdown
+from aiidalab_widgets_base import CodeDropdown
 from IPython.display import display
 
 # Select from installed codes for 'zeopp.network' input plugin

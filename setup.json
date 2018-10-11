@@ -1,8 +1,8 @@
 {
-    "name": "aiida-widgets",
+    "name": "aiidalab-widgets-base",
     "author": "AiiDA Team",
     "author_email": "aiidateam@gmail.com",
-    "description": "AiiDA widgets for the [AiiDA Lab](aiidalab.materialscloud.org).",
+    "description": "AiiDA Lab widgets for the [AiiDA Lab](aiidalab.materialscloud.org).",
     "url": "https://github.com/aiidalab/aiidalab-widgets-base",
     "license": "MIT",
     "classifiers": [
