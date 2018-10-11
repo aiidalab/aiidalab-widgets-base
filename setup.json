@@ -3,7 +3,7 @@
     "author": "AiiDA Team",
     "author_email": "aiidateam@gmail.com",
     "description": "AiiDA widgets for the [AiiDA Lab](aiidalab.materialscloud.org).",
-    "url": "https://github.com/materialscloud-org/mc-aiida-widgets",
+    "url": "https://github.com/aiidalab/aiidalab-widgets-base",
     "license": "MIT",
     "classifiers": [
         "Programming Language :: Python"
