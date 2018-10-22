@@ -1,5 +1,6 @@
 from __future__ import print_function
 
+from __future__ import absolute_import
 import ipywidgets as ipw
 from IPython.display import clear_output
 
@@ -65,7 +66,7 @@ class CodeDropdown(ipw.VBox):
         with self.output:
             clear_output()
             self.codes = self._get_codes(self.input_plugin)
-            options = self.codes.keys()
+            options = list(self.codes.keys())
 
             self.dropdown.options = options
 
@@ -78,4 +79,7 @@ class CodeDropdown(ipw.VBox):
 
     @property
     def selected_code(self):
-        return self.codes[self.dropdown.value]
+        try:
+            return self.codes[self.dropdown.value]
+        except KeyError:
+            return None
