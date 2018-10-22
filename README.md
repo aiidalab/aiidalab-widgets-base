@@ -1,6 +1,6 @@
 # aiidalab-widgets-base 
 
-Reusable AiiDA Lab widgets for applications in the AiiDA Lab.
+Reusable widgets for applications in the AiiDA Lab.
 
 ## Installation
 
