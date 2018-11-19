@@ -9,6 +9,7 @@ template = """
     <li><a href="{appbase}/structures.ipynb" target="_blank">Dealing with one structure</a></li>
     <li><a href="{appbase}/structures_multi.ipynb" target="_blank">Dealing with multiple structures</a></li>
     <li><a href="{appbase}/example.ipynb" target="_blank">Dealing with codes</a></li>
+    <li><a href="{appbase}/cod.ipynb" target="_blank">Upload from COD</a></li>
   </ul></td>
 </tr>
 </table>
