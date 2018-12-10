@@ -127,6 +127,7 @@ class MultiStructureUploadWidget(ipw.VBox):
         if not self.structure_names:
             raise ValueError("Even though the input archive seem not to be empty, it does not contain any file")
 
+        self.structure_names.sort()
         # redefining the options for the slider and its default value
         # together with slider's value update the structure selection also changes,
         # as change_structure() called on slider's value change
