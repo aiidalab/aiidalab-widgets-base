@@ -12,12 +12,12 @@ def ase_to_spgcell(ase_atoms):
     return (ase_atoms.get_cell(),
             ase_atoms.get_scaled_positions(),
             ase_atoms.get_atomic_numbers())
-def a_equiv_b(a,b):
+def check_crystal_equivalence(crystal_a, crystal_b):
     """Function that identifies whether two crystals are equivalent"""
 
     # getting symmetry datasets for both crystals
-    cryst_a = spglib.get_symmetry_dataset(ase_to_spgcell(a), symprec=1e-5, angle_tolerance=-1.0, hall_number=0)
-    cryst_b = spglib.get_symmetry_dataset(ase_to_spgcell(b), symprec=1e-5, angle_tolerance=-1.0, hall_number=0)
+    cryst_a = spglib.get_symmetry_dataset(ase_to_spgcell(crystal_a), symprec=1e-5, angle_tolerance=-1.0, hall_number=0)
+    cryst_b = spglib.get_symmetry_dataset(ase_to_spgcell(crystal_b), symprec=1e-5, angle_tolerance=-1.0, hall_number=0)
 
     samecell = np.allclose(cryst_a['std_lattice'], cryst_b['std_lattice'], atol=1e-5)
     samenatoms = len(cryst_a['std_positions']) == len(cryst_b['std_positions'])
@@ -44,6 +44,7 @@ def a_equiv_b(a,b):
 
     if samecell and samenatoms and samespg:
         cell = cryst_a['std_lattice']
+        # we assume there are no crystals with a lattice parameter smaller than 2 A
         rng1 = range(1, int(norm(cell[0])/2.))
         rng2 = range(1, int(norm(cell[1])/2.))
         rng3 = range(1, int(norm(cell[2])/2.))
