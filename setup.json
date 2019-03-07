@@ -1,14 +1,11 @@
 {
     "name": "aiidalab-widgets-base",
-    "author": "AiiDA Team",
     "author_email": "aiidateam@gmail.com",
-    "description": "AiiDA Lab widgets for the [AiiDA Lab](aiidalab.materialscloud.org).",
     "url": "https://github.com/aiidalab/aiidalab-widgets-base",
     "license": "MIT",
     "classifiers": [
         "Programming Language :: Python"
     ],
-    "version": "0.2.0a2",
     "install_requires": [
         "aiida-core[jupyter] >= 0.11",
         "ase",
