@@ -49,6 +49,22 @@ dropdown.selected_code  # returns selected code
 
 ![Demo](https://image.ibb.co/gSFFf8/codes.gif "Using the CodeDropDown.")
 
+### Workflows
+
+Submitting workflows
+```python
+from aiidalab_widgets_base.workflows import SubmitWorkChainWidget
+
+widget = SubmitWorkChainWidget(workchain=AdditionWorkChain, validate_fn=AdditionWorkChain.validate)
+display(widget)
+
+# Setting up inputs
+widget.inputs={'a': 0}  # does not validate, submit button remains grayed out
+
+# Completing inputs
+widget.inputs={'a': 1, 'b': 2}  # validates, submit button active
+```
+
 ## License
 
 MIT
