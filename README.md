@@ -54,15 +54,16 @@ dropdown.selected_code  # returns selected code
 Submitting workflows
 ```python
 from aiidalab_widgets_base.workflows import SubmitWorkChainWidget
+from aiida.orm.data.base import Int
 
 widget = SubmitWorkChainWidget(workchain=AdditionWorkChain, validate_fn=AdditionWorkChain.validate)
 display(widget)
 
 # Setting up inputs
-widget.inputs={'a': 0}  # does not validate, submit button remains grayed out
+widget.inputs={'a': Int(0})  # does not validate, submit button remains grayed out
 
 # Completing inputs
-widget.inputs={'a': 1, 'b': 2}  # validates, submit button active
+widget.inputs={'a': Int(1), 'b': Int(2)}  # validates, submit button active
 ```
 
 ## License
