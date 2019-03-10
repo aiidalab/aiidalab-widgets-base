@@ -47,10 +47,17 @@ class SshComputerSetup(ipw.VBox):
     def __init__(self, **kwargs):
         style = {"description_width":"200px"}
         computer_image = ipw.HTML('<img width="200px" src="./miscellaneous/images/computer.png">')
-        self._inp_username = ipw.Text(description="Ssh username:", layout=ipw.Layout(width="350px"), style=style)
-        self._inp_password = ipw.Password(description="Ssh password:", layout=ipw.Layout(width="200px"), style=style)
-        self._btn_get_config = ipw.Button(description="Get from config", layout={'margin': '20px 0px 20px 130px'}, disabled=True)
+        self._inp_username = ipw.Text(description="Ssh username:",
+                                      layout=ipw.Layout(width="350px"),
+                                      style=style)
+        self._inp_password = ipw.Password(description="Ssh password:",
+                                          layout=ipw.Layout(width="200px"),
+                                          style=style)
+        self._btn_get_config = ipw.Button(description="Get from config",
+                                          layout={'margin': '20px 0px 20px 130px'},
+                                          disabled=True)
         self._btn_get_config.on_click(self._get_from_config)
+
         # Computer ssh settings
         self._inp_computer_hostname = ipw.Text(description="Computer name:",
                                      layout=ipw.Layout(width="350px"),
@@ -93,13 +100,14 @@ class SshComputerSetup(ipw.VBox):
 
         # Check if some settings were already provided
         self._predefine_settings(**kwargs)
+        children = [ipw.HBox([computer_image, ipw.VBox([self._inp_computer_hostname,
+                                                        ipw.HBox([computer_ssh_box, self._proxy_ssh_box])
+                                                       ])
+                             ]),
+                    self._btn_setup_ssh,
+                    self._setup_ssh_out]
 
-        super(SshComputerSetup, self).__init__([ipw.HBox([computer_image, ipw.VBox([self._inp_computer_hostname,
-                                                                                    ipw.HBox([computer_ssh_box, self._proxy_ssh_box])
-                                                                                   ])
-                                                         ]),
-                                                self._btn_setup_ssh,
-                                                self._setup_ssh_out])
+        super(SshComputerSetup, self).__init__(children, **kwargs)
 
     def _predefine_settings(self, **kwargs):
         for key, value in kwargs.items():
@@ -112,7 +120,8 @@ class SshComputerSetup(ipw.VBox):
         fn = path.expanduser("~/.ssh/id_rsa")
         if not path.exists(fn):
             print("Creating ssh key pair")
-            call(["ssh-keygen", "-f", fn, "-t", "rsa", "-N", ""]) # returns non-0 if the key pair already exists
+            # returns non-0 if the key pair already exists
+            call(["ssh-keygen", "-f", fn, "-t", "rsa", "-N", ""])
 
     def is_host_known(self, hostname=None):
         if hostname is None:
@@ -412,7 +421,7 @@ class AiidaComputerSetup(ipw.VBox):
                                            description="AiiDA computer name:",
                                            layout=ipw.Layout(width="500px"),
                                            style=style)
-        self._computer_hostname = ipw.Dropdown(description="Select among the available hosts:",
+        self._computer_hostname = ipw.Dropdown(description="Select among configured hosts:",
                                                layout=ipw.Layout(width="500px"),
                                                style=style)
         self._btn_refresh_computers = ipw.Button(description="refresh", layout={'margin': '0px 0px 20px 21s0px'})
@@ -462,20 +471,22 @@ class AiidaComputerSetup(ipw.VBox):
 
         # Check if some settings were already provided
         self._predefine_settings(**kwargs)
+        children =[ipw.HBox([ipw.VBox([self._inp_computer_name,
+                                       self._computer_hostname,
+                                       self._btn_refresh_computers,
+                                       self._inp_computer_description,
+                                       self._computer_workdir,
+                                       self._computer_mpirun_cmd,
+                                       self._computer_ncpus,
+                                       self._transport_type,
+                                       self._scheduler]),
+                             ipw.VBox([self._prepend_text,
+                                       self._append_text])]),
+                   ipw.HBox([self._btn_setup_comp, self._btn_test]),
+                   ipw.HBox([self._setup_comp_out, self._test_out]),
+                  ]
+        super(AiidaComputerSetup, self).__init__(children, **kwargs)
 
-        super(AiidaComputerSetup, self).__init__([ipw.HBox([ipw.VBox([self._inp_computer_name,
-                                                                      self._computer_hostname,
-                                                                      self._btn_refresh_computers,
-                                                                      self._inp_computer_description,
-                                                                      self._computer_workdir,
-                                                                      self._computer_mpirun_cmd,
-                                                                      self._computer_ncpus,
-                                                                      self._transport_type,
-                                                                      self._scheduler]), ipw.VBox([self._prepend_text,
-                                                                                                   self._append_text])]),
-                                                  ipw.HBox([self._btn_setup_comp, self._btn_test]),
-                                                  ipw.HBox([self._setup_comp_out, self._test_out]),
-                                                 ])
     def _predefine_settings(self, **kwargs):
         for key, value in kwargs.items():
             if hasattr(self, key):
@@ -641,3 +652,67 @@ class AiidaComputerSetup(ipw.VBox):
     @append_text.setter
     def append_text(self, append_text):
         self._append_text.value = append_text
+
+class ComputerDropdown(ipw.VBox):
+    def __init__(self,  text='Select computer:', **kwargs):
+        """ Dropdown for Codes for one input plugin.
+
+        :param text: Text to display before dropdown
+        :type text: str
+        """
+
+        self._dropdown = ipw.Dropdown(options=[], description=text, style={'description_width': 'initial'}, disabled=True)
+        self._btn_refresh = ipw.Button(description="refresh", layout=ipw.Layout(width="70px"))
+
+        self._setup_another = ipw.HTML(value="""<a href=./setup_computer.ipynb target="_blank">setup another</a>""")
+        self._btn_refresh.on_click(self._refresh)
+        self.output = ipw.Output()
+
+        children = [ipw.HBox([self._dropdown, self._btn_refresh, self._setup_another]),
+                    self.output]
+
+        super(ComputerDropdown, self).__init__(children=children, **kwargs)
+
+        self._refresh()
+
+    def _get_computers(self):
+        from aiida.orm.querybuilder import QueryBuilder
+        current_user = get_automatic_user()
+
+        qb = QueryBuilder()
+        qb.append(
+            Computer, filters={'enabled': True}, project=['*'], tag='computer')
+
+        results = qb.all()
+
+        # only computers configured for the current user
+        results = [r for r in results if r[0].is_user_configured(current_user)]
+
+        self._dropdown.options = {r[0].name:r[0] for r in results}
+
+    def _refresh(self, b=None):
+        with self.output:
+            clear_output()
+            self._get_computers()
+            if not self.computers:
+                print("No computers found.")
+                self._dropdown.disabled = True
+            else:
+                self._dropdown.disabled = False
+
+    @property
+    def computers(self):
+        return self._dropdown.options
+
+    @property
+    def selected_computer(self):
+        try:
+            return self._dropdown.value
+        except KeyError:
+            return None
+
+    @selected_computer.setter
+    def selected_computer(self, selected_computer):
+        if selected_computer in self.computers:
+            self._dropdown.label = selected_computer
+
