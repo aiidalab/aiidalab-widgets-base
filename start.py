@@ -10,12 +10,12 @@ template = """
   <td valign="top"><ul>
     <li><a href="{appbase}/structures.ipynb" target="_blank">Dealing with one structure</a></li>
     <li><a href="{appbase}/structures_multi.ipynb" target="_blank">Dealing with multiple structures</a></li>
-    <li><a href="{appbase}/example.ipynb" target="_blank">Dealing with codes</a></li>
+    <li><a href="{appbase}/codes.ipynb" target="_blank">Dealing with codes</a></li>
     <li><a href="{appbase}/cod.ipynb" target="_blank">Upload from COD</a></li>
   </ul></td>
   <td valign="top"><ul>
-    <li><a href="{appbase}/setup_computer.ipynb" target="_blank">Setup Computer</a></li>
-    <li><a href="{appbase}/setup_code.ipynb" target="_blank">Setup Code</a></li>
+    <li><a href="{appbase}/setup_computer.ipynb" target="_blank">Setup computer</a></li>
+    <li><a href="{appbase}/setup_code.ipynb" target="_blank">Setup code</a></li>
   </ul></td>
 </tr>
 </table>
