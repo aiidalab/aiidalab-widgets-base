@@ -16,6 +16,7 @@ template = """
   <td valign="top"><ul>
     <li><a href="{appbase}/setup_computer.ipynb" target="_blank">Setup computer</a></li>
     <li><a href="{appbase}/setup_code.ipynb" target="_blank">Setup code</a></li>
+    <li><a href="{appbase}/aiida_datatypes.ipynb" target="_blank">AiiDA datatypes visualizers</a></li>
   </ul></td>
 </tr>
 </table>
