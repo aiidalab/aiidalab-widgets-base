@@ -12,13 +12,22 @@ class ParameterDataVisualizer(ipw.HTML):
     def __init__(self, parameter, downloadable=True, **kwargs):
         import pandas as pd
         import base64
-        from IPython.display import FileLink
-        df = pd.DataFrame([(key, value) for key, value in parameter.get_dict().items()], columns=['key', 'value'])
-        self.value = df.to_html(index=False)
+        self.value = '''
+        <style>
+            .df tbody tr:nth-child(even) { background-color: lightgray;}
+            td { min-width: 300px; text-align: center; }
+        </style>
+        '''
+        pd.set_option('max_colwidth', 40)
+        df = pd.DataFrame([(key, value) for key, value
+                           in sorted(parameter.get_dict().items())
+                          ], columns=['Key', 'Value'])
+        self.value += '<center>' + df.to_html(classes='df', index=False) + '</center>'
         if downloadable:
             payload = base64.b64encode(df.to_csv().encode()).decode()
             fname = '{}.csv'.format(parameter.pk)
-            to_add = """<a download="{filename}" href="data:text/csv;base64,{payload}" target="_blank">{title}</a>"""
+            to_add = """Download table in csv format: <a download="{filename}"
+            href="data:text/csv;base64,{payload}" target="_blank">{title}</a>"""
             self.value += to_add.format(filename=fname, payload=payload,title=fname)
         super(ParameterDataVisualizer, self).__init__(**kwargs)
 
@@ -65,8 +74,6 @@ class StructureDataVisualizer(ipw.VBox):
 class FolderDataVisualizer(ipw.VBox):
     """Basic visualizer class for FolderData object"""
     def __init__(self, folder, downloadable=True, **kwargs):
-        import random
-        import string
         self._folder = folder
         self.files = ipw.Dropdown(
             options=self._folder.get_folder_list(),
@@ -108,3 +115,25 @@ class FolderDataVisualizer(ipw.VBox):
             """.format(payload=payload,filename=self.files.value)
         )
         display(js)
+
+class BandsDataVisualizer(ipw.VBox):
+    """Basic visualizer class for BandsData object"""
+    def __init__(self, bands, **kwargs):
+        from bokeh.plotting import figure
+        from bokeh.io import show, output_notebook
+        output_notebook(hide_banner=True)
+        out = ipw.Output()
+        with out:
+            plot_info = bands._get_bandplot_data(cartesian=True, join_symbol="|")
+            y = plot_info['y'].transpose().tolist()
+            x = [plot_info['x'] for i in range(len(y))]
+            labels = plot_info['labels']
+            p = figure(y_axis_label='Dispersion ({})'.format(bands.units))
+            p.multi_line(x, y, line_width=2)
+            p.xaxis.ticker = [l[0] for l in labels]
+            p.xaxis.major_label_overrides = {int(l[0]) if l[0].is_integer() else l[0]:l[1] for l in labels}
+            # int(l[0]) if l[0].is_integer() else l[0]
+            # This trick was suggested here: https://github.com/bokeh/bokeh/issues/8166#issuecomment-426124290
+            show(p)
+        children = [out]
+        super(BandsDataVisualizer, self).__init__(children, **kwargs)

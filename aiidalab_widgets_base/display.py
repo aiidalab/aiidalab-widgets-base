@@ -3,10 +3,13 @@ from __future__ import print_function
 import importlib
 from IPython.display import display
 
-RECOGNIZED_AIIDA_DATA_VISUALIZERS = {'data.parameter.ParameterData.' : 'ParameterDataVisualizer',
-                                     'data.structure.StructureData.' : 'StructureDataVisualizer',
-                                     'data.cif.CifData.' : 'StructureDataVisualizer',
-                                     'data.folder.FolderData.' : 'FolderDataVisualizer',}
+RECOGNIZED_AIIDA_DATA_VISUALIZERS = {
+    'data.parameter.ParameterData.' : 'ParameterDataVisualizer',
+    'data.structure.StructureData.' : 'StructureDataVisualizer',
+    'data.cif.CifData.'             : 'StructureDataVisualizer',
+    'data.folder.FolderData.'       : 'FolderDataVisualizer',
+    'data.array.bands.BandsData.'   : 'BandsDataVisualizer',
+}
 
 def aiidalab_display(obj, downloadable=True):
     """Function that is able to display properly differnt AiiDA data types"""
