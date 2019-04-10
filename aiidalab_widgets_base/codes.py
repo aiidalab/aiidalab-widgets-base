@@ -9,7 +9,7 @@ from aiida import load_dbenv, is_dbenv_loaded
 from aiida.backends import settings
 if not is_dbenv_loaded():
     load_dbenv(profile=settings.AIIDADB_PROFILE)
-from aiida.orm import Code, Computer
+from aiida.orm import Code
 
 VALID_AIIDA_CODE_SETUP_ARGUMETNS = {'label', 'selected_computer', 'plugin', 'description',
                                     'exec_path', 'prepend_text', 'append_text'}
@@ -42,9 +42,9 @@ class CodeDropdown(ipw.VBox):
         self.codes = {}
 
         self.dropdown = ipw.Dropdown(description=text, disabled=True)
-        self._btn_refresh = ipw.Button(description="refresh", layout=ipw.Layout(width="70px"))
+        self._btn_refresh = ipw.Button(description="Refresh", layout=ipw.Layout(width="70px"))
         self._btn_refresh.on_click(self.refresh)
-        self._setup_another = ipw.HTML(value="""<a href=./setup_code.ipynb target="_blank">setup another</a>""")
+        self._setup_another = ipw.HTML(value="""<a href=./setup_code.ipynb target="_blank">Setup new code</a>""")
         self.output = ipw.Output()
 
         children = [ipw.HBox([self.dropdown, self._btn_refresh, self._setup_another]),
@@ -57,7 +57,7 @@ class CodeDropdown(ipw.VBox):
     def _get_codes(self, input_plugin):
         from aiida.orm.querybuilder import QueryBuilder
         from aiida.backends.utils import get_automatic_user
-
+        from aiida.orm import Computer
         current_user = get_automatic_user()
 
         qb = QueryBuilder()
@@ -144,7 +144,7 @@ class AiiDACodeSetup(ipw.VBox):
                                          description='Append text:',
                                          layout=ipw.Layout(width="400px"))
 
-        self._btn_setup_code = ipw.Button(description="setup code")
+        self._btn_setup_code = ipw.Button(description="Setup code")
         self._btn_setup_code.on_click(self._setup_code)
         self._setup_code_out = ipw.Output()
         children = [ipw.HBox([ipw.VBox([self._inp_code_label,
@@ -165,7 +165,7 @@ class AiiDACodeSetup(ipw.VBox):
             if hasattr(self, key):
                 setattr(self, key, value)
             else:
-                raise AttributeError("'{}' object has no attirubte '{}'".format(self, key))
+                raise AttributeError("'{}' object has no attribute '{}'".format(self, key))
 
     def _setup_code(self, b=None):
         with self._setup_code_out:

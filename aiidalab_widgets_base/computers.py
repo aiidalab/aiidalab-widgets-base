@@ -47,11 +47,11 @@ class SshComputerSetup(ipw.VBox):
     def __init__(self, **kwargs):
         style = {"description_width":"200px"}
         computer_image = ipw.HTML('<img width="200px" src="./miscellaneous/images/computer.png">')
-        self._inp_username = ipw.Text(description="Ssh username:",
+        self._inp_username = ipw.Text(description="SSH username:",
                                       layout=ipw.Layout(width="350px"),
                                       style=style)
-        self._inp_password = ipw.Password(description="Ssh password:",
-                                          layout=ipw.Layout(width="200px"),
+        self._inp_password = ipw.Password(description="SSH password:",
+                                          layout=ipw.Layout(width="130px"),
                                           style=style)
         self._btn_get_config = ipw.Button(description="Get from config",
                                           layout={'margin': '20px 0px 20px 130px'},
@@ -68,7 +68,8 @@ class SshComputerSetup(ipw.VBox):
         computer_ssh_box = ipw.VBox([self._btn_get_config,
                                      self._inp_username,
                                      self._inp_password,
-                                     self._use_proxy])
+                                     self._use_proxy],
+                                    layout=ipw.Layout(width="400px"))
 
         # Proxy ssh settings
         self._inp_proxy_address = ipw.Text(description="Proxy server address:",
@@ -84,7 +85,7 @@ class SshComputerSetup(ipw.VBox):
                                             layout=ipw.Layout(width="350px"), style=style)
         self._inp_proxy_password = ipw.Password(value='',
                                                 description="Proxy server password:",
-                                                layout=ipw.Layout(width="350px"),
+                                                layout=ipw.Layout(width="138px"), # description_width="initial"),
                                                 style=style)
         self._proxy_user_password_box = ipw.VBox([self._inp_proxy_username,
                                                   self._inp_proxy_password],
@@ -92,7 +93,7 @@ class SshComputerSetup(ipw.VBox):
         self._proxy_ssh_box = ipw.VBox([self._inp_proxy_address,
                                         self._use_diff_proxy_username,
                                         self._proxy_user_password_box],
-                                 layout = {'visibility':'hidden'})
+                                 layout = {'visibility':'hidden','width':'400px'})
 
         self._btn_setup_ssh = ipw.Button(description="Setup ssh")
         self._btn_setup_ssh.on_click(self.on_setup_ssh)
@@ -417,7 +418,7 @@ class AiidaComputerSetup(ipw.VBox):
         self._btn_setup_comp = ipw.Button(description="setup computer")
         self._btn_setup_comp.on_click(self._on_setup_computer)
         self._inp_computer_name = ipw.Text(value='',
-                                           placeholder='Will be only used within AiiDA',
+                                           placeholder='Will only be used within AiiDA',
                                            description="AiiDA computer name:",
                                            layout=ipw.Layout(width="500px"),
                                            style=style)
@@ -460,7 +461,7 @@ class AiidaComputerSetup(ipw.VBox):
                                          description='Append text:',
                                          layout=ipw.Layout(width="400px")
                                         )
-        self._btn_test = ipw.Button(description="test computer")
+        self._btn_test = ipw.Button(description="Test computer")
         self._btn_test.on_click(self.test)
 
         self._setup_comp_out = ipw.Output(layout=ipw.Layout(width="500px"))
@@ -492,7 +493,7 @@ class AiidaComputerSetup(ipw.VBox):
             if hasattr(self, key):
                 setattr(self, key, value)
             else:
-                raise AttributeError("'{}' object has no attirubte '{}'".format(self, key))
+                raise AttributeError("'{}' object has no attribute '{}'".format(self, key))
 
     def _get_available_computers(self, b=None):
         fn = path.expanduser("~/.ssh/config")
@@ -519,7 +520,7 @@ class AiidaComputerSetup(ipw.VBox):
         if 'user' in sshcfg:
             authparams['username'] = sshcfg['user']
         else:
-            print ("Ssh username is not provided, please run `verdi computer configure {}` "
+            print ("SSH username is not provided, please run `verdi computer configure {}` "
                    "from the command line".format(self.name))
             return
         if 'proxycommand' in sshcfg:
@@ -664,7 +665,7 @@ class ComputerDropdown(ipw.VBox):
         self._dropdown = ipw.Dropdown(options=[], description=text, style={'description_width': 'initial'}, disabled=True)
         self._btn_refresh = ipw.Button(description="refresh", layout=ipw.Layout(width="70px"))
 
-        self._setup_another = ipw.HTML(value="""<a href=./setup_computer.ipynb target="_blank">setup another</a>""")
+        self._setup_another = ipw.HTML(value="""<a href=./setup_computer.ipynb target="_blank">Setup new computer</a>""")
         self._btn_refresh.on_click(self._refresh)
         self.output = ipw.Output()
 
