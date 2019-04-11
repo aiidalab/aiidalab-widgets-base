@@ -46,7 +46,6 @@ class SshComputerSetup(ipw.VBox):
         computer_image = ipw.HTML('<img width="200px" src="./miscellaneous/images/computer.png">')
         self._inp_username = ipw.Text(description="SSH username:",
                                       layout=ipw.Layout(width="350px"),
-                                      contiunous_update=False,
                                       style=style)
         self._inp_password = ipw.Password(description="SSH password:",
                                           layout=ipw.Layout(width="130px"),
@@ -660,7 +659,7 @@ class ComputerDropdown(ipw.VBox):
         """
 
         self._dropdown = ipw.Dropdown(options=[], description=text, style={'description_width': 'initial'}, disabled=True)
-        self._btn_refresh = ipw.Button(description="refresh", layout=ipw.Layout(width="70px"))
+        self._btn_refresh = ipw.Button(description="Refresh", layout=ipw.Layout(width="70px"))
 
         self._setup_another = ipw.HTML(value="""<a href=./setup_computer.ipynb target="_blank">Setup new computer</a>""",
                                       layout = {'margin': '0px 0px 0px 250px'})
