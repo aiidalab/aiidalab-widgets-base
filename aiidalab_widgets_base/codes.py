@@ -5,10 +5,7 @@ import ipywidgets as ipw
 
 from subprocess import check_output
 from IPython.display import clear_output
-from aiida import load_dbenv, is_dbenv_loaded
-from aiida.backends import settings
-if not is_dbenv_loaded():
-    load_dbenv(profile=settings.AIIDADB_PROFILE)
+
 from aiida.orm import Code
 
 VALID_AIIDA_CODE_SETUP_ARGUMETNS = {'label', 'selected_computer', 'plugin', 'description',
@@ -119,7 +116,7 @@ class AiiDACodeSetup(ipw.VBox):
                                        layout=ipw.Layout(width="500px"),
                                        style=style)
 
-        self._computer = ComputerDropdown(layout={'margin': '0px 0px 0px 40px'})
+        self._computer = ComputerDropdown(layout={'margin': '0px 0px 0px 125px'})
 
         self._inp_code_description = ipw.Text(placeholder='No description (yet)',
                                               description="Code description:",

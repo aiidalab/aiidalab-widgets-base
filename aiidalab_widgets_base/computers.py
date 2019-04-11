@@ -8,11 +8,6 @@ from copy import copy
 from IPython.display import clear_output
 from subprocess import check_output, call
 
-from aiida import load_dbenv, is_dbenv_loaded
-from aiida.backends import settings
-if not is_dbenv_loaded():
-    load_dbenv(profile=settings.AIIDADB_PROFILE)
-
 from aiida.orm import Computer
 from aiida.backends.utils import get_automatic_user, get_backend_type
 from aiida.common.exceptions import NotExistent
@@ -85,7 +80,7 @@ class SshComputerSetup(ipw.VBox):
                                             layout=ipw.Layout(width="350px"), style=style)
         self._inp_proxy_password = ipw.Password(value='',
                                                 description="Proxy server password:",
-                                                layout=ipw.Layout(width="138px"), # description_width="initial"),
+                                                layout=ipw.Layout(width="138px"),
                                                 style=style)
         self._proxy_user_password_box = ipw.VBox([self._inp_proxy_username,
                                                   self._inp_proxy_password],
@@ -665,11 +660,13 @@ class ComputerDropdown(ipw.VBox):
         self._dropdown = ipw.Dropdown(options=[], description=text, style={'description_width': 'initial'}, disabled=True)
         self._btn_refresh = ipw.Button(description="refresh", layout=ipw.Layout(width="70px"))
 
-        self._setup_another = ipw.HTML(value="""<a href=./setup_computer.ipynb target="_blank">Setup new computer</a>""")
+        self._setup_another = ipw.HTML(value="""<a href=./setup_computer.ipynb target="_blank">Setup new computer</a>""",
+                                      layout = {'margin': '0px 0px 0px 250px'})
         self._btn_refresh.on_click(self._refresh)
         self.output = ipw.Output()
 
-        children = [ipw.HBox([self._dropdown, self._btn_refresh, self._setup_another]),
+        children = [ipw.HBox([self._dropdown, self._btn_refresh]),
+                    self._setup_another,
                     self.output]
 
         super(ComputerDropdown, self).__init__(children=children, **kwargs)
