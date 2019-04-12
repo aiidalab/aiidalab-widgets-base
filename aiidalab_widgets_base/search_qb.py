@@ -1,8 +1,3 @@
-from aiida import load_dbenv, is_dbenv_loaded
-from aiida.backends import settings
-if not is_dbenv_loaded():
-    load_dbenv(profile=settings.AIIDADB_PROFILE)
-
 from aiida.orm.querybuilder import QueryBuilder
 from aiida.orm.data.structure import StructureData
 
