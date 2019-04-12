@@ -2,37 +2,37 @@ from __future__ import print_function
 import os
 
 import ipywidgets as ipw
-from aiida import load_dbenv, is_dbenv_loaded
-from aiida.backends import settings
-if not is_dbenv_loaded():
-    load_dbenv(profile=settings.AIIDADB_PROFILE)
 
 class ParameterDataVisualizer(ipw.HTML):
-    """Basic visualizer class for ParameterData object"""
+    """Visualizer class for ParameterData object"""
     def __init__(self, parameter, downloadable=True, **kwargs):
+        super(ParameterDataVisualizer, self).__init__(**kwargs)
         import pandas as pd
-        import base64
         self.value = '''
         <style>
-            .df tbody tr:nth-child(even) { background-color: lightgray;}
-            td { min-width: 300px; text-align: center; }
+            .df { border: none; }
+            .df tbody tr:nth-child(odd) { background-color:  #f4f6f6 }
+            .df tbody tr:nth-child(odd):hover { background-color:   #f5b7b1; }
+            .df tbody tr:nth-child(even):hover { background-color:  #f5b7b1; }
+            td { min-width: 300px; text-align: center; border: none }
+            th { text-align: center; border: none;  border-bottom: 1px solid black;}
         </style>
         '''
         pd.set_option('max_colwidth', 40)
         df = pd.DataFrame([(key, value) for key, value
                            in sorted(parameter.get_dict().items())
                           ], columns=['Key', 'Value'])
-        self.value += '<center>' + df.to_html(classes='df', index=False) + '</center>'
+        self.value += df.to_html(classes='df', index=False)
         if downloadable:
-            payload = base64.b64encode(df.to_csv().encode()).decode()
+            import base64
+            payload = base64.b64encode(df.to_csv(index=False).encode()).decode()
             fname = '{}.csv'.format(parameter.pk)
             to_add = """Download table in csv format: <a download="{filename}"
             href="data:text/csv;base64,{payload}" target="_blank">{title}</a>"""
             self.value += to_add.format(filename=fname, payload=payload,title=fname)
-        super(ParameterDataVisualizer, self).__init__(**kwargs)
 
 class StructureDataVisualizer(ipw.VBox):
-    """Basic visualizer class for StructureData object"""
+    """Visualizer class for StructureData object"""
     def __init__(self, structure, downloadable=True, **kwargs):
         import nglview
         self._structure = structure
@@ -72,7 +72,7 @@ class StructureDataVisualizer(ipw.VBox):
         display(js)
 
 class FolderDataVisualizer(ipw.VBox):
-    """Basic visualizer class for FolderData object"""
+    """Visualizer class for FolderData object"""
     def __init__(self, folder, downloadable=True, **kwargs):
         self._folder = folder
         self.files = ipw.Dropdown(
@@ -117,7 +117,7 @@ class FolderDataVisualizer(ipw.VBox):
         display(js)
 
 class BandsDataVisualizer(ipw.VBox):
-    """Basic visualizer class for BandsData object"""
+    """Visualizer class for BandsData object"""
     def __init__(self, bands, **kwargs):
         from bokeh.plotting import figure
         from bokeh.io import show, output_notebook
