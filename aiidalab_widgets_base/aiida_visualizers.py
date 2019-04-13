@@ -20,7 +20,7 @@ class ParameterDataVisualizer(ipw.HTML):
             .df tbody tr:nth-child(odd):hover { background-color:   #f5b7b1; }
             .df tbody tr:nth-child(even):hover { background-color:  #f5b7b1; }
             .df tbody td { min-width: 300px; text-align: center; border: none }
-            th { text-align: center; border: none;  border-bottom: 1px solid black;}
+            .df th { text-align: center; border: none;  border-bottom: 1px solid black;}
         </style>
         '''
         pd.set_option('max_colwidth', 40)
