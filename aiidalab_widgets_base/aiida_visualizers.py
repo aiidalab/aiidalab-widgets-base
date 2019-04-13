@@ -8,13 +8,18 @@ class ParameterDataVisualizer(ipw.HTML):
     def __init__(self, parameter, downloadable=True, **kwargs):
         super(ParameterDataVisualizer, self).__init__(**kwargs)
         import pandas as pd
+        # Here we are defining properties of 'df' class (specified while exporting pandas table into html).
+        # Since the exported object is nothing more than HTML table, all 'standard' HTML table settings
+        # can be applied to it as well.
+        # For more information on how to controle the table appearance please visit:
+        # https://css-tricks.com/complete-guide-table-element/
         self.value = '''
         <style>
             .df { border: none; }
-            .df tbody tr:nth-child(odd) { background-color:  #f4f6f6 }
+            .df tbody tr:nth-child(odd) { background-color: #e5e7e9; }
             .df tbody tr:nth-child(odd):hover { background-color:   #f5b7b1; }
             .df tbody tr:nth-child(even):hover { background-color:  #f5b7b1; }
-            td { min-width: 300px; text-align: center; border: none }
+            .df tbody td { min-width: 300px; text-align: center; border: none }
             th { text-align: center; border: none;  border-bottom: 1px solid black;}
         </style>
         '''
@@ -22,7 +27,8 @@ class ParameterDataVisualizer(ipw.HTML):
         df = pd.DataFrame([(key, value) for key, value
                            in sorted(parameter.get_dict().items())
                           ], columns=['Key', 'Value'])
-        self.value += df.to_html(classes='df', index=False)
+        self.value += df.to_html(classes='df', index=False) # specify that exported table belongs to 'df' class
+                                                            # this is used to setup table's appearance using CSS
         if downloadable:
             import base64
             payload = base64.b64encode(df.to_csv(index=False).encode()).decode()
@@ -42,7 +48,7 @@ class StructureDataVisualizer(ipw.VBox):
         children = [viewer]
         if downloadable:
             self.file_format = ipw.Dropdown(
-                options=['xyz', 'cif', 'json'],
+                options=['xyz', 'cif'],
                 description="File format:",
             )
             self.download_btn = ipw.Button(description="Download")
