@@ -1,6 +1,6 @@
 from __future__ import print_function
-
 from __future__ import absolute_import
+
 import ase.io
 import ipywidgets as ipw
 from fileupload import FileUploadWidget
@@ -53,11 +53,6 @@ class StructureUploadWidget(ipw.VBox):
 
         self.file_upload.observe(self._on_file_upload, names='data')
         self.btn_store.on_click(self._on_click_store)
-
-        from aiida import load_dbenv, is_dbenv_loaded
-        from aiida.backends import settings
-        if not is_dbenv_loaded():
-            load_dbenv(profile=settings.AIIDADB_PROFILE)
 
     # pylint: disable=unused-argument
     def _on_file_upload(self, change):

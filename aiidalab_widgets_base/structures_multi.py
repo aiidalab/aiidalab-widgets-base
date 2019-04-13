@@ -68,12 +68,6 @@ class MultiStructureUploadWidget(ipw.VBox):
         self.btn_store_all.on_click(self._on_click_store_all)
         self.btn_store_selected.on_click(self._on_click_store_selected)
 
-        # create aiida-related things
-        from aiida import load_dbenv, is_dbenv_loaded
-        from aiida.backends import settings
-        if not is_dbenv_loaded():
-            load_dbenv(profile=settings.AIIDADB_PROFILE)
-
     # function to be called when selection_slider changes
     def change_structure(self):
         if self.selection_slider.value is None:
