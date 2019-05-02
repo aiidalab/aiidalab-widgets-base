@@ -41,7 +41,8 @@ class CodeDropdown(ipw.VBox):
         self.dropdown = ipw.Dropdown(description=text, disabled=True)
         self._btn_refresh = ipw.Button(description="Refresh", layout=ipw.Layout(width="70px"))
         self._btn_refresh.on_click(self.refresh)
-        self._setup_another = ipw.HTML(value="""<a href=./setup_code.ipynb target="_blank">Setup new code</a>""")
+        # TODO: use base_url here
+        self._setup_another = ipw.HTML(value="""<a href=../aiidalab-widgets-base/setup_code.ipynb target="_blank">Setup new code</a>""")
         self.output = ipw.Output()
 
         children = [ipw.HBox([self.dropdown, self._btn_refresh, self._setup_another]),
