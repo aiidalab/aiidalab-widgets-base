@@ -38,14 +38,17 @@ class StructureUploadWidget(ipw.VBox):
         :type examples: list
 
         """
+        self._structure_sources_tab = ipw.Tab()
+
         self.file_upload = FileUploadWidget(text)
+        supported_formats = ipw.HTML("""All supported structure formats are listed
+        <a href="https://wiki.fysik.dtu.dk/ase/_modules/ase/io/formats.html" target="_blank">here</a>""")
+
         self.select_example = ipw.Dropdown(
             options=self.get_example_structures(examples),
             description='Or choose from examples:',
             style={'description_width': '160px'},
         )
-        supported_formats = ipw.HTML("""All supported structure formats are listed
-        <a href="https://wiki.fysik.dtu.dk/ase/_modules/ase/io/formats.html" target="_blank">here</a>""")
 
         self.viewer = nglview.NGLWidget()
         self.btn_store = ipw.Button(
@@ -58,10 +61,18 @@ class StructureUploadWidget(ipw.VBox):
         self.data_format = ipw.RadioButtons(
             options=self.DATA_FORMATS, description='Data type:')
 
+        structure_sources = [ipw.VBox([self.file_upload, supported_formats])]
+        structure_sources_names = ["Upload"]
         if examples:
-            get_structure = ipw.HBox([self.file_upload, self.select_example])
+            structure_sources.append(self.select_example)
+            structure_sources_names.append("Take from examples")
+
+        if len(structure_sources) == 1:
+            self._structure_sources_tab = structure_sources[0]
         else:
-            get_structure = self.file_upload
+            self._structure_sources_tab.children = structure_sources
+            for i, title in enumerate(structure_sources_names):
+                self._structure_sources_tab.set_title(i, title)
 
         if storable:
             if node_class is None:
@@ -75,7 +86,7 @@ class StructureUploadWidget(ipw.VBox):
         else:
             store = [self.structure_description]
         store = ipw.HBox(store)
-        children = [get_structure, supported_formats, self.viewer, store]
+        children = [self._structure_sources_tab, self.viewer, store]
         super(StructureUploadWidget, self).__init__(
             children=children, **kwargs)
 
@@ -196,6 +207,8 @@ class StructureUploadWidget(ipw.VBox):
         print("Stored in AiiDA: " + repr(self.structure_node))
 
     def freeze(self):
+        """Do not allow any further modifications"""
+        self._structure_sources_tab.layout.visibility = 'hidden'
         self.freezed = True
         self.btn_store.disabled = True
         self.structure_description.disabled = True
