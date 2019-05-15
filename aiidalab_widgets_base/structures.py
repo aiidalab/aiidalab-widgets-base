@@ -12,11 +12,21 @@ from traitlets import Bool
 
 
 class StructureUploadWidget(ipw.VBox):
+    '''Upload a structure and store it in AiiDA database.
+
+    Useful class members:
+    :ivar has_structure: whether the widget contains a structure
+    :vartype arg: bool
+    :ivar freezed: whenter the widget is freezed (can't be modified) or not
+    :vartype freezed: bool
+    :ivar structure_node: link to AiiDA structure object
+    :vartype structure_node: StructureData or CifData
+    '''
     has_structure = Bool(False)
+    freezed = Bool(False)
     DATA_FORMATS = ('StructureData', 'CifData')
     def __init__(self, text="Upload Structure", storable=True, node_class=None, examples=[], **kwargs):
-        """ Upload a structure and store it in AiiDA database.
-
+        """
         :param text: Text to display before upload button
         :type text: str
         :param storable: Whether to provide Store button (together with Store format)
@@ -72,19 +82,21 @@ class StructureUploadWidget(ipw.VBox):
         self.file_upload.observe(self._on_file_upload, names='data')
         self.select_example.observe(self._on_select_example, names=['value'])
         self.btn_store.on_click(self._on_click_store)
+        self.data_format.observe(self.reset_structure, names=['value'])
+        self.structure_description.observe(self.reset_structure, names=['value'])
 
     @staticmethod
     def get_example_structures(examples):
         if examples:
-            to_return=[("Select structure", False)]
-            to_return += [(s.split('/')[-1], s) for s in examples]
-            return to_return
+            options =[("Select structure", False)]
+            options += [(os.path.basename(s), s) for s in examples]
+            return options
         else:
             return []
 
     # pylint: disable=unused-argument
     def _on_file_upload(self, change):
-        self.file_path = tempfile.mkdtemp() + '/' + self.file_upload.filename
+        self.file_path = os.path.join(tempfile.mkdtemp(), self.file_upload.filename)
         with open(self.file_path, 'w') as f:
             f.write(self.file_upload.data)
         structure_ase = self.get_ase(self.file_path)
@@ -99,20 +111,30 @@ class StructureUploadWidget(ipw.VBox):
             structure_ase = False
         self.select_structure(structure_ase=structure_ase, name=self.select_example.label)
 
+    def reset_structure(self, change=None):
+        if self.freezed:
+            return
+        self._structure_node = None
+
     def select_structure(self, structure_ase, name):
-        """ Select structure
+        """Select structure
 
         :param structure_ase: ASE object containing structure
         :type structure_ase: ASE Atoms
         :param name: File name with extension but without path
         :type name: str
         """
+        if self.freezed:
+            return
         self.name = name
         self._structure_node = None
         if not structure_ase:
-            self.structure_ase = None
             self.btn_store.disabled = True
             self.has_structure = False
+            self.structure_ase = None
+            self.structure_description.value = ''
+
+            self.reset_structure()
             self.refresh_view()
             return
         self.btn_store.disabled = False
@@ -159,6 +181,8 @@ class StructureUploadWidget(ipw.VBox):
         self.store_structure()
 
     def store_structure(self, label=None, description=None):
+        if self.freezed:
+            return
         if self.structure_node is None:
             return
         if self.structure_node.is_stored:
@@ -171,12 +195,22 @@ class StructureUploadWidget(ipw.VBox):
         self.structure_node.store()
         print("Stored in AiiDA: " + repr(self.structure_node))
 
+    def freeze(self):
+        self.freezed = True
+        self.btn_store.disabled = True
+        self.structure_description.disabled = True
+        self.file_upload.disabled = True
+        self.data_format.disabled = True
+        self.select_example.disabled = True
+
     @property
     def node_class(self):
         return self.data_format.value
 
     @node_class.setter
     def node_class(self, value):
+        if self.freezed:
+            return
         self.data_format.value = value
 
     @property
@@ -204,12 +238,6 @@ class StructureUploadWidget(ipw.VBox):
             else:  # Target format is StructureData
                 from aiida.orm.data.structure import StructureData
                 self._structure_node = StructureData(ase=self.structure_ase)
-                #TODO: Figure out whether this is still necessary for StructureData
-                # ensure that tags got correctly translated into kinds
-                for t1, k in zip(self.structure_ase.get_tags(),
-                                 self._structure_node.get_site_kindnames()):
-                    t2 = int(k[-1]) if k[-1].isnumeric() else 0
-                    assert t1 == t2
             self._structure_node.description = self.structure_description.value
-            self._structure_node.label = ".".join(self.name.split('.')[:-1])
+            self._structure_node.label = os.path.splitext(self.name)[0]
         return self._structure_node
