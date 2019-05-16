@@ -17,13 +17,13 @@ class StructureUploadWidget(ipw.VBox):
     Useful class members:
     :ivar has_structure: whether the widget contains a structure
     :vartype arg: bool
-    :ivar freezed: whenter the widget is freezed (can't be modified) or not
-    :vartype freezed: bool
+    :ivar frozen: whenter the widget is frozen (can't be modified) or not
+    :vartype frozen: bool
     :ivar structure_node: link to AiiDA structure object
     :vartype structure_node: StructureData or CifData
     '''
     has_structure = Bool(False)
-    freezed = Bool(False)
+    frozen = Bool(False)
     DATA_FORMATS = ('StructureData', 'CifData')
     def __init__(self, text="Upload Structure", storable=True, node_class=None, examples=[], **kwargs):
         """
@@ -34,7 +34,7 @@ class StructureUploadWidget(ipw.VBox):
         :param node_class: AiiDA node class for storing the structure.
             Possible values: 'StructureData', 'CifData' or None (let the user decide).
             Note: If your workflows require a specific node class, better fix it here.
-        :param examples: list of paths to the example structures
+        :param examples: list of tuples each containing a name and a path to an example structure
         :type examples: list
 
         """
@@ -98,9 +98,11 @@ class StructureUploadWidget(ipw.VBox):
 
     @staticmethod
     def get_example_structures(examples):
+        if type(examples) != list:
+            raise ValueError("parameter examples should be of type list, {} given".format(type(examples)))
         if examples:
             options =[("Select structure", False)]
-            options += [(os.path.basename(s), s) for s in examples]
+            options += examples
             return options
         else:
             return []
@@ -123,7 +125,7 @@ class StructureUploadWidget(ipw.VBox):
         self.select_structure(structure_ase=structure_ase, name=self.select_example.label)
 
     def reset_structure(self, change=None):
-        if self.freezed:
+        if self.frozen:
             return
         self._structure_node = None
 
@@ -135,7 +137,7 @@ class StructureUploadWidget(ipw.VBox):
         :param name: File name with extension but without path
         :type name: str
         """
-        if self.freezed:
+        if self.frozen:
             return
         self.name = name
         self._structure_node = None
@@ -159,7 +161,7 @@ class StructureUploadWidget(ipw.VBox):
             traj = ase.io.read(fname, index=":")
         except Exception as exc:
             if exc.args:
-                print(exc.args[0])
+                print(' '.join([str(c) for c in exc.args]))
             else:
                 print("Unknown error")
             return False
@@ -192,7 +194,7 @@ class StructureUploadWidget(ipw.VBox):
         self.store_structure()
 
     def store_structure(self, label=None, description=None):
-        if self.freezed:
+        if self.frozen:
             return
         if self.structure_node is None:
             return
@@ -209,7 +211,7 @@ class StructureUploadWidget(ipw.VBox):
     def freeze(self):
         """Do not allow any further modifications"""
         self._structure_sources_tab.layout.visibility = 'hidden'
-        self.freezed = True
+        self.frozen = True
         self.btn_store.disabled = True
         self.structure_description.disabled = True
         self.file_upload.disabled = True
@@ -222,7 +224,7 @@ class StructureUploadWidget(ipw.VBox):
 
     @node_class.setter
     def node_class(self, value):
-        if self.freezed:
+        if self.frozen:
             return
         self.data_format.value = value
 
