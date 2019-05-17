@@ -14,11 +14,10 @@ if __name__ == '__main__':
     with open('setup.json', 'r') as info:
         kwargs = json.load(info)
 
-    setup(
-        packages=find_packages(),
-        long_description=open('README.md').read(),
-        long_description_content_type='text/markdown',
-        author=metadata['authors'],
-        description=metadata['description'],
-        version=metadata['version'],
-        **kwargs)
+    setup(packages=find_packages(),
+          long_description=open('README.md').read(),
+          long_description_content_type='text/markdown',
+          author=metadata['authors'],
+          description=metadata['description'],
+          version=metadata['version'],
+          **kwargs)
