@@ -16,7 +16,7 @@ class StructureUploadWidget(ipw.VBox):
 
     Useful class members:
     :ivar has_structure: whether the widget contains a structure
-    :vartype arg: bool
+    :vartype has_structure: bool
     :ivar frozen: whenter the widget is frozen (can't be modified) or not
     :vartype frozen: bool
     :ivar structure_node: link to AiiDA structure object
@@ -25,7 +25,7 @@ class StructureUploadWidget(ipw.VBox):
     has_structure = Bool(False)
     frozen = Bool(False)
     DATA_FORMATS = ('StructureData', 'CifData')
-    def __init__(self, text="Upload Structure", storable=True, node_class=None, examples=[], **kwargs):
+    def __init__(self, text="Upload Structure", storable=True, node_class=None, examples=[], data_importers=[], **kwargs):
         """
         :param text: Text to display before upload button
         :type text: str
@@ -35,6 +35,9 @@ class StructureUploadWidget(ipw.VBox):
             Possible values: 'StructureData', 'CifData' or None (let the user decide).
             Note: If your workflows require a specific node class, better fix it here.
         :param examples: list of tuples each containing a name and a path to an example structure
+        :type examples: list
+        :param data_importers: list of tuples each containing a name and an object for data importing. Each object
+        should containt an empty `on_structure_selection()` method that has two parameters: structure_ase, name
         :type examples: list
 
         """
@@ -63,9 +66,16 @@ class StructureUploadWidget(ipw.VBox):
 
         structure_sources = [ipw.VBox([self.file_upload, supported_formats])]
         structure_sources_names = ["Upload"]
+
         if examples:
-            structure_sources.append(self.select_example)
             structure_sources_names.append("Take from examples")
+            structure_sources.append(self.select_example)
+
+        if data_importers:
+            for label, importer in data_importers:
+                structure_sources.append(importer)
+                structure_sources_names.append(label)
+                importer.on_structure_selection = self.select_structure
 
         if len(structure_sources) == 1:
             self._structure_sources_tab = structure_sources[0]
