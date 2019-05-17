@@ -7,7 +7,6 @@ import ipywidgets as ipw
 from fileupload import FileUploadWidget
 import tempfile
 import nglview
-from six.moves import zip
 from traitlets import Bool
 
 
@@ -25,7 +24,13 @@ class StructureUploadWidget(ipw.VBox):
     has_structure = Bool(False)
     frozen = Bool(False)
     DATA_FORMATS = ('StructureData', 'CifData')
-    def __init__(self, text="Upload Structure", storable=True, node_class=None, examples=[], **kwargs):
+
+    def __init__(self,
+                 text="Upload Structure",
+                 storable=True,
+                 node_class=None,
+                 examples=None,
+                 **kwargs):
         """
         :param text: Text to display before upload button
         :type text: str
@@ -38,11 +43,14 @@ class StructureUploadWidget(ipw.VBox):
         :type examples: list
 
         """
+        examples = examples or []
         self._structure_sources_tab = ipw.Tab()
 
         self.file_upload = FileUploadWidget(text)
-        supported_formats = ipw.HTML("""All supported structure formats are listed
-        <a href="https://wiki.fysik.dtu.dk/ase/_modules/ase/io/formats.html" target="_blank">here</a>""")
+        supported_formats = ipw.HTML(
+            """All supported structure formats are listed
+        <a href="https://wiki.fysik.dtu.dk/ase/_modules/ase/io/formats.html" target="_blank">here</a>"""
+        )
 
         self.select_example = ipw.Dropdown(
             options=self.get_example_structures(examples),
@@ -76,10 +84,14 @@ class StructureUploadWidget(ipw.VBox):
 
         if storable:
             if node_class is None:
-                store = [self.btn_store, self.data_format, self.structure_description]
+                store = [
+                    self.btn_store, self.data_format,
+                    self.structure_description
+                ]
             elif node_class not in self.DATA_FORMATS:
-                raise ValueError("Unknown data format '{}'. Options: {}".format(
-                    node_class, self.DATA_FORMATS))
+                raise ValueError(
+                    "Unknown data format '{}'. Options: {}".format(
+                        node_class, self.DATA_FORMATS))
             else:
                 self.data_format.value = node_class
                 store = [self.btn_store, self.structure_description]
@@ -94,27 +106,30 @@ class StructureUploadWidget(ipw.VBox):
         self.select_example.observe(self._on_select_example, names=['value'])
         self.btn_store.on_click(self._on_click_store)
         self.data_format.observe(self.reset_structure, names=['value'])
-        self.structure_description.observe(self.reset_structure, names=['value'])
+        self.structure_description.observe(
+            self.reset_structure, names=['value'])
 
     @staticmethod
     def get_example_structures(examples):
-        if type(examples) != list:
-            raise ValueError("parameter examples should be of type list, {} given".format(type(examples)))
+        if not isinstance(examples, list):
+            raise ValueError(
+                "parameter examples should be of type list, {} given".format(
+                    type(examples)))
         if examples:
-            options =[("Select structure", False)]
+            options = [("Select structure", False)]
             options += examples
             return options
-        else:
-            return []
+        return []
 
     # pylint: disable=unused-argument
     def _on_file_upload(self, change):
-        self.file_path = os.path.join(tempfile.mkdtemp(), self.file_upload.filename)
+        self.file_path = os.path.join(tempfile.mkdtemp(),
+                                      self.file_upload.filename)
         with open(self.file_path, 'w') as f:
             f.write(self.file_upload.data)
         structure_ase = self.get_ase(self.file_path)
-        self.select_structure(structure_ase=structure_ase, name=self.file_upload.filename)
-
+        self.select_structure(
+            structure_ase=structure_ase, name=self.file_upload.filename)
 
     def _on_select_example(self, change):
         if self.select_example.value:
@@ -122,7 +137,8 @@ class StructureUploadWidget(ipw.VBox):
             self.file_path = self.select_example.value
         else:
             structure_ase = False
-        self.select_structure(structure_ase=structure_ase, name=self.select_example.label)
+        self.select_structure(
+            structure_ase=structure_ase, name=self.select_example.label)
 
     def reset_structure(self, change=None):
         if self.frozen:
@@ -152,7 +168,8 @@ class StructureUploadWidget(ipw.VBox):
             return
         self.btn_store.disabled = False
         self.has_structure = True
-        self.structure_description.value = self.get_description(structure_ase, name)
+        self.structure_description.value = self.get_description(
+            structure_ase, name)
         self.structure_ase = structure_ase
         self.refresh_view()
 
@@ -166,7 +183,8 @@ class StructureUploadWidget(ipw.VBox):
                 print("Unknown error")
             return False
         if not traj:
-            print("Could not read any information from the file {}".format(fname))
+            print("Could not read any information from the file {}".format(
+                fname))
             return False
         if len(traj) > 1:
             print(
@@ -186,7 +204,8 @@ class StructureUploadWidget(ipw.VBox):
             viewer.remove_component(comp_id)
         if self.structure_ase is None:
             return
-        viewer.add_component(nglview.ASEStructure(self.structure_ase))  # adds ball+stick
+        viewer.add_component(nglview.ASEStructure(
+            self.structure_ase))  # adds ball+stick
         viewer.add_unitcell()
 
     # pylint: disable=unused-argument
@@ -199,7 +218,8 @@ class StructureUploadWidget(ipw.VBox):
         if self.structure_node is None:
             return
         if self.structure_node.is_stored:
-            print("Already stored in AiiDA: " + repr(self.structure_node) + " skipping..")
+            print("Already stored in AiiDA: " + repr(self.structure_node) +
+                  " skipping..")
             return
         if label:
             self.structure_node.label = label
@@ -241,17 +261,17 @@ class StructureUploadWidget(ipw.VBox):
             # perform conversion
             if self.data_format.value == 'CifData':
                 if source_format == 'CIF':
-                    from aiida.orm.data.cif import CifData
+                    from aiida.orm.nodes.data.cif import CifData
                     self._structure_node = CifData(
                         file=os.path.abspath(self.file_path),
                         scan_type='flex',
                         parse_policy='lazy')
                 else:
-                    from aiida.orm.data.cif import CifData
+                    from aiida.orm.nodes.data.cif import CifData
                     self._structure_node = CifData()
                     self._structure_node.set_ase(self.structure_ase)
             else:  # Target format is StructureData
-                from aiida.orm.data.structure import StructureData
+                from aiida.orm import StructureData
                 self._structure_node = StructureData(ase=self.structure_ase)
             self._structure_node.description = self.structure_description.value
             self._structure_node.label = os.path.splitext(self.name)[0]

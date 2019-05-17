@@ -8,8 +8,11 @@ from IPython.display import clear_output
 
 from aiida.orm import Code
 
-VALID_AIIDA_CODE_SETUP_ARGUMETNS = {'label', 'selected_computer', 'plugin', 'description',
-                                    'exec_path', 'prepend_text', 'append_text'}
+VALID_AIIDA_CODE_SETUP_ARGUMETNS = {
+    'label', 'selected_computer', 'plugin', 'description', 'exec_path',
+    'prepend_text', 'append_text'
+}
+
 
 def valid_arguments(arguments, valid_arguments):
     result = {}
@@ -20,6 +23,7 @@ def valid_arguments(arguments, valid_arguments):
             else:
                 result[key] = value
     return result
+
 
 def extract_aiidacodesetup_arguments(arguments):
     return valid_arguments(arguments, VALID_AIIDA_CODE_SETUP_ARGUMETNS)
@@ -39,14 +43,20 @@ class CodeDropdown(ipw.VBox):
         self.codes = {}
 
         self.dropdown = ipw.Dropdown(description=text, disabled=True)
-        self._btn_refresh = ipw.Button(description="Refresh", layout=ipw.Layout(width="70px"))
+        self._btn_refresh = ipw.Button(
+            description="Refresh", layout=ipw.Layout(width="70px"))
         self._btn_refresh.on_click(self.refresh)
         # TODO: use base_url here
-        self._setup_another = ipw.HTML(value="""<a href=../aiidalab-widgets-base/setup_code.ipynb target="_blank">Setup new code</a>""")
+        self._setup_another = ipw.HTML(
+            value=
+            """<a href=../aiidalab-widgets-base/setup_code.ipynb target="_blank">Setup new code</a>"""
+        )
         self.output = ipw.Output()
 
-        children = [ipw.HBox([self.dropdown, self._btn_refresh, self._setup_another]),
-                    self.output]
+        children = [
+            ipw.HBox([self.dropdown, self._btn_refresh, self._setup_another]),
+            self.output
+        ]
 
         super(CodeDropdown, self).__init__(children=children, **kwargs)
 
@@ -103,57 +113,69 @@ class CodeDropdown(ipw.VBox):
         except KeyError:
             return None
 
+
 class AiiDACodeSetup(ipw.VBox):
     """Class that allows to setup AiiDA code"""
+
     def __init__(self, **kwargs):
         from aiida.common.pluginloader import all_plugins
         from aiidalab_widgets_base.computers import ComputerDropdown
 
-        style = {"description_width":"200px"}
+        style = {"description_width": "200px"}
 
         # list of widgets to be displayed
 
-        self._inp_code_label = ipw.Text(description="AiiDA code label:",
-                                       layout=ipw.Layout(width="500px"),
-                                       style=style)
+        self._inp_code_label = ipw.Text(
+            description="AiiDA code label:",
+            layout=ipw.Layout(width="500px"),
+            style=style)
 
-        self._computer = ComputerDropdown(layout={'margin': '0px 0px 0px 125px'})
+        self._computer = ComputerDropdown(
+            layout={'margin': '0px 0px 0px 125px'})
 
-        self._inp_code_description = ipw.Text(placeholder='No description (yet)',
-                                              description="Code description:",
-                                              layout=ipw.Layout(width="500px"),
-                                              style=style)
+        self._inp_code_description = ipw.Text(
+            placeholder='No description (yet)',
+            description="Code description:",
+            layout=ipw.Layout(width="500px"),
+            style=style)
 
-        self._inp_code_plugin = ipw.Dropdown(options=sorted(all_plugins('calculations')),
-                                             description="Code plugin:",
-                                             layout=ipw.Layout(width="500px"),
-                                             style=style)
+        self._inp_code_plugin = ipw.Dropdown(
+            options=sorted(all_plugins('calculations')),
+            description="Code plugin:",
+            layout=ipw.Layout(width="500px"),
+            style=style)
 
-        self._exec_path = ipw.Text(placeholder='/path/to/executable',
-                                   description="Absolute path to executable:",
-                                   layout=ipw.Layout(width="500px"),
-                                   style=style)
+        self._exec_path = ipw.Text(
+            placeholder='/path/to/executable',
+            description="Absolute path to executable:",
+            layout=ipw.Layout(width="500px"),
+            style=style)
 
-        self._prepend_text = ipw.Textarea(placeholder='Text to prepend to each command execution',
-                                          description='Prepend text:',
-                                          layout=ipw.Layout(width="400px"))
+        self._prepend_text = ipw.Textarea(
+            placeholder='Text to prepend to each command execution',
+            description='Prepend text:',
+            layout=ipw.Layout(width="400px"))
 
-        self._append_text = ipw.Textarea(placeholder='Text to append to each command execution',
-                                         description='Append text:',
-                                         layout=ipw.Layout(width="400px"))
+        self._append_text = ipw.Textarea(
+            placeholder='Text to append to each command execution',
+            description='Append text:',
+            layout=ipw.Layout(width="400px"))
 
         self._btn_setup_code = ipw.Button(description="Setup code")
         self._btn_setup_code.on_click(self._setup_code)
         self._setup_code_out = ipw.Output()
-        children = [ipw.HBox([ipw.VBox([self._inp_code_label,
-                                        self._computer,
-                                        self._inp_code_plugin,
-                                        self._inp_code_description,
-                                        self._exec_path]), ipw.VBox([self._prepend_text,
-                                                                     self._append_text])]),
-                    self._btn_setup_code,
-                    self._setup_code_out,
-                   ]
+        children = [
+            ipw.HBox([
+                ipw.VBox([
+                    self._inp_code_label, self._computer,
+                    self._inp_code_plugin, self._inp_code_description,
+                    self._exec_path
+                ]),
+                ipw.VBox([self._prepend_text, self._append_text])
+            ]),
+            self._btn_setup_code,
+            self._setup_code_out,
+        ]
         # Check if some settings were already provided
         self._predefine_settings(**kwargs)
         super(AiiDACodeSetup, self).__init__(children, **kwargs)
@@ -163,7 +185,8 @@ class AiiDACodeSetup(ipw.VBox):
             if hasattr(self, key):
                 setattr(self, key, value)
             else:
-                raise AttributeError("'{}' object has no attribute '{}'".format(self, key))
+                raise AttributeError(
+                    "'{}' object has no attribute '{}'".format(self, key))
 
     def _setup_code(self, b=None):
         with self._setup_code_out:
@@ -175,9 +198,11 @@ class AiiDACodeSetup(ipw.VBox):
                 print("You did not specify absolute path to the executable")
                 return
             if self.exists():
-                print ("Code {}@{} already exists".format(self.label, self.selected_computer.name))
+                print("Code {}@{} already exists".format(
+                    self.label, self.selected_computer.name))
                 return
-            code = Code(remote_computer_exec=(self.selected_computer, self.exec_path))
+            code = Code(
+                remote_computer_exec=(self.selected_computer, self.exec_path))
             code.label = self.label
             code.description = self.description
             code.set_input_plugin_name(self.plugin)
@@ -185,13 +210,15 @@ class AiiDACodeSetup(ipw.VBox):
             code.set_append_text(self.append_text)
             code.store()
             code._reveal()
-            full_string = "{}@{}".format(self.label, self.selected_computer.name)
+            full_string = "{}@{}".format(self.label,
+                                         self.selected_computer.name)
             print(check_output(['verdi', 'code', 'show', full_string]))
 
     def exists(self):
-        from aiida.common.exceptions import NotExistent, MultipleObjectsError
+        from aiida.common import NotExistent, MultipleObjectsError
         try:
-            Code.get_from_string("{}@{}".format(self.label, self.selected_computer.name))
+            Code.get_from_string("{}@{}".format(self.label,
+                                                self.selected_computer.name))
             return True
         except MultipleObjectsError:
             return True
