@@ -55,14 +55,12 @@ class SshComputerSetup(ipw.VBox):
         style = {"description_width": "200px"}
         computer_image = ipw.HTML(
             '<img width="200px" src="./miscellaneous/images/computer.png">')
-        self._inp_username = ipw.Text(
-            description="SSH username:",
-            layout=ipw.Layout(width="350px"),
-            style=style)
-        self._inp_password = ipw.Password(
-            description="SSH password:",
-            layout=ipw.Layout(width="130px"),
-            style=style)
+        self._inp_username = ipw.Text(description="SSH username:",
+                                      layout=ipw.Layout(width="350px"),
+                                      style=style)
+        self._inp_password = ipw.Password(description="SSH password:",
+                                          layout=ipw.Layout(width="130px"),
+                                          style=style)
         # Computer ssh settings
         self._inp_computer_hostname = ipw.Text(
             description="Computer name:",
@@ -72,10 +70,9 @@ class SshComputerSetup(ipw.VBox):
         self._use_proxy.observe(self.on_use_proxy_change, names='value')
 
         # Proxy ssh settings
-        self._inp_proxy_address = ipw.Text(
-            description="Proxy server address:",
-            layout=ipw.Layout(width="350px"),
-            style=style)
+        self._inp_proxy_address = ipw.Text(description="Proxy server address:",
+                                           layout=ipw.Layout(width="350px"),
+                                           style=style)
         self._use_diff_proxy_username = ipw.Checkbox(
             value=False,
             description='Use different username and password',
@@ -576,8 +573,8 @@ class AiidaComputerSetup(ipw.VBox):
         if 'proxycommand' in sshcfg:
             authparams['proxy_command'] = sshcfg['proxycommand']
         aiidauser = get_automatic_user()
-        authinfo = DbAuthInfo(
-            dbcomputer=Computer.get(self.name).dbcomputer, aiidauser=aiidauser)
+        authinfo = DbAuthInfo(dbcomputer=Computer.get(self.name).dbcomputer,
+                              aiidauser=aiidauser)
         authinfo.set_auth_params(authparams)
         authinfo.save()
         print(check_output(['verdi', 'computer', 'show', self.name]))
@@ -718,13 +715,12 @@ class ComputerDropdown(ipw.VBox):
         :type text: str
         """
 
-        self._dropdown = ipw.Dropdown(
-            options=[],
-            description=text,
-            style={'description_width': 'initial'},
-            disabled=True)
-        self._btn_refresh = ipw.Button(
-            description="Refresh", layout=ipw.Layout(width="70px"))
+        self._dropdown = ipw.Dropdown(options=[],
+                                      description=text,
+                                      style={'description_width': 'initial'},
+                                      disabled=True)
+        self._btn_refresh = ipw.Button(description="Refresh",
+                                       layout=ipw.Layout(width="70px"))
 
         self._setup_another = ipw.HTML(
             value=
@@ -747,8 +743,10 @@ class ComputerDropdown(ipw.VBox):
         current_user = get_automatic_user()
 
         qb = QueryBuilder()
-        qb.append(
-            Computer, filters={'enabled': True}, project=['*'], tag='computer')
+        qb.append(Computer,
+                  filters={'enabled': True},
+                  project=['*'],
+                  tag='computer')
 
         results = qb.all()
 

@@ -1,10 +1,14 @@
 from __future__ import print_function
+from __future__ import absolute_import
 import os
 
 import ipywidgets as ipw
+from six.moves import range
+
 
 class ParameterDataVisualizer(ipw.HTML):
     """Visualizer class for ParameterData object"""
+
     def __init__(self, parameter, downloadable=True, **kwargs):
         super(ParameterDataVisualizer, self).__init__(**kwargs)
         import pandas as pd
@@ -24,26 +28,35 @@ class ParameterDataVisualizer(ipw.HTML):
         </style>
         '''
         pd.set_option('max_colwidth', 40)
-        df = pd.DataFrame([(key, value) for key, value
-                           in sorted(parameter.get_dict().items())
-                          ], columns=['Key', 'Value'])
-        self.value += df.to_html(classes='df', index=False) # specify that exported table belongs to 'df' class
-                                                            # this is used to setup table's appearance using CSS
+        df = pd.DataFrame(
+            [(key, value)
+             for key, value in sorted(parameter.get_dict().items())],
+            columns=['Key', 'Value'])
+        self.value += df.to_html(
+            classes='df',
+            index=False)  # specify that exported table belongs to 'df' class
+        # this is used to setup table's appearance using CSS
         if downloadable:
             import base64
-            payload = base64.b64encode(df.to_csv(index=False).encode()).decode()
+            payload = base64.b64encode(
+                df.to_csv(index=False).encode()).decode()
             fname = '{}.csv'.format(parameter.pk)
             to_add = """Download table in csv format: <a download="{filename}"
             href="data:text/csv;base64,{payload}" target="_blank">{title}</a>"""
-            self.value += to_add.format(filename=fname, payload=payload,title=fname)
+            self.value += to_add.format(filename=fname,
+                                        payload=payload,
+                                        title=fname)
+
 
 class StructureDataVisualizer(ipw.VBox):
     """Visualizer class for StructureData object"""
+
     def __init__(self, structure, downloadable=True, **kwargs):
         import nglview
         self._structure = structure
         viewer = nglview.NGLWidget()
-        viewer.add_component(nglview.ASEStructure(self._structure.get_ase()))  # adds ball+stick
+        viewer.add_component(nglview.ASEStructure(
+            self._structure.get_ase()))  # adds ball+stick
         viewer.add_unitcell()
         children = [viewer]
         if downloadable:
@@ -61,36 +74,40 @@ class StructureDataVisualizer(ipw.VBox):
         from tempfile import TemporaryFile
         from IPython.display import Javascript
         with TemporaryFile() as fobj:
-            self._structure.get_ase().write(fobj, format=self.file_format.value)
+            self._structure.get_ase().write(fobj,
+                                            format=self.file_format.value)
             fobj.seek(0)
             b64 = base64.b64encode(fobj.read())
             payload = b64.decode()
-        js = Javascript(
-            """
+        js = Javascript("""
             var link = document.createElement('a');
             link.href = "data:;base64,{payload}"
             link.download = "{filename}"
             document.body.appendChild(link);
             link.click();
             document.body.removeChild(link);
-            """.format(payload=payload,filename=str(self._structure.id)+'.'+self.file_format.value)
-        )
+            """.format(payload=payload,
+                       filename=str(self._structure.id) + '.' +
+                       self.file_format.value))
         display(js)
+
 
 class FolderDataVisualizer(ipw.VBox):
     """Visualizer class for FolderData object"""
+
     def __init__(self, folder, downloadable=True, **kwargs):
         self._folder = folder
         self.files = ipw.Dropdown(
             options=self._folder.get_folder_list(),
             description="Select file:",
         )
-        self.text = ipw.Textarea(
-            value="",
-            description='File content:',
-            layout={'width':"900px", 'height':'300px'},
-            disabled=False
-        )
+        self.text = ipw.Textarea(value="",
+                                 description='File content:',
+                                 layout={
+                                     'width': "900px",
+                                     'height': '300px'
+                                 },
+                                 disabled=False)
         self.change_file_view()
         self.files.observe(self.change_file_view, names='value')
         children = [self.files, self.text]
@@ -110,34 +127,38 @@ class FolderDataVisualizer(ipw.VBox):
         with open(self._folder.get_abs_path(self.files.value), "rb") as fobj:
             b64 = base64.b64encode(fobj.read())
             payload = b64.decode()
-        js = Javascript(
-            """
+        js = Javascript("""
             var link = document.createElement('a');
             link.href = "data:;base64,{payload}"
             link.download = "{filename}"
             document.body.appendChild(link);
             link.click();
             document.body.removeChild(link);
-            """.format(payload=payload,filename=self.files.value)
-        )
+            """.format(payload=payload, filename=self.files.value))
         display(js)
+
 
 class BandsDataVisualizer(ipw.VBox):
     """Visualizer class for BandsData object"""
+
     def __init__(self, bands, **kwargs):
         from bokeh.plotting import figure
         from bokeh.io import show, output_notebook
         output_notebook(hide_banner=True)
         out = ipw.Output()
         with out:
-            plot_info = bands._get_bandplot_data(cartesian=True, join_symbol="|")
+            plot_info = bands._get_bandplot_data(cartesian=True,
+                                                 join_symbol="|")
             y = plot_info['y'].transpose().tolist()
             x = [plot_info['x'] for i in range(len(y))]
             labels = plot_info['labels']
             p = figure(y_axis_label='Dispersion ({})'.format(bands.units))
             p.multi_line(x, y, line_width=2)
             p.xaxis.ticker = [l[0] for l in labels]
-            p.xaxis.major_label_overrides = {int(l[0]) if l[0].is_integer() else l[0]:l[1] for l in labels}
+            p.xaxis.major_label_overrides = {
+                int(l[0]) if l[0].is_integer() else l[0]: l[1]
+                for l in labels
+            }
             # int(l[0]) if l[0].is_integer() else l[0]
             # This trick was suggested here: https://github.com/bokeh/bokeh/issues/8166#issuecomment-426124290
             show(p)

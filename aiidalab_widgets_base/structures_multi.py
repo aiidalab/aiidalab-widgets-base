@@ -45,10 +45,10 @@ class MultiStructureUploadWidget(ipw.VBox):
         view = ipw.HBox([self.viewer, self.selection_slider])
 
         # define the action part of the widget
-        self.btn_store_all = ipw.Button(
-            description='Store all in AiiDA', disabled=True)
-        self.btn_store_selected = ipw.Button(
-            description='Store selected', disabled=True)
+        self.btn_store_all = ipw.Button(description='Store all in AiiDA',
+                                        disabled=True)
+        self.btn_store_selected = ipw.Button(description='Store selected',
+                                             disabled=True)
         self.structure_description = ipw.Text(
             placeholder="Description (optional)")
         self.data_format = ipw.RadioButtons(
@@ -75,8 +75,8 @@ class MultiStructureUploadWidget(ipw.VBox):
 
         # put all visual parts in children list and initialize the parent Vbox widget with it
         children = [self.file_upload, view, store]
-        super(MultiStructureUploadWidget, self).__init__(
-            children=children, **kwargs)
+        super(MultiStructureUploadWidget, self).__init__(children=children,
+                                                         **kwargs)
 
         # attach actions to the buttons
         self.file_upload.observe(self._on_file_upload, names='data')
@@ -109,9 +109,9 @@ class MultiStructureUploadWidget(ipw.VBox):
         # extract tar archive
         if tarfile.is_tarfile(self.archive_name):
             try:
-                with tarfile.open(
-                        self.archive_name, "r:*",
-                        format=tarfile.PAX_FORMAT) as tar:
+                with tarfile.open(self.archive_name,
+                                  "r:*",
+                                  format=tarfile.PAX_FORMAT) as tar:
                     if not tar.getmembers():
                         raise ValueError("The input tar file is empty.")
                     for member in tar.getmembers():
@@ -122,8 +122,8 @@ class MultiStructureUploadWidget(ipw.VBox):
         # extract zip archive
         elif zipfile.is_zipfile(self.archive_name):
             try:
-                with zipfile.ZipFile(
-                        self.archive_name, "r", allowZip64=True) as zipf:
+                with zipfile.ZipFile(self.archive_name, "r",
+                                     allowZip64=True) as zipf:
                     if not zipf.namelist():
                         raise ValueError("The input zip file is empty.")
                     for member in zipf.namelist():
@@ -208,9 +208,8 @@ class MultiStructureUploadWidget(ipw.VBox):
 
     # pylint: disable=unused-argument
     def _on_click_store_selected(self, change):
-        self.store_structure(
-            self.selection_slider.value,
-            description=self.structure_description.value)
+        self.store_structure(self.selection_slider.value,
+                             description=self.structure_description.value)
 
     def store_structure(self, filepath, description=None):
         structure_ase = self.get_ase(filepath)
@@ -227,8 +226,9 @@ class MultiStructureUploadWidget(ipw.VBox):
         if self.data_format.value == 'CifData':
             if source_format == 'CIF':
                 from aiida.orm.nodes.data.cif import CifData
-                structure_node = CifData(
-                    file=filepath, scan_type='flex', parse_policy='lazy')
+                structure_node = CifData(file=filepath,
+                                         scan_type='flex',
+                                         parse_policy='lazy')
             else:
                 from aiida.orm.nodes.data.cif import CifData
                 structure_node = CifData()

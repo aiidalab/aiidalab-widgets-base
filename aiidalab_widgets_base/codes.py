@@ -43,8 +43,8 @@ class CodeDropdown(ipw.VBox):
         self.codes = {}
 
         self.dropdown = ipw.Dropdown(description=text, disabled=True)
-        self._btn_refresh = ipw.Button(
-            description="Refresh", layout=ipw.Layout(width="70px"))
+        self._btn_refresh = ipw.Button(description="Refresh",
+                                       layout=ipw.Layout(width="70px"))
         self._btn_refresh.on_click(self.refresh)
         # TODO: use base_url here
         self._setup_another = ipw.HTML(
@@ -69,20 +69,21 @@ class CodeDropdown(ipw.VBox):
         current_user = get_automatic_user()
 
         qb = QueryBuilder()
-        qb.append(
-            Computer, filters={'enabled': True}, project=['*'], tag='computer')
-        qb.append(
-            Code,
-            filters={
-                'attributes.input_plugin': {
-                    '==': input_plugin
-                },
-                'extras.hidden': {
-                    "~==": True
-                }
-            },
-            project=['*'],
-            has_computer='computer')
+        qb.append(Computer,
+                  filters={'enabled': True},
+                  project=['*'],
+                  tag='computer')
+        qb.append(Code,
+                  filters={
+                      'attributes.input_plugin': {
+                          '==': input_plugin
+                      },
+                      'extras.hidden': {
+                          "~==": True
+                      }
+                  },
+                  project=['*'],
+                  has_computer='computer')
         results = qb.all()
 
         # only codes on computers configured for the current user
@@ -125,10 +126,9 @@ class AiiDACodeSetup(ipw.VBox):
 
         # list of widgets to be displayed
 
-        self._inp_code_label = ipw.Text(
-            description="AiiDA code label:",
-            layout=ipw.Layout(width="500px"),
-            style=style)
+        self._inp_code_label = ipw.Text(description="AiiDA code label:",
+                                        layout=ipw.Layout(width="500px"),
+                                        style=style)
 
         self._computer = ComputerDropdown(
             layout={'margin': '0px 0px 0px 125px'})
@@ -139,17 +139,16 @@ class AiiDACodeSetup(ipw.VBox):
             layout=ipw.Layout(width="500px"),
             style=style)
 
-        self._inp_code_plugin = ipw.Dropdown(
-            options=sorted(all_plugins('calculations')),
-            description="Code plugin:",
-            layout=ipw.Layout(width="500px"),
-            style=style)
+        self._inp_code_plugin = ipw.Dropdown(options=sorted(
+            all_plugins('calculations')),
+                                             description="Code plugin:",
+                                             layout=ipw.Layout(width="500px"),
+                                             style=style)
 
-        self._exec_path = ipw.Text(
-            placeholder='/path/to/executable',
-            description="Absolute path to executable:",
-            layout=ipw.Layout(width="500px"),
-            style=style)
+        self._exec_path = ipw.Text(placeholder='/path/to/executable',
+                                   description="Absolute path to executable:",
+                                   layout=ipw.Layout(width="500px"),
+                                   style=style)
 
         self._prepend_text = ipw.Textarea(
             placeholder='Text to prepend to each command execution',
@@ -201,8 +200,8 @@ class AiiDACodeSetup(ipw.VBox):
                 print("Code {}@{} already exists".format(
                     self.label, self.selected_computer.name))
                 return
-            code = Code(
-                remote_computer_exec=(self.selected_computer, self.exec_path))
+            code = Code(remote_computer_exec=(self.selected_computer,
+                                              self.exec_path))
             code.label = self.label
             code.description = self.description
             code.set_input_plugin_name(self.plugin)

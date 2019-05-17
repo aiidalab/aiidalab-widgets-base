@@ -59,15 +59,15 @@ class StructureUploadWidget(ipw.VBox):
         )
 
         self.viewer = nglview.NGLWidget()
-        self.btn_store = ipw.Button(
-            description='Store in AiiDA', disabled=True)
+        self.btn_store = ipw.Button(description='Store in AiiDA',
+                                    disabled=True)
         self.structure_description = ipw.Text(
             placeholder="Description (optional)")
 
         self.structure_ase = None
         self._structure_node = None
-        self.data_format = ipw.RadioButtons(
-            options=self.DATA_FORMATS, description='Data type:')
+        self.data_format = ipw.RadioButtons(options=self.DATA_FORMATS,
+                                            description='Data type:')
 
         structure_sources = [ipw.VBox([self.file_upload, supported_formats])]
         structure_sources_names = ["Upload"]
@@ -99,15 +99,15 @@ class StructureUploadWidget(ipw.VBox):
             store = [self.structure_description]
         store = ipw.HBox(store)
         children = [self._structure_sources_tab, self.viewer, store]
-        super(StructureUploadWidget, self).__init__(
-            children=children, **kwargs)
+        super(StructureUploadWidget, self).__init__(children=children,
+                                                    **kwargs)
 
         self.file_upload.observe(self._on_file_upload, names='data')
         self.select_example.observe(self._on_select_example, names=['value'])
         self.btn_store.on_click(self._on_click_store)
         self.data_format.observe(self.reset_structure, names=['value'])
-        self.structure_description.observe(
-            self.reset_structure, names=['value'])
+        self.structure_description.observe(self.reset_structure,
+                                           names=['value'])
 
     @staticmethod
     def get_example_structures(examples):
@@ -128,8 +128,8 @@ class StructureUploadWidget(ipw.VBox):
         with open(self.file_path, 'w') as f:
             f.write(self.file_upload.data)
         structure_ase = self.get_ase(self.file_path)
-        self.select_structure(
-            structure_ase=structure_ase, name=self.file_upload.filename)
+        self.select_structure(structure_ase=structure_ase,
+                              name=self.file_upload.filename)
 
     def _on_select_example(self, change):
         if self.select_example.value:
@@ -137,8 +137,8 @@ class StructureUploadWidget(ipw.VBox):
             self.file_path = self.select_example.value
         else:
             structure_ase = False
-        self.select_structure(
-            structure_ase=structure_ase, name=self.select_example.label)
+        self.select_structure(structure_ase=structure_ase,
+                              name=self.select_example.label)
 
     def reset_structure(self, change=None):
         if self.frozen:
@@ -262,10 +262,10 @@ class StructureUploadWidget(ipw.VBox):
             if self.data_format.value == 'CifData':
                 if source_format == 'CIF':
                     from aiida.orm.nodes.data.cif import CifData
-                    self._structure_node = CifData(
-                        file=os.path.abspath(self.file_path),
-                        scan_type='flex',
-                        parse_policy='lazy')
+                    self._structure_node = CifData(file=os.path.abspath(
+                        self.file_path),
+                                                   scan_type='flex',
+                                                   parse_policy='lazy')
                 else:
                     from aiida.orm.nodes.data.cif import CifData
                     self._structure_node = CifData()
