@@ -1,5 +1,6 @@
 from __future__ import print_function
 
+from __future__ import absolute_import
 import os
 import ase.io
 import ipywidgets as ipw
@@ -10,10 +11,14 @@ import tarfile
 import zipfile
 import tempfile
 import nglview
+from six.moves import zip
 
 
 class MultiStructureUploadWidget(ipw.VBox):
-    def __init__(self, text="Upload Zip or Tar archive", node_class=None, **kwargs):
+    def __init__(self,
+                 text="Upload Zip or Tar archive",
+                 node_class=None,
+                 **kwargs):
         """ Upload multiple structures and store them in AiiDA database.
 
         :param text: Text to display before upload button
@@ -28,39 +33,50 @@ class MultiStructureUploadWidget(ipw.VBox):
         # define the view part of the widget
         self.viewer = nglview.NGLWidget()
         self.selection_slider = ipw.SelectionSlider(
-            options=[None,],
+            options=[
+                None,
+            ],
             disabled=False,
             orientation='vertical',
             description='Browse structures:',
             readout=False,
-            layout = Layout(width='50%'),
+            layout=Layout(width='50%'),
         )
         view = ipw.HBox([self.viewer, self.selection_slider])
 
         # define the action part of the widget
-        self.btn_store_all = ipw.Button(description='Store all in AiiDA', disabled=True)
-        self.btn_store_selected = ipw.Button(description='Store selected', disabled=True)
-        self.structure_description = ipw.Text(placeholder="Description (optional)")
+        self.btn_store_all = ipw.Button(description='Store all in AiiDA',
+                                        disabled=True)
+        self.btn_store_selected = ipw.Button(description='Store selected',
+                                             disabled=True)
+        self.structure_description = ipw.Text(
+            placeholder="Description (optional)")
         self.data_format = ipw.RadioButtons(
             options=['StructureData', 'CifData'], description='Data type:')
 
         # if node_class is predefined, there is no need to select it afterwards
         if node_class is None:
-            store = ipw.HBox(
-                [self.btn_store_all, self.data_format, self.structure_description, self.btn_store_selected])
+            store = ipw.HBox([
+                self.btn_store_all, self.data_format,
+                self.structure_description, self.btn_store_selected
+            ])
         else:
-            store = ipw.HBox([self.btn_store_all, self.structure_description, self.btn_store_selected])
+            store = ipw.HBox([
+                self.btn_store_all, self.structure_description,
+                self.btn_store_selected
+            ])
             self.data_format.value = node_class
 
         # define main data objects
-        self.structure_ase = None # contains the selected structure in the ase format
-        self.structure_nodes = [] # a list that contains all stored structure objects
-        self.structure_names = [] # list of uploaded structures
+        self.structure_ase = None  # contains the selected structure in the ase format
+        self.structure_nodes = [
+        ]  # a list that contains all stored structure objects
+        self.structure_names = []  # list of uploaded structures
 
         # put all visual parts in children list and initialize the parent Vbox widget with it
         children = [self.file_upload, view, store]
-        super(MultiStructureUploadWidget, self).__init__(
-            children=children, **kwargs)
+        super(MultiStructureUploadWidget, self).__init__(children=children,
+                                                         **kwargs)
 
         # attach actions to the buttons
         self.file_upload.observe(self._on_file_upload, names='data')
@@ -93,7 +109,9 @@ class MultiStructureUploadWidget(ipw.VBox):
         # extract tar archive
         if tarfile.is_tarfile(self.archive_name):
             try:
-                with tarfile.open(self.archive_name, "r:*", format=tarfile.PAX_FORMAT) as tar:
+                with tarfile.open(self.archive_name,
+                                  "r:*",
+                                  format=tarfile.PAX_FORMAT) as tar:
                     if not tar.getmembers():
                         raise ValueError("The input tar file is empty.")
                     for member in tar.getmembers():
@@ -104,7 +122,8 @@ class MultiStructureUploadWidget(ipw.VBox):
         # extract zip archive
         elif zipfile.is_zipfile(self.archive_name):
             try:
-                with zipfile.ZipFile(self.archive_name, "r", allowZip64=True) as zipf:
+                with zipfile.ZipFile(self.archive_name, "r",
+                                     allowZip64=True) as zipf:
                     if not zipf.namelist():
                         raise ValueError("The input zip file is empty.")
                     for member in zipf.namelist():
@@ -112,14 +131,17 @@ class MultiStructureUploadWidget(ipw.VBox):
             except zipfile.BadZipfile:
                 raise ValueError("The input zip file is corrupted.")
         else:
-            raise ValueError("The file you provided does not look like Zip or Tar archive")
+            raise ValueError(
+                "The file you provided does not look like Zip or Tar archive")
 
         # put all extracted files into a list
         for (dirpath, dirnames, filenames) in os.walk(self.tmp_folder):
             for filename in filenames:
-                self.structure_names.append(dirpath+'/'+filename)
+                self.structure_names.append(dirpath + '/' + filename)
         if not self.structure_names:
-            raise ValueError("Even though the input archive seem not to be empty, it does not contain any file")
+            raise ValueError(
+                "Even though the input archive seem not to be empty, it does not contain any file"
+            )
 
         self.structure_names.sort()
         # redefining the options for the slider and its default value
@@ -129,15 +151,17 @@ class MultiStructureUploadWidget(ipw.VBox):
         self.selection_slider.value = self.structure_names[0]
 
     def get_ase(self, filepath):
-        file_sub_path = filepath[len(self.tmp_folder)+1:]
+        file_sub_path = filepath[len(self.tmp_folder) + 1:]
         try:
             traj = ase.io.read(filepath, index=":")
         except AttributeError:
-            print("Looks like {} file does not contain structure coordinates".format(file_sub_path))
+            print("Looks like {} file does not contain structure coordinates".
+                  format(file_sub_path))
             return None
         if len(traj) > 1:
-            print("Warning: Uploaded file {} contained more than one structure. "
-                  "I take the first one.".format(file_sub_path))
+            print(
+                "Warning: Uploaded file {} contained more than one structure. "
+                "I take the first one.".format(file_sub_path))
         return traj[0]
 
     def get_description(self, structure_ase, filepath):
@@ -155,10 +179,10 @@ class MultiStructureUploadWidget(ipw.VBox):
             self.refresh_view()
             return
 
-        self.structure_description.value = self.get_description(structure_ase, filepath)
+        self.structure_description.value = self.get_description(
+            structure_ase, filepath)
         self.structure_ase = structure_ase
         self.refresh_view()
-
 
     def refresh_view(self):
         viewer = self.viewer
@@ -184,7 +208,8 @@ class MultiStructureUploadWidget(ipw.VBox):
 
     # pylint: disable=unused-argument
     def _on_click_store_selected(self, change):
-        self.store_structure(self.selection_slider.value, description=self.structure_description.value)
+        self.store_structure(self.selection_slider.value,
+                             description=self.structure_description.value)
 
     def store_structure(self, filepath, description=None):
         structure_ase = self.get_ase(filepath)
@@ -200,18 +225,17 @@ class MultiStructureUploadWidget(ipw.VBox):
         # perform conversion
         if self.data_format.value == 'CifData':
             if source_format == 'CIF':
-                from aiida.orm.data.cif import CifData
-                structure_node = CifData(
-                    file=filepath,
-                    scan_type='flex',
-                    parse_policy='lazy')
+                from aiida.orm.nodes.data.cif import CifData
+                structure_node = CifData(file=filepath,
+                                         scan_type='flex',
+                                         parse_policy='lazy')
             else:
-                from aiida.orm.data.cif import CifData
+                from aiida.orm.nodes.data.cif import CifData
                 structure_node = CifData()
                 structure_node.set_ase(structure_ase)
         else:
             # Target format is StructureData
-            from aiida.orm.data.structure import StructureData
+            from aiida.orm import StructureData
             structure_node = StructureData(ase=structure_ase)
 
             #TODO: Figure out whether this is still necessary for StructureData
@@ -221,10 +245,12 @@ class MultiStructureUploadWidget(ipw.VBox):
                 t2 = int(k[-1]) if k[-1].isnumeric() else 0
                 assert t1 == t2
         if description is None:
-            structure_node.description = self.get_description(structure_ase, filepath)
+            structure_node.description = self.get_description(
+                structure_ase, filepath)
         else:
             structure_node.description = description
-        structure_node.label = ".".join(filepath.split('/')[-1].split('.')[:-1])
+        structure_node.label = ".".join(
+            filepath.split('/')[-1].split('.')[:-1])
         structure_node.store()
         self.structure_nodes.append(structure_node)
         print("Stored in AiiDA: " + repr(structure_node))
