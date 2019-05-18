@@ -12,16 +12,27 @@ class CodQueryWidget(ipw.VBox):
     '''
 
     def __init__(self, **kwargs):
-        description = ipw.HTML("""<b>For the queries please adhere to the Hill notation:</b>
+        description = ipw.HTML("""<h3>Get crystal structures from Crystallography Open Database</h3>
+    <b>Queries by formula</b>
     <br>
-    Number of carbon atoms in a molecule is indicated first, the number of hydrogen atoms next, 
-    and then the number of all other chemical elements subsequently, in alphabetical order of the
-    chemical symbols. When the formula contains no carbon, all the elements, including hydrogen, 
-    are listed alphabetically.""")
+    For the queries by formula please adhere to the Hill notation.
+    The chemical symbol of an element should be followed by its number in the structure,
+    except when there is only one atom.
+    When the structure does NOT contain carbon atoms, all the elements are listed alphabetically.
+    Example: <i>O2 Si</i>.
+    <br>
+    In case the structure DOES contain carbon atoms its number following the 'C' symbol is indicated first.
+    If hydrogen is also present in the structure then 'H' symbol and its number is indicated second.
+    The remaining elements are listed in the alphabetical order. Example: <i>C H4 N2 O</i>.
+    <br>
+    <b>Queries by the structure id number</b>
+    <br>
+    For the queries by structure id, plese provide the database id number. Example: <i>1008786</i>
+    """)
         layout = ipw.Layout(width="400px")
         style = {"description_width":"initial"}
         self.inp_elements = ipw.Text(description="", value="", placeholder='e.g.: Ni Ti or id number', layout=layout, style=style)
-        self.btn_query = ipw.Button(description='Query in CoD')
+        self.btn_query = ipw.Button(description='Query')
         self.query_message = ipw.HTML("Waiting for input...")
         self.drop_structure = ipw.Dropdown(description="", options=[("select structure",{"status":False})],
                                            style=style, layout=layout )
