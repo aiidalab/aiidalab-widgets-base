@@ -12,4 +12,4 @@ from .display import aiidalab_display # noqa
 from .structures import StructureUploadWidget  # noqa
 from .structures_multi import MultiStructureUploadWidget  # noqa
 
-__version__ = "0.3.0b1"
+__version__ = "0.4.0b1"
