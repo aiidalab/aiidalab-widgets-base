@@ -16,7 +16,7 @@ class StructureUploadWidget(ipw.VBox):
 
     Useful class members:
     :ivar has_structure: whether the widget contains a structure
-    :vartype arg: bool
+    :vartype has_structure: bool
     :ivar frozen: whenter the widget is frozen (can't be modified) or not
     :vartype frozen: bool
     :ivar structure_node: link to AiiDA structure object
@@ -25,7 +25,7 @@ class StructureUploadWidget(ipw.VBox):
     has_structure = Bool(False)
     frozen = Bool(False)
     DATA_FORMATS = ('StructureData', 'CifData')
-    def __init__(self, text="Upload Structure", storable=True, node_class=None, examples=[], **kwargs):
+    def __init__(self, text="Upload Structure", storable=True, node_class=None, examples=[], data_importers=[], **kwargs):
         """
         :param text: Text to display before upload button
         :type text: str
@@ -36,20 +36,17 @@ class StructureUploadWidget(ipw.VBox):
             Note: If your workflows require a specific node class, better fix it here.
         :param examples: list of tuples each containing a name and a path to an example structure
         :type examples: list
+        :param data_importers: list of tuples each containing a name and an object for data importing. Each object
+        should containt an empty `on_structure_selection()` method that has two parameters: structure_ase, name
+        :type examples: list
 
         """
         self._structure_sources_tab = ipw.Tab()
 
         self.file_upload = FileUploadWidget(text)
-        supported_formats = ipw.HTML("""All supported structure formats are listed
-        <a href="https://wiki.fysik.dtu.dk/ase/_modules/ase/io/formats.html" target="_blank">here</a>""")
+        supported_formats = ipw.HTML("""<a href="https://wiki.fysik.dtu.dk/ase/_modules/ase/io/formats.html" target="_blank">Supported structure formats</a>""")
 
-        self.select_example = ipw.Dropdown(
-            options=self.get_example_structures(examples),
-            description='Or choose from examples:',
-            style={'description_width': '160px'},
-        )
-
+        self.select_example = ipw.Dropdown(options=self.get_example_structures(examples))
         self.viewer = nglview.NGLWidget()
         self.btn_store = ipw.Button(
             description='Store in AiiDA', disabled=True)
@@ -63,9 +60,16 @@ class StructureUploadWidget(ipw.VBox):
 
         structure_sources = [ipw.VBox([self.file_upload, supported_formats])]
         structure_sources_names = ["Upload"]
+
+        if data_importers:
+            for label, importer in data_importers:
+                structure_sources.append(importer)
+                structure_sources_names.append(label)
+                importer.on_structure_selection = self.select_structure
+
         if examples:
+            structure_sources_names.append("Examples")
             structure_sources.append(self.select_example)
-            structure_sources_names.append("Take from examples")
 
         if len(structure_sources) == 1:
             self._structure_sources_tab = structure_sources[0]
