@@ -1,6 +1,6 @@
 # aiidalab-widgets-base 
 
-Reusable widgets for applications in the AiiDA Lab.
+Reusable widgets for applications in the AiiDA lab.
 
 ## Installation
 
@@ -9,7 +9,7 @@ Install the `aiidalab_widgets_base` python package via:
 pip install aiidalab-widgets-base 
 ```
 
-Install the corresponding `aiidalab-widgets-base` AiiDA Lab application
+Install the corresponding `aiidalab-widgets-base` AiiDA lab application
 via the app manager as usual.
 
 ## Usage
