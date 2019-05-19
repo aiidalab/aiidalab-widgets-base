@@ -12,7 +12,8 @@ class CodQueryWidget(ipw.VBox):
     '''
 
     def __init__(self, **kwargs):
-        description = ipw.HTML("""<h3>Get crystal structures from Crystallography Open Database</h3>
+        description = ipw.HTML("""<h3>Get crystal structures from
+    <a href="http://www.crystallography.net">Crystallography Open Database</a></h3>
     <b>Queries by formula</b>
     <br>
     For the queries by formula please adhere to the Hill notation.
