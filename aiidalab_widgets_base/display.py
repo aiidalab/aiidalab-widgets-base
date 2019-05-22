@@ -5,7 +5,7 @@ import importlib
 from IPython.display import display
 
 AIIDA_VISUALIZER_MAPPING = {
-    'data.parameter.ParameterData.': 'ParameterDataVisualizer',
+    'data.dict.Dict.': 'DictVisualizer',
     'data.structure.StructureData.': 'StructureDataVisualizer',
     'data.cif.CifData.': 'StructureDataVisualizer',
     'data.folder.FolderData.': 'FolderDataVisualizer',
@@ -23,7 +23,7 @@ def aiidalab_display(obj, downloadable=True, **kwargs):
     from aiidalab_widgets_base import aiida_visualizers
     try:
         visualizer = getattr(aiida_visualizers,
-                             AIIDA_VISUALIZER_MAPPING[obj.type])
+                             AIIDA_VISUALIZER_MAPPING[obj.node_type])
         display(visualizer(obj, downloadable=downloadable), **kwargs)
     except KeyError:
         display(obj, **kwargs)

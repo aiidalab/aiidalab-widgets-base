@@ -64,13 +64,12 @@ class CodeDropdown(ipw.VBox):
 
     def _get_codes(self, input_plugin):
         from aiida.orm.querybuilder import QueryBuilder
-        from aiida.backends.utils import get_automatic_user
+        from aiida.orm import User
         from aiida.orm import Computer
-        current_user = get_automatic_user()
+        current_user = User.objects.get_default()
 
         qb = QueryBuilder()
         qb.append(Computer,
-                  filters={'enabled': True},
                   project=['*'],
                   tag='computer')
         qb.append(Code,
@@ -119,7 +118,7 @@ class AiiDACodeSetup(ipw.VBox):
     """Class that allows to setup AiiDA code"""
 
     def __init__(self, **kwargs):
-        from aiida.common.pluginloader import all_plugins
+        from aiida.plugins.entry_point import get_entry_point_names
         from aiidalab_widgets_base.computers import ComputerDropdown
 
         style = {"description_width": "200px"}
@@ -139,8 +138,7 @@ class AiiDACodeSetup(ipw.VBox):
             layout=ipw.Layout(width="500px"),
             style=style)
 
-        self._inp_code_plugin = ipw.Dropdown(options=sorted(
-            all_plugins('calculations')),
+        self._inp_code_plugin = ipw.Dropdown(options=sorted(get_entry_point_names('aiida.calculations')),
                                              description="Code plugin:",
                                              layout=ipw.Layout(width="500px"),
                                              style=style)
@@ -208,7 +206,7 @@ class AiiDACodeSetup(ipw.VBox):
             code.set_prepend_text(self.prepend_text)
             code.set_append_text(self.append_text)
             code.store()
-            code._reveal()
+            code.reveal()
             full_string = "{}@{}".format(self.label,
                                          self.selected_computer.name)
             print(check_output(['verdi', 'code', 'show', full_string]))

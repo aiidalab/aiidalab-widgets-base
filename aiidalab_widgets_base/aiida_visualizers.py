@@ -6,11 +6,11 @@ import ipywidgets as ipw
 from six.moves import range
 
 
-class ParameterDataVisualizer(ipw.HTML):
+class DictVisualizer(ipw.HTML):
     """Visualizer class for ParameterData object"""
 
     def __init__(self, parameter, downloadable=True, **kwargs):
-        super(ParameterDataVisualizer, self).__init__(**kwargs)
+        super(DictVisualizer, self).__init__(**kwargs)
         import pandas as pd
         # Here we are defining properties of 'df' class (specified while exporting pandas table into html).
         # Since the exported object is nothing more than HTML table, all 'standard' HTML table settings
@@ -98,7 +98,7 @@ class FolderDataVisualizer(ipw.VBox):
     def __init__(self, folder, downloadable=True, **kwargs):
         self._folder = folder
         self.files = ipw.Dropdown(
-            options=self._folder.get_folder_list(),
+            options=[obj.name for obj in self._folder.list_objects()],
             description="Select file:",
         )
         self.text = ipw.Textarea(value="",
@@ -118,13 +118,13 @@ class FolderDataVisualizer(ipw.VBox):
         super(FolderDataVisualizer, self).__init__(children, **kwargs)
 
     def change_file_view(self, b=None):
-        with open(self._folder.get_abs_path(self.files.value), "rb") as fobj:
+        with self._folder.open(self.files.value) as fobj:
             self.text.value = fobj.read()
 
     def download(self, b=None):
         import base64
         from IPython.display import Javascript
-        with open(self._folder.get_abs_path(self.files.value), "rb") as fobj:
+        with self._folder.open(self.files.value) as fobj:
             b64 = base64.b64encode(fobj.read())
             payload = b64.decode()
         js = Javascript("""

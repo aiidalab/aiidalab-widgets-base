@@ -1,6 +1,6 @@
 from __future__ import print_function
-
 from __future__ import absolute_import
+
 import pexpect
 import ipywidgets as ipw
 
@@ -11,14 +11,11 @@ from subprocess import check_output, call
 from traitlets import Int
 
 from aiida.orm import Computer
-from aiida.backends.utils import get_automatic_user, get_backend_type
+from aiida.orm import User
+from aiida.backends.utils import get_backend_type
 from aiida.common import NotExistent
 from aiida.transports.plugins.ssh import parse_sshconfig
 
-if get_backend_type() == 'sqlalchemy':
-    from aiida.backends.sqlalchemy.models.authinfo import DbAuthInfo
-else:
-    from aiida.backends.djsite.db.models import DbAuthInfo
 
 VALID_SSH_COMPUTER_SETUP_ARGUMETNS = {
     'hostname', 'username', 'proxy_hostname', 'proxy_username'
@@ -549,7 +546,7 @@ class AiidaComputerSetup(ipw.VBox):
         ]
 
     def _configure_computer(self):
-        """create DbAuthInfo"""
+        """create AuthInfo"""
         print("Configuring '{}'".format(self.name))
         sshcfg = parse_sshconfig(self.hostname)
         authparams = {
@@ -572,11 +569,11 @@ class AiidaComputerSetup(ipw.VBox):
             return
         if 'proxycommand' in sshcfg:
             authparams['proxy_command'] = sshcfg['proxycommand']
-        aiidauser = get_automatic_user()
-        authinfo = DbAuthInfo(dbcomputer=Computer.get(self.name).dbcomputer,
-                              aiidauser=aiidauser)
+        aiidauser = User.objects.get_default()
+        from aiida.orm import AuthInfo
+        authinfo = AuthInfo(computer=Computer.objects.get(name=self.name), user=aiidauser)
         authinfo.set_auth_params(authparams)
-        authinfo.save()
+        authinfo.store()
         print(check_output(['verdi', 'computer', 'show', self.name]))
 
     def _on_setup_computer(self, b):
@@ -586,17 +583,14 @@ class AiidaComputerSetup(ipw.VBox):
                 print("Please specify the computer name (for AiiDA)")
                 return
             try:
-                computer = Computer.get.objects.get(self.name)
+                computer = Computer.objects.get(name=self.name)
                 print("A computer called {} already exists.".format(self.name))
                 return
             except NotExistent:
                 pass
 
             print("Creating new computer with name '{}'".format(self.name))
-            computer = Computer(name=self.name)
-            computer.set_hostname(self.hostname)
-            computer.set_description(self.description)
-            computer.set_enabled_state(True)
+            computer = Computer(name=self.name, hostname=self.hostname, description=self.description)
             computer.set_transport_type(self.transport_type)
             computer.set_scheduler_type(self.scheduler)
             computer.set_workdir(self.workdir)
@@ -614,7 +608,7 @@ class AiidaComputerSetup(ipw.VBox):
             clear_output()
             print(
                 check_output(
-                    ['verdi', 'computer', 'test', '--traceback', self.name]))
+                    ['verdi', 'computer', 'test', '--print-traceback', self.name]))
 
     @property
     def name(self):
@@ -740,11 +734,10 @@ class ComputerDropdown(ipw.VBox):
 
     def _get_computers(self):
         from aiida.orm.querybuilder import QueryBuilder
-        current_user = get_automatic_user()
+        current_user = User.objects.get_default()
 
         qb = QueryBuilder()
         qb.append(Computer,
-                  filters={'enabled': True},
                   project=['*'],
                   tag='computer')
 
