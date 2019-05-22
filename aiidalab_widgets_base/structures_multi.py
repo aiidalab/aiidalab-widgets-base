@@ -5,7 +5,6 @@ import os
 import ase.io
 import ipywidgets as ipw
 from ipywidgets import Layout
-from IPython.display import clear_output
 from fileupload import FileUploadWidget
 import tarfile
 import zipfile
@@ -135,7 +134,7 @@ class MultiStructureUploadWidget(ipw.VBox):
                 "The file you provided does not look like Zip or Tar archive")
 
         # put all extracted files into a list
-        for (dirpath, dirnames, filenames) in os.walk(self.tmp_folder):
+        for (dirpath, _, filenames) in os.walk(self.tmp_folder):
             for filename in filenames:
                 self.structure_names.append(dirpath + '/' + filename)
         if not self.structure_names:

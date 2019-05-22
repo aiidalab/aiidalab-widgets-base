@@ -18,7 +18,7 @@ def valid_arguments(arguments, valid_arguments):
     result = {}
     for key, value in arguments.items():
         if key in valid_arguments:
-            if type(value) is tuple or type(value) is list:
+            if isinstance(value, (tuple, list)):
                 result[key] = '\n'.join(value)
             else:
                 result[key] = value
@@ -64,15 +64,12 @@ class CodeDropdown(ipw.VBox):
 
     def _get_codes(self, input_plugin):
         from aiida.orm.querybuilder import QueryBuilder
-        from aiida.backends.utils import get_automatic_user
+        from aiida.orm import User
         from aiida.orm import Computer
-        current_user = get_automatic_user()
+        current_user = User.objects.get_default()
 
         qb = QueryBuilder()
-        qb.append(Computer,
-                  filters={'enabled': True},
-                  project=['*'],
-                  tag='computer')
+        qb.append(Computer, project=['*'], tag='computer')
         qb.append(Code,
                   filters={
                       'attributes.input_plugin': {
@@ -83,7 +80,7 @@ class CodeDropdown(ipw.VBox):
                       }
                   },
                   project=['*'],
-                  has_computer='computer')
+                  with_computer='computer')
         results = qb.all()
 
         # only codes on computers configured for the current user
@@ -92,7 +89,7 @@ class CodeDropdown(ipw.VBox):
         codes = {"{}@{}".format(r[1].label, r[0].name): r[1] for r in results}
         return codes
 
-    def refresh(self, b=None):
+    def refresh(self, b=None):  # pylint: disable=unused-argument
         with self.output:
             clear_output()
             self.codes = self._get_codes(self.input_plugin)
@@ -117,9 +114,8 @@ class CodeDropdown(ipw.VBox):
 
 class AiiDACodeSetup(ipw.VBox):
     """Class that allows to setup AiiDA code"""
-
     def __init__(self, **kwargs):
-        from aiida.common.pluginloader import all_plugins
+        from aiida.plugins.entry_point import get_entry_point_names
         from aiidalab_widgets_base.computers import ComputerDropdown
 
         style = {"description_width": "200px"}
@@ -140,7 +136,7 @@ class AiiDACodeSetup(ipw.VBox):
             style=style)
 
         self._inp_code_plugin = ipw.Dropdown(options=sorted(
-            all_plugins('calculations')),
+            get_entry_point_names('aiida.calculations')),
                                              description="Code plugin:",
                                              layout=ipw.Layout(width="500px"),
                                              style=style)
@@ -187,7 +183,7 @@ class AiiDACodeSetup(ipw.VBox):
                 raise AttributeError(
                     "'{}' object has no attribute '{}'".format(self, key))
 
-    def _setup_code(self, b=None):
+    def _setup_code(self, b=None):  # pylint: disable=unused-argument
         with self._setup_code_out:
             clear_output()
             if self.label is None:
@@ -208,7 +204,7 @@ class AiiDACodeSetup(ipw.VBox):
             code.set_prepend_text(self.prepend_text)
             code.set_append_text(self.append_text)
             code.store()
-            code._reveal()
+            code.reveal()
             full_string = "{}@{}".format(self.label,
                                          self.selected_computer.name)
             print(check_output(['verdi', 'code', 'show', full_string]))
@@ -226,10 +222,9 @@ class AiiDACodeSetup(ipw.VBox):
 
     @property
     def label(self):
-        if len(self._inp_code_label.value.strip()) == 0:
+        if not self._inp_code_label.value.strip():
             return None
-        else:
-            return self._inp_code_label.value
+        return self._inp_code_label.value
 
     @label.setter
     def label(self, label):
