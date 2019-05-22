@@ -25,8 +25,14 @@ class StructureUploadWidget(ipw.VBox):
     frozen = Bool(False)
     DATA_FORMATS = ('StructureData', 'CifData')
 
-    def __init__(self, text="Upload Structure", storable=True, node_class=None, examples=[], data_importers=[], **kwargs):
-
+    def __init__(  # pylint: disable=too-many-arguments
+            self,
+            text="Upload Structure",
+            storable=True,
+            node_class=None,
+            examples=None,
+            data_importers=None,
+            **kwargs):
         """
         :param text: Text to display before upload button
         :type text: str
@@ -42,12 +48,16 @@ class StructureUploadWidget(ipw.VBox):
         :type examples: list
 
         """
+        examples = [] if examples is None else examples
+        data_importers = [] if data_importers is None else data_importers
         self._structure_sources_tab = ipw.Tab()
-
         self.file_upload = FileUploadWidget(text)
-        supported_formats = ipw.HTML("""<a href="https://wiki.fysik.dtu.dk/ase/_modules/ase/io/formats.html" target="_blank">Supported structure formats</a>""")
+        supported_formats = ipw.HTML(
+            """<a href="https://wiki.fysik.dtu.dk/ase/_modules/ase/io/formats.html" target="_blank">Supported structure formats</a>"""
+        )
 
-        self.select_example = ipw.Dropdown(options=self.get_example_structures(examples))
+        self.select_example = ipw.Dropdown(
+            options=self.get_example_structures(examples))
         self.viewer = nglview.NGLWidget()
         self.btn_store = ipw.Button(description='Store in AiiDA',
                                     disabled=True)
@@ -59,25 +69,23 @@ class StructureUploadWidget(ipw.VBox):
         self.data_format = ipw.RadioButtons(options=self.DATA_FORMATS,
                                             description='Data type:')
 
-        structure_sources = [ipw.VBox([self.file_upload, supported_formats])]
-        structure_sources_names = ["Upload"]
+        structure_sources = [("Upload",
+                              ipw.VBox([self.file_upload, supported_formats]))]
 
         if data_importers:
             for label, importer in data_importers:
-                structure_sources.append(importer)
-                structure_sources_names.append(label)
+                structure_sources.append((label, importer))
                 importer.on_structure_selection = self.select_structure
 
         if examples:
-            structure_sources_names.append("Examples")
-            structure_sources.append(self.select_example)
+            structure_sources.append(("Examples", self.select_example))
 
         if len(structure_sources) == 1:
-            self._structure_sources_tab = structure_sources[0]
+            self._structure_sources_tab = structure_sources[0][1]
         else:
             self._structure_sources_tab.children = structure_sources
-            for i, title in enumerate(structure_sources_names):
-                self._structure_sources_tab.set_title(i, title)
+            for i, source in enumerate(structure_sources):
+                self._structure_sources_tab.set_title(i, source[0])
 
         if storable:
             if node_class is None:
@@ -95,9 +103,9 @@ class StructureUploadWidget(ipw.VBox):
         else:
             store = [self.structure_description]
         store = ipw.HBox(store)
-        children = [self._structure_sources_tab, self.viewer, store]
-        super(StructureUploadWidget, self).__init__(children=children,
-                                                    **kwargs)
+        super(StructureUploadWidget, self).__init__(
+            children=[self._structure_sources_tab, self.viewer, store],
+            **kwargs)
 
         self.file_upload.observe(self._on_file_upload, names='data')
         self.select_example.observe(self._on_select_example, names=['value'])
@@ -118,17 +126,16 @@ class StructureUploadWidget(ipw.VBox):
             return options
         return []
 
-    # pylint: disable=unused-argument
-    def _on_file_upload(self, change):
+    def _on_file_upload(self, change):  # pylint: disable=unused-argument
         self.file_path = os.path.join(tempfile.mkdtemp(),
                                       self.file_upload.filename)
         with open(self.file_path, 'w') as f:
-            f.write(self.file_upload.data)
+            f.write(self.file_upload.data.decode("utf-8"))
         structure_ase = self.get_ase(self.file_path)
         self.select_structure(structure_ase=structure_ase,
                               name=self.file_upload.filename)
 
-    def _on_select_example(self, change):
+    def _on_select_example(self, change):  # pylint: disable=unused-argument
         if self.select_example.value:
             structure_ase = self.get_ase(self.select_example.value)
             self.file_path = self.select_example.value
@@ -137,7 +144,7 @@ class StructureUploadWidget(ipw.VBox):
         self.select_structure(structure_ase=structure_ase,
                               name=self.select_example.label)
 
-    def reset_structure(self, change=None):
+    def reset_structure(self, change=None):  # pylint: disable=unused-argument
         if self.frozen:
             return
         self._structure_node = None

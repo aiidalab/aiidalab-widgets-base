@@ -1,16 +1,15 @@
 from __future__ import print_function
 from __future__ import absolute_import
-import os
 
 import ipywidgets as ipw
 from six.moves import range
+from IPython.display import display
 
 
-class ParameterDataVisualizer(ipw.HTML):
+class DictVisualizer(ipw.HTML):
     """Visualizer class for ParameterData object"""
-
     def __init__(self, parameter, downloadable=True, **kwargs):
-        super(ParameterDataVisualizer, self).__init__(**kwargs)
+        super(DictVisualizer, self).__init__(**kwargs)
         import pandas as pd
         # Here we are defining properties of 'df' class (specified while exporting pandas table into html).
         # Since the exported object is nothing more than HTML table, all 'standard' HTML table settings
@@ -50,7 +49,6 @@ class ParameterDataVisualizer(ipw.HTML):
 
 class StructureDataVisualizer(ipw.VBox):
     """Visualizer class for StructureData object"""
-
     def __init__(self, structure, downloadable=True, **kwargs):
         import nglview
         self._structure = structure
@@ -69,7 +67,7 @@ class StructureDataVisualizer(ipw.VBox):
             children.append(ipw.HBox([self.file_format, self.download_btn]))
         super(StructureDataVisualizer, self).__init__(children, **kwargs)
 
-    def download(self, b=None):
+    def download(self, b=None):  # pylint: disable=unused-argument
         import base64
         from tempfile import TemporaryFile
         from IPython.display import Javascript
@@ -94,11 +92,10 @@ class StructureDataVisualizer(ipw.VBox):
 
 class FolderDataVisualizer(ipw.VBox):
     """Visualizer class for FolderData object"""
-
     def __init__(self, folder, downloadable=True, **kwargs):
         self._folder = folder
         self.files = ipw.Dropdown(
-            options=self._folder.get_folder_list(),
+            options=[obj.name for obj in self._folder.list_objects()],
             description="Select file:",
         )
         self.text = ipw.Textarea(value="",
@@ -117,14 +114,14 @@ class FolderDataVisualizer(ipw.VBox):
             children.append(self.download_btn)
         super(FolderDataVisualizer, self).__init__(children, **kwargs)
 
-    def change_file_view(self, b=None):
-        with open(self._folder.get_abs_path(self.files.value), "rb") as fobj:
+    def change_file_view(self, b=None):  # pylint: disable=unused-argument
+        with self._folder.open(self.files.value) as fobj:
             self.text.value = fobj.read()
 
-    def download(self, b=None):
+    def download(self, b=None):  # pylint: disable=unused-argument
         import base64
         from IPython.display import Javascript
-        with open(self._folder.get_abs_path(self.files.value), "rb") as fobj:
+        with self._folder.open(self.files.value) as fobj:
             b64 = base64.b64encode(fobj.read())
             payload = b64.decode()
         js = Javascript("""
@@ -140,7 +137,6 @@ class FolderDataVisualizer(ipw.VBox):
 
 class BandsDataVisualizer(ipw.VBox):
     """Visualizer class for BandsData object"""
-
     def __init__(self, bands, **kwargs):
         from bokeh.io import show, output_notebook
         from bokeh.models import Span
@@ -148,7 +144,9 @@ class BandsDataVisualizer(ipw.VBox):
         output_notebook(hide_banner=True)
         out = ipw.Output()
         with out:
-            plot_info = bands._get_bandplot_data(cartesian=True, join_symbol="|")
+            plot_info = bands._get_bandplot_data(  # pylint: disable=protected-access
+                cartesian=True,
+                join_symbol="|")
             # Extract relevant data
             y = plot_info['y'].transpose().tolist()
             x = [plot_info['x'] for i in range(len(y))]
@@ -158,9 +156,17 @@ class BandsDataVisualizer(ipw.VBox):
             p.multi_line(x, y, line_width=2, line_color='red')
             p.xaxis.ticker = [l[0] for l in labels]
             # This trick was suggested here: https://github.com/bokeh/bokeh/issues/8166#issuecomment-426124290
-            p.xaxis.major_label_overrides = {int(l[0]) if l[0].is_integer() else l[0]:l[1] for l in labels}
+            p.xaxis.major_label_overrides = {
+                int(l[0]) if l[0].is_integer() else l[0]: l[1]
+                for l in labels
+            }
             # Add vertical lines
-            p.renderers.extend([Span(location=l[0], dimension='height', line_color='black', line_width=3) for l in labels])
+            p.renderers.extend([
+                Span(location=l[0],
+                     dimension='height',
+                     line_color='black',
+                     line_width=3) for l in labels
+            ])
             show(p)
         children = [out]
         super(BandsDataVisualizer, self).__init__(children, **kwargs)

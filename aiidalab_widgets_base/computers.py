@@ -1,6 +1,6 @@
 from __future__ import print_function
-
 from __future__ import absolute_import
+
 import pexpect
 import ipywidgets as ipw
 
@@ -11,14 +11,9 @@ from subprocess import check_output, call
 from traitlets import Int
 
 from aiida.orm import Computer
-from aiida.backends.utils import get_automatic_user, get_backend_type
+from aiida.orm import User
 from aiida.common import NotExistent
 from aiida.transports.plugins.ssh import parse_sshconfig
-
-if get_backend_type() == 'sqlalchemy':
-    from aiida.backends.sqlalchemy.models.authinfo import DbAuthInfo
-else:
-    from aiida.backends.djsite.db.models import DbAuthInfo
 
 VALID_SSH_COMPUTER_SETUP_ARGUMETNS = {
     'hostname', 'username', 'proxy_hostname', 'proxy_username'
@@ -33,7 +28,7 @@ def valid_arguments(arguments, valid_arguments):
     result = {}
     for key, value in arguments.items():
         if key in valid_arguments:
-            if type(value) is tuple or type(value) is list:
+            if isinstance(value, (tuple, list)):
                 result[key] = '\n'.join(value)
             else:
                 result[key] = value
@@ -147,7 +142,8 @@ class SshComputerSetup(ipw.VBox):
             return False
         return call(["ssh-keygen", "-F", hostname]) == 0
 
-    def _make_host_known(self, hostname, proxycmd=[]):
+    def _make_host_known(self, hostname, proxycmd=None):
+        proxycmd = [] if proxycmd is None else proxycmd
         fn = path.expanduser("~/.ssh/known_hosts")
         print("Adding keys from %s to %s" % (hostname, fn))
         hashes = check_output(proxycmd + ["ssh-keyscan", "-H", hostname])
@@ -221,23 +217,26 @@ class SshComputerSetup(ipw.VBox):
             print("Ok")
             child.close()
             return True
-        elif index == 1:
+
+        if index == 1:
             print("Failed")
             print("Looks like the key pair is not present in ~/.ssh folder")
             return False
-        elif index == 2:
+
+        if index == 2:
             print("Keys are already there")
             return True
-        elif index == 3:
+
+        if index == 3:
             print("Failed")
             print("Unknown hostname")
             return False
-        else:
-            print("Failed")
-            print("Unknown problem")
-            print(child.before, child.after)
-            child.close()
-            return False
+
+        print("Failed")
+        print("Unknown problem")
+        print(child.before, child.after)
+        child.close()
+        return False
 
     def _configure_proxy(self, password, proxy_password):
         # if proxy IS required
@@ -248,35 +247,39 @@ class SshComputerSetup(ipw.VBox):
                 return False, ''
             # if proxy username and password must be different from the main computer - they should be provided
             if self._use_diff_proxy_username.value:
+
                 # check username
-                if not self.proxy_username is None:
+                if self.proxy_username is not None:
                     proxy_username = self.proxy_username
                 else:
                     print("Please specify the proxy server username")
                     return False, ''
+
                 # check password
-                if len(proxy_password.strip()) == 0:
+                if not proxy_password.strip():
                     print("Please specify the proxy server password")
                     return False, ''
+
             else:  # if username and password are the same as for the main computer
                 proxy_username = self.username
                 proxy_password = password
             # make proxy server known
             if not self.is_host_known(self.proxy_hostname):
                 self._make_host_known(self.proxy_hostname)
+
             # Finally trying to connect
             if self._send_pubkey(self.proxy_hostname, proxy_username,
                                  proxy_password):
                 return True, proxy_username + '@' + self.proxy_hostname
-            else:
-                print("Could not send public key to {} (proxy server).".format(
-                    self.proxy_hostname))
-                return False, ''
-        # if proxy is NOT required
-        else:
-            return True, ''
 
-    def on_setup_ssh(self, b):
+            print("Could not send public key to {} (proxy server).".format(
+                self.proxy_hostname))
+            return False, ''
+
+        # if proxy is NOT required
+        return True, ''
+
+    def on_setup_ssh(self, b):  # pylint: disable=unused-argument
         """ATTENTION: modifying the order of operations in this function can lead to unexpected problems"""
         with self._setup_ssh_out:
             clear_output()
@@ -307,7 +310,7 @@ class SshComputerSetup(ipw.VBox):
             if self.username is None:  # check username
                 print("Please enter your ssh username")
                 return
-            if len(password.strip()) == 0:  # check password
+            if not password.strip():  # check password
                 print("Please enter your ssh password")
                 return
 
@@ -338,18 +341,17 @@ class SshComputerSetup(ipw.VBox):
                 self.setup_counter += 1
                 print("Automatic ssh setup successful :-)")
                 return
-            else:
-                print("Automatic ssh setup failed, sorry :-(")
-                return
+            print("Automatic ssh setup failed, sorry :-(")
+            return
 
-    def on_use_proxy_change(self, b):
+    def on_use_proxy_change(self, b):  # pylint: disable=unused-argument
         if self._use_proxy.value:
             self._proxy_ssh_box.layout.visibility = 'visible'
         else:
             self._proxy_ssh_box.layout.visibility = 'hidden'
             self._use_diff_proxy_username.value = False
 
-    def on_use_diff_proxy_username_change(self, b):
+    def on_use_diff_proxy_username_change(self, b):  # pylint: disable=unused-argument
         if self._use_diff_proxy_username.value:
             self._proxy_user_password_box.layout.visibility = 'visible'
         else:
@@ -392,11 +394,9 @@ class SshComputerSetup(ipw.VBox):
 
     @property
     def hostname(self):
-        if len(self._inp_computer_hostname.value.strip()
-               ) == 0:  # check hostname
+        if not self._inp_computer_hostname.value.strip():  # check hostname
             return None
-        else:
-            return self._inp_computer_hostname.value
+        return self._inp_computer_hostname.value
 
     @hostname.setter
     def hostname(self, hostname):
@@ -405,9 +405,9 @@ class SshComputerSetup(ipw.VBox):
     @property
     def username(self):
         """Loking for username in user's input and config file"""
-        if len(self._inp_username.value.strip()
-               ) == 0:  # if username provided by user
-            if not self.hostname is None:
+        if not self._inp_username.value.strip(
+        ):  # if username provided by user
+            if self.hostname is not None:
                 config = parse_sshconfig(self.hostname)
                 if 'user' in config:  # if username is present in the config file
                     return config['user']
@@ -422,10 +422,9 @@ class SshComputerSetup(ipw.VBox):
 
     @property
     def proxy_hostname(self):
-        if len(self._inp_proxy_address.value.strip()) == 0:
+        if not self._inp_proxy_address.value.strip():
             return None
-        else:
-            return self._inp_proxy_address.value
+        return self._inp_proxy_address.value
 
     @proxy_hostname.setter
     def proxy_hostname(self, proxy_hostname):
@@ -434,10 +433,9 @@ class SshComputerSetup(ipw.VBox):
 
     @property
     def proxy_username(self):
-        if len(self._inp_proxy_username.value.strip()) == 0:
+        if not self._inp_proxy_username.value.strip():
             return None
-        else:
-            return self._inp_proxy_username.value
+        return self._inp_proxy_username.value
 
     @proxy_username.setter
     def proxy_username(self, proxy_username):
@@ -539,7 +537,7 @@ class AiidaComputerSetup(ipw.VBox):
                 raise AttributeError(
                     "'{}' object has no attribute '{}'".format(self, key))
 
-    def get_available_computers(self, b=None):
+    def get_available_computers(self, b=None):  # pylint: disable=unused-argument
         fn = path.expanduser("~/.ssh/config")
         if not path.exists(fn):
             return []
@@ -547,9 +545,10 @@ class AiidaComputerSetup(ipw.VBox):
         self._computer_hostname.options = [
             line.split()[1] for line in cfglines if 'Host' in line
         ]
+        return True
 
     def _configure_computer(self):
-        """create DbAuthInfo"""
+        """create AuthInfo"""
         print("Configuring '{}'".format(self.name))
         sshcfg = parse_sshconfig(self.hostname)
         authparams = {
@@ -572,31 +571,31 @@ class AiidaComputerSetup(ipw.VBox):
             return
         if 'proxycommand' in sshcfg:
             authparams['proxy_command'] = sshcfg['proxycommand']
-        aiidauser = get_automatic_user()
-        authinfo = DbAuthInfo(dbcomputer=Computer.get(self.name).dbcomputer,
-                              aiidauser=aiidauser)
+        aiidauser = User.objects.get_default()
+        from aiida.orm import AuthInfo
+        authinfo = AuthInfo(computer=Computer.objects.get(name=self.name),
+                            user=aiidauser)
         authinfo.set_auth_params(authparams)
-        authinfo.save()
+        authinfo.store()
         print(check_output(['verdi', 'computer', 'show', self.name]))
 
-    def _on_setup_computer(self, b):
+    def _on_setup_computer(self, b):  # pylint: disable=unused-argument
         with self._setup_comp_out:
             clear_output()
             if self.name is None:  # check hostname
                 print("Please specify the computer name (for AiiDA)")
                 return
             try:
-                computer = Computer.get.objects.get(self.name)
+                computer = Computer.objects.get(name=self.name)
                 print("A computer called {} already exists.".format(self.name))
                 return
             except NotExistent:
                 pass
 
             print("Creating new computer with name '{}'".format(self.name))
-            computer = Computer(name=self.name)
-            computer.set_hostname(self.hostname)
-            computer.set_description(self.description)
-            computer.set_enabled_state(True)
+            computer = Computer(name=self.name,
+                                hostname=self.hostname,
+                                description=self.description)
             computer.set_transport_type(self.transport_type)
             computer.set_scheduler_type(self.scheduler)
             computer.set_workdir(self.workdir)
@@ -609,19 +608,19 @@ class AiidaComputerSetup(ipw.VBox):
             computer.store()
             self._configure_computer()
 
-    def test(self, b=None):
+    def test(self, b=None):  # pylint: disable=unused-argument
         with self._test_out:
             clear_output()
             print(
-                check_output(
-                    ['verdi', 'computer', 'test', '--traceback', self.name]))
+                check_output([
+                    'verdi', 'computer', 'test', '--print-traceback', self.name
+                ]))
 
     @property
     def name(self):
-        if len(self._inp_computer_name.value.strip()) == 0:  # check hostname
+        if not self._inp_computer_name.value.strip():  # check hostname
             return None
-        else:
-            return self._inp_computer_name.value
+        return self._inp_computer_name.value
 
     @name.setter
     def name(self, name):
@@ -629,11 +628,10 @@ class AiidaComputerSetup(ipw.VBox):
 
     @property
     def hostname(self):
-        if self._computer_hostname.value is None or len(
-                self._computer_hostname.value.strip()) == 0:  # check hostname
+        if self._computer_hostname.value is None or not self._computer_hostname.value.strip(
+        ):  # check hostname
             return None
-        else:
-            return self._computer_hostname.value
+        return self._computer_hostname.value
 
     @hostname.setter
     def hostname(self, hostname):
@@ -740,13 +738,10 @@ class ComputerDropdown(ipw.VBox):
 
     def _get_computers(self):
         from aiida.orm.querybuilder import QueryBuilder
-        current_user = get_automatic_user()
+        current_user = User.objects.get_default()
 
         qb = QueryBuilder()
-        qb.append(Computer,
-                  filters={'enabled': True},
-                  project=['*'],
-                  tag='computer')
+        qb.append(Computer, project=['*'], tag='computer')
 
         results = qb.all()
 
@@ -755,7 +750,7 @@ class ComputerDropdown(ipw.VBox):
 
         self._dropdown.options = {r[0].name: r[0] for r in results}
 
-    def _refresh(self, b=None):
+    def _refresh(self, b=None):  # pylint: disable=unused-argument
         with self.output:
             clear_output()
             self._get_computers()

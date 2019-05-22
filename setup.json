@@ -7,8 +7,8 @@
         "Programming Language :: Python"
     ],
     "install_requires": [
-        "aiida-core[jupyter] >= 1.0.0b3",
         "ase",
+        "bokeh",
         "numpy",
         "ipywidgets",
         "fileupload",
@@ -16,13 +16,13 @@
     ],
     "extras_require": {
         "testing": [
-            "aiida-core[testing]"
+            "aiida-core[testing]>=1.0.b6"
         ],
         "pre-commit": [
-            "pre-commit==1.11.0",
-            "yapf==0.27.0",
-            "prospector==0.12.11",
-            "pylint==1.9.4"
+            "pre-commit==1.17.0",
+            "yapf==0.28.0",
+            "prospector==1.1.7",
+      	    "pylint==2.3.1"
         ],
         "docs": [
             "sphinx"
