@@ -10,4 +10,4 @@ from .computers import SshComputerSetup, extract_sshcomputersetup_arguments # no
 from .computers import AiidaComputerSetup, extract_aiidacomputer_arguments # noqa
 from .display import aiidalab_display # noqa
 
-__version__ = "1.0.0a3"
+__version__ = "1.0.0a4"
