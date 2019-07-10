@@ -7,7 +7,6 @@
         "Programming Language :: Python"
     ],
     "install_requires": [
-        "aiida-core[jupyter] >= 1.0.0b3",
         "ase",
         "numpy",
         "ipywidgets",
