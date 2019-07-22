@@ -82,7 +82,7 @@ class CodeDropdown(ipw.VBox):
                       }
                   },
                   project=['*'],
-                  has_computer='computer')
+                  with_computer='computer')
         results = qb.all()
 
         # only codes on computers configured for the current user

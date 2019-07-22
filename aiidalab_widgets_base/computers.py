@@ -12,7 +12,6 @@ from traitlets import Int
 
 from aiida.orm import Computer
 from aiida.orm import User
-from aiida.backends.utils import get_backend_type
 from aiida.common import NotExistent
 from aiida.transports.plugins.ssh import parse_sshconfig
 
