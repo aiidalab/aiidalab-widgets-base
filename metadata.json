@@ -2,7 +2,7 @@
     "title": "AiiDA lab Widgets",
     "description": "Reusable widgets for applications in the AiiDA lab.",
     "authors": "AiiDA Team",
-    "version": "1.0.0a4",
+    "version": "1.0.0a5",
     "logo": "miscellaneous/logos/aiidalab.png",
     "state": "stable"
 }
