@@ -4,7 +4,7 @@ import ipywidgets as ipw
 template = """
 <table>
 <tr>
-  <th style="text-align:center">AiiDA Lab widgets</th>
+  <th style="text-align:center">AiiDA lab widgets</th>
   <th style="width:70px" rowspan=2></th>
   <th style="text-align:center"Useful apps</th>
 <tr>
