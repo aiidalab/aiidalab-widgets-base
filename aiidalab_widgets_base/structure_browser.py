@@ -49,7 +49,7 @@ class StructureBrowserWidget(ipw.VBox):
         
         self.results = ipw.Dropdown(layout=layout)
         self.search()
-        super(StructureBrowser, self).__init__([box, hr, self.results])
+        super(StructureBrowserWidget, self).__init__([box, hr, self.results])
     
     
     def preprocess(self):

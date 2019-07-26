@@ -24,7 +24,7 @@ class SubmitButtonWidget(ipw.VBox):
             self.btn_submit,
             self.submit_out,
         ]
-        super(SubmitButton, self).__init__(children=children)
+        super(SubmitButtonWidget, self).__init__(children=children)
         ### ---------------------------------------------------------
 
     def on_btn_submit_press(self, b):
