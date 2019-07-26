@@ -11,5 +11,6 @@ from .computers import SshComputerSetup, extract_sshcomputersetup_arguments # no
 from .computers import AiidaComputerSetup, extract_aiidacomputer_arguments # noqa
 from .display import aiidalab_display # noqa
 from .metadata import MetadataWidget # noqa
+from .submit_button import SubmitButtonWidget # noqa
 
 __version__ = "1.0.0a5"
