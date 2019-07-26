@@ -10,5 +10,6 @@ from .codes import CodeDropdown, AiiDACodeSetup, extract_aiidacodesetup_argument
 from .computers import SshComputerSetup, extract_sshcomputersetup_arguments # noqa
 from .computers import AiidaComputerSetup, extract_aiidacomputer_arguments # noqa
 from .display import aiidalab_display # noqa
+from .metadata import MetadataWidget # noqa
 
 __version__ = "1.0.0a5"
