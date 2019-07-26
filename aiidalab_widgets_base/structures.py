@@ -126,7 +126,7 @@ class StructureUploadWidget(ipw.VBox):
         self.file_path = os.path.join(tempfile.mkdtemp(),
                                       self.file_upload.filename)
         with open(self.file_path, 'w') as f:
-            f.write(self.file_upload.data)
+            f.write(self.file_upload.data.decode("utf-8"))
         structure_ase = self.get_ase(self.file_path)
         self.select_structure(structure_ase=structure_ase,
                               name=self.file_upload.filename)
