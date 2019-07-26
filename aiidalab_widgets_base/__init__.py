@@ -4,6 +4,7 @@ from aiida import load_profile
 load_profile()
 
 from .structures import StructureUploadWidget  # noqa
+from .structure_browser import StructureBrowserWidget # noqa
 from .structures_multi import MultiStructureUploadWidget  # noqa
 from .codes import CodeDropdown, AiiDACodeSetup, extract_aiidacodesetup_arguments  # noqa
 from .computers import SshComputerSetup, extract_sshcomputersetup_arguments # noqa
