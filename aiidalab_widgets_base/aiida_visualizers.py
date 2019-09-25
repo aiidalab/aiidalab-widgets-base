@@ -125,21 +125,25 @@ class FolderDataVisualizer(ipw.VBox):
 class BandsDataVisualizer(ipw.VBox):
     """Visualizer class for BandsData object"""
     def __init__(self, bands, **kwargs):
-        from bokeh.plotting import figure
         from bokeh.io import show, output_notebook
+        from bokeh.models import Span
+        from bokeh.plotting import figure
         output_notebook(hide_banner=True)
         out = ipw.Output()
         with out:
             plot_info = bands._get_bandplot_data(cartesian=True, join_symbol="|")
+            # Extract relevant data
             y = plot_info['y'].transpose().tolist()
             x = [plot_info['x'] for i in range(len(y))]
             labels = plot_info['labels']
+            # Create the figure
             p = figure(y_axis_label='Dispersion ({})'.format(bands.units))
-            p.multi_line(x, y, line_width=2)
+            p.multi_line(x, y, line_width=2, line_color='red')
             p.xaxis.ticker = [l[0] for l in labels]
-            p.xaxis.major_label_overrides = {int(l[0]) if l[0].is_integer() else l[0]:l[1] for l in labels}
-            # int(l[0]) if l[0].is_integer() else l[0]
             # This trick was suggested here: https://github.com/bokeh/bokeh/issues/8166#issuecomment-426124290
+            p.xaxis.major_label_overrides = {int(l[0]) if l[0].is_integer() else l[0]:l[1] for l in labels}
+            # Add vertical lines
+            p.renderers.extend([Span(location=l[0], dimension='height', line_color='black', line_width=3) for l in labels])
             show(p)
         children = [out]
         super(BandsDataVisualizer, self).__init__(children, **kwargs)
