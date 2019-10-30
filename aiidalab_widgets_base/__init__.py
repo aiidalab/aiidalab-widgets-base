@@ -1,11 +1,12 @@
+"""Reusable widgets for AiiDA lab applications."""
 # pylint: disable=unused-import
 from __future__ import absolute_import
 from aiida import load_profile
 load_profile()
 
-from .codes import CodeDropdown, AiiDACodeSetup, extract_aiidacodesetup_arguments  # noqa
-from .computers import SshComputerSetup, extract_sshcomputersetup_arguments  # noqa
-from .computers import AiidaComputerSetup, extract_aiidacomputer_arguments  # noqa
+from .codes import CodeDropdown, AiiDACodeSetup, valid_aiidacode_args  # noqa
+from .computers import SshComputerSetup, valid_sshcomputer_args  # noqa
+from .computers import AiidaComputerSetup, valid_aiidacomputer_args  # noqa
 from .databases import CodQueryWidget  # noqa
 from .display import aiidalab_display  # noqa
 from .metadata import MetadataWidget  # noqa

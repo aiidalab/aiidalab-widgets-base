@@ -1,3 +1,4 @@
+"""Widgets that allow to query online databases."""
 from __future__ import print_function
 from __future__ import absolute_import
 import ipywidgets as ipw
@@ -12,6 +13,7 @@ class CodQueryWidget(ipw.VBox):
     widget has changed its name
     :vartype has_structure: function
     '''
+
     def __init__(self, **kwargs):
         description = ipw.HTML("""<h3>Get crystal structures from
     <a href="http://www.crystallography.net">Crystallography Open Database</a></h3>
@@ -59,28 +61,32 @@ class CodQueryWidget(ipw.VBox):
         ]
         super(CodQueryWidget, self).__init__(children=children, **kwargs)
 
-    def _query(self, idn=None, formula=None):
+    @staticmethod
+    def _query(idn=None, formula=None):
+        """Make the actual query."""
         importer = CodDbImporter()
         if idn is not None:
             return importer.query(id=idn)
         if formula is not None:
             return importer.query(formula=formula)
+        return None
 
     def _on_click_query(self, change):  # pylint: disable=unused-argument
+        """Call query when the corresponding button is pressed."""
         structures = [("select structure", {"status": False})]
         idn = None
         formula = None
         self.query_message.value = "Quering the database ... "
         try:
             idn = int(self.inp_elements.value)
-        except:
+        except ValueError:
             formula = str(self.inp_elements.value)
 
         for entry in self._query(idn=idn, formula=formula):
             try:
                 entry_cif = entry.get_cif_node()
                 formula = entry_cif.get_ase().get_chemical_formula()
-            except:
+            except:  # pylint: disable=bare-except
                 continue
             entry_add = ("{} (id: {})".format(formula, entry.source['id']), {
                 "status": True,
@@ -90,11 +96,11 @@ class CodQueryWidget(ipw.VBox):
             })
             structures.append(entry_add)
 
-        self.query_message.value += "{} structures found".format(
-            len(structures) - 1)
+        self.query_message.value += "{} structures found".format(len(structures) - 1)
         self.drop_structure.options = structures
 
     def _on_select_structure(self, change):
+        """When a structure was selected."""
         selected = change['new']
         if selected['status'] is False:
             self.structure_ase = None
@@ -102,11 +108,9 @@ class CodQueryWidget(ipw.VBox):
         self.structure_ase = selected['cif'].get_ase()
         formula = self.structure_ase.get_chemical_formula()
         struct_url = selected['url'].split('.cif')[0] + '.html'
-        self.link.value = '<a href="{}" target="_blank">COD entry {}</a>'.format(
-            struct_url, selected['id'])
+        self.link.value = '<a href="{}" target="_blank">COD entry {}</a>'.format(struct_url, selected['id'])
         if self.on_structure_selection is not None:
-            self.on_structure_selection(structure_ase=self.structure_ase,
-                                        name=formula)
+            self.on_structure_selection(structure_ase=self.structure_ase, name=formula)
 
     def on_structure_selection(self, structure_ase=None, name=None):
         pass

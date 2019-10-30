@@ -1,7 +1,8 @@
+"""Start page appearance."""
 from __future__ import absolute_import
 import ipywidgets as ipw
 
-template = """
+TEMPLATE = """
 <table>
 <tr>
   <th style="text-align:center">AiiDA lab widgets</th>
@@ -24,7 +25,7 @@ template = """
 
 
 def get_start_widget(appbase, jupbase, notebase):
-    html = template.format(appbase=appbase, jupbase=jupbase, notebase=notebase)
+    html = TEMPLATE.format(appbase=appbase, jupbase=jupbase, notebase=notebase)
     return ipw.HTML(html)
 
 

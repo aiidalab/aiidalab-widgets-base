@@ -1,3 +1,4 @@
+"""Submit button to run an AiiDA process."""
 from __future__ import print_function
 from __future__ import absolute_import
 
@@ -5,11 +6,10 @@ import ipywidgets as ipw
 from IPython.display import clear_output
 from aiida.engine import submit
 
-style = {'description_width': '120px'}
-layout = {'width': '70%'}
-
 
 class SubmitButtonWidget(ipw.VBox):
+    """Submit button class that creates submit button jupyter widget."""
+
     def __init__(self, workchain, widgets_values):
         """ Submit Button
         :workchain: work chain to run
@@ -28,6 +28,7 @@ class SubmitButtonWidget(ipw.VBox):
         ### ---------------------------------------------------------
 
     def on_btn_submit_press(self, _):
+        """When submit button is pressed."""
         with self.submit_out:
             clear_output()
             self.btn_submit.disabled = True
