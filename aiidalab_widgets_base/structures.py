@@ -1,16 +1,20 @@
+"""Module to provide functionality to import structures."""
 from __future__ import print_function
 from __future__ import absolute_import
 
 import os
-import ase.io
-import ipywidgets as ipw
-from fileupload import FileUploadWidget
 import tempfile
+
 import nglview
+import ase.io
+
 from traitlets import Bool
 
+import ipywidgets as ipw
+from fileupload import FileUploadWidget
 
-class StructureUploadWidget(ipw.VBox):
+
+class StructureUploadWidget(ipw.VBox):  # pylint: disable=too-many-instance-attributes
     '''Upload a structure and store it in AiiDA database.
 
     Useful class members:
@@ -48,29 +52,27 @@ class StructureUploadWidget(ipw.VBox):
         :type examples: list
 
         """
+        self.name = None
+        self.file_path = None
         examples = [] if examples is None else examples
         data_importers = [] if data_importers is None else data_importers
         self._structure_sources_tab = ipw.Tab()
         self.file_upload = FileUploadWidget(text)
         supported_formats = ipw.HTML(
-            """<a href="https://wiki.fysik.dtu.dk/ase/_modules/ase/io/formats.html" target="_blank">Supported structure formats</a>"""
-        )
+            """<a href="https://wiki.fysik.dtu.dk/ase/_modules/ase/io/formats.html" target="_blank">
+            Supported structure formats
+            </a>""")
 
-        self.select_example = ipw.Dropdown(
-            options=self.get_example_structures(examples))
+        self.select_example = ipw.Dropdown(options=self.get_example_structures(examples))
         self.viewer = nglview.NGLWidget()
-        self.btn_store = ipw.Button(description='Store in AiiDA',
-                                    disabled=True)
-        self.structure_description = ipw.Text(
-            placeholder="Description (optional)")
+        self.btn_store = ipw.Button(description='Store in AiiDA', disabled=True)
+        self.structure_description = ipw.Text(placeholder="Description (optional)")
 
         self.structure_ase = None
         self._structure_node = None
-        self.data_format = ipw.RadioButtons(options=self.DATA_FORMATS,
-                                            description='Data type:')
+        self.data_format = ipw.RadioButtons(options=self.DATA_FORMATS, description='Data type:')
 
-        structure_sources = [("Upload",
-                              ipw.VBox([self.file_upload, supported_formats]))]
+        structure_sources = [("Upload", ipw.VBox([self.file_upload, supported_formats]))]
 
         if data_importers:
             for label, importer in data_importers:
@@ -83,43 +85,35 @@ class StructureUploadWidget(ipw.VBox):
         if len(structure_sources) == 1:
             self._structure_sources_tab = structure_sources[0][1]
         else:
-            self._structure_sources_tab.children = structure_sources
+            self._structure_sources_tab.children = [s[1] for s in structure_sources]
             for i, source in enumerate(structure_sources):
                 self._structure_sources_tab.set_title(i, source[0])
 
         if storable:
             if node_class is None:
-                store = [
-                    self.btn_store, self.data_format,
-                    self.structure_description
-                ]
+                store = [self.btn_store, self.data_format, self.structure_description]
             elif node_class not in self.DATA_FORMATS:
-                raise ValueError(
-                    "Unknown data format '{}'. Options: {}".format(
-                        node_class, self.DATA_FORMATS))
+                raise ValueError("Unknown data format '{}'. Options: {}".format(node_class, self.DATA_FORMATS))
             else:
                 self.data_format.value = node_class
                 store = [self.btn_store, self.structure_description]
         else:
             store = [self.structure_description]
         store = ipw.HBox(store)
-        super(StructureUploadWidget, self).__init__(
-            children=[self._structure_sources_tab, self.viewer, store],
-            **kwargs)
+        super(StructureUploadWidget, self).__init__(children=[self._structure_sources_tab, self.viewer, store],
+                                                    **kwargs)
 
         self.file_upload.observe(self._on_file_upload, names='data')
         self.select_example.observe(self._on_select_example, names=['value'])
         self.btn_store.on_click(self._on_click_store)
         self.data_format.observe(self.reset_structure, names=['value'])
-        self.structure_description.observe(self.reset_structure,
-                                           names=['value'])
+        self.structure_description.observe(self.reset_structure, names=['value'])
 
     @staticmethod
     def get_example_structures(examples):
+        """Get the list of example structures."""
         if not isinstance(examples, list):
-            raise ValueError(
-                "parameter examples should be of type list, {} given".format(
-                    type(examples)))
+            raise ValueError("parameter examples should be of type list, {} given".format(type(examples)))
         if examples:
             options = [("Select structure", False)]
             options += examples
@@ -127,22 +121,21 @@ class StructureUploadWidget(ipw.VBox):
         return []
 
     def _on_file_upload(self, change):  # pylint: disable=unused-argument
-        self.file_path = os.path.join(tempfile.mkdtemp(),
-                                      self.file_upload.filename)
-        with open(self.file_path, 'w') as f:
-            f.write(self.file_upload.data.decode("utf-8"))
+        """When file upload button is pressed."""
+        self.file_path = os.path.join(tempfile.mkdtemp(), self.file_upload.filename)
+        with open(self.file_path, 'w') as fobj:
+            fobj.write(self.file_upload.data.decode("utf-8"))
         structure_ase = self.get_ase(self.file_path)
-        self.select_structure(structure_ase=structure_ase,
-                              name=self.file_upload.filename)
+        self.select_structure(structure_ase=structure_ase, name=self.file_upload.filename)
 
     def _on_select_example(self, change):  # pylint: disable=unused-argument
+        """When example is selected."""
         if self.select_example.value:
             structure_ase = self.get_ase(self.select_example.value)
             self.file_path = self.select_example.value
         else:
             structure_ase = False
-        self.select_structure(structure_ase=structure_ase,
-                              name=self.select_example.label)
+        self.select_structure(structure_ase=structure_ase, name=self.select_example.label)
 
     def reset_structure(self, change=None):  # pylint: disable=unused-argument
         if self.frozen:
@@ -172,35 +165,35 @@ class StructureUploadWidget(ipw.VBox):
             return
         self.btn_store.disabled = False
         self.has_structure = True
-        self.structure_description.value = self.get_description(
-            structure_ase, name)
+        self.structure_description.value = self.get_description(structure_ase, name)
         self.structure_ase = structure_ase
         self.refresh_view()
 
-    def get_ase(self, fname):
+    @staticmethod
+    def get_ase(fname):
+        """Get ASE structure object."""
         try:
             traj = ase.io.read(fname, index=":")
-        except Exception as exc:
+        except Exception as exc:  # pylint: disable=broad-except
             if exc.args:
                 print(' '.join([str(c) for c in exc.args]))
             else:
                 print("Unknown error")
             return False
         if not traj:
-            print("Could not read any information from the file {}".format(
-                fname))
+            print("Could not read any information from the file {}".format(fname))
             return False
         if len(traj) > 1:
-            print(
-                "Warning: Uploaded file {} contained more than one structure. I take the first one."
-                .format(fname))
+            print("Warning: Uploaded file {} contained more than one structure. I take the first one.".format(fname))
         return traj[0]
 
-    def get_description(self, structure_ase, name):
+    @staticmethod
+    def get_description(structure_ase, name):
         formula = structure_ase.get_chemical_formula()
         return "{} ({})".format(formula, name)
 
     def refresh_view(self):
+        """Reset the structure view."""
         viewer = self.viewer
         # Note: viewer.clear() only removes the 1st component
         # pylint: disable=protected-access
@@ -208,22 +201,21 @@ class StructureUploadWidget(ipw.VBox):
             viewer.remove_component(comp_id)
         if self.structure_ase is None:
             return
-        viewer.add_component(nglview.ASEStructure(
-            self.structure_ase))  # adds ball+stick
-        viewer.add_unitcell()
+        viewer.add_component(nglview.ASEStructure(self.structure_ase))  # adds ball+stick
+        viewer.add_unitcell()  # pylint: disable=no-member
 
     # pylint: disable=unused-argument
     def _on_click_store(self, change):
         self.store_structure()
 
     def store_structure(self, label=None, description=None):
+        """Stores the structure in AiiDA database."""
         if self.frozen:
             return
         if self.structure_node is None:
             return
         if self.structure_node.is_stored:
-            print("Already stored in AiiDA: " + repr(self.structure_node) +
-                  " skipping..")
+            print("Already stored in AiiDA: " + repr(self.structure_node) + " skipping..")
             return
         if label:
             self.structure_node.label = label
@@ -254,6 +246,7 @@ class StructureUploadWidget(ipw.VBox):
 
     @property
     def structure_node(self):
+        """Returns AiiDA StructureData node."""
         if self._structure_node is None:
             if self.structure_ase is None:
                 return None
@@ -266,8 +259,7 @@ class StructureUploadWidget(ipw.VBox):
             if self.data_format.value == 'CifData':
                 if source_format == 'CIF':
                     from aiida.orm.nodes.data.cif import CifData
-                    self._structure_node = CifData(file=os.path.abspath(
-                        self.file_path),
+                    self._structure_node = CifData(file=os.path.abspath(self.file_path),
                                                    scan_type='flex',
                                                    parse_policy='lazy')
                 else:
