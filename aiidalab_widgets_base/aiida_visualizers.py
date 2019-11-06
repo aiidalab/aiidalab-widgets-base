@@ -67,11 +67,21 @@ class StructureDataVisualizer(ipw.VBox):
         import base64
         from tempfile import TemporaryFile
         from IPython.display import Javascript
-        with TemporaryFile() as fobj:
-            self._structure.get_ase().write(fobj, format=self.file_format.value)
-            fobj.seek(0)
-            b64 = base64.b64encode(fobj.read())
-            payload = b64.decode()
+
+        # ASE has strange problems with format, this is why I used if-else here.
+        if self.file_format.value == 'xyz':
+            with TemporaryFile(mode='w+') as fobj:
+                self._structure.get_ase().write(fobj, format=self.file_format.value)
+                fobj.seek(0)
+                b64 = base64.b64encode(fobj.read().encode())
+                payload = b64.decode()
+        elif self.file_format.value == 'cif':
+            with TemporaryFile() as fobj:
+                self._structure.get_ase().write(fobj, format=self.file_format.value)
+                fobj.seek(0)
+                b64 = base64.b64encode(fobj.read())
+                payload = b64.decode()
+
         javas = Javascript("""
             var link = document.createElement('a');
             link.href = "data:;base64,{payload}"
@@ -117,7 +127,7 @@ class FolderDataVisualizer(ipw.VBox):
         import base64
         from IPython.display import Javascript
         with self._folder.open(self.files.value) as fobj:
-            b64 = base64.b64encode(fobj.read())
+            b64 = base64.b64encode(fobj.read().encode())
             payload = b64.decode()
         javas = Javascript("""
             var link = document.createElement('a');
