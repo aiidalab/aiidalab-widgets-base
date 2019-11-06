@@ -9,7 +9,9 @@ from .computers import SshComputerSetup, valid_sshcomputer_args  # noqa
 from .computers import AiidaComputerSetup, valid_aiidacomputer_args  # noqa
 from .databases import CodQueryWidget  # noqa
 from .display import aiidalab_display  # noqa
+from .export import ExportButton  # noqa
 from .metadata import MetadataWidget  # noqa
+from .process import ProgressBar, RunningCalcJobOutput  # noqa
 from .structures import StructureUploadWidget  # noqa
 from .structure_browser import StructureBrowserWidget  # noqa
 from .structures_multi import MultiStructureUploadWidget  # noqa
