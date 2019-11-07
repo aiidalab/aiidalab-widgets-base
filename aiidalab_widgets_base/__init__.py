@@ -16,4 +16,4 @@ from .structures import StructureUploadWidget  # noqa
 from .structure_browser import StructureBrowserWidget  # noqa
 from .structures_multi import MultiStructureUploadWidget  # noqa
 from .submit_button import SubmitButtonWidget  # noqa
-__version__ = "1.0.0a6"
+__version__ = "1.0.0a7"
