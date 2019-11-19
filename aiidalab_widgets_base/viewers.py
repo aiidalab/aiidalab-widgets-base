@@ -5,7 +5,7 @@ import base64
 
 import ipywidgets as ipw
 from six.moves import range
-from IPython.display import display
+from IPython.display import display, clear_output
 import nglview
 
 from .utils import find_ranges, string_range_to_set
@@ -338,6 +338,77 @@ class StructureDataViewer(ipw.VBox):
         return self._prepare_payload(file_format='png')
 
 
+class TrajectoryDataViewer(ipw.VBox):
+    """Viewer class for TrajectoryData object."""
+
+    def __init__(self, trajectory, downloadable=True, **kwargs):
+
+        # Define output area for the plot
+        self._plot = ipw.Output()
+
+        # TrajectoryData object from AiiDA
+        self._trajectory = trajectory
+
+        # Trajectory navigator
+        self._step_selector = ipw.IntSlider(
+            value=0,
+            min=self._trajectory.get_stepids()[0],
+            max=self._trajectory.get_stepids()[-1],
+        )
+        self._step_selector.observe(self.update, names="value")
+
+        # Property to plot
+        self._property_selector = ipw.Dropdown(
+            options=trajectory.get_arraynames(),
+            value='energy',
+            description="Value to plot:",
+        )
+        self._property_selector.observe(self.update, names="value")
+
+        self._struct_viewer = StructureDataViewer(trajectory.get_step_structure(self._step_selector.value),
+                                                  downloadable=downloadable)
+        children = [
+            ipw.HBox([self._struct_viewer, ipw.VBox([self._plot, self._property_selector])]),
+            self._step_selector,
+        ]
+        self.update()
+        super().__init__(children, **kwargs)
+
+    def plot(self):
+        """The function that plots a property vs the step numbrer"""
+        from bokeh.io import show, output_notebook
+        from bokeh.plotting import figure
+
+        output_notebook(hide_banner=True)
+
+        # Bokeh plot
+        bokeh_plot = figure()
+
+        # Inserting data into the plot
+        x_data = self._trajectory.get_stepids()
+        #print([self._trajectory.get_array(self._property_selector.value)[:len(x_data)]])
+        bokeh_plot.line(x=x_data,
+                        y=self._trajectory.get_array(self._property_selector.value)[:len(x_data)],
+                        line_width=2,
+                        line_color='red')
+        bokeh_plot.circle(x=[self._step_selector.value],
+                          y=[self._trajectory.get_array(self._property_selector.value)[self._step_selector.value]],
+                          line_color="blue",
+                          line_width=3,
+                          line_alpha=0.6,
+                          fill_color="white",
+                          fill_alpha=0.2,
+                          radius=0.05)
+        with self._plot:
+            clear_output()
+            show(bokeh_plot)
+
+    def update(self, change=None):  # pylint: disable=unused-argument
+        """Update the data plot."""
+        self._struct_viewer.structure = self._trajectory.get_step_structure(self._step_selector.value)
+        self.plot()
+
+
 class FolderDataViewer(ipw.VBox):
     """Viewer class for FolderData object
 
@@ -426,4 +497,5 @@ AIIDA_VIEWER_MAPPING = {
     'data.cif.CifData.': StructureDataViewer,
     'data.folder.FolderData.': FolderDataViewer,
     'data.array.bands.BandsData.': BandsDataViewer,
+    'data.array.trajectory.TrajectoryData.': TrajectoryDataViewer,
 }
