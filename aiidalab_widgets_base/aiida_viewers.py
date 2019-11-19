@@ -5,6 +5,7 @@ from __future__ import absolute_import
 import ipywidgets as ipw
 from six.moves import range
 from IPython.display import display
+import nglview
 
 
 def viewer(obj, downloadable=True, **kwargs):
@@ -22,7 +23,7 @@ def viewer(obj, downloadable=True, **kwargs):
 
 
 class DictVisualizer(ipw.HTML):
-    """Visualizer class for ParameterData object"""
+    """Visualizer class for ParameterData object."""
 
     def __init__(self, parameter, downloadable=True, **kwargs):
         super(DictVisualizer, self).__init__(**kwargs)
@@ -57,15 +58,13 @@ class DictVisualizer(ipw.HTML):
 
 
 class StructureDataVisualizer(ipw.VBox):
-    """Visualizer class for StructureData object"""
+    """Visualizer class for StructureData object."""
 
     def __init__(self, structure, downloadable=True, **kwargs):
-        import nglview
         self._structure = structure
-        nglviewer = nglview.NGLWidget()
-        nglviewer.add_component(nglview.ASEStructure(self._structure.get_ase()))  # adds ball+stick
-        nglviewer.add_unitcell()  # pylint: disable=no-member
-        children = [nglviewer]
+        self.viewer = nglview.NGLWidget()
+        self.refresh_view()
+        children = [self.viewer]
         if downloadable:
             self.file_format = ipw.Dropdown(
                 options=['xyz', 'cif', 'png'],
@@ -75,6 +74,20 @@ class StructureDataVisualizer(ipw.VBox):
             self.download_btn.on_click(self.download)
             children.append(ipw.HBox([self.file_format, self.download_btn]))
         super(StructureDataVisualizer, self).__init__(children, **kwargs)
+
+    def update_structure(self, structure):
+        """Update structure."""
+        self._structure = structure
+        self.refresh_view()
+
+    def refresh_view(self):
+        """Reset the structure view."""
+        # Note: viewer.clear() only removes the 1st component
+        # pylint: disable=protected-access
+        for comp_id in self.viewer._ngl_component_ids:
+            self.viewer.remove_component(comp_id)
+        self.viewer.add_component(nglview.ASEStructure(self._structure.get_ase()))  # adds ball+stick
+        self.viewer.add_unitcell()  # pylint: disable=no-member
 
     def download(self, change=None):  # pylint: disable=unused-argument
         """Prepare a structure for downloading."""
@@ -107,8 +120,75 @@ class StructureDataVisualizer(ipw.VBox):
         return self._prepare_payload(file_format='png')
 
 
+class TrajectoryDataVisualizer(ipw.VBox):
+    """Visualizer class for TrajectoryData object."""
+
+    def __init__(self, trajectory, downloadable=True, **kwargs):
+        from bokeh.io import show, output_notebook
+        from bokeh.models import ColumnDataSource
+        from bokeh.plotting import figure
+
+        # TrajectoryData object from AiiDA
+        self._trajectory = trajectory
+
+        # Bokeh data objects containing the info to plot lines and selected trajectory points
+        self._bokeh_plot_line = ColumnDataSource(data=dict(x=[], y=[]))
+        self._bokeh_plot_circle = ColumnDataSource(data=dict(x=[], y=[]))
+
+        # Bokeh plot
+        self._bokeh_plot = figure()
+
+        # Inserting data into the plot
+        self._bokeh_plot.line('x', 'y', source=self._bokeh_plot_line, line_width=2, line_color='red')
+        self._bokeh_plot.circle('x', 'y', source=self._bokeh_plot_circle, radius=0.05, line_alpha=0.6)
+
+        # Trajectory navigator
+        self._step_selector = ipw.IntSlider(
+            value=2,
+            min=self._trajectory.get_stepids()[0],
+            max=self._trajectory.get_stepids()[-1],
+        )
+        self._step_selector.observe(self.update, names="value")
+
+        # Property to plot
+        self._property_selector = ipw.Dropdown(
+            options=trajectory.get_arraynames(),
+            value='energy_ewald',
+            description="Value to plot:",
+        )
+        self._property_selector.observe(self.update, names="value")
+
+        self._viewer = StructureDataVisualizer(trajectory.get_step_structure(self._step_selector.value),
+                                               downloadable=downloadable)
+        self._bokeh_plot_circle.data = dict(
+            x=[self._step_selector.value],
+            y=[self._trajectory.get_array(self._property_selector.value)[self._step_selector.value]])
+        self._plot = ipw.Output()
+        children = [
+            ipw.HBox([self._viewer, ipw.VBox([self._plot, self._property_selector])]),
+            self._step_selector,
+        ]
+        self.update()
+        output_notebook(hide_banner=True)
+        with self._plot:
+            show(self._bokeh_plot)
+        super(TrajectoryDataVisualizer, self).__init__(children, **kwargs)
+
+    def update(self, change=None):  # pylint: disable=unused-argument
+        """Update the data plot."""
+        self._viewer.update_structure(self._trajectory.get_step_structure(self._step_selector.value))
+        print("data1", [self._step_selector.value])
+        print("data2", [self._trajectory.get_array(self._property_selector.value)[self._step_selector.value]])
+        self._bokeh_plot_circle.data = dict(
+            x=[self._step_selector.value],
+            y=[self._trajectory.get_array(self._property_selector.value)[self._step_selector.value]])
+        x_data = self._trajectory.get_stepids()
+        self._bokeh_plot_line.data = dict(x=x_data,
+                                          y=self._trajectory.get_array(self._property_selector.value)[:len(x_data)])
+
+
 class FolderDataVisualizer(ipw.VBox):
-    """Visualizer class for FolderData object"""
+    """Visualizer class for FolderData object."""
 
     def __init__(self, folder, downloadable=True, **kwargs):
         self._folder = folder
@@ -189,4 +269,5 @@ AIIDA_VISUALIZER_MAPPING = {
     'data.cif.CifData.': StructureDataVisualizer,
     'data.folder.FolderData.': FolderDataVisualizer,
     'data.array.bands.BandsData.': BandsDataVisualizer,
+    'data.array.trajectory.TrajectoryData.': TrajectoryDataVisualizer,
 }
