@@ -23,7 +23,7 @@ def valid_aiidacode_args(arguments):
 class CodeDropdown(ipw.VBox):
     """Code selection widget."""
 
-    def __init__(self, input_plugin, text='Select code:', **kwargs):
+    def __init__(self, input_plugin, text='Select code:', path_to_root='../', **kwargs):
         """ Dropdown for Codes for one input plugin.
 
         :param input_plugin: Input plugin of codes to show
@@ -39,8 +39,9 @@ class CodeDropdown(ipw.VBox):
         self._btn_refresh = ipw.Button(description="Refresh", layout=ipw.Layout(width="70px"))
         self._btn_refresh.on_click(self.refresh)
         # FOR LATER: use base_url here, when it will be implemented in the appmode.
-        self._setup_another = ipw.HTML(
-            value="""<a href=../aiidalab-widgets-base/setup_code.ipynb target="_blank">Setup new code</a>""")
+        self._setup_another = ipw.HTML(value="""<a href={path_to_root}aiidalab-widgets-base/setup_code.ipynb?
+                      label={label}&plugin={plugin} target="_blank">Setup new code</a>""".format(
+            path_to_root=path_to_root, label=input_plugin, plugin=input_plugin))
         self.output = ipw.Output()
 
         children = [ipw.HBox([self.dropdown, self._btn_refresh, self._setup_another]), self.output]
