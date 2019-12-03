@@ -7,6 +7,20 @@ from six.moves import range
 from IPython.display import display
 
 
+def viewer(obj, downloadable=True, **kwargs):
+    """Display AiiDA data types in Jupyter notebooks.
+
+    :param downloadable: If True, add link/button to download content of displayed AiiDA object.
+
+    Defers to IPython.display.display for any objects it does not recognize.
+    """
+    try:
+        visualizer = AIIDA_VISUALIZER_MAPPING[obj.node_type]
+        return visualizer(obj, downloadable=downloadable, **kwargs)
+    except (AttributeError, KeyError):
+        return obj
+
+
 class DictVisualizer(ipw.HTML):
     """Visualizer class for ParameterData object"""
 
@@ -48,13 +62,13 @@ class StructureDataVisualizer(ipw.VBox):
     def __init__(self, structure, downloadable=True, **kwargs):
         import nglview
         self._structure = structure
-        viewer = nglview.NGLWidget()
-        viewer.add_component(nglview.ASEStructure(self._structure.get_ase()))  # adds ball+stick
-        viewer.add_unitcell()  # pylint: disable=no-member
-        children = [viewer]
+        nglviewer = nglview.NGLWidget()
+        nglviewer.add_component(nglview.ASEStructure(self._structure.get_ase()))  # adds ball+stick
+        nglviewer.add_unitcell()  # pylint: disable=no-member
+        children = [nglviewer]
         if downloadable:
             self.file_format = ipw.Dropdown(
-                options=['xyz', 'cif'],
+                options=['xyz', 'cif', 'png'],
                 description="File format:",
             )
             self.download_btn = ipw.Button(description="Download")
@@ -64,23 +78,7 @@ class StructureDataVisualizer(ipw.VBox):
 
     def download(self, change=None):  # pylint: disable=unused-argument
         """Prepare a structure for downloading."""
-        import base64
-        from tempfile import TemporaryFile
         from IPython.display import Javascript
-
-        # ASE has strange problems with format, this is why I used if-else here.
-        if self.file_format.value == 'xyz':
-            with TemporaryFile(mode='w+') as fobj:
-                self._structure.get_ase().write(fobj, format=self.file_format.value)
-                fobj.seek(0)
-                b64 = base64.b64encode(fobj.read().encode())
-                payload = b64.decode()
-        elif self.file_format.value == 'cif':
-            with TemporaryFile() as fobj:
-                self._structure.get_ase().write(fobj, format=self.file_format.value)
-                fobj.seek(0)
-                b64 = base64.b64encode(fobj.read())
-                payload = b64.decode()
 
         javas = Javascript("""
             var link = document.createElement('a');
@@ -89,8 +87,24 @@ class StructureDataVisualizer(ipw.VBox):
             document.body.appendChild(link);
             link.click();
             document.body.removeChild(link);
-            """.format(payload=payload, filename=str(self._structure.id) + '.' + self.file_format.value))
+            """.format(payload=self._prepare_payload(),
+                       filename=str(self._structure.id) + '.' + self.file_format.value))
         display(javas)
+
+    def _prepare_payload(self, file_format=None):
+        """Prepare binary information."""
+        import base64
+        from tempfile import NamedTemporaryFile
+
+        file_format = file_format if file_format else self.file_format.value
+        tmp = NamedTemporaryFile()
+        self._structure.get_ase().write(tmp.name, format=file_format)
+        with open(tmp.name, 'rb') as raw:
+            return base64.b64encode(raw.read()).decode()
+
+    @property
+    def thumbnail(self):
+        return self._prepare_payload(file_format='png')
 
 
 class FolderDataVisualizer(ipw.VBox):
@@ -168,3 +182,12 @@ class BandsDataVisualizer(ipw.VBox):
             show(plot)
         children = [out]
         super(BandsDataVisualizer, self).__init__(children, **kwargs)
+
+
+AIIDA_VISUALIZER_MAPPING = {
+    'data.dict.Dict.': DictVisualizer,
+    'data.structure.StructureData.': StructureDataVisualizer,
+    'data.cif.CifData.': StructureDataVisualizer,
+    'data.folder.FolderData.': FolderDataVisualizer,
+    'data.array.bands.BandsData.': BandsDataVisualizer,
+}
