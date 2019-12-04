@@ -52,6 +52,7 @@ class StructureBrowserWidget(ipw.VBox):
         box = ipw.VBox([self.age_selection, h_line, ipw.HBox([self.mode, self.drop_label])])
 
         self.results = ipw.Dropdown(layout=layout)
+        self.results.observe(self._on_select_structure)
         self.search()
         super(StructureBrowserWidget, self).__init__([box, h_line, self.results])
 
@@ -122,3 +123,15 @@ class StructureBrowserWidget(ipw.VBox):
             options[label] = mch
 
         self.results.options = options
+
+    def _on_select_structure(self, change):  # pylint: disable=unused-argument
+        """When a structure was selected."""
+        if not self.results.value:
+            return
+        structure_ase = self.results.value.get_ase()
+        formula = structure_ase.get_chemical_formula()
+        if self.on_structure_selection is not None:
+            self.on_structure_selection(structure_ase=structure_ase, name=formula)
+
+    def on_structure_selection(self, structure_ase, name):
+        pass
