@@ -12,8 +12,8 @@ def viewer(obj, downloadable=True, **kwargs):
 
     :param downloadable: If True, add link/button to download content of displayed AiiDA object.
 
-    Defers to IPython.display.display for any objects it does not recognize.
-    """
+    Defers to IPython.display.display for any objects it does not recognize."""
+
     try:
         visualizer = AIIDA_VISUALIZER_MAPPING[obj.node_type]
         return visualizer(obj, downloadable=downloadable, **kwargs)
@@ -140,9 +140,8 @@ class FolderDataVisualizer(ipw.VBox):
         """Prepare for downloading."""
         import base64
         from IPython.display import Javascript
-        with self._folder.open(self.files.value) as fobj:
-            b64 = base64.b64encode(fobj.read().encode())
-            payload = b64.decode()
+
+        payload = base64.b64encode(self._folder.get_object_content(self.files.value)).decode()
         javas = Javascript("""
             var link = document.createElement('a');
             link.href = "data:;base64,{payload}"
