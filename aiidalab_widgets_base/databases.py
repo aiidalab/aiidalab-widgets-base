@@ -112,5 +112,5 @@ class CodQueryWidget(ipw.VBox):
         if self.on_structure_selection is not None:
             self.on_structure_selection(structure_ase=self.structure_ase, name=formula)
 
-    def on_structure_selection(self, structure_ase=None, name=None):
+    def on_structure_selection(self, structure_ase, name):
         pass
