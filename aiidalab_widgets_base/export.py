@@ -5,7 +5,7 @@ from ipywidgets import Button
 from IPython.display import display
 
 
-class ExportButton(Button):
+class ExportButtonWidget(Button):
     """Export Node button."""
 
     def __init__(self, process, **kwargs):
@@ -15,7 +15,7 @@ class ExportButton(Button):
         if 'layout' not in kwargs:
             kwargs['layout'] = {}
         kwargs['layout']['width'] = 'initial'
-        super(ExportButton, self).__init__(**kwargs)
+        super(ExportButtonWidget, self).__init__(**kwargs)
         self.on_click(self.export_aiida_subgraph)
 
     def export_aiida_subgraph(self, change=None):  # pylint: disable=unused-argument
