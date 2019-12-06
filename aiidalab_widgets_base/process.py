@@ -2,14 +2,18 @@
 
 from __future__ import absolute_import
 import os
+import threading
+from time import sleep
 from ipywidgets import HTML, IntProgress, Layout, Textarea, VBox
+
+from aiida.orm import ProcessNode
 
 
 def get_running_calcs(process):
     """Takes a process and returns a list of running calculations. The running calculations
     can be either the process itself or its running children."""
 
-    from aiida.orm import CalcJobNode, ProcessNode, WorkChainNode
+    from aiida.orm import CalcJobNode, WorkChainNode
 
     # If a process is a running calculation - returning it
     if issubclass(type(process), CalcJobNode) and not process.is_sealed:
@@ -26,7 +30,42 @@ def get_running_calcs(process):
     return []
 
 
-class ProgressBar(VBox):
+class ProcessFollowerWidget(VBox):
+    """A Widget that follows a process until finished."""
+
+    def __init__(self, process, followers=None, update_interval=0.1, **kwargs):
+        """Initiate all the followers."""
+        if not isinstance(process, ProcessNode):
+            raise TypeError("Expecting an object of type {}, got {}".format(ProcessNode, type(process)))
+        self.process = process
+        self.update_interval = update_interval
+        self.followers = []
+        if followers is not None:
+            for follower in followers:
+                self.followers.append(follower(process=process))
+        self.update()
+        super(ProcessFollowerWidget, self).__init__(children=self.followers, **kwargs)
+
+    def update(self):
+        for follower in self.followers:
+            follower.update()
+
+    def _follow(self):
+        while not self.process.is_sealed:
+            self.update()
+            sleep(self.update_interval)
+        self.update()  # update the state for the last time to be 100% sure
+
+    def follow(self, detach=False):
+        """Update the followers untill the process is finished."""
+        if detach:
+            update_state = threading.Thread(target=self._follow)
+            update_state.start()
+        else:
+            self._follow()
+
+
+class ProgressBarWidget(VBox):
     """A bar showing the proggress of a process."""
 
     def __init__(self, process, **kwargs):
@@ -50,7 +89,7 @@ class ProgressBar(VBox):
             layout=Layout(width="800px"))
         self.state = HTML(description="Calculation state:", value='Created', style={'description_width': 'initial'})
         children = [self.bar, self.state]
-        super(ProgressBar, self).__init__(children=children, **kwargs)
+        super(ProgressBarWidget, self).__init__(children=children, **kwargs)
 
     def update(self):
         """Update the bar."""
@@ -68,7 +107,7 @@ class ProgressBar(VBox):
         return self.process.process_state.value
 
 
-class RunningCalcJobOutput(Textarea):
+class RunningCalcJobOutputWidget(Textarea):
     """Output of a currently running calculation or one of work chain's running child."""
 
     def __init__(self, process, **kwargs):
@@ -89,7 +128,7 @@ class RunningCalcJobOutput(Textarea):
         default_params.update(kwargs)
         self.previous_calc_id = 0
         self.output = []
-        super(RunningCalcJobOutput, self).__init__(**default_params)
+        super(RunningCalcJobOutputWidget, self).__init__(**default_params)
 
     def update(self):
         """Update the displayed output."""
