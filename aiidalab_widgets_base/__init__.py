@@ -12,9 +12,8 @@ from .computers import ComputerDropdown  # noqa
 from .databases import CodQueryWidget  # noqa
 from .export import ExportButtonWidget  # noqa
 from .metadata import MetadataWidget  # noqa
-from .process import ProcessFollowerWidget, ProgressBarWidget, RunningCalcJobOutputWidget  # noqa
+from .process import ProcessFollowerWidget, ProgressBarWidget, RunningCalcJobOutputWidget, SubmitButtonWidget  # noqa
 from .structures import StructureUploadWidget  # noqa
 from .structure_browser import StructureBrowserWidget  # noqa
 from .structures_multi import MultiStructureUploadWidget  # noqa
-from .submit_button import SubmitButtonWidget  # noqa
 __version__ = "1.0.0a7"
