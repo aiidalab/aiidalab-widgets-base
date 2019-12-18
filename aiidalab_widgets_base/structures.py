@@ -404,3 +404,67 @@ class StructureBrowserWidget(ipw.VBox):
 
     def on_structure_selection(self, structure_ase, name):
         pass
+
+
+class SmilesWidget(ipw.VBox):
+    """Conver SMILES into 3D structure."""
+
+    def __init__(self):
+        self.smiles = ipw.Text()
+        self.create_structure_btn = ipw.Button(description="Generate molecule", button_style='info')
+        self.create_structure_btn.on_click(self._on_button_pressed)
+        self.output = ipw.HTML("")
+        super().__init__([self.smiles, self.create_structure_btn, self.output])
+
+    @staticmethod
+    def pymol_2_ase(pymol):
+        """Convert pymol object into ASE Atoms."""
+        import numpy as np
+        from ase import Atoms, Atom
+        from ase.data import chemical_symbols
+
+        asemol = Atoms()
+        for atm in pymol.atoms:
+            asemol.append(Atom(chemical_symbols[atm.atomicnum], atm.coords))
+        asemol.cell = np.amax(asemol.positions, axis=0) - np.amin(asemol.positions, axis=0) + [10] * 3
+        asemol.pbc = True
+        asemol.center()
+        return asemol
+
+    def _optimize_mol(self, mol):
+        """Optimize a molecule using force field (needed for complex SMILES)."""
+        import pybel
+
+        f_f = pybel._forcefields["mmff94"]
+        if not f_f.Setup(mol.OBMol):
+            f_f = pybel._forcefields["uff"]
+            if not f_f.Setup(mol.OBMol):
+                self.output.value = "Cannot set up forcefield"
+                return
+
+        # initial cleanup before the weighted search
+        f_f.SteepestDescent(5500, 1.0e-9)
+        f_f.WeightedRotorSearch(15000, 500)
+        f_f.ConjugateGradients(6500, 1.0e-10)
+        f_f.GetCoordinates(mol.OBMol)
+
+    def _on_button_pressed(self, change):  # pylint: disable=unused-argument
+        """Convert SMILES to ase structure when button is pressed."""
+        import pybel
+        if not self.smiles.value:
+            return
+
+        mol = pybel.readstring("smi", self.smiles.value)
+        mol.make3D()
+
+        pybel._builder.Build(mol.OBMol)
+        mol.addh()
+        self._optimize_mol(mol)
+
+        structure_ase = self.pymol_2_ase(mol)
+        formula = structure_ase.get_chemical_formula()
+        if self.on_structure_selection is not None:
+            self.on_structure_selection(structure_ase=structure_ase, name=formula)
+
+    def on_structure_selection(self, structure_ase, name):
+        pass
