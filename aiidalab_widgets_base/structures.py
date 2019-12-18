@@ -409,6 +409,8 @@ class StructureBrowserWidget(ipw.VBox):
 class SmilesWidget(ipw.VBox):
     """Conver SMILES into 3D structure."""
 
+    SPINNER = """<i class="fa fa-spinner fa-pulse" style="color:red;" ></i>"""
+
     def __init__(self):
         self.smiles = ipw.Text()
         self.create_structure_btn = ipw.Button(description="Generate molecule", button_style='info')
@@ -433,11 +435,13 @@ class SmilesWidget(ipw.VBox):
 
     def _optimize_mol(self, mol):
         """Optimize a molecule using force field (needed for complex SMILES)."""
-        import pybel
+        from openbabel import pybel
 
-        f_f = pybel._forcefields["mmff94"]
+        self.output.value = "Screening possible conformers {}".format(self.SPINNER)  #font-size:20em;
+
+        f_f = pybel._forcefields["mmff94"]  # pylint: disable=protected-access
         if not f_f.Setup(mol.OBMol):
-            f_f = pybel._forcefields["uff"]
+            f_f = pybel._forcefields["uff"]  # pylint: disable=protected-access
             if not f_f.Setup(mol.OBMol):
                 self.output.value = "Cannot set up forcefield"
                 return
@@ -447,17 +451,20 @@ class SmilesWidget(ipw.VBox):
         f_f.WeightedRotorSearch(15000, 500)
         f_f.ConjugateGradients(6500, 1.0e-10)
         f_f.GetCoordinates(mol.OBMol)
+        self.output.value = ""
 
     def _on_button_pressed(self, change):  # pylint: disable=unused-argument
         """Convert SMILES to ase structure when button is pressed."""
-        import pybel
+        self.output.value = ""
+        from openbabel import pybel
         if not self.smiles.value:
             return
 
         mol = pybel.readstring("smi", self.smiles.value)
+        self.output.value = """SMILES to 3D conversion {}""".format(self.SPINNER)
         mol.make3D()
 
-        pybel._builder.Build(mol.OBMol)
+        pybel._builder.Build(mol.OBMol)  # pylint: disable=protected-access
         mol.addh()
         self._optimize_mol(mol)
 
