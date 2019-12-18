@@ -1,19 +1,16 @@
 """Widgets to work with processes."""
-
 from __future__ import absolute_import
-import os
-import threading
-from time import sleep
-from ipywidgets import HTML, IntProgress, Layout, Textarea, VBox
+from __future__ import print_function
 
-from aiida.orm import ProcessNode
+import os
+from ipywidgets import Textarea, VBox
 
 
 def get_running_calcs(process):
     """Takes a process and returns a list of running calculations. The running calculations
     can be either the process itself or its running children."""
 
-    from aiida.orm import CalcJobNode, WorkChainNode
+    from aiida.orm import CalcJobNode, ProcessNode, WorkChainNode
 
     # If a process is a running calculation - returning it
     if issubclass(type(process), CalcJobNode) and not process.is_sealed:
@@ -30,11 +27,52 @@ def get_running_calcs(process):
     return []
 
 
+class SubmitButtonWidget(VBox):
+    """Submit button class that creates submit button jupyter widget."""
+
+    def __init__(self, process, widgets_values):
+        """Submit Button
+        :process: work chain to run
+        :param_funtion: the function that generates input parameters dictionary
+        """
+        from ipywidgets import Button, Output
+
+        self.process = None
+        self._process_class = process
+        self.widgets_values = widgets_values
+        self.btn_submit = Button(description="Submit", disabled=False)
+        self.btn_submit.on_click(self.on_btn_submit_press)
+        self.submit_out = Output()
+        children = [
+            self.btn_submit,
+            self.submit_out,
+        ]
+        super(SubmitButtonWidget, self).__init__(children=children)
+
+    def on_click(self, function):
+        self.btn_submit.on_click(function)
+
+    def on_btn_submit_press(self, _):
+        """When submit button is pressed."""
+        from IPython.display import clear_output
+        from aiida.engine import submit
+
+        with self.submit_out:
+            clear_output()
+            self.btn_submit.disabled = True
+            input_dict = self.widgets_values()
+            self.process = submit(self._process_class, **input_dict)
+            print("Submitted process {}".format(self.process))
+            return
+
+
 class ProcessFollowerWidget(VBox):
     """A Widget that follows a process until finished."""
 
     def __init__(self, process, followers=None, update_interval=0.1, **kwargs):
         """Initiate all the followers."""
+        from aiida.orm import ProcessNode
+
         if not isinstance(process, ProcessNode):
             raise TypeError("Expecting an object of type {}, got {}".format(ProcessNode, type(process)))
         self.process = process
@@ -51,14 +89,17 @@ class ProcessFollowerWidget(VBox):
             follower.update()
 
     def _follow(self):
+        """The loop that will update all the followers untill the process is running."""
+        from time import sleep
         while not self.process.is_sealed:
             self.update()
             sleep(self.update_interval)
         self.update()  # update the state for the last time to be 100% sure
 
     def follow(self, detach=False):
-        """Update the followers untill the process is finished."""
+        """Follow the process in blocking or non-blocking manner."""
         if detach:
+            import threading
             update_state = threading.Thread(target=self._follow)
             update_state.start()
         else:
@@ -69,6 +110,8 @@ class ProgressBarWidget(VBox):
     """A bar showing the proggress of a process."""
 
     def __init__(self, process, **kwargs):
+        from ipywidgets import HTML, IntProgress, Layout
+
         self.process = process
         self.correspondance = {
             "created": 0,
