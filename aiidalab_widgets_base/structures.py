@@ -6,19 +6,18 @@ import os
 import tempfile
 import datetime
 from collections import OrderedDict
+from traitlets import Bool
 
 import nglview
-import ase.io
-
-from traitlets import Bool
 
 import ipywidgets as ipw
 from fileupload import FileUploadWidget
 
 from aiida.orm import CalcFunctionNode, CalcJobNode, Node, QueryBuilder, WorkChainNode, StructureData
+from .utils import get_ase_from_file
 
 
-class StructureUploadWidget(ipw.VBox):  # pylint: disable=too-many-instance-attributes
+class StructureManagerWidget(ipw.VBox):  # pylint: disable=too-many-instance-attributes
     '''Upload a structure and store it in AiiDA database.
 
     Useful class members:
@@ -33,14 +32,7 @@ class StructureUploadWidget(ipw.VBox):  # pylint: disable=too-many-instance-attr
     frozen = Bool(False)
     DATA_FORMATS = ('StructureData', 'CifData')
 
-    def __init__(  # pylint: disable=too-many-arguments
-            self,
-            text="Upload Structure",
-            storable=True,
-            node_class=None,
-            examples=None,
-            data_importers=None,
-            **kwargs):
+    def __init__(self, text="Upload Structure", storable=True, node_class=None, data_importers=None, **kwargs):
         """
         :param text: Text to display before upload button
         :type text: str
@@ -58,7 +50,6 @@ class StructureUploadWidget(ipw.VBox):  # pylint: disable=too-many-instance-attr
         """
         self.name = None
         self.file_path = None
-        examples = [] if examples is None else examples
         data_importers = [] if data_importers is None else data_importers
         self._structure_sources_tab = ipw.Tab()
         self.file_upload = FileUploadWidget(text)
@@ -67,7 +58,6 @@ class StructureUploadWidget(ipw.VBox):  # pylint: disable=too-many-instance-attr
             Supported structure formats
             </a>""")
 
-        self.select_example = ipw.Dropdown(options=self.get_example_structures(examples))
         self.viewer = nglview.NGLWidget()
         self.btn_store = ipw.Button(description='Store in AiiDA', disabled=True)
         self.structure_description = ipw.Text(placeholder="Description (optional)")
@@ -82,9 +72,6 @@ class StructureUploadWidget(ipw.VBox):  # pylint: disable=too-many-instance-attr
             for label, importer in data_importers:
                 structure_sources.append((label, importer))
                 importer.on_structure_selection = self.select_structure
-
-        if examples:
-            structure_sources.append(("Examples", self.select_example))
 
         if len(structure_sources) == 1:
             self._structure_sources_tab = structure_sources[0][1]
@@ -104,42 +91,20 @@ class StructureUploadWidget(ipw.VBox):  # pylint: disable=too-many-instance-attr
         else:
             store = [self.structure_description]
         store = ipw.HBox(store)
-        super(StructureUploadWidget, self).__init__(children=[self._structure_sources_tab, self.viewer, store],
-                                                    **kwargs)
+        super().__init__(children=[self._structure_sources_tab, self.viewer, store], **kwargs)
 
         self.file_upload.observe(self._on_file_upload, names='data')
-        self.select_example.observe(self._on_select_example, names=['value'])
         self.btn_store.on_click(self._on_click_store)
         self.data_format.observe(self.reset_structure, names=['value'])
         self.structure_description.observe(self.reset_structure, names=['value'])
-
-    @staticmethod
-    def get_example_structures(examples):
-        """Get the list of example structures."""
-        if not isinstance(examples, list):
-            raise ValueError("parameter examples should be of type list, {} given".format(type(examples)))
-        if examples:
-            options = [("Select structure", False)]
-            options += examples
-            return options
-        return []
 
     def _on_file_upload(self, change):  # pylint: disable=unused-argument
         """When file upload button is pressed."""
         self.file_path = os.path.join(tempfile.mkdtemp(), self.file_upload.filename)
         with open(self.file_path, 'w') as fobj:
             fobj.write(self.file_upload.data.decode("utf-8"))
-        structure_ase = self.get_ase(self.file_path)
+        structure_ase = get_ase_from_file(self.file_path)
         self.select_structure(structure_ase=structure_ase, name=self.file_upload.filename)
-
-    def _on_select_example(self, change):  # pylint: disable=unused-argument
-        """When example is selected."""
-        if self.select_example.value:
-            structure_ase = self.get_ase(self.select_example.value)
-            self.file_path = self.select_example.value
-        else:
-            structure_ase = False
-        self.select_structure(structure_ase=structure_ase, name=self.select_example.label)
 
     def reset_structure(self, change=None):  # pylint: disable=unused-argument
         if self.frozen:
@@ -172,24 +137,6 @@ class StructureUploadWidget(ipw.VBox):  # pylint: disable=too-many-instance-attr
         self.structure_description.value = self.get_description(structure_ase, name)
         self.structure_ase = structure_ase
         self.refresh_view()
-
-    @staticmethod
-    def get_ase(fname):
-        """Get ASE structure object."""
-        try:
-            traj = ase.io.read(fname, index=":")
-        except Exception as exc:  # pylint: disable=broad-except
-            if exc.args:
-                print(' '.join([str(c) for c in exc.args]))
-            else:
-                print("Unknown error")
-            return False
-        if not traj:
-            print("Could not read any information from the file {}".format(fname))
-            return False
-        if len(traj) > 1:
-            print("Warning: Uploaded file {} contained more than one structure. I take the first one.".format(fname))
-        return traj[0]
 
     @staticmethod
     def get_description(structure_ase, name):
@@ -236,7 +183,6 @@ class StructureUploadWidget(ipw.VBox):  # pylint: disable=too-many-instance-attr
         self.structure_description.disabled = True
         self.file_upload.disabled = True
         self.data_format.disabled = True
-        self.select_example.disabled = True
 
     @property
     def node_class(self):
@@ -275,6 +221,30 @@ class StructureUploadWidget(ipw.VBox):  # pylint: disable=too-many-instance-attr
             self._structure_node.description = self.structure_description.value
             self._structure_node.label = os.path.splitext(self.name)[0]
         return self._structure_node
+
+
+class StructureExamplesWidget(ipw.VBox):
+    """Class to provide example structures for selection."""
+
+    def __init__(self, examples, **kwargs):
+        self.on_structure_selection = lambda structure_ase, name: None
+        self._select_structure = ipw.Dropdown(options=self.get_example_structures(examples))
+        self._select_structure.observe(self._on_select_structure, names=['value'])
+        super().__init__(children=[self._select_structure], **kwargs)
+
+    @staticmethod
+    def get_example_structures(examples):
+        """Get the list of example structures."""
+        if not isinstance(examples, list):
+            raise ValueError("parameter examples should be of type list, {} given".format(type(examples)))
+        return [("Select structure", False)] + examples
+
+    def _on_select_structure(self, change):  # pylint: disable=unused-argument
+        """When structure is selected."""
+        if not self._select_structure.value:
+            return
+        structure_ase = get_ase_from_file(self._select_structure.value)
+        self.on_structure_selection(structure_ase=structure_ase, name=self._select_structure.label)
 
 
 class StructureBrowserWidget(ipw.VBox):
