@@ -5,6 +5,7 @@ from __future__ import absolute_import
 import ipywidgets as ipw
 from six.moves import range
 from IPython.display import display
+import nglview
 
 
 def viewer(obj, downloadable=True, **kwargs):
@@ -57,15 +58,16 @@ class DictVisualizer(ipw.HTML):
 
 
 class StructureDataVisualizer(ipw.VBox):
-    """Visualizer class for StructureData object"""
+    """Visualizer class for StructureData object."""
 
-    def __init__(self, structure, downloadable=True, **kwargs):
-        import nglview
-        self._structure = structure
-        nglviewer = nglview.NGLWidget()
-        nglviewer.add_component(nglview.ASEStructure(self._structure.get_ase()))  # adds ball+stick
-        nglviewer.add_unitcell()  # pylint: disable=no-member
-        children = [nglviewer]
+    def __init__(self, structure=None, downloadable=True, **kwargs):
+
+        self.viewer = nglview.NGLWidget()
+
+        if structure:
+            self.update_structure(structure)
+
+        children = [self.viewer]
         if downloadable:
             self.file_format = ipw.Dropdown(
                 options=['xyz', 'cif', 'png'],
@@ -74,7 +76,28 @@ class StructureDataVisualizer(ipw.VBox):
             self.download_btn = ipw.Button(description="Download")
             self.download_btn.on_click(self.download)
             children.append(ipw.HBox([self.file_format, self.download_btn]))
-        super(StructureDataVisualizer, self).__init__(children, **kwargs)
+        super().__init__(children, **kwargs)
+
+    def update_structure(self, structure):
+        """Update structure.
+        :param structure: Structure to be visualized
+        :type structure: StructureData, CifData, Atoms (ASE)"""
+        from ase import Atoms
+        self._structure = structure if isinstance(structure, Atoms) else structure.get_ase()
+        self.refresh_view()
+
+    def reset_view(self):
+        """Reset the structure view."""
+        # Note: viewer.clear() only removes the 1st component
+        # pylint: disable=protected-access
+        for comp_id in self.viewer._ngl_component_ids:
+            self.viewer.remove_component(comp_id)
+
+    def refresh_view(self):
+        """Refresh the structure view."""
+        self.reset_view()
+        self.viewer.add_component(nglview.ASEStructure(self._structure))  # adds ball+stick
+        self.viewer.add_unitcell()  # pylint: disable=no-member
 
     def download(self, change=None):  # pylint: disable=unused-argument
         """Prepare a structure for downloading."""
@@ -98,7 +121,7 @@ class StructureDataVisualizer(ipw.VBox):
 
         file_format = file_format if file_format else self.file_format.value
         tmp = NamedTemporaryFile()
-        self._structure.get_ase().write(tmp.name, format=file_format)
+        self._structure.write(tmp.name, format=file_format)
         with open(tmp.name, 'rb') as raw:
             return base64.b64encode(raw.read()).decode()
 
