@@ -11,7 +11,6 @@ from .computers import AiidaComputerSetup, valid_aiidacomputer_args  # noqa
 from .computers import ComputerDropdown  # noqa
 from .databases import CodQueryWidget  # noqa
 from .export import ExportButtonWidget  # noqa
-from .metadata import MetadataWidget  # noqa
 from .process import ProcessFollowerWidget, ProgressBarWidget, RunningCalcJobOutputWidget, SubmitButtonWidget  # noqa
 from .structures import StructureUploadWidget, StructureBrowserWidget, SmilesWidget  # noqa
 from .structures_multi import MultiStructureUploadWidget  # noqa
