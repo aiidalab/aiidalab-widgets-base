@@ -8,8 +8,6 @@ import datetime
 from collections import OrderedDict
 from traitlets import Bool
 
-import nglview
-
 import ipywidgets as ipw
 from fileupload import FileUploadWidget
 
@@ -44,7 +42,7 @@ class StructureManagerWidget(ipw.VBox):  # pylint: disable=too-many-instance-att
         :param importers: list of tuples each containing a name and an object for data importing. Each object
         should containt an empty `on_structure_selection()` method that has two parameters: structure_ase, name
         :type examples: list"""
-
+        from .aiida_viewers import StructureDataVisualizer
         if not isinstance(importers, list):
             raise ValueError("The parameter importers should be of type list, {} given".format(type(importers)))
         if not importers:  # we make sure the list is not empty
@@ -53,15 +51,11 @@ class StructureManagerWidget(ipw.VBox):  # pylint: disable=too-many-instance-att
 
         self.structure_ase = None
         self._structure_node = None
-
-        self.viewer = nglview.NGLWidget()
-
+        self.viewer = StructureDataVisualizer(downloadable=False)
         self.btn_store = ipw.Button(description='Store in AiiDA', disabled=True)
         self.btn_store.on_click(self._on_click_store)
-
         self.structure_description = ipw.Text(placeholder="Description (optional)")
         self.structure_description.observe(self.reset_structure, names=['value'])
-
         self.data_format = ipw.RadioButtons(options=self.DATA_FORMATS, description='Data type:')
         self.data_format.observe(self.reset_structure, names=['value'])
 
@@ -97,6 +91,7 @@ class StructureManagerWidget(ipw.VBox):  # pylint: disable=too-many-instance-att
         if self.frozen:
             return
         self._structure_node = None
+        self.viewer.reset_view()
 
     def select_structure(self, structure_ase, name):
         """Select structure
@@ -114,30 +109,13 @@ class StructureManagerWidget(ipw.VBox):  # pylint: disable=too-many-instance-att
             self.has_structure = False
             self.structure_ase = None
             self.structure_description.value = ''
-
             self.reset_structure()
-            self.refresh_view()
             return
         self.btn_store.disabled = False
         self.has_structure = True
-        self.structure_description.value = self.get_description(structure_ase, name)
+        self.structure_description.value = "{} ({})".format(structure_ase.get_checmical_formula(), name)
         self.structure_ase = structure_ase
-        self.refresh_view()
-
-    @staticmethod
-    def get_description(structure_ase, name):
-        formula = structure_ase.get_chemical_formula()
-        return "{} ({})".format(formula, name)
-
-    def refresh_view(self):
-        """Reset the structure view."""
-        viewer = self.viewer
-        for comp_id in viewer._ngl_component_ids:  # pylint: disable=protected-access
-            viewer.remove_component(comp_id)
-        if self.structure_ase is None:
-            return
-        viewer.add_component(nglview.ASEStructure(self.structure_ase))  # adds ball+stick
-        viewer.add_unitcell()  # pylint: disable=no-member
+        self.viewer.update_structure(structure_ase)
 
     # pylint: disable=unused-argument
     def _on_click_store(self, change):
