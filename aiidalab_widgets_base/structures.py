@@ -42,7 +42,7 @@ class StructureManagerWidget(ipw.VBox):  # pylint: disable=too-many-instance-att
         :param importers: list of tuples each containing a name and an object for data importing. Each object
         should containt an empty `on_structure_selection()` method that has two parameters: structure_ase, name
         :type examples: list"""
-        from .aiida_viewers import StructureDataVisualizer
+        from .viewers import StructureDataViewer
         if not isinstance(importers, list):
             raise ValueError("The parameter importers should be of type list, {} given".format(type(importers)))
         if not importers:  # we make sure the list is not empty
@@ -51,7 +51,7 @@ class StructureManagerWidget(ipw.VBox):  # pylint: disable=too-many-instance-att
 
         self.structure_ase = None
         self._structure_node = None
-        self.viewer = StructureDataVisualizer(downloadable=False)
+        self.viewer = StructureDataViewer(downloadable=False)
         self.btn_store = ipw.Button(description='Store in AiiDA', disabled=True)
         self.btn_store.on_click(self._on_click_store)
         self.structure_description = ipw.Text(placeholder="Description (optional)")
@@ -113,7 +113,7 @@ class StructureManagerWidget(ipw.VBox):  # pylint: disable=too-many-instance-att
             return
         self.btn_store.disabled = False
         self.has_structure = True
-        self.structure_description.value = "{} ({})".format(structure_ase.get_checmical_formula(), name)
+        self.structure_description.value = "{} ({})".format(structure_ase.get_chemical_formula(), name)
         self.structure_ase = structure_ase
         self.viewer.update_structure(structure_ase)
 

@@ -22,11 +22,11 @@ def viewer(obj, downloadable=True, **kwargs):
         return obj
 
 
-class DictVisualizer(ipw.HTML):
+class DictViewer(ipw.HTML):
     """Visualizer class for ParameterData object"""
 
     def __init__(self, parameter, downloadable=True, **kwargs):
-        super(DictVisualizer, self).__init__(**kwargs)
+        super().__init__(**kwargs)
         import pandas as pd
         # Here we are defining properties of 'df' class (specified while exporting pandas table into html).
         # Since the exported object is nothing more than HTML table, all 'standard' HTML table settings
@@ -57,7 +57,7 @@ class DictVisualizer(ipw.HTML):
             self.value += to_add.format(filename=fname, payload=payload, title=fname)
 
 
-class StructureDataVisualizer(ipw.VBox):
+class StructureDataViewer(ipw.VBox):
     """Visualizer class for StructureData object."""
 
     def __init__(self, structure=None, downloadable=True, **kwargs):
@@ -130,7 +130,7 @@ class StructureDataVisualizer(ipw.VBox):
         return self._prepare_payload(file_format='png')
 
 
-class FolderDataVisualizer(ipw.VBox):
+class FolderDataViewer(ipw.VBox):
     """Visualizer class for FolderData object"""
 
     def __init__(self, folder, downloadable=True, **kwargs):
@@ -153,7 +153,7 @@ class FolderDataVisualizer(ipw.VBox):
             self.download_btn = ipw.Button(description="Download")
             self.download_btn.on_click(self.download)
             children.append(self.download_btn)
-        super(FolderDataVisualizer, self).__init__(children, **kwargs)
+        super().__init__(children, **kwargs)
 
     def change_file_view(self, change=None):  # pylint: disable=unused-argument
         with self._folder.open(self.files.value) as fobj:
@@ -176,7 +176,7 @@ class FolderDataVisualizer(ipw.VBox):
         display(javas)
 
 
-class BandsDataVisualizer(ipw.VBox):
+class BandsDataViewer(ipw.VBox):
     """Visualizer class for BandsData object"""
 
     def __init__(self, bands, **kwargs):
@@ -203,13 +203,13 @@ class BandsDataVisualizer(ipw.VBox):
                 [Span(location=l[0], dimension='height', line_color='black', line_width=3) for l in labels])
             show(plot)
         children = [out]
-        super(BandsDataVisualizer, self).__init__(children, **kwargs)
+        super().__init__(children, **kwargs)
 
 
 AIIDA_VISUALIZER_MAPPING = {
-    'data.dict.Dict.': DictVisualizer,
-    'data.structure.StructureData.': StructureDataVisualizer,
-    'data.cif.CifData.': StructureDataVisualizer,
-    'data.folder.FolderData.': FolderDataVisualizer,
-    'data.array.bands.BandsData.': BandsDataVisualizer,
+    'data.dict.Dict.': DictViewer,
+    'data.structure.StructureData.': StructureDataViewer,
+    'data.cif.CifData.': StructureDataViewer,
+    'data.folder.FolderData.': FolderDataViewer,
+    'data.array.bands.BandsData.': BandsDataViewer,
 }
