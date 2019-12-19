@@ -41,7 +41,7 @@ class StructureManagerWidget(ipw.VBox):  # pylint: disable=too-many-instance-att
         should containt an empty `on_structure_selection()` method that has two parameters: structure_ase, name
         :type examples: list"""
 
-        from .aiida_viewers import StructureDataVisualizer
+        from .viewers import StructureDataViewer
         if not importers:  # we make sure the list is not empty
             raise ValueError("The parameter importers should contain a list (or tuple) of tuples "
                              "(\"importer name\", importer), got a falsy object.")
@@ -49,7 +49,8 @@ class StructureManagerWidget(ipw.VBox):  # pylint: disable=too-many-instance-att
         self.structure_ase = None
         self._structure_node = None
 
-        self.viewer = StructureDataVisualizer(downloadable=False)
+        self.viewer = StructureDataViewer(downloadable=False)
+
         self.btn_store = ipw.Button(description='Store in AiiDA', disabled=True)
         self.btn_store.on_click(self._on_click_store)
 
