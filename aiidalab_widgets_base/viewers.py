@@ -1,4 +1,4 @@
-"""Jupyter visualisers for different types of data."""
+"""Jupyter viewers for different types of data."""
 from __future__ import print_function
 from __future__ import absolute_import
 
@@ -16,14 +16,14 @@ def viewer(obj, downloadable=True, **kwargs):
     Defers to IPython.display.display for any objects it does not recognize."""
 
     try:
-        visualizer = AIIDA_VISUALIZER_MAPPING[obj.node_type]
-        return visualizer(obj, downloadable=downloadable, **kwargs)
+        _viewer = AIIDA_VIEWER_MAPPING[obj.node_type]
+        return _viewer(obj, downloadable=downloadable, **kwargs)
     except (AttributeError, KeyError):
         return obj
 
 
 class DictViewer(ipw.HTML):
-    """Visualizer class for ParameterData object"""
+    """Viewer class for ParameterData object."""
 
     def __init__(self, parameter, downloadable=True, **kwargs):
         super().__init__(**kwargs)
@@ -58,7 +58,7 @@ class DictViewer(ipw.HTML):
 
 
 class StructureDataViewer(ipw.VBox):
-    """Visualizer class for StructureData object."""
+    """Viewer class for StructureData object."""
 
     def __init__(self, structure=None, downloadable=True, **kwargs):
 
@@ -87,9 +87,9 @@ class StructureDataViewer(ipw.VBox):
 
     @structure.setter
     def structure(self, structure):
-        """Set structure to visualize
+        """Set structure to view
 
-        :param structure: Structure to be visualized
+        :param structure: Structure to be viewed
         :type structure: StructureData, CifData, Atoms (ASE)"""
         from aiida.orm import Node
         from ase import Atoms
@@ -148,7 +148,7 @@ class StructureDataViewer(ipw.VBox):
 
 
 class FolderDataViewer(ipw.VBox):
-    """Visualizer class for FolderData object"""
+    """Viewer class for FolderData object."""
 
     def __init__(self, folder, downloadable=True, **kwargs):
         self._folder = folder
@@ -194,7 +194,7 @@ class FolderDataViewer(ipw.VBox):
 
 
 class BandsDataViewer(ipw.VBox):
-    """Visualizer class for BandsData object"""
+    """Viewer class for BandsData object"""
 
     def __init__(self, bands, **kwargs):
         from bokeh.io import show, output_notebook
@@ -223,7 +223,7 @@ class BandsDataViewer(ipw.VBox):
         super().__init__(children, **kwargs)
 
 
-AIIDA_VISUALIZER_MAPPING = {
+AIIDA_VIEWER_MAPPING = {
     'data.dict.Dict.': DictViewer,
     'data.structure.StructureData.': StructureDataViewer,
     'data.cif.CifData.': StructureDataViewer,
