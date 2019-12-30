@@ -42,11 +42,9 @@ class StructureManagerWidget(ipw.VBox):  # pylint: disable=too-many-instance-att
         :type examples: list"""
 
         from .aiida_viewers import StructureDataVisualizer
-        if not isinstance(importers, list):
-            raise ValueError("The parameter importers should be of type list, {} given".format(type(importers)))
         if not importers:  # we make sure the list is not empty
             raise ValueError("The parameter importers should contain a list (or tuple) of tuples "
-                             "(\"importer name\", importer), got an empty list.")
+                             "(\"importer name\", importer), got a falsy object.")
 
         self.structure_ase = None
         self._structure_node = None
