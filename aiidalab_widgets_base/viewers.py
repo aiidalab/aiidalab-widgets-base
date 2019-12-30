@@ -1,4 +1,4 @@
-"""Jupyter viewers for different types of data."""
+"""Jupyter viewers for AiiDA data objects."""
 from __future__ import print_function
 from __future__ import absolute_import
 
@@ -12,8 +12,9 @@ def viewer(obj, downloadable=True, **kwargs):
     """Display AiiDA data types in Jupyter notebooks.
 
     :param downloadable: If True, add link/button to download content of displayed AiiDA object.
+    :type downloadable: bool
 
-    Defers to IPython.display.display for any objects it does not recognize."""
+    Returns the object itself if the viewer wasn't fond."""
 
     try:
         _viewer = AIIDA_VIEWER_MAPPING[obj.node_type]
@@ -23,7 +24,12 @@ def viewer(obj, downloadable=True, **kwargs):
 
 
 class DictViewer(ipw.HTML):
-    """Viewer class for ParameterData object."""
+    """Viewer class for ParameterData object.
+
+    :param parameter: Dict object to be visualized
+    :type parameter: Dict
+    :param downloadable: If True, add link/button to download the content of the object
+    :type downloadable: bool"""
 
     def __init__(self, parameter, downloadable=True, **kwargs):
         super().__init__(**kwargs)
@@ -58,7 +64,12 @@ class DictViewer(ipw.HTML):
 
 
 class StructureDataViewer(ipw.VBox):
-    """Viewer class for StructureData object."""
+    """Viewer class for structure object.
+
+    :param structure: structure object to be visualized
+    :type structure: StructureData or CifData
+    :param downloadable: If True, add link/button to download the content of the object
+    :type downloadable: bool"""
 
     def __init__(self, structure=None, downloadable=True, **kwargs):
 
@@ -148,7 +159,12 @@ class StructureDataViewer(ipw.VBox):
 
 
 class FolderDataViewer(ipw.VBox):
-    """Viewer class for FolderData object."""
+    """Viewer class for FolderData object.
+
+    :param folder: FolderData object to be visualized
+    :type folder: FolderData
+    :param downloadable: If True, add link/button to download the content of the selected file in the folder
+    :type downloadable: bool"""
 
     def __init__(self, folder, downloadable=True, **kwargs):
         self._folder = folder
@@ -194,7 +210,10 @@ class FolderDataViewer(ipw.VBox):
 
 
 class BandsDataViewer(ipw.VBox):
-    """Viewer class for BandsData object"""
+    """Viewer class for BandsData object
+
+    :param bands: BandsData object to be visualized
+    :type bands: BandsData"""
 
     def __init__(self, bands, **kwargs):
         from bokeh.io import show, output_notebook
@@ -203,8 +222,7 @@ class BandsDataViewer(ipw.VBox):
         output_notebook(hide_banner=True)
         out = ipw.Output()
         with out:
-            plot_info = bands._get_bandplot_data(  # pylint: disable=protected-access
-                cartesian=True, join_symbol="|")
+            plot_info = bands._get_bandplot_data(cartesian=True, join_symbol="|")  # pylint: disable=protected-access
             # Extract relevant data
             y_data = plot_info['y'].transpose().tolist()
             x_data = [plot_info['x'] for i in range(len(y_data))]
