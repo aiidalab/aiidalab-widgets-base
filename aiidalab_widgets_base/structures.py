@@ -7,11 +7,7 @@ import tempfile
 import datetime
 from collections import OrderedDict
 from traitlets import Bool
-
-import nglview
-
 import ipywidgets as ipw
-from fileupload import FileUploadWidget
 
 from aiida.orm import CalcFunctionNode, CalcJobNode, Node, QueryBuilder, WorkChainNode, StructureData
 from .utils import get_ase_from_file
@@ -26,8 +22,8 @@ class StructureManagerWidget(ipw.VBox):  # pylint: disable=too-many-instance-att
     :ivar frozen: whenter the widget is frozen (can't be modified) or not
     :vartype frozen: bool
     :ivar structure_node: link to AiiDA structure object
-    :vartype structure_node: StructureData or CifData
-    '''
+    :vartype structure_node: StructureData or CifData'''
+
     has_structure = Bool(False)
     frozen = Bool(False)
     DATA_FORMATS = ('StructureData', 'CifData')
@@ -45,37 +41,39 @@ class StructureManagerWidget(ipw.VBox):  # pylint: disable=too-many-instance-att
         should containt an empty `on_structure_selection()` method that has two parameters: structure_ase, name
         :type examples: list"""
 
+        from .aiida_viewers import StructureDataVisualizer
         if not importers:  # we make sure the list is not empty
             raise ValueError("The parameter importers should contain a list (or tuple) of tuples "
-                             "(\"importer name\", importer), got an empty list.")
+                             "(\"importer name\", importer), got a falsy object.")
 
         self.structure_ase = None
         self._structure_node = None
 
-        self.viewer = nglview.NGLWidget()
-
+        self.viewer = StructureDataVisualizer(downloadable=False)
         self.btn_store = ipw.Button(description='Store in AiiDA', disabled=True)
         self.btn_store.on_click(self._on_click_store)
 
+        # Description that will is stored along with the new structure.
         self.structure_description = ipw.Text(placeholder="Description (optional)")
         self.structure_description.observe(self.reset_structure, names=['value'])
 
+        # Select format to store in the AiiDA database.
         self.data_format = ipw.RadioButtons(options=self.DATA_FORMATS, description='Data type:')
         self.data_format.observe(self.reset_structure, names=['value'])
 
         if len(importers) == 1:
-            # If there is only one importer - no need to make tabs
+            # If there is only one importer - no need to make tabs.
             self._structure_sources_tab = importers[0][1]
-            importers[0][
-                1].on_structure_selection = self.select_structure  # Very important - assigning a function which
-            # will be called when a structure will be provided by an importer
+            # Assigning a function which will be called when importer provides a structure.
+            importers[0][1].on_structure_selection = self.select_structure
         else:
-            self._structure_sources_tab = ipw.Tab()  # tabs
-            self._structure_sources_tab.children = [i[1] for i in importers]  # Importer per tab
+            self._structure_sources_tab = ipw.Tab()  # Tabs.
+            self._structure_sources_tab.children = [i[1] for i in importers]  # One importer per tab.
             for i, (label, importer) in enumerate(importers):
-                self._structure_sources_tab.set_title(i, label)  # Labeling tabs
-                importer.on_structure_selection = self.select_structure  # Very important - assigning a function which
-            # will be called when a structure will be provided by an importer
+                # Labeling tabs.
+                self._structure_sources_tab.set_title(i, label)
+                # Assigning a function which will be called when importer provides a structure.
+                importer.on_structure_selection = self.select_structure
 
         if storable:
             if node_class is None:
@@ -95,6 +93,7 @@ class StructureManagerWidget(ipw.VBox):  # pylint: disable=too-many-instance-att
         if self.frozen:
             return
         self._structure_node = None
+        self.viewer.structure = None
 
     def select_structure(self, structure_ase, name):
         """Select structure
@@ -102,8 +101,8 @@ class StructureManagerWidget(ipw.VBox):  # pylint: disable=too-many-instance-att
         :param structure_ase: ASE object containing structure
         :type structure_ase: ASE Atoms
         :param name: File name with extension but without path
-        :type name: str
-        """
+        :type name: str"""
+
         if self.frozen:
             return
         self._structure_node = None
@@ -112,33 +111,15 @@ class StructureManagerWidget(ipw.VBox):  # pylint: disable=too-many-instance-att
             self.has_structure = False
             self.structure_ase = None
             self.structure_description.value = ''
-
             self.reset_structure()
-            self.refresh_view()
             return
         self.btn_store.disabled = False
         self.has_structure = True
-        self.structure_description.value = self.get_description(structure_ase, name)
+        self.structure_description.value = "{} ({})".format(structure_ase.get_chemical_formula(), name)
         self.structure_ase = structure_ase
-        self.refresh_view()
+        self.viewer.structure = structure_ase
 
-    @staticmethod
-    def get_description(structure_ase, name):
-        formula = structure_ase.get_chemical_formula()
-        return "{} ({})".format(formula, name)
-
-    def refresh_view(self):
-        """Reset the structure view."""
-        viewer = self.viewer
-        for comp_id in viewer._ngl_component_ids:  # pylint: disable=protected-access
-            viewer.remove_component(comp_id)
-        if self.structure_ase is None:
-            return
-        viewer.add_component(nglview.ASEStructure(self.structure_ase))  # adds ball+stick
-        viewer.add_unitcell()  # pylint: disable=no-member
-
-    # pylint: disable=unused-argument
-    def _on_click_store(self, change):
+    def _on_click_store(self, change):  # pylint: disable=unused-argument
         self.store_structure()
 
     def store_structure(self, label=None, description=None):
@@ -197,6 +178,8 @@ class StructureUploadWidget(ipw.VBox):
     """Class that allows to upload structures from user's computer."""
 
     def __init__(self, text="Upload Structure"):
+        from fileupload import FileUploadWidget
+
         self.on_structure_selection = lambda structure_ase, name: None
         self.file_path = None
         self.file_upload = FileUploadWidget(text)
