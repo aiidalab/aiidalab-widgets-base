@@ -62,12 +62,14 @@ class StructureDataVisualizer(ipw.VBox):
 
     def __init__(self, structure=None, downloadable=True, **kwargs):
 
-        self.viewer = nglview.NGLWidget()
+        self._structure = None
+        self._name = None
+        self._viewer = nglview.NGLWidget()
 
         if structure:
-            self.update_structure(structure)
+            self.structure = structure
 
-        children = [self.viewer]
+        children = [self._viewer]
         if downloadable:
             self.file_format = ipw.Dropdown(
                 options=['xyz', 'cif', 'png'],
@@ -78,26 +80,42 @@ class StructureDataVisualizer(ipw.VBox):
             children.append(ipw.HBox([self.file_format, self.download_btn]))
         super().__init__(children, **kwargs)
 
-    def update_structure(self, structure):
-        """Update structure.
+    @property
+    def structure(self):
+        """Returns ASE Atoms object."""
+        return self._structure
+
+    @structure.setter
+    def structure(self, structure):
+        """Set structure to visualize
+
         :param structure: Structure to be visualized
         :type structure: StructureData, CifData, Atoms (ASE)"""
+        from aiida.orm import Node
         from ase import Atoms
-        self._structure = structure if isinstance(structure, Atoms) else structure.get_ase()
-        self.refresh_view()
 
-    def reset_view(self):
-        """Reset the structure view."""
-        # Note: viewer.clear() only removes the 1st component
-        # pylint: disable=protected-access
-        for comp_id in self.viewer._ngl_component_ids:
-            self.viewer.remove_component(comp_id)
+        # Remove the current structure(s) from the viewer.
+        for comp_id in self._viewer._ngl_component_ids:  # pylint: disable=protected-access
+            self._viewer.remove_component(comp_id)
 
-    def refresh_view(self):
-        """Refresh the structure view."""
-        self.reset_view()
-        self.viewer.add_component(nglview.ASEStructure(self._structure))  # adds ball+stick
-        self.viewer.add_unitcell()  # pylint: disable=no-member
+        # We keep the structure as ASE Atoms object. If the object is not ASE, we convert to it.
+        if isinstance(structure, Atoms):
+            self._structure = structure
+            self._name = structure.get_chemical_formula()
+        elif isinstance(structure, Node):
+            self._structure = structure.get_ase()
+            self._name = structure.id
+        elif structure is None:
+            self._structure = None
+            self._name = None
+            return  # if no structure provided, the rest of the code can be skipped
+        else:
+            raise ValueError("Unsupported type {}, structure must be one of the following types: "
+                             "ASE Atoms object, AiiDA CifData or StructureData.")
+
+        # Add new structure to the viewer.
+        self._viewer.add_component(nglview.ASEStructure(self._structure))  # adds ball+stick
+        self._viewer.add_unitcell()  # pylint: disable=no-member
 
     def download(self, change=None):  # pylint: disable=unused-argument
         """Prepare a structure for downloading."""
@@ -110,8 +128,7 @@ class StructureDataVisualizer(ipw.VBox):
             document.body.appendChild(link);
             link.click();
             document.body.removeChild(link);
-            """.format(payload=self._prepare_payload(),
-                       filename=str(self._structure.id) + '.' + self.file_format.value))
+            """.format(payload=self._prepare_payload(), filename=str(self._name) + '.' + self.file_format.value))
         display(javas)
 
     def _prepare_payload(self, file_format=None):
