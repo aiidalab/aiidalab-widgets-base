@@ -9,12 +9,12 @@ import nglview
 
 
 def viewer(obj, downloadable=True, **kwargs):
-    """Display AiiDA data types in Jupyter notebooks.
+    """Display AiiDA data types in Jupyter notebooks
 
-    :param downloadable: If True, add link/button to download content of displayed AiiDA object.
+    :param downloadable: If True, add link/button to download the content of displayed AiiDA object.
     :type downloadable: bool
 
-    Returns the object itself if the viewer wasn't fond."""
+    Returns the object itself if the viewer wasn't found."""
 
     try:
         _viewer = AIIDA_VIEWER_MAPPING[obj.node_type]
@@ -24,9 +24,9 @@ def viewer(obj, downloadable=True, **kwargs):
 
 
 class DictViewer(ipw.HTML):
-    """Viewer class for ParameterData object.
+    """Viewer class for Dict object
 
-    :param parameter: Dict object to be visualized
+    :param parameter: Dict object to be viewed
     :type parameter: Dict
     :param downloadable: If True, add link/button to download the content of the object
     :type downloadable: bool"""
@@ -64,9 +64,9 @@ class DictViewer(ipw.HTML):
 
 
 class StructureDataViewer(ipw.VBox):
-    """Viewer class for structure object.
+    """Viewer class for structure object
 
-    :param structure: structure object to be visualized
+    :param structure: structure object to be viewed
     :type structure: StructureData or CifData
     :param downloadable: If True, add link/button to download the content of the object
     :type downloadable: bool"""
@@ -161,7 +161,7 @@ class StructureDataViewer(ipw.VBox):
 class FolderDataViewer(ipw.VBox):
     """Viewer class for FolderData object.
 
-    :param folder: FolderData object to be visualized
+    :param folder: FolderData object to be viewed
     :type folder: FolderData
     :param downloadable: If True, add link/button to download the content of the selected file in the folder
     :type downloadable: bool"""
@@ -212,7 +212,7 @@ class FolderDataViewer(ipw.VBox):
 class BandsDataViewer(ipw.VBox):
     """Viewer class for BandsData object
 
-    :param bands: BandsData object to be visualized
+    :param bands: BandsData object to be viewed
     :type bands: BandsData"""
 
     def __init__(self, bands, **kwargs):
