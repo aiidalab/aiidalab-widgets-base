@@ -1,4 +1,4 @@
-"""Jupyter visualisers for different types of data."""
+"""Jupyter viewers for AiiDA data objects."""
 from __future__ import print_function
 from __future__ import absolute_import
 
@@ -9,24 +9,30 @@ import nglview
 
 
 def viewer(obj, downloadable=True, **kwargs):
-    """Display AiiDA data types in Jupyter notebooks.
+    """Display AiiDA data types in Jupyter notebooks
 
-    :param downloadable: If True, add link/button to download content of displayed AiiDA object.
+    :param downloadable: If True, add link/button to download the content of displayed AiiDA object.
+    :type downloadable: bool
 
-    Defers to IPython.display.display for any objects it does not recognize."""
+    Returns the object itself if the viewer wasn't found."""
 
     try:
-        visualizer = AIIDA_VISUALIZER_MAPPING[obj.node_type]
-        return visualizer(obj, downloadable=downloadable, **kwargs)
+        _viewer = AIIDA_VIEWER_MAPPING[obj.node_type]
+        return _viewer(obj, downloadable=downloadable, **kwargs)
     except (AttributeError, KeyError):
         return obj
 
 
-class DictVisualizer(ipw.HTML):
-    """Visualizer class for ParameterData object"""
+class DictViewer(ipw.HTML):
+    """Viewer class for Dict object
+
+    :param parameter: Dict object to be viewed
+    :type parameter: Dict
+    :param downloadable: If True, add link/button to download the content of the object
+    :type downloadable: bool"""
 
     def __init__(self, parameter, downloadable=True, **kwargs):
-        super(DictVisualizer, self).__init__(**kwargs)
+        super().__init__(**kwargs)
         import pandas as pd
         # Here we are defining properties of 'df' class (specified while exporting pandas table into html).
         # Since the exported object is nothing more than HTML table, all 'standard' HTML table settings
@@ -57,8 +63,13 @@ class DictVisualizer(ipw.HTML):
             self.value += to_add.format(filename=fname, payload=payload, title=fname)
 
 
-class StructureDataVisualizer(ipw.VBox):
-    """Visualizer class for StructureData object."""
+class StructureDataViewer(ipw.VBox):
+    """Viewer class for structure object
+
+    :param structure: structure object to be viewed
+    :type structure: StructureData or CifData
+    :param downloadable: If True, add link/button to download the content of the object
+    :type downloadable: bool"""
 
     def __init__(self, structure=None, downloadable=True, **kwargs):
 
@@ -87,9 +98,9 @@ class StructureDataVisualizer(ipw.VBox):
 
     @structure.setter
     def structure(self, structure):
-        """Set structure to visualize
+        """Set structure to view
 
-        :param structure: Structure to be visualized
+        :param structure: Structure to be viewed
         :type structure: StructureData, CifData, Atoms (ASE)"""
         from aiida.orm import Node
         from ase import Atoms
@@ -147,8 +158,13 @@ class StructureDataVisualizer(ipw.VBox):
         return self._prepare_payload(file_format='png')
 
 
-class FolderDataVisualizer(ipw.VBox):
-    """Visualizer class for FolderData object"""
+class FolderDataViewer(ipw.VBox):
+    """Viewer class for FolderData object
+
+    :param folder: FolderData object to be viewed
+    :type folder: FolderData
+    :param downloadable: If True, add link/button to download the content of the selected file in the folder
+    :type downloadable: bool"""
 
     def __init__(self, folder, downloadable=True, **kwargs):
         self._folder = folder
@@ -170,7 +186,7 @@ class FolderDataVisualizer(ipw.VBox):
             self.download_btn = ipw.Button(description="Download")
             self.download_btn.on_click(self.download)
             children.append(self.download_btn)
-        super(FolderDataVisualizer, self).__init__(children, **kwargs)
+        super().__init__(children, **kwargs)
 
     def change_file_view(self, change=None):  # pylint: disable=unused-argument
         with self._folder.open(self.files.value) as fobj:
@@ -181,7 +197,7 @@ class FolderDataVisualizer(ipw.VBox):
         import base64
         from IPython.display import Javascript
 
-        payload = base64.b64encode(self._folder.get_object_content(self.files.value)).decode()
+        payload = base64.b64encode(self._folder.get_object_content(self.files.value).encode()).decode()
         javas = Javascript("""
             var link = document.createElement('a');
             link.href = "data:;base64,{payload}"
@@ -193,8 +209,11 @@ class FolderDataVisualizer(ipw.VBox):
         display(javas)
 
 
-class BandsDataVisualizer(ipw.VBox):
-    """Visualizer class for BandsData object"""
+class BandsDataViewer(ipw.VBox):
+    """Viewer class for BandsData object
+
+    :param bands: BandsData object to be viewed
+    :type bands: BandsData"""
 
     def __init__(self, bands, **kwargs):
         from bokeh.io import show, output_notebook
@@ -203,8 +222,7 @@ class BandsDataVisualizer(ipw.VBox):
         output_notebook(hide_banner=True)
         out = ipw.Output()
         with out:
-            plot_info = bands._get_bandplot_data(  # pylint: disable=protected-access
-                cartesian=True, join_symbol="|")
+            plot_info = bands._get_bandplot_data(cartesian=True, join_symbol="|")  # pylint: disable=protected-access
             # Extract relevant data
             y_data = plot_info['y'].transpose().tolist()
             x_data = [plot_info['x'] for i in range(len(y_data))]
@@ -220,13 +238,13 @@ class BandsDataVisualizer(ipw.VBox):
                 [Span(location=l[0], dimension='height', line_color='black', line_width=3) for l in labels])
             show(plot)
         children = [out]
-        super(BandsDataVisualizer, self).__init__(children, **kwargs)
+        super().__init__(children, **kwargs)
 
 
-AIIDA_VISUALIZER_MAPPING = {
-    'data.dict.Dict.': DictVisualizer,
-    'data.structure.StructureData.': StructureDataVisualizer,
-    'data.cif.CifData.': StructureDataVisualizer,
-    'data.folder.FolderData.': FolderDataVisualizer,
-    'data.array.bands.BandsData.': BandsDataVisualizer,
+AIIDA_VIEWER_MAPPING = {
+    'data.dict.Dict.': DictViewer,
+    'data.structure.StructureData.': StructureDataViewer,
+    'data.cif.CifData.': StructureDataViewer,
+    'data.folder.FolderData.': FolderDataViewer,
+    'data.array.bands.BandsData.': BandsDataViewer,
 }
