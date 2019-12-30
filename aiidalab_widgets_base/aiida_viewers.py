@@ -5,6 +5,7 @@ from __future__ import absolute_import
 import ipywidgets as ipw
 from six.moves import range
 from IPython.display import display
+import nglview
 
 
 def viewer(obj, downloadable=True, **kwargs):
@@ -57,15 +58,18 @@ class DictVisualizer(ipw.HTML):
 
 
 class StructureDataVisualizer(ipw.VBox):
-    """Visualizer class for StructureData object"""
+    """Visualizer class for StructureData object."""
 
-    def __init__(self, structure, downloadable=True, **kwargs):
-        import nglview
-        self._structure = structure
-        nglviewer = nglview.NGLWidget()
-        nglviewer.add_component(nglview.ASEStructure(self._structure.get_ase()))  # adds ball+stick
-        nglviewer.add_unitcell()  # pylint: disable=no-member
-        children = [nglviewer]
+    def __init__(self, structure=None, downloadable=True, **kwargs):
+
+        self._structure = None
+        self._name = None
+        self._viewer = nglview.NGLWidget()
+
+        if structure:
+            self.structure = structure
+
+        children = [self._viewer]
         if downloadable:
             self.file_format = ipw.Dropdown(
                 options=['xyz', 'cif', 'png'],
@@ -74,7 +78,44 @@ class StructureDataVisualizer(ipw.VBox):
             self.download_btn = ipw.Button(description="Download")
             self.download_btn.on_click(self.download)
             children.append(ipw.HBox([self.file_format, self.download_btn]))
-        super(StructureDataVisualizer, self).__init__(children, **kwargs)
+        super().__init__(children, **kwargs)
+
+    @property
+    def structure(self):
+        """Returns ASE Atoms object."""
+        return self._structure
+
+    @structure.setter
+    def structure(self, structure):
+        """Set structure to visualize
+
+        :param structure: Structure to be visualized
+        :type structure: StructureData, CifData, Atoms (ASE)"""
+        from aiida.orm import Node
+        from ase import Atoms
+
+        # Remove the current structure(s) from the viewer.
+        for comp_id in self._viewer._ngl_component_ids:  # pylint: disable=protected-access
+            self._viewer.remove_component(comp_id)
+
+        # We keep the structure as ASE Atoms object. If the object is not ASE, we convert to it.
+        if isinstance(structure, Atoms):
+            self._structure = structure
+            self._name = structure.get_chemical_formula()
+        elif isinstance(structure, Node):
+            self._structure = structure.get_ase()
+            self._name = structure.id
+        elif structure is None:
+            self._structure = None
+            self._name = None
+            return  # if no structure provided, the rest of the code can be skipped
+        else:
+            raise ValueError("Unsupported type {}, structure must be one of the following types: "
+                             "ASE Atoms object, AiiDA CifData or StructureData.")
+
+        # Add new structure to the viewer.
+        self._viewer.add_component(nglview.ASEStructure(self._structure))  # adds ball+stick
+        self._viewer.add_unitcell()  # pylint: disable=no-member
 
     def download(self, change=None):  # pylint: disable=unused-argument
         """Prepare a structure for downloading."""
@@ -87,8 +128,7 @@ class StructureDataVisualizer(ipw.VBox):
             document.body.appendChild(link);
             link.click();
             document.body.removeChild(link);
-            """.format(payload=self._prepare_payload(),
-                       filename=str(self._structure.id) + '.' + self.file_format.value))
+            """.format(payload=self._prepare_payload(), filename=str(self._name) + '.' + self.file_format.value))
         display(javas)
 
     def _prepare_payload(self, file_format=None):
@@ -98,7 +138,7 @@ class StructureDataVisualizer(ipw.VBox):
 
         file_format = file_format if file_format else self.file_format.value
         tmp = NamedTemporaryFile()
-        self._structure.get_ase().write(tmp.name, format=file_format)
+        self._structure.write(tmp.name, format=file_format)
         with open(tmp.name, 'rb') as raw:
             return base64.b64encode(raw.read()).decode()
 
