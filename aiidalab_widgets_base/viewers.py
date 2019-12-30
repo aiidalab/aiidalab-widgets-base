@@ -159,7 +159,7 @@ class StructureDataViewer(ipw.VBox):
 
 
 class FolderDataViewer(ipw.VBox):
-    """Viewer class for FolderData object.
+    """Viewer class for FolderData object
 
     :param folder: FolderData object to be viewed
     :type folder: FolderData
@@ -197,7 +197,7 @@ class FolderDataViewer(ipw.VBox):
         import base64
         from IPython.display import Javascript
 
-        payload = base64.b64encode(self._folder.get_object_content(self.files.value)).decode()
+        payload = base64.b64encode(self._folder.get_object_content(self.files.value).encode()).decode()
         javas = Javascript("""
             var link = document.createElement('a');
             link.href = "data:;base64,{payload}"
