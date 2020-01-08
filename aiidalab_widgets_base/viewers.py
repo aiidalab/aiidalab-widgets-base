@@ -1,8 +1,11 @@
 """Jupyter viewers for AiiDA data objects."""
+import base64
 
 import ipywidgets as ipw
 from IPython.display import display
 import nglview
+
+from .utils import find_ranges, string_range_to_set
 
 
 def viewer(obj, downloadable=True, **kwargs):
@@ -12,12 +15,23 @@ def viewer(obj, downloadable=True, **kwargs):
     :type downloadable: bool
 
     Returns the object itself if the viewer wasn't found."""
+    import inspect
+    import warnings
+    from aiida.orm import Node
+
+    if not (inspect.isclass(type(obj)) and issubclass(type(obj), Node)):  # only working with AiiDA nodes
+        warnings.warn("This viewer works only with AiiDA objects, got {}".format(type(obj)))
+        return obj
 
     try:
         _viewer = AIIDA_VIEWER_MAPPING[obj.node_type]
         return _viewer(obj, downloadable=downloadable, **kwargs)
-    except (AttributeError, KeyError):
-        return obj
+    except (KeyError) as exc:
+        if obj.node_type in str(exc):
+            warnings.warn("Did not find an appropriate viewer for the {} object. Returning the object "
+                          "itself.".format(type(obj)))
+            return obj
+        raise exc
 
 
 class DictViewer(ipw.HTML):
@@ -52,7 +66,6 @@ class DictViewer(ipw.HTML):
         self.value += dataf.to_html(classes='df', index=False)  # specify that exported table belongs to 'df' class
         # this is used to setup table's appearance using CSS
         if downloadable:
-            import base64
             payload = base64.b64encode(dataf.to_csv(index=False).encode()).decode()
             fname = '{}.csv'.format(parameter.pk)
             to_add = """Download table in csv format: <a download="{filename}"
@@ -68,25 +81,166 @@ class StructureDataViewer(ipw.VBox):
     :param downloadable: If True, add link/button to download the content of the object
     :type downloadable: bool"""
 
-    def __init__(self, structure=None, downloadable=True, **kwargs):
+    SELECTION_SIZE = 10
 
+    def __init__(self, structure=None, downloadable=True, **kwargs):
         self._structure = None
         self._name = None
         self._viewer = nglview.NGLWidget()
+        self._viewer.observe(self._on_atom_click, names='picked')
+        self._viewer.stage.set_parameters(mouse_preset='pymol')
+        self._viewer.layout = {'width': "65%"}
+        self._viewer.handle_resize()
+
+        layout = {"description_width": "initial", "width": "95%"}
+        center_button = ipw.Button(description="Center", layout=layout)
+        center_button.on_click(lambda c: self._viewer.center())
+
+        # Choose background color.
+        background_color = ipw.ColorPicker(description="Background", layout=layout)
+
+        def change_background(change):  # Note: change this to lambda when switched to python3.8
+            self._viewer.background = change['new']
+
+        background_color.observe(change_background, names="value")
+        background_color.value = 'white'
+
+        # Make screenshot.
+        screenshot = ipw.Button(description="Screenshot")
+        screenshot.on_click(lambda c: self._viewer.download_image())
+
+        # Selected atoms.
+        self._selected_atoms = ipw.Textarea(description='Selected atoms:',
+                                            value='',
+                                            style={'description_width': 'initial'})
+        self._selected_atoms.observe(self._apply_selection, names='value')
+        self.wrong_syntax = ipw.HTML(
+            value="""<i class="fa fa-times" style="color:red;font-size:2em;" ></i> wrong syntax""",
+            layout={'visibility': 'hidden'})
+        self._selection = set()
+        copy_selection_to_clipboard = ipw.Button(description="Copy to clipboard")
+        clear_selection = ipw.Button(description="Clear selection")
+        clear_selection.on_click(self.clear_selection)
+
+        def copy_to_clipboard(change=None):  # pylint:disable=unused-argument
+            from IPython.display import Javascript
+            javas = Javascript("""
+               function copyStringToClipboard (str) {{
+                   // Create new element
+                   var el = document.createElement('textarea');
+                   // Set value (string to be copied)
+                   el.value = str;
+                   // Set non-editable to avoid focus and move outside of view
+                   el.setAttribute('readonly', '');
+                   el.style = {{position: 'absolute', left: '-9999px'}};
+                   document.body.appendChild(el);
+                   // Select text inside element
+                   el.select();
+                   // Copy text to clipboard
+                   document.execCommand('copy');
+                   // Remove temporary element
+                   document.body.removeChild(el);
+                }}
+                copyStringToClipboard("{selection}");
+           """.format(selection=self.shortened_selection))  # for the moment works for Chrome,
+            # but doesn't work for Firefox
+            display(javas)
+
+        copy_selection_to_clipboard.on_click(copy_to_clipboard)
+
+        # Camera type.
+        camera_type = ipw.ToggleButtons(options={
+            'Orthographic': 'orthographic',
+            'Perspective': 'perspective'
+        },
+                                        description='Camera type:',
+                                        layout=layout,
+                                        style={'button_width': '115.5px'},
+                                        orientation='vertical')
+
+        def change_camera(change):
+            self._viewer.camera = change['new']
+
+        camera_type.observe(change_camera, names="value")
 
         if structure:
             self.structure = structure
 
-        children = [self._viewer]
+        children = [
+            ipw.HBox([
+                self._viewer,
+                ipw.VBox(
+                    [
+                        center_button, background_color, screenshot, camera_type, self._selected_atoms,
+                        self.wrong_syntax,
+                        ipw.HBox([copy_selection_to_clipboard, clear_selection])
+                    ],
+                    layout={"width": "35%"},
+                )
+            ],
+                     display='flex')
+        ]
         if downloadable:
             self.file_format = ipw.Dropdown(
-                options=['xyz', 'cif', 'png'],
+                options=[
+                    'xyz',
+                    'cif',
+                ],
                 description="File format:",
             )
             self.download_btn = ipw.Button(description="Download")
             self.download_btn.on_click(self.download)
             children.append(ipw.HBox([self.file_format, self.download_btn]))
+
+        if 'children' in kwargs:
+            children += kwargs.pop('children')
+
         super().__init__(children, **kwargs)
+
+    def _on_atom_click(self, change=None):  # pylint:disable=unused-argument
+        """Update selection when clicked on atom."""
+        if 'atom1' not in self._viewer.picked.keys():
+            return  # did not click on atom
+
+        index = self._viewer.picked['atom1']['index']
+
+        if index not in self._selection:
+            self._selection.add(index)
+        else:
+            self._selection.discard(index)
+        self._selected_atoms.value = self.shortened_selection
+
+    def highlight_atoms(self, vis_list, color='red', size=0.2, opacity=0.6):
+        if not hasattr(self._viewer, "component_0"):
+            return
+        self._viewer._remove_representations_by_name(repr_name='selected_atoms')  # pylint:disable=protected-access
+        self._viewer.add_ball_and_stick(  # pylint:disable=no-member
+            name="selected_atoms",
+            selection=vis_list,
+            color=color,
+            aspectRatio=size,
+            opacity=opacity)
+
+    def _apply_selection(self, change=None):  # pylint:disable=unused-argument
+        """Apply selection specified in the text area."""
+        short_selection = change['new']
+        self._selection, syntax_ok = string_range_to_set(short_selection)
+        if syntax_ok:
+            self.wrong_syntax.layout.visibility = 'hidden'
+            self.highlight_atoms(self._selection, color='green', size=8, opacity=0.2)
+        else:
+            self.wrong_syntax.layout.visibility = 'visible'
+
+    def clear_selection(self, change=None):  # pylint:disable=unused-argument
+        self._viewer._remove_representations_by_name(repr_name='selected_atoms')  # pylint:disable=protected-access
+        self._selection = set()
+        self._selected_atoms.value = self.shortened_selection
+
+    @property
+    def shortened_selection(self):
+        return " ".join([
+            str(t) if isinstance(t, int) else "{}..{}".format(t[0], t[1]) for t in find_ranges(sorted(self._selection))
+        ])
 
     @property
     def structure(self):
@@ -124,11 +278,16 @@ class StructureDataViewer(ipw.VBox):
         # Add new structure to the viewer.
         self._viewer.add_component(nglview.ASEStructure(self._structure))  # adds ball+stick
         self._viewer.add_unitcell()  # pylint: disable=no-member
+        self.clear_selection()
 
     def download(self, change=None):  # pylint: disable=unused-argument
         """Prepare a structure for downloading."""
-        from IPython.display import Javascript
+        self._download(payload=self._prepare_payload(), filename=str(self._name) + '.' + self.file_format.value)
 
+    @staticmethod
+    def _download(payload, filename):
+        """Download payload as a file named as filename."""
+        from IPython.display import Javascript
         javas = Javascript("""
             var link = document.createElement('a');
             link.href = "data:;base64,{payload}"
@@ -136,12 +295,11 @@ class StructureDataViewer(ipw.VBox):
             document.body.appendChild(link);
             link.click();
             document.body.removeChild(link);
-            """.format(payload=self._prepare_payload(), filename=str(self._name) + '.' + self.file_format.value))
+            """.format(payload=payload, filename=filename))
         display(javas)
 
     def _prepare_payload(self, file_format=None):
         """Prepare binary information."""
-        import base64
         from tempfile import NamedTemporaryFile
 
         file_format = file_format if file_format else self.file_format.value
@@ -191,7 +349,6 @@ class FolderDataViewer(ipw.VBox):
 
     def download(self, change=None):  # pylint: disable=unused-argument
         """Prepare for downloading."""
-        import base64
         from IPython.display import Javascript
 
         payload = base64.b64encode(self._folder.get_object_content(self.files.value).encode()).decode()
