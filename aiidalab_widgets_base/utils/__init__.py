@@ -2,6 +2,7 @@
 
 from __future__ import absolute_import
 from __future__ import print_function
+from six.moves import range
 
 
 def valid_arguments(arguments, valid_args):
@@ -42,3 +43,29 @@ def get_ase_from_file(fname):
     if len(traj) > 1:
         print(("Warning: Uploaded file {} contained more than one structure. I take the first one.".format(fname)))
     return traj[0]
+
+
+def find_ranges(iterable):
+    """Yield range of consecutive numbers."""
+    import more_itertools as mit
+    for group in mit.consecutive_groups(iterable):
+        group = list(group)
+        if len(group) == 1:
+            yield group[0]
+        else:
+            yield group[0], group[-1]
+
+
+def string_range_to_set(strng):
+    """Convert string like '1 3..5' into the set like {1, 3, 4, 5}."""
+    singles = [int(s) for s in strng.split() if s.isdigit()]
+    ranges = [r for r in strng.split() if '..' in r]
+    if len(singles) + len(ranges) != len(strng.split()):
+        return set(), False
+    for rng in ranges:
+        try:
+            start, end = rng.split('..')
+            singles += [i for i in range(int(start), int(end) + 1)]
+        except ValueError:
+            return set(), False
+    return set(singles), True
