@@ -83,14 +83,13 @@ class StructureDataViewer(ipw.VBox):
 
     SELECTION_SIZE = 10
 
-    def __init__(self, structure=None, downloadable=True, **kwargs):
+    def __init__(self, structure=None, downloadable=True, configure_view=True, **kwargs):
         self._structure = None
         self._name = None
         self._viewer = nglview.NGLWidget()
+        self._viewer.camera = 'orthographic'
         self._viewer.observe(self._on_atom_click, names='picked')
         self._viewer.stage.set_parameters(mouse_preset='pymol')
-        self._viewer.layout = {'width': "65%"}
-        self._viewer.handle_resize()
 
         layout = {"description_width": "initial", "width": "95%"}
         center_button = ipw.Button(description="Center", layout=layout)
@@ -154,6 +153,7 @@ class StructureDataViewer(ipw.VBox):
             'Perspective': 'perspective'
         },
                                         description='Camera type:',
+                                        value='orthographic',
                                         layout=layout,
                                         style={'button_width': '115.5px'},
                                         orientation='vertical')
@@ -165,21 +165,24 @@ class StructureDataViewer(ipw.VBox):
 
         if structure:
             self.structure = structure
-
-        children = [
-            ipw.HBox([
-                self._viewer,
-                ipw.VBox(
-                    [
-                        center_button, background_color, screenshot, camera_type, self._selected_atoms,
-                        self.wrong_syntax,
-                        ipw.HBox([copy_selection_to_clipboard, clear_selection])
-                    ],
-                    layout={"width": "35%"},
-                )
+        configuration = ipw.VBox(
+            [
+                center_button, background_color, screenshot, camera_type, self._selected_atoms, self.wrong_syntax,
+                ipw.HBox([copy_selection_to_clipboard, clear_selection])
             ],
-                     display='flex')
+            layout={"width": "35%"},
+        )
+
+        view_box = [
+            self._viewer,
         ]
+        if configure_view:
+            view_box.append(configuration)
+            self._viewer.layout = {'width': "65%"}
+            self._viewer.handle_resize()
+
+        children = [ipw.HBox(view_box, display='flex')]
+
         if downloadable:
             self.file_format = ipw.Dropdown(
                 options=[
@@ -237,6 +240,14 @@ class StructureDataViewer(ipw.VBox):
         self._selected_atoms.value = self.shortened_selection
 
     @property
+    def frame(self):
+        return self._viewer.frame
+
+    @frame.setter
+    def frame(self, frame):
+        self._viewer.frame = frame
+
+    @property
     def shortened_selection(self):
         return " ".join([
             str(t) if isinstance(t, int) else "{}..{}".format(t[0], t[1]) for t in find_ranges(sorted(self._selection))
@@ -245,7 +256,7 @@ class StructureDataViewer(ipw.VBox):
     @property
     def structure(self):
         """Returns ASE Atoms object."""
-        return self._structure
+        return self._structure[self.frame]
 
     @structure.setter
     def structure(self, structure):
@@ -261,28 +272,40 @@ class StructureDataViewer(ipw.VBox):
             self._viewer.remove_component(comp_id)
 
         # We keep the structure as ASE Atoms object. If the object is not ASE, we convert to it.
-        if isinstance(structure, Atoms):
-            self._structure = structure
-            self._name = structure.get_chemical_formula()
-        elif isinstance(structure, Node):
-            self._structure = structure.get_ase()
-            self._name = structure.id
-        elif structure is None:
-            self._structure = None
-            self._name = None
-            return  # if no structure provided, the rest of the code can be skipped
-        else:
-            raise ValueError("Unsupported type {}, structure must be one of the following types: "
-                             "ASE Atoms object, AiiDA CifData or StructureData.")
+        if isinstance(structure, (list, tuple)):
+            self._structure = []
+            for struct in structure:
+                if isinstance(struct, Atoms):
+                    self._structure.append(struct)
+                elif isinstance(struct, Node):
+                    self._structure.append(struct.get_ase())
+                else:
+                    ValueError("Unsupported type {}, structure must be one of the following types: "
+                               "ASE Atoms object, AiiDA CifData or StructureData.")
 
-        # Add new structure to the viewer.
-        self._viewer.add_component(nglview.ASEStructure(self._structure))  # adds ball+stick
+            # Keep the code below commented for a while.
+            #sys.stdout = open(os.devnull, 'w')  # disable print, because add_trajectory pollutes the output
+            self._viewer.add_trajectory(nglview.ASETrajectory(self._structure))  # adds ball+stick
+            #sys.stdout = sys.__stdout__  # enable print back
+        else:
+            if isinstance(structure, Atoms):
+                self._structure = structure
+            elif isinstance(structure, Node):
+                self._structure = structure.get_ase()
+            elif structure is None:
+                self._structure = None
+                return  # if no structure provided, the rest of the code can be skipped
+            else:
+                raise ValueError("Unsupported type {}, structure must be one of the following types: "
+                                 "ASE Atoms object, AiiDA CifData or StructureData.")
+            self._viewer.add_component(nglview.ASEStructure(self._structure))  # adds ball+stick
+
         self._viewer.add_unitcell()  # pylint: disable=no-member
         self.clear_selection()
 
     def download(self, change=None):  # pylint: disable=unused-argument
         """Prepare a structure for downloading."""
-        self._download(payload=self._prepare_payload(), filename=str(self._name) + '.' + self.file_format.value)
+        self._download(payload=self._prepare_payload(), filename='structure.' + self.file_format.value)
 
     @staticmethod
     def _download(payload, filename):
@@ -301,10 +324,9 @@ class StructureDataViewer(ipw.VBox):
     def _prepare_payload(self, file_format=None):
         """Prepare binary information."""
         from tempfile import NamedTemporaryFile
-
         file_format = file_format if file_format else self.file_format.value
         tmp = NamedTemporaryFile()
-        self._structure.write(tmp.name, format=file_format)
+        self.structure.write(tmp.name, format=file_format)
         with open(tmp.name, 'rb') as raw:
             return base64.b64encode(raw.read()).decode()
 
