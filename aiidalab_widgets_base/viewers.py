@@ -121,31 +121,13 @@ class StructureDataViewer(ipw.VBox):
         clear_selection = ipw.Button(description="Clear selection")
         clear_selection.on_click(self.clear_selection)
 
-        def copy_to_clipboard(change=None):  # pylint:disable=unused-argument
-            from IPython.display import Javascript
-            javas = Javascript("""
-               function copyStringToClipboard (str) {{
-                   // Create new element
-                   var el = document.createElement('textarea');
-                   // Set value (string to be copied)
-                   el.value = str;
-                   // Set non-editable to avoid focus and move outside of view
-                   el.setAttribute('readonly', '');
-                   el.style = {{position: 'absolute', left: '-9999px'}};
-                   document.body.appendChild(el);
-                   // Select text inside element
-                   el.select();
-                   // Copy text to clipboard
-                   document.execCommand('copy');
-                   // Remove temporary element
-                   document.body.removeChild(el);
-                }}
-                copyStringToClipboard("{selection}");
-           """.format(selection=self.shortened_selection))  # for the moment works for Chrome,
-            # but doesn't work for Firefox
-            display(javas)
+        from .utils import CopyToClipboardButton
 
-        copy_selection_to_clipboard.on_click(copy_to_clipboard)
+        def provide_selection():
+            return self.shortened_selection
+
+        copy_selection_to_clipboard = CopyToClipboardButton(description="Copy to clipboard",
+                                                            text_provider_function=provide_selection)
 
         # Camera type.
         camera_type = ipw.ToggleButtons(options={
