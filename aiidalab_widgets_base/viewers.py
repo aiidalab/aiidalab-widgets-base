@@ -256,7 +256,7 @@ class StructureDataViewer(ipw.VBox):
     @property
     def structure(self):
         """Returns ASE Atoms object."""
-        return self._structure[self.frame]
+        return self._structure[self.frame] if isinstance(self._structure, list) else self._structure
 
     @structure.setter
     def structure(self, structure):
