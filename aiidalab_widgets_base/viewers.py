@@ -342,84 +342,91 @@ class TrajectoryDataViewer(ipw.VBox):
     """Viewer class for TrajectoryData object."""
 
     def __init__(self, trajectory, downloadable=True, **kwargs):
-        from bokeh.io import show, output_notebook
-        from bokeh.plotting import figure
-
-        output_notebook(hide_banner=True)
+        import bqplot.pyplot as plt
 
         # TrajectoryData object from AiiDA
         self._trajectory = trajectory
+        self._frames = len(self._trajectory.get_stepids())
+        self._structures = [trajectory.get_step_structure(i) for i in range(self._frames)]
 
-        # Bokeh plot
-        self._bokeh_plot = figure(plot_width=250, plot_height=250)
+        # Plot object.
+        self._plot = plt.figure(title="plot", layout={"width": "99%"})
 
-        # Trajectory navigator
+        # Trajectory navigator.
         self._step_selector = ipw.IntSlider(
             value=0,
             min=0,
-            max=len(self._trajectory.get_stepids()) - 1,
+            max=self._frames - 1,
         )
-        self._step_selector.observe(self.update, names="value")
+        self._step_selector.observe(self.update_selection, names="value")
 
-        # Property to plot
+        # Property to plot.
         self._property_selector = ipw.Dropdown(
             options=trajectory.get_arraynames(),
             value='energy',
             description="Value to plot:",
         )
-        self._property_selector.observe(self.update, names="value")
+        self._property_selector.observe(self.update_all, names="value")
 
-        # Inserting data into the plot
+        # Preparing scales.
         x_data = self._trajectory.get_stepids()
 
-        self._bokeh_plot_line = self._bokeh_plot.line(x_data,
-                                                      self._trajectory.get_array(
-                                                          self._property_selector.value)[:len(x_data)],
-                                                      line_width=2,
-                                                      line_color='red')
+        self._plot_line = plt.plot(x_data, self._trajectory.get_array(self._property_selector.value)[:len(x_data)])
+        self._plot_circle = plt.scatter(x_data, self._trajectory.get_array(self._property_selector.value)[:len(x_data)])
 
-        self._bokeh_plot_circle = self._bokeh_plot.circle(
+        on_plot_click_global = self.update_selection_from_plot
+
+        def update_selection(self, change):
+            on_plot_click_global(self, change)
+
+        self._plot_circle.on_element_click(update_selection)
+
+        self._plot_select_circle = plt.scatter(
             [self._trajectory.get_stepids()[self._step_selector.value]],
             [self._trajectory.get_array(self._property_selector.value)[self._step_selector.value]],
-            radius=0.5,
-            line_alpha=0.6)
+            stroke='red',
+        )
 
-        # Structure viewer
-        self._struct_viewer = StructureDataViewer(trajectory.get_step_structure(self._step_selector.value),
-                                                  downloadable=downloadable)
+        self._plot.axes[1].tick_format = "0.3g"
+        self.message = ipw.HTML()
 
-        self._plot = ipw.Output()
-        display(self._plot)
+        # Structure viewer.
+        self._struct_viewer = StructureDataViewer(self._structures,
+                                                  downloadable=downloadable,
+                                                  configure_view=False,
+                                                  layout={"width": "50%"})
+
         children = [
-            ipw.HBox([self._struct_viewer, ipw.VBox([self._plot, self._property_selector])]),
+            ipw.HBox([self._struct_viewer,
+                      ipw.VBox([self._plot, self._property_selector], layout={"width": "50%"})]),
             self._step_selector,
+            self.message,
         ]
-
-        #with self._plot:
-        show(self._bokeh_plot, notebook_handle=True)
-
-        self.update()
 
         super().__init__(children, **kwargs)
 
-    def update(self, change=None):  # pylint: disable=unused-argument
+    def update_all(self, change=None):  # pylint: disable=unused-argument
         """Update the data plot."""
-
-        from bokeh.io import push_notebook
-        self._struct_viewer.structure = self._trajectory.get_step_structure(self._step_selector.value)
-
         x_data = self._trajectory.get_stepids()
 
-        self._bokeh_plot_circle.data_source.data['x'] = [self._trajectory.get_stepids()[self._step_selector.value]]
-        self._bokeh_plot_circle.data_source.data['y'] = [
+        self._plot_circle.x = x_data
+        self._plot_circle.y = self._trajectory.get_array(self._property_selector.value)[:len(x_data)]
+
+        self._plot_line.x = x_data
+        self._plot_line.y = self._trajectory.get_array(self._property_selector.value)[:len(x_data)]
+
+        self.update_selection()
+
+    def update_selection(self, change=None):  # pylint: disable=unused-argument
+        """Update selected point only."""
+        self._struct_viewer.frame = self._step_selector.value
+        self._plot_select_circle.x = [self._trajectory.get_stepids()[self._step_selector.value]]
+        self._plot_select_circle.y = [
             self._trajectory.get_array(self._property_selector.value)[self._step_selector.value]
         ]
 
-        self._bokeh_plot_line.data_source.data['x'] = x_data
-        self._bokeh_plot_line.data_source.data['y'] = self._trajectory.get_array(
-            self._property_selector.value)[:len(x_data)]
-        #self._bokeh_plot.update()
-        push_notebook()
+    def update_selection_from_plot(self, _, selected_point):
+        self._step_selector.value = selected_point['data']['index']
 
 
 class FolderDataViewer(ipw.VBox):
