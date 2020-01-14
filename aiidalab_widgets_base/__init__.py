@@ -1,6 +1,5 @@
 """Reusable widgets for AiiDA lab applications."""
 # pylint: disable=unused-import
-from __future__ import absolute_import
 from aiida import load_profile
 load_profile()
 

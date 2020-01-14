@@ -1,5 +1,4 @@
 """Widgets to manage AiiDA export."""
-from __future__ import absolute_import
 import os
 from ipywidgets import Button
 from IPython.display import display

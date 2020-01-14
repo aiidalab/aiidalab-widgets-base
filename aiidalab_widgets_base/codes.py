@@ -1,7 +1,5 @@
 """Module to manage AiiDA codes."""
-from __future__ import print_function
 
-from __future__ import absolute_import
 from subprocess import check_output
 
 import ipywidgets as ipw

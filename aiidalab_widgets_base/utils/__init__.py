@@ -1,8 +1,5 @@
 """Some utility functions used acrross the repository."""
 
-from __future__ import absolute_import
-from __future__ import print_function
-
 
 def valid_arguments(arguments, valid_args):
     """Check whether provided arguments are valid."""

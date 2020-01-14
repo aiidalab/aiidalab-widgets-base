@@ -1,6 +1,4 @@
 """Jupyter viewers for AiiDA data objects."""
-from __future__ import print_function
-from __future__ import absolute_import
 
 import ipywidgets as ipw
 from IPython.display import display
