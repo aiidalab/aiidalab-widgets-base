@@ -2,6 +2,7 @@
 
 import ipywidgets as ipw
 
+
 def valid_arguments(arguments, valid_args):
     """Check whether provided arguments are valid."""
     result = {}
@@ -38,7 +39,7 @@ def get_ase_from_file(fname):
         print(("Could not read any information from the file {}".format(fname)))
         return False
     if len(traj) > 1:
-        print(("Warning: Uploaded file {} contained more than one structure. I take the first one.".format(fname)))
+        print(("Warning: Uploaded file {} contained more than one structure. Selecting the first one.".format(fname)))
     return traj[0]
 
 

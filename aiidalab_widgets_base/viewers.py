@@ -4,6 +4,10 @@ import base64
 import ipywidgets as ipw
 from IPython.display import display
 import nglview
+from ase import Atoms
+
+from traitlets import Instance, Int, List, Union, observe, validate
+from aiida.orm import Node
 
 from .utils import find_ranges, string_range_to_set
 
@@ -15,11 +19,8 @@ def viewer(obj, downloadable=True, **kwargs):
     :type downloadable: bool
 
     Returns the object itself if the viewer wasn't found."""
-    import inspect
     import warnings
-    from aiida.orm import Node
-
-    if not isinstance(obj, Node)):  # only working with AiiDA nodes
+    if not isinstance(obj, Node):  # only working with AiiDA nodes
         warnings.warn("This viewer works only with AiiDA objects, got {}".format(type(obj)))
         return obj
 
@@ -81,10 +82,15 @@ class StructureDataViewer(ipw.VBox):
     :param downloadable: If True, add link/button to download the content of the object
     :type downloadable: bool"""
 
-    SELECTION_SIZE = 10
+    frame = Int(0)
+    structure = Union([Instance(Atoms), Instance(Node)], allow_none=True)
+    trajectory = List()
+
+    DEFAULT_SELECTION_OPACITY = 0.2
+    DEFAULT_SELECTION_RADIUS = 6
+    DEFAULT_SELECTION_COLOR = 'green'
 
     def __init__(self, structure=None, downloadable=True, configure_view=True, **kwargs):
-        self._structure = None
         self._name = None
         self._viewer = nglview.NGLWidget()
         self._viewer.camera = 'orthographic'
@@ -123,11 +129,8 @@ class StructureDataViewer(ipw.VBox):
 
         from .utils import CopyToClipboardButton
 
-        def provide_selection():
-            return self.shortened_selection
-
         copy_selection_to_clipboard = CopyToClipboardButton(description="Copy to clipboard",
-                                                            text_provider_function=provide_selection)
+                                                            text_provider_function=self.shortened_selection)
 
         # Camera type.
         camera_type = ipw.ToggleButtons(options={
@@ -180,6 +183,8 @@ class StructureDataViewer(ipw.VBox):
         if 'children' in kwargs:
             children += kwargs.pop('children')
 
+        # Link traitlets
+        ipw.link((self, 'frame'), (self._viewer, 'frame'))
         super().__init__(children, **kwargs)
 
     def _on_atom_click(self, change=None):  # pylint:disable=unused-argument
@@ -193,9 +198,14 @@ class StructureDataViewer(ipw.VBox):
             self._selection.add(index)
         else:
             self._selection.discard(index)
-        self._selected_atoms.value = self.shortened_selection
+        self._selected_atoms.value = self.shortened_selection()
 
-    def highlight_atoms(self, vis_list, color='red', size=0.2, opacity=0.6):
+    def highlight_atoms(self,
+                        vis_list,
+                        color=DEFAULT_SELECTION_COLOR,
+                        size=DEFAULT_SELECTION_RADIUS,
+                        opacity=DEFAULT_SELECTION_OPACITY):
+        """Highlighting atoms according to the provided list."""
         if not hasattr(self._viewer, "component_0"):
             return
         self._viewer._remove_representations_by_name(repr_name='selected_atoms')  # pylint:disable=protected-access
@@ -212,78 +222,89 @@ class StructureDataViewer(ipw.VBox):
         self._selection, syntax_ok = string_range_to_set(short_selection)
         if syntax_ok:
             self.wrong_syntax.layout.visibility = 'hidden'
-            self.highlight_atoms(self._selection, color='green', size=8, opacity=0.2)
+            self.highlight_atoms(self._selection)
         else:
             self.wrong_syntax.layout.visibility = 'visible'
 
     def clear_selection(self, change=None):  # pylint:disable=unused-argument
         self._viewer._remove_representations_by_name(repr_name='selected_atoms')  # pylint:disable=protected-access
         self._selection = set()
-        self._selected_atoms.value = self.shortened_selection
+        self._selected_atoms.value = self.shortened_selection()
 
-    @property
-    def frame(self):
-        return self._viewer.frame
-
-    @frame.setter
-    def frame(self, frame):
-        self._viewer.frame = frame
-
-    @property
     def shortened_selection(self):
         return " ".join([
             str(t) if isinstance(t, int) else "{}..{}".format(t[0], t[1]) for t in find_ranges(sorted(self._selection))
         ])
 
-    @property
-    def structure(self):
-        """Returns ASE Atoms object."""
-        return self._structure[self.frame] if isinstance(self._structure, list) else self._structure
-
-    @structure.setter
-    def structure(self, structure):
+    @validate('structure')
+    def _valid_structure(self, change):  # pylint: disable=no-self-use
         """Set structure to view
 
         :param structure: Structure to be viewed
         :type structure: StructureData, CifData, Atoms (ASE)"""
-        from aiida.orm import Node
-        from ase import Atoms
 
+        structure = change['value']
+        if isinstance(structure, Atoms):
+            return structure
+        if isinstance(structure, Node):
+            return structure.get_ase()
+        if structure is None:
+            return None  # if no structure provided, the rest of the code can be skipped
+        raise ValueError("Unsupported type {}, structure must be one of the following types: "
+                         "ASE Atoms object, AiiDA CifData or StructureData.")
+
+    @observe('structure')
+    def _update_trajectory_frame(self, change):  # pylint: disable=unused-argument
+        """Update trajectory and frame attributes when structure was modified."""
+        with self.hold_trait_notifications():
+            if self.structure is None:
+                self.trajectory = []
+            else:
+                self.trajectory = [self.structure]
+
+    @observe('structure')
+    def _update_structure_view(self, change):  # pylint: disable=unused-argument
+        """Update structure view after structure was modified."""
         # Remove the current structure(s) from the viewer.
         for comp_id in self._viewer._ngl_component_ids:  # pylint: disable=protected-access
             self._viewer.remove_component(comp_id)
-
-        # We keep the structure as ASE Atoms object. If the object is not ASE, we convert to it.
-        if isinstance(structure, (list, tuple)):
-            self._structure = []
-            for struct in structure:
-                if isinstance(struct, Atoms):
-                    self._structure.append(struct)
-                elif isinstance(struct, Node):
-                    self._structure.append(struct.get_ase())
-                else:
-                    ValueError("Unsupported type {}, structure must be one of the following types: "
-                               "ASE Atoms object, AiiDA CifData or StructureData.")
-
-            # Keep the code below commented for a while.
-            #sys.stdout = open(os.devnull, 'w')  # disable print, because add_trajectory pollutes the output
-            self._viewer.add_trajectory(nglview.ASETrajectory(self._structure))  # adds ball+stick
-            #sys.stdout = sys.__stdout__  # enable print back
-        else:
-            if isinstance(structure, Atoms):
-                self._structure = structure
-            elif isinstance(structure, Node):
-                self._structure = structure.get_ase()
-            elif structure is None:
-                self._structure = None
-                return  # if no structure provided, the rest of the code can be skipped
-            else:
-                raise ValueError("Unsupported type {}, structure must be one of the following types: "
-                                 "ASE Atoms object, AiiDA CifData or StructureData.")
-            self._viewer.add_component(nglview.ASEStructure(self._structure))  # adds ball+stick
-
-        self._viewer.add_unitcell()  # pylint: disable=no-member
         self.clear_selection()
+        if self.structure is not None:
+            self._viewer.add_component(nglview.ASEStructure(self.structure))  # adds ball+stick
+            self._viewer.add_unitcell()  # pylint: disable=no-member
+
+    @validate('trajectory')
+    def _valid_trajectory(self, change):  # pylint: disable=no-self-use
+        """Validate trajectory."""
+        traj = []
+        for struct in change['value']:
+            if isinstance(struct, Atoms):
+                traj.append(struct)
+            elif isinstance(struct, Node):
+                traj.append(struct.get_ase())
+            else:
+                ValueError("Unsupported type {}, structure must be one of the following types: "
+                           "ASE Atoms object, AiiDA CifData or StructureData.")
+        return traj
+
+    @observe('trajectory')
+    def _update_structure_frame(self, change):
+        """Update structure and frame attributes when trajectory was modified."""
+        traj = change['new']
+        with self.hold_trait_notifications():
+            self.frame = 0
+            self.structure = traj[self.frame] if traj else None
+
+    @observe('trajectory')
+    def _update_trajectory_view(self, change):  # pylint: disable=unused-argument
+        """Update structure view after trajectory was modified."""
+        # Remove the current structure(s) from the viewer.
+        for comp_id in self._viewer._ngl_component_ids:  # pylint: disable=protected-access
+            self._viewer.remove_component(comp_id)
+        self.clear_selection()
+        if self.trajectory:
+            self._viewer.add_component(nglview.ASETrajectory(self.trajectory))  # adds ball+stick
+            self._viewer.add_unitcell()  # pylint: disable=no-member
 
     def download(self, change=None):  # pylint: disable=unused-argument
         """Prepare a structure for downloading."""
