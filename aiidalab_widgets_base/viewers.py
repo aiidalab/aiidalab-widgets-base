@@ -19,7 +19,7 @@ def viewer(obj, downloadable=True, **kwargs):
     import warnings
     from aiida.orm import Node
 
-    if not (inspect.isclass(type(obj)) and issubclass(type(obj), Node)):  # only working with AiiDA nodes
+    if not isinstance(obj, Node)):  # only working with AiiDA nodes
         warnings.warn("This viewer works only with AiiDA objects, got {}".format(type(obj)))
         return obj
 
