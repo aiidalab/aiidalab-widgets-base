@@ -10,7 +10,7 @@ from traitlets import Bool
 import ipywidgets as ipw
 
 from aiida.orm import CalcFunctionNode, CalcJobNode, Node, QueryBuilder, WorkChainNode, StructureData
-from .utils import get_ase_from_file
+from .utils import get_ase_from_file, requires_open_babel
 
 
 class StructureManagerWidget(ipw.VBox):  # pylint: disable=too-many-instance-attributes
@@ -358,6 +358,7 @@ class SmilesWidget(ipw.VBox):
 
     SPINNER = """<i class="fa fa-spinner fa-pulse" style="color:red;" ></i>"""
 
+    @requires_open_babel
     def __init__(self):
         self.smiles = ipw.Text()
         self.create_structure_btn = ipw.Button(description="Generate molecule", button_style='info')
@@ -380,9 +381,10 @@ class SmilesWidget(ipw.VBox):
         asemol.center()
         return asemol
 
+    @requires_open_babel
     def _optimize_mol(self, mol):
         """Optimize a molecule using force field (needed for complex SMILES)."""
-        from openbabel import pybel
+        from openbabel import pybel  # pylint:disable=import-error
 
         self.output.value = "Screening possible conformers {}".format(self.SPINNER)  #font-size:20em;
 
@@ -400,10 +402,11 @@ class SmilesWidget(ipw.VBox):
         f_f.GetCoordinates(mol.OBMol)
         self.output.value = ""
 
+    @requires_open_babel
     def _on_button_pressed(self, change):  # pylint: disable=unused-argument
         """Convert SMILES to ase structure when button is pressed."""
         self.output.value = ""
-        from openbabel import pybel
+        from openbabel import pybel  # pylint:disable=import-error
         if not self.smiles.value:
             return
 
