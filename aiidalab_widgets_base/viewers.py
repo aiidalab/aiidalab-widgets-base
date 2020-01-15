@@ -6,7 +6,7 @@ from IPython.display import display
 import nglview
 from ase import Atoms
 
-from traitlets import Instance, Int, List, Union, observe, validate
+from traitlets import Instance, Int, List, Union, observe
 from aiida.orm import Node
 
 from .utils import find_ranges, string_range_to_set
@@ -83,14 +83,14 @@ class StructureDataViewer(ipw.VBox):
     :type downloadable: bool"""
 
     frame = Int(0)
-    structure = Union([Instance(Atoms), Instance(Node)], allow_none=True)
-    trajectory = List()
+    _structure = Union([Instance(Atoms), Instance(Node)], allow_none=True)
+    _trajectory = List()
 
     DEFAULT_SELECTION_OPACITY = 0.2
     DEFAULT_SELECTION_RADIUS = 6
     DEFAULT_SELECTION_COLOR = 'green'
 
-    def __init__(self, structure=None, downloadable=True, configure_view=True, **kwargs):
+    def __init__(self, structure=None, trajectory=None, downloadable=True, configure_view=True, **kwargs):
         self._name = None
         self._viewer = nglview.NGLWidget()
         self._viewer.camera = 'orthographic'
@@ -148,8 +148,12 @@ class StructureDataViewer(ipw.VBox):
 
         camera_type.observe(change_camera, names="value")
 
+        if structure and trajectory:
+            raise ValueError("You should either provide structure or trajectory, not both of them.")
         if structure:
             self.structure = structure
+        if trajectory:
+            self.trajectory = trajectory
         configuration = ipw.VBox(
             [
                 center_button, background_color, screenshot, camera_type, self._selected_atoms, self.wrong_syntax,
@@ -236,48 +240,47 @@ class StructureDataViewer(ipw.VBox):
             str(t) if isinstance(t, int) else "{}..{}".format(t[0], t[1]) for t in find_ranges(sorted(self._selection))
         ])
 
-    @validate('structure')
-    def _valid_structure(self, change):  # pylint: disable=no-self-use
+    @property
+    def structure(self):
+        return self._structure
+
+    @structure.setter
+    def structure(self, structure):  # pylint: disable=no-self-use
         """Set structure to view
 
         :param structure: Structure to be viewed
         :type structure: StructureData, CifData, Atoms (ASE)"""
 
-        structure = change['value']
-        if isinstance(structure, Atoms):
-            return structure
-        if isinstance(structure, Node):
-            return structure.get_ase()
-        if structure is None:
-            return None  # if no structure provided, the rest of the code can be skipped
-        raise ValueError("Unsupported type {}, structure must be one of the following types: "
-                         "ASE Atoms object, AiiDA CifData or StructureData.")
-
-    @observe('structure')
-    def _update_trajectory_frame(self, change):  # pylint: disable=unused-argument
-        """Update trajectory and frame attributes when structure was modified."""
-        with self.hold_trait_notifications():
-            if self.structure is None:
-                self.trajectory = []
-            else:
-                self.trajectory = [self.structure]
-
-    @observe('structure')
-    def _update_structure_view(self, change):  # pylint: disable=unused-argument
-        """Update structure view after structure was modified."""
-        # Remove the current structure(s) from the viewer.
         for comp_id in self._viewer._ngl_component_ids:  # pylint: disable=protected-access
             self._viewer.remove_component(comp_id)
         self.clear_selection()
-        if self.structure is not None:
-            self._viewer.add_component(nglview.ASEStructure(self.structure))  # adds ball+stick
-            self._viewer.add_unitcell()  # pylint: disable=no-member
+        if isinstance(structure, Atoms):
+            self._structure = structure
+        elif isinstance(structure, Node):
+            self._structure = structure.get_ase()
+        elif structure is None:
+            self._structure = None
+            self._trajectory = []
+            return  # if no structure provided, the rest of the code can be skipped
+        else:
+            raise ValueError("Unsupported type {}, structure must be one of the following types: "
+                             "ASE Atoms object, AiiDA CifData or StructureData.")
+        self._viewer.add_component(nglview.ASEStructure(self.structure))  # adds ball+stick
+        self._viewer.add_unitcell()  # pylint: disable=no-member
+        self._trajectory = [self.structure]
 
-    @validate('trajectory')
-    def _valid_trajectory(self, change):  # pylint: disable=no-self-use
+    @property
+    def trajectory(self):
+        return self._trajectory
+
+    @trajectory.setter
+    def trajectory(self, trajectory):
         """Validate trajectory."""
+        for comp_id in self._viewer._ngl_component_ids:  # pylint: disable=protected-access
+            self._viewer.remove_component(comp_id)
+        self.clear_selection()
         traj = []
-        for struct in change['value']:
+        for struct in trajectory:
             if isinstance(struct, Atoms):
                 traj.append(struct)
             elif isinstance(struct, Node):
@@ -285,26 +288,14 @@ class StructureDataViewer(ipw.VBox):
             else:
                 ValueError("Unsupported type {}, structure must be one of the following types: "
                            "ASE Atoms object, AiiDA CifData or StructureData.")
-        return traj
+        self._trajectory = traj
+        self._structure = traj[self.frame] if traj else None
+        self._viewer.add_trajectory(nglview.ASETrajectory(traj))  # adds ball+stick
+        self._viewer.add_unitcell()  # pylint: disable=no-member
 
-    @observe('trajectory')
-    def _update_structure_frame(self, change):
-        """Update structure and frame attributes when trajectory was modified."""
-        traj = change['new']
-        with self.hold_trait_notifications():
-            self.frame = 0
-            self.structure = traj[self.frame] if traj else None
-
-    @observe('trajectory')
-    def _update_trajectory_view(self, change):  # pylint: disable=unused-argument
-        """Update structure view after trajectory was modified."""
-        # Remove the current structure(s) from the viewer.
-        for comp_id in self._viewer._ngl_component_ids:  # pylint: disable=protected-access
-            self._viewer.remove_component(comp_id)
-        self.clear_selection()
-        if self.trajectory:
-            self._viewer.add_component(nglview.ASETrajectory(self.trajectory))  # adds ball+stick
-            self._viewer.add_unitcell()  # pylint: disable=no-member
+    @observe('frame')
+    def _update_structure_on_frame_change(self, change):
+        self._structure = self._trajectory[change['new']]
 
     def download(self, change=None):  # pylint: disable=unused-argument
         """Prepare a structure for downloading."""
