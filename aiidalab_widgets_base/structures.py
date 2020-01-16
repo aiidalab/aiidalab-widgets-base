@@ -359,6 +359,14 @@ class SmilesWidget(ipw.VBox):
     SPINNER = """<i class="fa fa-spinner fa-pulse" style="color:red;" ></i>"""
 
     def __init__(self):
+        try:
+            import openbabel  # pylint: disable=unused-import
+        except ImportError:
+            super().__init__(
+                [ipw.HTML("The SmilesWidget requires the OpenBabel library, "
+                          "but the library was not found.")])
+            return
+
         self.smiles = ipw.Text()
         self.create_structure_btn = ipw.Button(description="Generate molecule", button_style='info')
         self.create_structure_btn.on_click(self._on_button_pressed)
@@ -382,7 +390,7 @@ class SmilesWidget(ipw.VBox):
 
     def _optimize_mol(self, mol):
         """Optimize a molecule using force field (needed for complex SMILES)."""
-        from openbabel import pybel
+        from openbabel import pybel  # pylint:disable=import-error
 
         self.output.value = "Screening possible conformers {}".format(self.SPINNER)  #font-size:20em;
 
@@ -403,7 +411,7 @@ class SmilesWidget(ipw.VBox):
     def _on_button_pressed(self, change):  # pylint: disable=unused-argument
         """Convert SMILES to ase structure when button is pressed."""
         self.output.value = ""
-        from openbabel import pybel
+        from openbabel import pybel  # pylint:disable=import-error
         if not self.smiles.value:
             return
 
