@@ -12,6 +12,10 @@ pip install aiidalab-widgets-base
 Install the corresponding `aiidalab-widgets-base` AiiDA lab application
 via the app manager as usual.
 
+### Optional dependencies
+
+* The `SmilesWidget` widget requires the [OpenBabel](http://openbabel.org/) library.
+
 ## Usage
 
 Using the widgets usually just involves importing and displaying them.
