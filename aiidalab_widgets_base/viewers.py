@@ -6,7 +6,7 @@ from IPython.display import display
 import nglview
 from ase import Atoms
 
-from traitlets import Instance, Int, List, Union, observe
+from traitlets import Instance, Int, observe, Set, Union, validate
 from aiida.orm import Node
 
 from .utils import find_ranges, string_range_to_set
@@ -74,72 +74,35 @@ class DictViewer(ipw.HTML):
             self.value += to_add.format(filename=fname, payload=payload, title=fname)
 
 
-class StructureDataViewer(ipw.VBox):
-    """Viewer class for structure object
+class StructureDataBaseViewer(ipw.VBox):
+    """General viewer class for AiiDA structure objects
 
-    :param structure: structure object to be viewed
-    :type structure: StructureData or CifData
-    :param downloadable: If True, add link/button to download the content of the object
-    :type downloadable: bool"""
-
-    frame = Int(0)
-    _structure = Union([Instance(Atoms), Instance(Node)], allow_none=True)
-    _trajectory = List()
-
+    :param configure_view: If True, configuration tabs
+    :type configure_view: bool"""
+    selection = Set(Int, read_only=True)
     DEFAULT_SELECTION_OPACITY = 0.2
     DEFAULT_SELECTION_RADIUS = 6
     DEFAULT_SELECTION_COLOR = 'green'
 
-    def __init__(self, structure=None, trajectory=None, downloadable=True, configure_view=True, **kwargs):
-        self._name = None
+    def __init__(self, configure_view=True, **kwargs):
+        from .utils import CopyToClipboardButton
+
+        # Defining viewer box.
+
+        # 1. Nglviwer
         self._viewer = nglview.NGLWidget()
         self._viewer.camera = 'orthographic'
         self._viewer.observe(self._on_atom_click, names='picked')
         self._viewer.stage.set_parameters(mouse_preset='pymol')
 
-        layout = {"description_width": "initial", "width": "95%"}
-        center_button = ipw.Button(description="Center", layout=layout)
-        center_button.on_click(lambda c: self._viewer.center())
-
-        # Choose background color.
-        background_color = ipw.ColorPicker(description="Background", layout=layout)
-
-        def change_background(change):  # Note: change this to lambda when switched to python3.8
-            self._viewer.background = change['new']
-
-        background_color.observe(change_background, names="value")
-        background_color.value = 'white'
-
-        # Make screenshot.
-        screenshot = ipw.Button(description="Screenshot")
-        screenshot.on_click(lambda c: self._viewer.download_image())
-
-        # Selected atoms.
-        self._selected_atoms = ipw.Textarea(description='Selected atoms:',
-                                            value='',
-                                            style={'description_width': 'initial'})
-        self._selected_atoms.observe(self._apply_selection, names='value')
-        self.wrong_syntax = ipw.HTML(
-            value="""<i class="fa fa-times" style="color:red;font-size:2em;" ></i> wrong syntax""",
-            layout={'visibility': 'hidden'})
-        self._selection = set()
-        copy_selection_to_clipboard = ipw.Button(description="Copy to clipboard")
-        clear_selection = ipw.Button(description="Clear selection")
-        clear_selection.on_click(self.clear_selection)
-
-        from .utils import CopyToClipboardButton
-
-        copy_selection_to_clipboard = CopyToClipboardButton(description="Copy to clipboard",
-                                                            text_provider_function=self.shortened_selection)
-
-        # Camera type.
+        # 2. Camera type.
         camera_type = ipw.ToggleButtons(options={
             'Orthographic': 'orthographic',
             'Perspective': 'perspective'
         },
                                         description='Camera type:',
                                         value='orthographic',
-                                        layout=layout,
+                                        layout={"align_self": "flex-end"},
                                         style={'button_width': '115.5px'},
                                         orientation='vertical')
 
@@ -147,48 +110,80 @@ class StructureDataViewer(ipw.VBox):
             self._viewer.camera = change['new']
 
         camera_type.observe(change_camera, names="value")
+        view_box = ipw.VBox([self._viewer, camera_type])
 
-        if structure and trajectory:
-            raise ValueError("You should either provide structure or trajectory, not both of them.")
-        if structure:
-            self.structure = structure
-        if trajectory:
-            self.trajectory = trajectory
-        configuration = ipw.VBox(
-            [
-                center_button, background_color, screenshot, camera_type, self._selected_atoms, self.wrong_syntax,
-                ipw.HBox([copy_selection_to_clipboard, clear_selection])
-            ],
-            layout={"width": "35%"},
-        )
+        # Defining selection tab.
 
-        view_box = [
-            self._viewer,
-        ]
+        # 1. Selected atoms.
+        self._selected_atoms = ipw.Text(description='Selected atoms:',
+                                        placeholder="Example: 2 5 8..10",
+                                        value='',
+                                        style={'description_width': 'initial'})
+        self._selected_atoms.observe(self._apply_selection, names='value')
+
+        # 2. Informing about wrong syntax.
+        self.wrong_syntax = ipw.HTML(
+            value="""<i class="fa fa-times" style="color:red;font-size:2em;" ></i> wrong syntax""",
+            layout={'visibility': 'hidden'})
+
+        # 4. Button to clear selection.
+        clear_selection = ipw.Button(description="Clear selection")
+        clear_selection.on_click(self.clear_selection)
+
+        selection_tab = ipw.VBox([
+            self._selected_atoms, self.wrong_syntax,
+            ipw.HBox([
+                CopyToClipboardButton(description="Copy to clipboard", text_provider_function=self.shortened_selection),
+                clear_selection
+            ])
+        ])
+
+        # Defining appearance tab.
+
+        # 1. Choose background color.
+        background_color = ipw.ColorPicker(description="Background")
+
+        def change_background(change):  # Note: change this to lambda when switched to python3.8
+            self._viewer.background = change['new']
+
+        background_color.observe(change_background, names="value")
+        background_color.value = 'white'
+
+        # 2. Center button.
+        center_button = ipw.Button(description="Center")
+        center_button.on_click(lambda c: self._viewer.center())
+
+        appearance_tab = ipw.VBox([background_color, center_button])
+
+        # Defining download tab.
+
+        # 1. Choose download file format.
+        self.file_format = ipw.Dropdown(options=['xyz', 'cif'], layout={"width": "200px"}, description="File format:")
+
+        # 2. Download button.
+        self.download_btn = ipw.Button(description="Download")
+        self.download_btn.on_click(self.download)
+
+        # 3. Screenshot button
+        screenshot = ipw.Button(description="Screenshot", icon='camera')
+        screenshot.on_click(lambda c: self._viewer.download_image())
+
+        download_tab = ipw.VBox([ipw.HBox([self.download_btn, self.file_format]), screenshot])
+
+        # Constructing configuration box
         if configure_view:
-            view_box.append(configuration)
-            self._viewer.layout = {'width': "65%"}
-            self._viewer.handle_resize()
-
-        children = [ipw.HBox(view_box, display='flex')]
-
-        if downloadable:
-            self.file_format = ipw.Dropdown(
-                options=[
-                    'xyz',
-                    'cif',
-                ],
-                description="File format:",
-            )
-            self.download_btn = ipw.Button(description="Download")
-            self.download_btn.on_click(self.download)
-            children.append(ipw.HBox([self.file_format, self.download_btn]))
+            configuration_box = ipw.Tab()
+            configuration_box.children = [selection_tab, appearance_tab, download_tab]
+            for i, title in enumerate(["Selection", "Appearance", "Download"]):
+                configuration_box.set_title(i, title)
+            children = [ipw.HBox([view_box, configuration_box])]
+            view_box.layout = {'width': "65%"}
+        else:
+            children = [view_box]
 
         if 'children' in kwargs:
             children += kwargs.pop('children')
 
-        # Link traitlets
-        ipw.link((self, 'frame'), (self._viewer, 'frame'))
         super().__init__(children, **kwargs)
 
     def _on_atom_click(self, change=None):  # pylint:disable=unused-argument
@@ -198,10 +193,10 @@ class StructureDataViewer(ipw.VBox):
 
         index = self._viewer.picked['atom1']['index']
 
-        if index not in self._selection:
-            self._selection.add(index)
+        if index not in self.selection:
+            self.selection.add(index)
         else:
-            self._selection.discard(index)
+            self.selection.discard(index)
         self._selected_atoms.value = self.shortened_selection()
 
     def highlight_atoms(self,
@@ -223,79 +218,24 @@ class StructureDataViewer(ipw.VBox):
     def _apply_selection(self, change=None):  # pylint:disable=unused-argument
         """Apply selection specified in the text area."""
         short_selection = change['new']
-        self._selection, syntax_ok = string_range_to_set(short_selection)
+        expanded_selection, syntax_ok = string_range_to_set(short_selection)
+        self.set_trait('selection', expanded_selection)
+
         if syntax_ok:
             self.wrong_syntax.layout.visibility = 'hidden'
-            self.highlight_atoms(self._selection)
+            self.highlight_atoms(self.selection)
         else:
             self.wrong_syntax.layout.visibility = 'visible'
 
     def clear_selection(self, change=None):  # pylint:disable=unused-argument
         self._viewer._remove_representations_by_name(repr_name='selected_atoms')  # pylint:disable=protected-access
-        self._selection = set()
+        self.set_trait('selection', set())
         self._selected_atoms.value = self.shortened_selection()
 
     def shortened_selection(self):
         return " ".join([
-            str(t) if isinstance(t, int) else "{}..{}".format(t[0], t[1]) for t in find_ranges(sorted(self._selection))
+            str(t) if isinstance(t, int) else "{}..{}".format(t[0], t[1]) for t in find_ranges(sorted(self.selection))
         ])
-
-    @property
-    def structure(self):
-        return self._structure
-
-    @structure.setter
-    def structure(self, structure):  # pylint: disable=no-self-use
-        """Set structure to view
-
-        :param structure: Structure to be viewed
-        :type structure: StructureData, CifData, Atoms (ASE)"""
-
-        for comp_id in self._viewer._ngl_component_ids:  # pylint: disable=protected-access
-            self._viewer.remove_component(comp_id)
-        self.clear_selection()
-        if isinstance(structure, Atoms):
-            self._structure = structure
-        elif isinstance(structure, Node):
-            self._structure = structure.get_ase()
-        elif structure is None:
-            self._structure = None
-            self._trajectory = []
-            return  # if no structure provided, the rest of the code can be skipped
-        else:
-            raise ValueError("Unsupported type {}, structure must be one of the following types: "
-                             "ASE Atoms object, AiiDA CifData or StructureData.")
-        self._viewer.add_component(nglview.ASEStructure(self.structure))  # adds ball+stick
-        self._viewer.add_unitcell()  # pylint: disable=no-member
-        self._trajectory = [self.structure]
-
-    @property
-    def trajectory(self):
-        return self._trajectory
-
-    @trajectory.setter
-    def trajectory(self, trajectory):
-        """Validate trajectory."""
-        for comp_id in self._viewer._ngl_component_ids:  # pylint: disable=protected-access
-            self._viewer.remove_component(comp_id)
-        self.clear_selection()
-        traj = []
-        for struct in trajectory:
-            if isinstance(struct, Atoms):
-                traj.append(struct)
-            elif isinstance(struct, Node):
-                traj.append(struct.get_ase())
-            else:
-                ValueError("Unsupported type {}, structure must be one of the following types: "
-                           "ASE Atoms object, AiiDA CifData or StructureData.")
-        self._trajectory = traj
-        self._structure = traj[self.frame] if traj else None
-        self._viewer.add_trajectory(nglview.ASETrajectory(traj))  # adds ball+stick
-        self._viewer.add_unitcell()  # pylint: disable=no-member
-
-    @observe('frame')
-    def _update_structure_on_frame_change(self, change):
-        self._structure = self._trajectory[change['new']]
 
     def download(self, change=None):  # pylint: disable=unused-argument
         """Prepare a structure for downloading."""
@@ -320,13 +260,50 @@ class StructureDataViewer(ipw.VBox):
         from tempfile import NamedTemporaryFile
         file_format = file_format if file_format else self.file_format.value
         tmp = NamedTemporaryFile()
-        self.structure.write(tmp.name, format=file_format)
+        self.structure.write(tmp.name, format=file_format)  # pylint: disable=no-member
         with open(tmp.name, 'rb') as raw:
             return base64.b64encode(raw.read()).decode()
 
     @property
     def thumbnail(self):
         return self._prepare_payload(file_format='png')
+
+
+class StructureDataViewer(StructureDataBaseViewer):
+    """Viewer class for AiiDA structure objects
+
+    :param structure: structure object to be viewed
+    :type structure: StructureData or CifData"""
+    structure = Union([Instance(Atoms), Instance(Node)], allow_none=True)
+
+    def __init__(self, structure=None, **kwargs):
+        super().__init__(**kwargs)
+        if structure:
+            self.structure = structure
+
+    @validate('structure')
+    def _valid_structure(self, change):  # pylint: disable=no-self-use
+        """Update structure."""
+        structure = change['value']
+        if isinstance(structure, Atoms):
+            return structure
+        if isinstance(structure, Node):
+            return structure.get_ase()
+        if structure is None:
+            return None  # if no structure provided, the rest of the code can be skipped
+        raise ValueError("Unsupported type {}, structure must be one of the following types: "
+                         "ASE Atoms object, AiiDA CifData or StructureData.")
+
+    @observe('structure')
+    def _update_structure_view(self, change):  # pylint: disable=unused-argument
+        """Update structure view after structure was modified."""
+        # Remove the current structure(s) from the viewer.
+        for comp_id in self._viewer._ngl_component_ids:  # pylint: disable=protected-access
+            self._viewer.remove_component(comp_id)
+        self.clear_selection()
+        if self.structure is not None:
+            self._viewer.add_component(nglview.ASEStructure(self.structure))  # adds ball+stick
+            self._viewer.add_unitcell()  # pylint: disable=no-member
 
 
 class FolderDataViewer(ipw.VBox):
