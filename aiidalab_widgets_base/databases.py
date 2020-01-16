@@ -1,6 +1,4 @@
 """Widgets that allow to query online databases."""
-from __future__ import print_function
-from __future__ import absolute_import
 import ipywidgets as ipw
 
 from aiida.tools.dbimporters.plugins.cod import CodDbImporter
