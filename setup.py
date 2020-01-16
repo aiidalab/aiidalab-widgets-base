@@ -1,7 +1,5 @@
 # -*- coding: utf-8 -*-
 """Setting up CP2K plugin for AiiDA"""
-from __future__ import absolute_import
-
 import json
 
 from io import open  # pylint: disable=redefined-builtin
