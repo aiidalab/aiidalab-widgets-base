@@ -1,25 +1,26 @@
 """Jupyter viewers for AiiDA data objects."""
 import base64
+import warnings
 
 import ipywidgets as ipw
 from IPython.display import display
 import nglview
 from ase import Atoms
 
-from traitlets import Instance, Int, observe, Set, Union, validate
+from traitlets import Instance, Int, Set, Union, observe, validate
 from aiida.orm import Node
 
 from .utils import find_ranges, string_range_to_set
+from .misc import CopyToClipboardButton
 
 
 def viewer(obj, downloadable=True, **kwargs):
-    """Display AiiDA data types in Jupyter notebooks
+    """Display AiiDA data types in Jupyter notebooks.
 
     :param downloadable: If True, add link/button to download the content of displayed AiiDA object.
     :type downloadable: bool
 
     Returns the object itself if the viewer wasn't found."""
-    import warnings
     if not isinstance(obj, Node):  # only working with AiiDA nodes
         warnings.warn("This viewer works only with AiiDA objects, got {}".format(type(obj)))
         return obj
@@ -36,7 +37,7 @@ def viewer(obj, downloadable=True, **kwargs):
 
 
 class DictViewer(ipw.HTML):
-    """Viewer class for Dict object
+    """Viewer class for Dict object.
 
     :param parameter: Dict object to be viewed
     :type parameter: Dict
@@ -74,10 +75,10 @@ class DictViewer(ipw.HTML):
             self.value += to_add.format(filename=fname, payload=payload, title=fname)
 
 
-class StructureDataBaseViewer(ipw.VBox):
-    """General viewer class for AiiDA structure objects
+class _StructureDataBaseViewer(ipw.VBox):
+    """Base viewer class for AiiDA structure or trajectory objects.
 
-    :param configure_view: If True, configuration tabs
+    :param configure_view: If True, add configuration tabs
     :type configure_view: bool"""
     selection = Set(Int, read_only=True)
     DEFAULT_SELECTION_OPACITY = 0.2
@@ -85,7 +86,6 @@ class StructureDataBaseViewer(ipw.VBox):
     DEFAULT_SELECTION_COLOR = 'green'
 
     def __init__(self, configure_view=True, **kwargs):
-        from .utils import CopyToClipboardButton
 
         # Defining viewer box.
 
@@ -142,11 +142,7 @@ class StructureDataBaseViewer(ipw.VBox):
 
         # 1. Choose background color.
         background_color = ipw.ColorPicker(description="Background")
-
-        def change_background(change):  # Note: change this to lambda when switched to python3.8
-            self._viewer.background = change['new']
-
-        background_color.observe(change_background, names="value")
+        ipw.link((background_color, 'value'), (self._viewer, 'background'))
         background_color.value = 'white'
 
         # 2. Center button.
@@ -166,7 +162,7 @@ class StructureDataBaseViewer(ipw.VBox):
 
         # 3. Screenshot button
         screenshot = ipw.Button(description="Screenshot", icon='camera')
-        screenshot.on_click(lambda c: self._viewer.download_image())
+        screenshot.on_click(lambda _: self._viewer.download_image())
 
         download_tab = ipw.VBox([ipw.HBox([self.download_btn, self.file_format]), screenshot])
 
@@ -221,16 +217,18 @@ class StructureDataBaseViewer(ipw.VBox):
         expanded_selection, syntax_ok = string_range_to_set(short_selection)
         self.set_trait('selection', expanded_selection)
 
-        if syntax_ok:
-            self.wrong_syntax.layout.visibility = 'hidden'
-            self.highlight_atoms(self.selection)
-        else:
-            self.wrong_syntax.layout.visibility = 'visible'
+        with self.hold_trait_notifications():
+            if syntax_ok:
+                self.wrong_syntax.layout.visibility = 'hidden'
+                self.highlight_atoms(self.selection)
+            else:
+                self.wrong_syntax.layout.visibility = 'visible'
 
     def clear_selection(self, change=None):  # pylint:disable=unused-argument
-        self._viewer._remove_representations_by_name(repr_name='selected_atoms')  # pylint:disable=protected-access
-        self.set_trait('selection', set())
-        self._selected_atoms.value = self.shortened_selection()
+        with self.hold_trait_notifications():
+            self._viewer._remove_representations_by_name(repr_name='selected_atoms')  # pylint:disable=protected-access
+            self.set_trait('selection', set())
+            self._selected_atoms.value = self.shortened_selection()
 
     def shortened_selection(self):
         return " ".join([
@@ -269,45 +267,47 @@ class StructureDataBaseViewer(ipw.VBox):
         return self._prepare_payload(file_format='png')
 
 
-class StructureDataViewer(StructureDataBaseViewer):
-    """Viewer class for AiiDA structure objects
+class StructureDataViewer(_StructureDataBaseViewer):
+    """Viewer class for AiiDA structure objects.
 
     :param structure: structure object to be viewed
     :type structure: StructureData or CifData"""
     structure = Union([Instance(Atoms), Instance(Node)], allow_none=True)
 
-    def __init__(self, structure=None, **kwargs):
-        super().__init__(**kwargs)
-        if structure:
-            self.structure = structure
+    def __init__(self, *args, structure=None, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.structure = structure
 
     @validate('structure')
     def _valid_structure(self, change):  # pylint: disable=no-self-use
         """Update structure."""
         structure = change['value']
+
+        if structure is None:
+            return None  # if no structure provided, the rest of the code can be skipped
+
         if isinstance(structure, Atoms):
             return structure
         if isinstance(structure, Node):
             return structure.get_ase()
-        if structure is None:
-            return None  # if no structure provided, the rest of the code can be skipped
         raise ValueError("Unsupported type {}, structure must be one of the following types: "
                          "ASE Atoms object, AiiDA CifData or StructureData.")
 
     @observe('structure')
-    def _update_structure_view(self, change):  # pylint: disable=unused-argument
+    def _update_structure_view(self, change):
         """Update structure view after structure was modified."""
         # Remove the current structure(s) from the viewer.
-        for comp_id in self._viewer._ngl_component_ids:  # pylint: disable=protected-access
-            self._viewer.remove_component(comp_id)
-        self.clear_selection()
-        if self.structure is not None:
-            self._viewer.add_component(nglview.ASEStructure(self.structure))  # adds ball+stick
-            self._viewer.add_unitcell()  # pylint: disable=no-member
+        with self.hold_trait_notifications():
+            for comp_id in self._viewer._ngl_component_ids:  # pylint: disable=protected-access
+                self._viewer.remove_component(comp_id)
+            self.clear_selection()
+            if change['new'] is not None:
+                self._viewer.add_component(nglview.ASEStructure(change['new']))  # adds ball+stick
+                self._viewer.add_unitcell()  # pylint: disable=no-member
 
 
 class FolderDataViewer(ipw.VBox):
-    """Viewer class for FolderData object
+    """Viewer class for FolderData object.
 
     :param folder: FolderData object to be viewed
     :type folder: FolderData
@@ -357,7 +357,7 @@ class FolderDataViewer(ipw.VBox):
 
 
 class BandsDataViewer(ipw.VBox):
-    """Viewer class for BandsData object
+    """Viewer class for BandsData object.
 
     :param bands: BandsData object to be viewed
     :type bands: BandsData"""
