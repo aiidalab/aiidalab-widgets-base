@@ -54,7 +54,6 @@ class StructureManagerWidget(ipw.VBox):  # pylint: disable=too-many-instance-att
 
         # Description that will is stored along with the new structure.
         self.structure_description = ipw.Text(placeholder="Description (optional)")
-        self.structure_description.observe(self.reset_structure, names=['value'])
 
         # Select format to store in the AiiDA database.
         self.data_format = ipw.RadioButtons(options=self.DATA_FORMATS, description='Data type:')
