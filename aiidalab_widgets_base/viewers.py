@@ -179,7 +179,7 @@ class _StructureDataBaseViewer(ipw.VBox):
             for i, title in enumerate(["Selection", "Appearance", "Download"]):
                 configuration_box.set_title(i, title)
             children = [ipw.HBox([view_box, configuration_box])]
-            view_box.layout = {'width': "65%"}
+            view_box.layout = {'width': "60%"}
         else:
             children = [view_box]
 
