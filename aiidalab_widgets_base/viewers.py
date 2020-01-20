@@ -159,12 +159,18 @@ class _StructureDataBaseViewer(ipw.VBox):
         # 2. Download button.
         self.download_btn = ipw.Button(description="Download")
         self.download_btn.on_click(self.download)
+        self.download_box = ipw.VBox(children=[
+            ipw.Label("Download as file:"),
+            ipw.HBox([self.file_format, self.download_btn])])
 
         # 3. Screenshot button
-        screenshot = ipw.Button(description="Screenshot", icon='camera')
-        screenshot.on_click(lambda _: self._viewer.download_image())
+        self.screenshot_btn = ipw.Button(description="Screenshot", icon='camera')
+        self.screenshot_btn.on_click(lambda _: self._viewer.download_image())
+        self.screenshot_box = ipw.VBox(children=[
+            ipw.Label("Create a screenshot:"),
+            self.screenshot_btn])
 
-        download_tab = ipw.VBox([ipw.HBox([self.download_btn, self.file_format]), screenshot])
+        download_tab = ipw.VBox([self.download_box, self.screenshot_box])
 
         # Constructing configuration box
         if configure_view:
