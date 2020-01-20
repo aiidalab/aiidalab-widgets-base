@@ -274,8 +274,8 @@ class StructureDataViewer(_StructureDataBaseViewer):
     :type structure: StructureData or CifData"""
     structure = Union([Instance(Atoms), Instance(Node)], allow_none=True)
 
-    def __init__(self, *args, structure=None, **kwargs):
-        super().__init__(*args, **kwargs)
+    def __init__(self, structure=None, **kwargs):
+        super().__init__(**kwargs)
         self.structure = structure
 
     @validate('structure')
