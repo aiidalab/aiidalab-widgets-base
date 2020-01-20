@@ -174,7 +174,7 @@ class _StructureDataBaseViewer(ipw.VBox):
 
         # Constructing configuration box
         if configure_view:
-            configuration_box = ipw.Tab()
+            configuration_box = ipw.Tab(layout=ipw.Layout(flex='1 1 auto', width='auto'))
             configuration_box.children = [selection_tab, appearance_tab, download_tab]
             for i, title in enumerate(["Selection", "Appearance", "Download"]):
                 configuration_box.set_title(i, title)
