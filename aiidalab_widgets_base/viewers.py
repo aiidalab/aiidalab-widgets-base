@@ -121,7 +121,11 @@ class _StructureDataBaseViewer(ipw.VBox):
                                         style={'description_width': 'initial'})
         self._selected_atoms.observe(self._apply_selection, names='value')
 
-        # 2. Informing about wrong syntax.
+        # 2. Copy to clipboard
+        copy_to_clipboard = CopyToClipboardButton(description="Copy to clipboard")
+        ipw.link((self._selected_atoms, 'value'), (copy_to_clipboard, 'value'))
+
+        # 3. Informing about wrong syntax.
         self.wrong_syntax = ipw.HTML(
             value="""<i class="fa fa-times" style="color:red;font-size:2em;" ></i> wrong syntax""",
             layout={'visibility': 'hidden'})
@@ -130,13 +134,9 @@ class _StructureDataBaseViewer(ipw.VBox):
         clear_selection = ipw.Button(description="Clear selection")
         clear_selection.on_click(self.clear_selection)
 
-        selection_tab = ipw.VBox([
-            self._selected_atoms, self.wrong_syntax,
-            ipw.HBox([
-                CopyToClipboardButton(description="Copy to clipboard", text_provider_function=self.shortened_selection),
-                clear_selection
-            ])
-        ])
+        selection_tab = ipw.VBox(
+            [self._selected_atoms, self.wrong_syntax,
+             ipw.HBox([copy_to_clipboard, clear_selection])])
 
         # Defining appearance tab.
 

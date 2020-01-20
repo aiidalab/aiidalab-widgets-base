@@ -1,20 +1,21 @@
 """Some useful classes used acrross the repository."""
 
 import ipywidgets as ipw
+from traitlets import Unicode
 
 
 class CopyToClipboardButton(ipw.Button):
     """Button to copy text to clipboard."""
 
-    def __init__(self, *args, text_provider_function=None, **kwargs):
-        self.text_provider_function = text_provider_function
+    value = Unicode(allow_none=True)  # Traitlet that contains a string to copy.
+
+    def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         super().on_click(self.copy_to_clipboard)
 
     def copy_to_clipboard(self, change=None):  # pylint:disable=unused-argument
         """Copy text to clipboard."""
         from IPython.display import Javascript, display
-
         javas = Javascript("""
            function copyStringToClipboard (str) {{
                // Create new element
@@ -33,11 +34,6 @@ class CopyToClipboardButton(ipw.Button):
                document.body.removeChild(el);
             }}
             copyStringToClipboard("{selection}");
-       """.format(selection=self.text_to_copy))  # for the moment works for Chrome, but doesn't work for Firefox
-        display(javas)
-
-    @property
-    def text_to_copy(self):
-        if not self.text_provider_function:
-            raise ValueError("Text provider function is not registered.")
-        return self.text_provider_function()
+       """.format(selection=self.value))  # For the moment works for Chrome, but doesn't work for Firefox.
+        if self.value:  # If no value provided - do nothing.
+            display(javas)
