@@ -18,7 +18,7 @@
     ],
     "extras_require": {
         "testing": [
-            "aiida-core[testing]>=1.0.1"
+            "aiida-core[testing]~=1.0"
         ],
         "pre-commit": [
             "pre-commit==1.17.0",
