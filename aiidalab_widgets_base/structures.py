@@ -387,7 +387,7 @@ class SmilesWidget(ipw.VBox):
 
     def _optimize_mol(self, mol):
         """Optimize a molecule using force field (needed for complex SMILES)."""
-        from openbabel import pybel  # pylint:disable=import-error
+        import pybel  # pylint:disable=import-error
 
         self.output.value = "Screening possible conformers {}".format(self.SPINNER)  #font-size:20em;
 
@@ -408,7 +408,7 @@ class SmilesWidget(ipw.VBox):
     def _on_button_pressed(self, change):  # pylint: disable=unused-argument
         """Convert SMILES to ase structure when button is pressed."""
         self.output.value = ""
-        from openbabel import pybel  # pylint:disable=import-error
+        import pybel  # pylint:disable=import-error
         if not self.smiles.value:
             return
 
