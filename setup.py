@@ -1,24 +1,20 @@
-#!/usr/bin/env python
-
-from __future__ import absolute_import
-from setuptools import setup, find_packages
+# -*- coding: utf-8 -*-
+"""Setting up CP2K plugin for AiiDA"""
 import json
 
-# pylint: disable=syntax-error
-if __name__ == '__main__':
-    # Provide static information in setup.json
-    # such that it can be discovered automatically
-    with open('metadata.json', 'r') as info:
-        metadata = json.load(info)
+from io import open  # pylint: disable=redefined-builtin
+from setuptools import setup, find_packages
 
-    with open('setup.json', 'r') as info:
+
+def run_setup():
+    with open('setup.json', 'r', encoding='utf-8') as info:
         kwargs = json.load(info)
+    setup(include_package_data=True,
+          packages=find_packages(),
+          long_description=open('README.md', encoding='utf-8').read(),
+          long_description_content_type='text/markdown',
+          **kwargs)
 
-    setup(
-        packages=find_packages(),
-        long_description=open('README.md').read(),
-        long_description_content_type='text/markdown',
-        author=metadata['authors'],
-        description=metadata['description'],
-        version=metadata['version'],
-        **kwargs)
+
+if __name__ == '__main__':
+    run_setup()

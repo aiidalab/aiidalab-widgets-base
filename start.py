@@ -1,6 +1,7 @@
+"""Start page appearance."""
 import ipywidgets as ipw
 
-template = """
+TEMPLATE = """
 <table>
 <tr>
   <th style="text-align:center">AiiDA lab widgets</th>
@@ -15,7 +16,7 @@ template = """
   <td valign="top"><ul>
     <li><a href="{appbase}/setup_computer.ipynb" target="_blank">Setup computer</a></li>
     <li><a href="{appbase}/setup_code.ipynb" target="_blank">Setup code</a></li>
-    <li><a href="{appbase}/aiida_datatypes.ipynb" target="_blank">AiiDA datatypes visualizers</a></li>
+    <li><a href="{appbase}/aiida_datatypes_viewers.ipynb" target="_blank">AiiDA datatypes viewers</a></li>
   </ul></td>
 </tr>
 </table>
@@ -23,7 +24,7 @@ template = """
 
 
 def get_start_widget(appbase, jupbase, notebase):
-    html = template.format(appbase=appbase, jupbase=jupbase, notebase=notebase)
+    html = TEMPLATE.format(appbase=appbase, jupbase=jupbase, notebase=notebase)
     return ipw.HTML(html)
 
 

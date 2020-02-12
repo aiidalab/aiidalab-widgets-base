@@ -1,32 +1,27 @@
-from __future__ import print_function
-
-from __future__ import absolute_import
-import ipywidgets as ipw
+"""Module to manage AiiDA codes."""
 
 from subprocess import check_output
+
+import ipywidgets as ipw
 from IPython.display import clear_output
 
 from aiida.orm import Code
 
-VALID_AIIDA_CODE_SETUP_ARGUMETNS = {'label', 'selected_computer', 'plugin', 'description',
-                                    'exec_path', 'prepend_text', 'append_text'}
+from aiidalab_widgets_base.utils import predefine_settings, valid_arguments
 
-def valid_arguments(arguments, valid_arguments):
-    result = {}
-    for key, value in arguments.items():
-        if key in valid_arguments:
-            if type(value) is tuple or type(value) is list:
-                result[key] = '\n'.join(value)
-            else:
-                result[key] = value
-    return result
+VALID_AIIDA_CODE_SETUP_ARGUMETNS = {
+    'label', 'selected_computer', 'plugin', 'description', 'exec_path', 'prepend_text', 'append_text'
+}
 
-def extract_aiidacodesetup_arguments(arguments):
+
+def valid_aiidacode_args(arguments):
     return valid_arguments(arguments, VALID_AIIDA_CODE_SETUP_ARGUMETNS)
 
 
 class CodeDropdown(ipw.VBox):
-    def __init__(self, input_plugin, text='Select code:', **kwargs):
+    """Code selection widget."""
+
+    def __init__(self, input_plugin, text='Select code:', path_to_root='../', **kwargs):
         """ Dropdown for Codes for one input plugin.
 
         :param input_plugin: Input plugin of codes to show
@@ -41,39 +36,40 @@ class CodeDropdown(ipw.VBox):
         self.dropdown = ipw.Dropdown(description=text, disabled=True)
         self._btn_refresh = ipw.Button(description="Refresh", layout=ipw.Layout(width="70px"))
         self._btn_refresh.on_click(self.refresh)
-        # TODO: use base_url here
-        self._setup_another = ipw.HTML(value="""<a href=../aiidalab-widgets-base/setup_code.ipynb target="_blank">Setup new code</a>""")
+        # FOR LATER: use base_url here, when it will be implemented in the appmode.
+        self._setup_another = ipw.HTML(value="""<a href={path_to_root}aiidalab-widgets-base/setup_code.ipynb?
+                      label={label}&plugin={plugin} target="_blank">Setup new code</a>""".format(
+            path_to_root=path_to_root, label=input_plugin, plugin=input_plugin))
         self.output = ipw.Output()
 
-        children = [ipw.HBox([self.dropdown, self._btn_refresh, self._setup_another]),
-                    self.output]
+        children = [ipw.HBox([self.dropdown, self._btn_refresh, self._setup_another]), self.output]
 
         super(CodeDropdown, self).__init__(children=children, **kwargs)
 
         self.refresh()
 
-    def _get_codes(self, input_plugin):
+    @staticmethod
+    def _get_codes(input_plugin):
+        """Query the list of available codes."""
         from aiida.orm.querybuilder import QueryBuilder
-        from aiida.backends.utils import get_automatic_user
+        from aiida.orm import User
         from aiida.orm import Computer
-        current_user = get_automatic_user()
+        current_user = User.objects.get_default()
 
-        qb = QueryBuilder()
-        qb.append(
-            Computer, filters={'enabled': True}, project=['*'], tag='computer')
-        qb.append(
-            Code,
-            filters={
-                'attributes.input_plugin': {
-                    '==': input_plugin
-                },
-                'extras.hidden': {
-                    "~==": True
-                }
-            },
-            project=['*'],
-            has_computer='computer')
-        results = qb.all()
+        querybuild = QueryBuilder()
+        querybuild.append(Computer, project=['*'], tag='computer')
+        querybuild.append(Code,
+                          filters={
+                              'attributes.input_plugin': {
+                                  '==': input_plugin
+                              },
+                              'extras.hidden': {
+                                  "~==": True
+                              }
+                          },
+                          project=['*'],
+                          with_computer='computer')
+        results = querybuild.all()
 
         # only codes on computers configured for the current user
         results = [r for r in results if r[0].is_user_configured(current_user)]
@@ -81,7 +77,8 @@ class CodeDropdown(ipw.VBox):
         codes = {"{}@{}".format(r[1].label, r[0].name): r[1] for r in results}
         return codes
 
-    def refresh(self, b=None):
+    def refresh(self, change=None):  # pylint: disable=unused-argument
+        """Refresh available codes."""
         with self.output:
             clear_output()
             self.codes = self._get_codes(self.input_plugin)
@@ -90,32 +87,32 @@ class CodeDropdown(ipw.VBox):
             self.dropdown.options = options
 
             if not options:
-                print("No codes found for input plugin '{}'.".format(
-                    self.input_plugin))
+                print("No codes found for input plugin '{}'.".format(self.input_plugin))
                 self.dropdown.disabled = True
             else:
                 self.dropdown.disabled = False
 
     @property
     def selected_code(self):
+        """Returns a selected code."""
         try:
             return self.codes[self.dropdown.value]
         except KeyError:
             return None
 
+
 class AiiDACodeSetup(ipw.VBox):
     """Class that allows to setup AiiDA code"""
+
     def __init__(self, **kwargs):
-        from aiida.common.pluginloader import all_plugins
+        from aiida.plugins.entry_point import get_entry_point_names
         from aiidalab_widgets_base.computers import ComputerDropdown
 
-        style = {"description_width":"200px"}
+        style = {"description_width": "200px"}
 
         # list of widgets to be displayed
 
-        self._inp_code_label = ipw.Text(description="AiiDA code label:",
-                                       layout=ipw.Layout(width="500px"),
-                                       style=style)
+        self._inp_code_label = ipw.Text(description="AiiDA code label:", layout=ipw.Layout(width="500px"), style=style)
 
         self._computer = ComputerDropdown(layout={'margin': '0px 0px 0px 125px'})
 
@@ -124,7 +121,7 @@ class AiiDACodeSetup(ipw.VBox):
                                               layout=ipw.Layout(width="500px"),
                                               style=style)
 
-        self._inp_code_plugin = ipw.Dropdown(options=sorted(all_plugins('calculations')),
+        self._inp_code_plugin = ipw.Dropdown(options=sorted(get_entry_point_names('aiida.calculations')),
                                              description="Code plugin:",
                                              layout=ipw.Layout(width="500px"),
                                              style=style)
@@ -145,27 +142,23 @@ class AiiDACodeSetup(ipw.VBox):
         self._btn_setup_code = ipw.Button(description="Setup code")
         self._btn_setup_code.on_click(self._setup_code)
         self._setup_code_out = ipw.Output()
-        children = [ipw.HBox([ipw.VBox([self._inp_code_label,
-                                        self._computer,
-                                        self._inp_code_plugin,
-                                        self._inp_code_description,
-                                        self._exec_path]), ipw.VBox([self._prepend_text,
-                                                                     self._append_text])]),
-                    self._btn_setup_code,
-                    self._setup_code_out,
-                   ]
+        children = [
+            ipw.HBox([
+                ipw.VBox([
+                    self._inp_code_label, self._computer, self._inp_code_plugin, self._inp_code_description,
+                    self._exec_path
+                ]),
+                ipw.VBox([self._prepend_text, self._append_text])
+            ]),
+            self._btn_setup_code,
+            self._setup_code_out,
+        ]
         # Check if some settings were already provided
-        self._predefine_settings(**kwargs)
+        predefine_settings(self, **kwargs)
         super(AiiDACodeSetup, self).__init__(children, **kwargs)
 
-    def _predefine_settings(self, **kwargs):
-        for key, value in kwargs.items():
-            if hasattr(self, key):
-                setattr(self, key, value)
-            else:
-                raise AttributeError("'{}' object has no attribute '{}'".format(self, key))
-
-    def _setup_code(self, b=None):
+    def _setup_code(self, change=None):  # pylint: disable=unused-argument
+        """Setup an AiiDA code."""
         with self._setup_code_out:
             clear_output()
             if self.label is None:
@@ -175,7 +168,7 @@ class AiiDACodeSetup(ipw.VBox):
                 print("You did not specify absolute path to the executable")
                 return
             if self.exists():
-                print ("Code {}@{} already exists".format(self.label, self.selected_computer.name))
+                print("Code {}@{} already exists".format(self.label, self.selected_computer.name))
                 return
             code = Code(remote_computer_exec=(self.selected_computer, self.exec_path))
             code.label = self.label
@@ -184,12 +177,13 @@ class AiiDACodeSetup(ipw.VBox):
             code.set_prepend_text(self.prepend_text)
             code.set_append_text(self.append_text)
             code.store()
-            code._reveal()
+            code.reveal()
             full_string = "{}@{}".format(self.label, self.selected_computer.name)
-            print(check_output(['verdi', 'code', 'show', full_string]))
+            print(check_output(['verdi', 'code', 'show', full_string]).decode('utf-8'))
 
     def exists(self):
-        from aiida.common.exceptions import NotExistent, MultipleObjectsError
+        """Returns True if the code exists, returns False otherwise."""
+        from aiida.common import NotExistent, MultipleObjectsError
         try:
             Code.get_from_string("{}@{}".format(self.label, self.selected_computer.name))
             return True
@@ -200,10 +194,9 @@ class AiiDACodeSetup(ipw.VBox):
 
     @property
     def label(self):
-        if len(self._inp_code_label.value.strip()) == 0:
+        if not self._inp_code_label.value.strip():
             return None
-        else:
-            return self._inp_code_label.value
+        return self._inp_code_label.value
 
     @label.setter
     def label(self, label):
