@@ -1,12 +1,13 @@
 {
-    "version": "1.0.0a8",
+    "version": "1.0.0b1",
     "name": "aiidalab-widgets-base",
     "author_email": "aiidateam@gmail.com",
     "url": "https://github.com/aiidalab/aiidalab-widgets-base",
     "license": "MIT",
     "classifiers": [
         "Programming Language :: Python",
-        "Framework :: AiiDA"
+        "Framework :: AiiDA",
+        "Development Status :: 4 - Beta"
     ],
     "install_requires": [
         "ase",
