@@ -6,7 +6,7 @@ import ipywidgets as ipw
 from IPython.display import clear_output
 from traitlets import Dict, Instance, Unicode, Union, link, validate
 
-from aiida.orm import Code
+from aiida.orm import Code, QueryBuilder, User
 
 from aiidalab_widgets_base.utils import predefine_settings, valid_arguments
 
@@ -33,7 +33,6 @@ class CodeDropdown(ipw.VBox):
         :type text: str"""
 
         self.input_plugin = input_plugin
-        self.selected_code = None
         self.output = ipw.Output()
 
         self.dropdown = ipw.Dropdown(optionsdescription=text, disabled=True)
@@ -54,37 +53,30 @@ class CodeDropdown(ipw.VBox):
 
         self.refresh()
 
-    @staticmethod
-    def _get_codes(input_plugin):
+    def _get_codes(self):
         """Query the list of available codes."""
-        from aiida.orm.querybuilder import QueryBuilder
-        from aiida.orm import User
-        from aiida.orm import Computer
-        current_user = User.objects.get_default()
 
         querybuild = QueryBuilder()
-        querybuild.append(Computer, project=['*'], tag='computer')
         querybuild.append(Code,
                           filters={
                               'attributes.input_plugin': {
-                                  '==': input_plugin
+                                  '==': self.input_plugin
                               },
                               'extras.hidden': {
                                   "~==": True
                               }
                           },
-                          project=['*'],
-                          with_computer='computer')
-        results = querybuild.all()
+                          project=['*'])
 
         # Only codes on computers configured for the current user.
-        results = [r for r in results if r[0].is_user_configured(current_user)]
-
-        codes = {"{}@{}".format(r[1].label, r[0].name): r[1] for r in results}
-        return codes
+        return {
+            self._full_code_name(c[0]): c[0]
+            for c in querybuild.all()
+            if c[0].computer.is_user_configured(User.objects.get_default())
+        }
 
     @staticmethod
-    def _get_full_code_name(code):
+    def _full_code_name(code):
         return "{}@{}".format(code.label, code.computer.name)
 
     def refresh(self, _=None):
@@ -96,7 +88,7 @@ class CodeDropdown(ipw.VBox):
         with self.output:
             clear_output()
             with self.hold_trait_notifications():
-                self.dropdown.options = self._get_codes(self.input_plugin)
+                self.dropdown.options = self._get_codes()
             if not self.dropdown.options:
                 print("No codes found for input plugin '{}'.".format(self.input_plugin))
                 self.dropdown.disabled = True
@@ -121,7 +113,7 @@ class CodeDropdown(ipw.VBox):
 
         # Check code by value.
         if isinstance(code, Code):
-            full_code_name = self._get_full_code_name(code)
+            full_code_name = self._full_code_name(code)
             if full_code_name in self.codes:
                 return code
             return None
