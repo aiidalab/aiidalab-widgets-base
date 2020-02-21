@@ -4,7 +4,7 @@ from subprocess import check_output
 
 import ipywidgets as ipw
 from IPython.display import clear_output
-from traitlets import Dict, Instance, link
+from traitlets import Dict, Instance, Unicode, Union, link, validate
 
 from aiida.orm import Code
 
@@ -21,7 +21,7 @@ def valid_aiidacode_args(arguments):
 
 class CodeDropdown(ipw.VBox):
     """Code selection widget."""
-    selected_code = Instance(Code, allow_none=True)
+    selected_code = Union([Unicode(), Instance(Code)], allow_none=True)
     codes = Dict(allow_none=True)
 
     def __init__(self, input_plugin, text='Select code:', path_to_root='../', **kwargs):
@@ -83,6 +83,10 @@ class CodeDropdown(ipw.VBox):
         codes = {"{}@{}".format(r[1].label, r[0].name): r[1] for r in results}
         return codes
 
+    @staticmethod
+    def _get_full_code_name(code):
+        return "{}@{}".format(code.label, code.computer.name)
+
     def refresh(self, _=None):
         """Refresh available codes.
 
@@ -91,12 +95,39 @@ class CodeDropdown(ipw.VBox):
 
         with self.output:
             clear_output()
-            self.dropdown.options = self._get_codes(self.input_plugin)
+            with self.hold_trait_notifications():
+                self.dropdown.options = self._get_codes(self.input_plugin)
             if not self.dropdown.options:
                 print("No codes found for input plugin '{}'.".format(self.input_plugin))
                 self.dropdown.disabled = True
             else:
                 self.dropdown.disabled = False
+
+    @validate('selected_code')
+    def _validate_selected_code(self, change):
+        """If code is provided, set it as it is. If code's name is provided,
+        select the code and set it."""
+        code = change['value']
+
+        # If code None, set value to None
+        if code is None:
+            return None
+
+        # Check code by name.
+        if isinstance(code, str):
+            if code in self.codes:
+                return self.codes[code]
+            return None
+
+        # Check code by value.
+        if isinstance(code, Code):
+            full_code_name = self._get_full_code_name(code)
+            if full_code_name in self.codes:
+                return code
+            return None
+
+        # If code is not found, return None.
+        return None
 
 
 class AiiDACodeSetup(ipw.VBox):
