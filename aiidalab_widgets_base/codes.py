@@ -4,7 +4,7 @@ from subprocess import check_output
 
 import ipywidgets as ipw
 from IPython.display import clear_output
-from traitlets import Instance, Unicode, Union, validate
+from traitlets import Dict, Instance, link
 
 from aiida.orm import Code
 
@@ -21,8 +21,8 @@ def valid_aiidacode_args(arguments):
 
 class CodeDropdown(ipw.VBox):
     """Code selection widget."""
-
     selected_code = Instance(Code, allow_none=True)
+    codes = Dict(allow_none=True)
 
     def __init__(self, input_plugin, text='Select code:', path_to_root='../', **kwargs):
         """Dropdown for Codes for one input plugin.
@@ -33,13 +33,15 @@ class CodeDropdown(ipw.VBox):
         :type text: str"""
 
         self.input_plugin = input_plugin
-        self.codes = {}
         self.selected_code = None
         self.output = ipw.Output()
 
         self.dropdown = ipw.Dropdown(optionsdescription=text, disabled=True)
-        def set_selected_code(change):
+        link((self, 'codes'), (self.dropdown, 'options'))
+
+        def set_selected_code(_):
             self.selected_code = self.dropdown.value
+
         self.dropdown.observe(set_selected_code, names='value')
 
         self._btn_refresh = ipw.Button(description="Refresh", layout=ipw.Layout(width="70px"))
@@ -86,16 +88,20 @@ class CodeDropdown(ipw.VBox):
         return codes
 
     def refresh(self, _=None):
-        """Refresh available codes."""
+        """Refresh available codes.
+
+        The job of this function is to look in AiiDA database, find available codes and
+        put them in the dropdown attribute."""
+
         with self.output:
             clear_output()
-            self.codes = self._get_codes(self.input_plugin)
-            if not self.codes:
+            self.dropdown.options = self._get_codes(self.input_plugin)
+            if not self.dropdown.options:
                 print("No codes found for input plugin '{}'.".format(self.input_plugin))
                 self.dropdown.disabled = True
             else:
                 self.dropdown.disabled = False
-            self.dropdown.options = self.codes
+
 
 class AiiDACodeSetup(ipw.VBox):
     """Class that allows to setup AiiDA code"""
