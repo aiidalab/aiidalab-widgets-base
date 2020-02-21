@@ -38,11 +38,7 @@ class CodeDropdown(ipw.VBox):
 
         self.dropdown = ipw.Dropdown(optionsdescription=text, disabled=True)
         link((self, 'codes'), (self.dropdown, 'options'))
-
-        def set_selected_code(_):
-            self.selected_code = self.dropdown.value
-
-        self.dropdown.observe(set_selected_code, names='value')
+        link((self, 'selected_code'), (self.dropdown, 'value'))
 
         self._btn_refresh = ipw.Button(description="Refresh", layout=ipw.Layout(width="70px"))
         self._btn_refresh.on_click(self.refresh)
