@@ -7,11 +7,11 @@ from subprocess import check_output, call
 import pexpect
 import ipywidgets as ipw
 from IPython.display import clear_output
-from traitlets import Int
+from traitlets import Dict, Instance, Int, Unicode, Union, validate, link
 
-from aiida.orm import Computer
-from aiida.orm import User
 from aiida.common import NotExistent
+from aiida.orm import Computer, QueryBuilder, User
+
 from aiida.transports.plugins.ssh import parse_sshconfig
 
 from aiidalab_widgets_base.utils import predefine_settings, valid_arguments
@@ -654,70 +654,68 @@ class AiidaComputerSetup(ipw.VBox):  # pylint: disable=too-many-instance-attribu
 class ComputerDropdown(ipw.VBox):
     """Widget to select a configured computer."""
 
-    def __init__(self, text='Select computer:', **kwargs):
-        """ Dropdown for Codes for one input plugin.
+    selected_computer = Union([Unicode(), Instance(Computer)], allow_none=True)
+    computers = Dict(allow_none=True)
+
+    def __init__(self, text='Select computer:', path_to_root='../', **kwargs):
+        """Dropdown for Codes for one input plugin.
 
         :param text: Text to display before dropdown
-        :type text: str
-        """
+        :type text: str"""
+        self.output = ipw.Output()
 
-        self._dropdown = ipw.Dropdown(options=[],
+        self._dropdown = ipw.Dropdown(options={},
                                       description=text,
                                       style={'description_width': 'initial'},
                                       disabled=True)
+        link((self, 'computers'), (self._dropdown, 'options'))
+        link((self, 'selected_computer'), (self._dropdown, 'value'))
+
         self._btn_refresh = ipw.Button(description="Refresh", layout=ipw.Layout(width="70px"))
-
         self._setup_another = ipw.HTML(
-            value="""<a href=./setup_computer.ipynb target="_blank">Setup new computer</a>""",
-            layout={'margin': '0px 0px 0px 250px'})
+            value="""<a href={path_to_root}aiidalab-widgets-base/setup_computer.ipynb target="_blank">
+            Setup new computer</a>""".format(path_to_root=path_to_root))
         self._btn_refresh.on_click(self._refresh)
-        self.output = ipw.Output()
 
-        children = [ipw.HBox([self._dropdown, self._btn_refresh]), self._setup_another, self.output]
-
-        super(ComputerDropdown, self).__init__(children=children, **kwargs)
-
+        children = [ipw.HBox([self._dropdown, self._btn_refresh, self._setup_another]), self.output]
         self._refresh()
+        super().__init__(children=children, **kwargs)
 
-    def _get_computers(self):
+    @staticmethod
+    def _get_computers():
         """Get the list of available computers."""
-        from aiida.orm.querybuilder import QueryBuilder
-        current_user = User.objects.get_default()
-
         query_b = QueryBuilder()
-        query_b.append(Computer, project=['*'], tag='computer')
+        query_b.append(Computer, tag='computer')
 
-        results = query_b.all()
+        # Only computers configured for the current user.
+        return {c[0].name: c[0] for c in query_b.all() if c[0].is_user_configured(User.objects.get_default())}
 
-        # only computers configured for the current user
-        results = [r for r in results if r[0].is_user_configured(current_user)]
-
-        self._dropdown.options = {r[0].name: r[0] for r in results}
-
-    def _refresh(self, change=None):  # pylint: disable=unused-argument
+    def _refresh(self, _=None):
         """Refresh the list of configured computers."""
+
         with self.output:
             clear_output()
-            self._get_computers()
+            with self.hold_trait_notifications():
+                self._dropdown.options = self._get_computers()
             if not self.computers:
                 print("No computers found.")
                 self._dropdown.disabled = True
             else:
                 self._dropdown.disabled = False
 
-    @property
-    def computers(self):
-        return self._dropdown.options
+    @validate('selected_computer')
+    def _validate_selected_computer(self, change):
+        """Select computer either by name or by class instance."""
+        computer = change['value']
 
-    @property
-    def selected_computer(self):
-        """Return selected computer."""
-        try:
-            return self._dropdown.value
-        except KeyError:
+        if computer is None:
             return None
 
-    @selected_computer.setter
-    def selected_computer(self, selected_computer):
-        if selected_computer in self.computers:
-            self._dropdown.label = selected_computer
+        if isinstance(computer, str) and computer in self.computers:
+            self._dropdown.label = computer
+            return self._dropdown.value
+
+        if isinstance(computer, Computer) and computer.name in self.computers:
+            return computer
+
+        return None
