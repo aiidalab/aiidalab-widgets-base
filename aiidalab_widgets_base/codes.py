@@ -4,6 +4,7 @@ from subprocess import check_output
 
 import ipywidgets as ipw
 from IPython.display import clear_output
+from traitlets import Instance, Unicode, Union, validate
 
 from aiida.orm import Code
 
@@ -21,26 +22,33 @@ def valid_aiidacode_args(arguments):
 class CodeDropdown(ipw.VBox):
     """Code selection widget."""
 
+    selected_code = Instance(Code, allow_none=True)
+
     def __init__(self, input_plugin, text='Select code:', path_to_root='../', **kwargs):
-        """ Dropdown for Codes for one input plugin.
+        """Dropdown for Codes for one input plugin.
 
         :param input_plugin: Input plugin of codes to show
         :type input_plugin: str
         :param text: Text to display before dropdown
-        :type text: str
-        """
+        :type text: str"""
 
         self.input_plugin = input_plugin
         self.codes = {}
+        self.selected_code = None
+        self.output = ipw.Output()
 
-        self.dropdown = ipw.Dropdown(description=text, disabled=True)
+        self.dropdown = ipw.Dropdown(optionsdescription=text, disabled=True)
+        def set_selected_code(change):
+            self.selected_code = self.dropdown.value
+        self.dropdown.observe(set_selected_code, names='value')
+
         self._btn_refresh = ipw.Button(description="Refresh", layout=ipw.Layout(width="70px"))
         self._btn_refresh.on_click(self.refresh)
+
         # FOR LATER: use base_url here, when it will be implemented in the appmode.
         self._setup_another = ipw.HTML(value="""<a href={path_to_root}aiidalab-widgets-base/setup_code.ipynb?
                       label={label}&plugin={plugin} target="_blank">Setup new code</a>""".format(
             path_to_root=path_to_root, label=input_plugin, plugin=input_plugin))
-        self.output = ipw.Output()
 
         children = [ipw.HBox([self.dropdown, self._btn_refresh, self._setup_another]), self.output]
 
@@ -71,35 +79,23 @@ class CodeDropdown(ipw.VBox):
                           with_computer='computer')
         results = querybuild.all()
 
-        # only codes on computers configured for the current user
+        # Only codes on computers configured for the current user.
         results = [r for r in results if r[0].is_user_configured(current_user)]
 
         codes = {"{}@{}".format(r[1].label, r[0].name): r[1] for r in results}
         return codes
 
-    def refresh(self, change=None):  # pylint: disable=unused-argument
+    def refresh(self, _=None):
         """Refresh available codes."""
         with self.output:
             clear_output()
             self.codes = self._get_codes(self.input_plugin)
-            options = list(self.codes.keys())
-
-            self.dropdown.options = options
-
-            if not options:
+            if not self.codes:
                 print("No codes found for input plugin '{}'.".format(self.input_plugin))
                 self.dropdown.disabled = True
             else:
                 self.dropdown.disabled = False
-
-    @property
-    def selected_code(self):
-        """Returns a selected code."""
-        try:
-            return self.codes[self.dropdown.value]
-        except KeyError:
-            return None
-
+            self.dropdown.options = self.codes
 
 class AiiDACodeSetup(ipw.VBox):
     """Class that allows to setup AiiDA code"""
