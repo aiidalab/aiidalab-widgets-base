@@ -20,7 +20,15 @@ def valid_aiidacode_args(arguments):
 
 
 class CodeDropdown(ipw.VBox):
-    """Code selection widget."""
+    """Code selection widget.
+    Attributes:
+        selected_code(Unicode or Code): Trait that points to the selected Code instance.
+            It can be set either using Code or code's name. It is linked to the 'value' trait
+            of `self.dropdown` widget.
+
+        codes(Dict): Trait that contains codes found for the selected plugin. It is linked
+        to the 'options' trait of `self.dropdown` widget.
+    """
     selected_code = Union([Unicode(), Instance(Code)], allow_none=True)
     codes = Dict(allow_none=True)
 
@@ -35,9 +43,9 @@ class CodeDropdown(ipw.VBox):
         self.input_plugin = input_plugin
         self.output = ipw.Output()
 
-        self.dropdown = ipw.Dropdown(optionsdescription=text, disabled=True)
+        self.dropdown = ipw.Dropdown(optionsdescription=text, disabled=True, value=None)
         link((self, 'codes'), (self.dropdown, 'options'))
-        link((self, 'selected_code'), (self.dropdown, 'value'))
+        link((self.dropdown, 'value'), (self, 'selected_code'))
 
         self._btn_refresh = ipw.Button(description="Refresh", layout=ipw.Layout(width="70px"))
         self._btn_refresh.on_click(self.refresh)
@@ -70,13 +78,13 @@ class CodeDropdown(ipw.VBox):
 
         # Only codes on computers configured for the current user.
         return {
-            self._full_code_name(c[0]): c[0]
+            self._full_code_label(c[0]): c[0]
             for c in querybuild.all()
             if c[0].computer.is_user_configured(User.objects.get_default())
         }
 
     @staticmethod
-    def _full_code_name(code):
+    def _full_code_label(code):
         return "{}@{}".format(code.label, code.computer.name)
 
     def refresh(self, _=None):
@@ -94,6 +102,7 @@ class CodeDropdown(ipw.VBox):
                 self.dropdown.disabled = True
             else:
                 self.dropdown.disabled = False
+            self.dropdown.value = None
 
     @validate('selected_code')
     def _validate_selected_code(self, change):
@@ -109,16 +118,16 @@ class CodeDropdown(ipw.VBox):
         if isinstance(code, str):
             if code in self.codes:
                 return self.codes[code]
-            return None
+            raise KeyError("The code named '{}' wasn't found in AiiDA database.".format(code))
 
         # Check code by value.
         if isinstance(code, Code):
-            full_code_name = self._full_code_name(code)
-            if full_code_name in self.codes:
+            label = self._full_code_label(code)
+            if label in self.codes:
                 return code
-            return None
+            raise ValueError("The code '{}' wasn't found in AiiDA database.".format(code))
 
-        # If code is not found, return None.
+        # This place will never be reached, because the trait's type is checked.
         return None
 
 
