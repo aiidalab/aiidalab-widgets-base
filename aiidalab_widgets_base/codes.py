@@ -57,7 +57,7 @@ class CodeDropdown(ipw.VBox):
 
         children = [ipw.HBox([self.dropdown, self._btn_refresh, self._setup_another]), self.output]
 
-        super(CodeDropdown, self).__init__(children=children, **kwargs)
+        super().__init__(children=children, **kwargs)
 
         self.refresh()
 
