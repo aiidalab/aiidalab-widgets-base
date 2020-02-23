@@ -652,7 +652,16 @@ class AiidaComputerSetup(ipw.VBox):  # pylint: disable=too-many-instance-attribu
 
 
 class ComputerDropdown(ipw.VBox):
-    """Widget to select a configured computer."""
+    """Widget to select a configured computer.
+
+    Attributes:
+        selected_computer(Unicode or Computer): Trait that points to the selected Computer instance.
+            It can be set either using Computer or computer's name. It is linked to the 'value' trait
+            of `self._dropdown` widget.
+
+        computers(Dict): Trait that contains computers found in the AiiDA database. It is linked
+        to the 'options' trait of `self._dropdown` widget.
+    """
 
     selected_computer = Union([Unicode(), Instance(Computer)], allow_none=True)
     computers = Dict(allow_none=True)
@@ -665,11 +674,12 @@ class ComputerDropdown(ipw.VBox):
         self.output = ipw.Output()
 
         self._dropdown = ipw.Dropdown(options={},
+                                      value=None,
                                       description=text,
                                       style={'description_width': 'initial'},
                                       disabled=True)
         link((self, 'computers'), (self._dropdown, 'options'))
-        link((self, 'selected_computer'), (self._dropdown, 'value'))
+        link((self._dropdown, 'value'), (self, 'selected_computer'))
 
         self._btn_refresh = ipw.Button(description="Refresh", layout=ipw.Layout(width="70px"))
         self._setup_another = ipw.HTML(
@@ -703,6 +713,8 @@ class ComputerDropdown(ipw.VBox):
             else:
                 self._dropdown.disabled = False
 
+            self._dropdown.value = None
+
     @validate('selected_computer')
     def _validate_selected_computer(self, change):
         """Select computer either by name or by class instance."""
@@ -711,11 +723,15 @@ class ComputerDropdown(ipw.VBox):
         if computer is None:
             return None
 
-        if isinstance(computer, str) and computer in self.computers:
-            self._dropdown.label = computer
-            return self._dropdown.value
+        if isinstance(computer, str):
+            if computer in self.computers:
+                return self.computers[computer]
+            raise KeyError("The computer named '{}' wasn't found in AiiDA database.".format(computer))
 
-        if isinstance(computer, Computer) and computer.name in self.computers:
-            return computer
+        if isinstance(computer, Computer):
+            if computer.name in self.computers:
+                return computer
+            raise ValueError("The computer '{}' wasn't found in AiiDA database.".format(computer))
 
+        # This place will never be reached, because the trait's type is checked before validation.
         return None
