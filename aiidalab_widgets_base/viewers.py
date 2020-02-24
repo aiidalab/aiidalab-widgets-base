@@ -286,11 +286,13 @@ class StructureDataViewer(_StructureDataBaseViewer):
     """Viewer class for AiiDA structure objects.
 
     Attributes:
-        structure (Atoms): Trait that contains a structure object, which was initially
-        provided to the viewer.
+        structure (Atoms, StructureData, CifData): Trait that contains a structure object,
+        which was initially provided to the viewer. It can be either directly set to an
+        ASE Atoms object or to AiiDA structure object containing `get_ase()` method.
 
         displayed_structure (Atoms): Trait that contains a structure object that is
-        currently displayed (super cell, for example).
+        currently displayed (super cell, for example). The trait is generated automatically
+        and can't be set outside of the class.
     """
     structure = Union([Instance(Atoms), Instance(Node)], allow_none=True)
     displayed_structure = Instance(Atoms, read_only=True)
