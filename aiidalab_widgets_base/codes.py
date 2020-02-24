@@ -121,7 +121,7 @@ class CodeDropdown(ipw.VBox):
         if isinstance(code, str):
             if code in self.codes:
                 return self.codes[code]
-            raise KeyError("No code named '{}' found in  the AiiDA database.".format(code))
+            raise KeyError("No code named '{}' found in the AiiDA database.".format(code))
 
         # Check code by value.
         if isinstance(code, Code):
@@ -129,7 +129,7 @@ class CodeDropdown(ipw.VBox):
             if label in self.codes:
                 return code
             raise ValueError(
-                "The code instance '{}' supplied was not found in  the AiiDA database. Consider reloading.".format(
+                "The code instance '{}' supplied was not found in the AiiDA database. Consider reloading.".format(
                     code))
 
         # This place will never be reached, because the trait's type is checked.
