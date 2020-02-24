@@ -4,8 +4,9 @@ from subprocess import check_output
 
 import ipywidgets as ipw
 from IPython.display import clear_output
+from traitlets import Dict, Instance, Unicode, Union, link, validate
 
-from aiida.orm import Code
+from aiida.orm import Code, QueryBuilder, User
 
 from aiidalab_widgets_base.utils import predefine_settings, valid_arguments
 
@@ -19,10 +20,22 @@ def valid_aiidacode_args(arguments):
 
 
 class CodeDropdown(ipw.VBox):
-    """Code selection widget."""
+    """Code selection widget.
+    Attributes:
+        selected_code(Unicode or Code): Trait that points to the selected Code instance.
+            It can be set either to an AiiDA Code instance or to a code label (will
+            automatically be replaced by the corresponding Code instance).
+            It is linked to the 'value' trait of the `self.dropdown` widget.
+
+        codes(Dict): Trait that contains a dictionary (label => Code instance) for all
+            codes found in the AiiDA database for the selected plugin. It is linked
+            to the 'options' trait of the `self.dropdown` widget.
+    """
+    selected_code = Union([Unicode(), Instance(Code)], allow_none=True)
+    codes = Dict(allow_none=True)
 
     def __init__(self, input_plugin, text='Select code:', path_to_root='../', **kwargs):
-        """ Dropdown for Codes for one input plugin.
+        """Dropdown for Codes for one input plugin.
 
         :param input_plugin: Input plugin of codes to show
         :type input_plugin: str
@@ -31,74 +44,95 @@ class CodeDropdown(ipw.VBox):
         """
 
         self.input_plugin = input_plugin
-        self.codes = {}
+        self.output = ipw.Output()
 
-        self.dropdown = ipw.Dropdown(description=text, disabled=True)
+        self.dropdown = ipw.Dropdown(optionsdescription=text, disabled=True, value=None)
+        link((self, 'codes'), (self.dropdown, 'options'))
+        link((self.dropdown, 'value'), (self, 'selected_code'))
+
         self._btn_refresh = ipw.Button(description="Refresh", layout=ipw.Layout(width="70px"))
         self._btn_refresh.on_click(self.refresh)
+
         # FOR LATER: use base_url here, when it will be implemented in the appmode.
         self._setup_another = ipw.HTML(value="""<a href={path_to_root}aiidalab-widgets-base/setup_code.ipynb?
                       label={label}&plugin={plugin} target="_blank">Setup new code</a>""".format(
             path_to_root=path_to_root, label=input_plugin, plugin=input_plugin))
-        self.output = ipw.Output()
 
         children = [ipw.HBox([self.dropdown, self._btn_refresh, self._setup_another]), self.output]
 
-        super(CodeDropdown, self).__init__(children=children, **kwargs)
+        super().__init__(children=children, **kwargs)
 
         self.refresh()
 
-    @staticmethod
-    def _get_codes(input_plugin):
+    def _get_codes(self):
         """Query the list of available codes."""
-        from aiida.orm.querybuilder import QueryBuilder
-        from aiida.orm import User
-        from aiida.orm import Computer
-        current_user = User.objects.get_default()
 
         querybuild = QueryBuilder()
-        querybuild.append(Computer, project=['*'], tag='computer')
         querybuild.append(Code,
                           filters={
                               'attributes.input_plugin': {
-                                  '==': input_plugin
+                                  '==': self.input_plugin
                               },
                               'extras.hidden': {
                                   "~==": True
                               }
                           },
-                          project=['*'],
-                          with_computer='computer')
-        results = querybuild.all()
+                          project=['*'])
 
-        # only codes on computers configured for the current user
-        results = [r for r in results if r[0].is_user_configured(current_user)]
+        # Only codes on computers configured for the current user.
+        return {
+            self._full_code_label(c[0]): c[0]
+            for c in querybuild.all()
+            if c[0].computer.is_user_configured(User.objects.get_default())
+        }
 
-        codes = {"{}@{}".format(r[1].label, r[0].name): r[1] for r in results}
-        return codes
+    @staticmethod
+    def _full_code_label(code):
+        return "{}@{}".format(code.label, code.computer.name)
 
-    def refresh(self, change=None):  # pylint: disable=unused-argument
-        """Refresh available codes."""
+    def refresh(self, _=None):
+        """Refresh available codes.
+
+        The job of this function is to look in AiiDA database, find available codes and
+        put them in the dropdown attribute."""
+
         with self.output:
             clear_output()
-            self.codes = self._get_codes(self.input_plugin)
-            options = list(self.codes.keys())
-
-            self.dropdown.options = options
-
-            if not options:
+            with self.hold_trait_notifications():
+                self.dropdown.options = self._get_codes()
+            if not self.dropdown.options:
                 print("No codes found for input plugin '{}'.".format(self.input_plugin))
                 self.dropdown.disabled = True
             else:
                 self.dropdown.disabled = False
+            self.dropdown.value = None
 
-    @property
-    def selected_code(self):
-        """Returns a selected code."""
-        try:
-            return self.codes[self.dropdown.value]
-        except KeyError:
+    @validate('selected_code')
+    def _validate_selected_code(self, change):
+        """If code is provided, set it as it is. If code's name is provided,
+        select the code and set it."""
+        code = change['value']
+
+        # If code None, set value to None
+        if code is None:
             return None
+
+        # Check code by name.
+        if isinstance(code, str):
+            if code in self.codes:
+                return self.codes[code]
+            raise KeyError("No code named '{}' found in the AiiDA database.".format(code))
+
+        # Check code by value.
+        if isinstance(code, Code):
+            label = self._full_code_label(code)
+            if label in self.codes:
+                return code
+            raise ValueError(
+                "The code instance '{}' supplied was not found in the AiiDA database. Consider reloading.".format(code))
+
+        # This place will never be reached, because the trait's type is checked.
+        return None
 
 
 class AiiDACodeSetup(ipw.VBox):
