@@ -27,7 +27,7 @@ class CodeDropdown(ipw.VBox):
              It is linked to the 'value' trait of the `self.dropdown` widget.
 
         codes(Dict): Trait that contains codes found for the selected plugin. It is linked
-        to the 'options' trait of `self.dropdown` widget.
+        to the 'options' trait of the `self.dropdown` widget.
     """
     selected_code = Union([Unicode(), Instance(Code)], allow_none=True)
     codes = Dict(allow_none=True)
