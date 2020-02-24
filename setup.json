@@ -1,21 +1,24 @@
 {
-    "version": "1.0.0b1",
+    "version": "1.0.0b2",
     "name": "aiidalab-widgets-base",
-    "author_email": "aiidateam@gmail.com",
+    "author_email": "aiidalab@materialscloud.org",
     "url": "https://github.com/aiidalab/aiidalab-widgets-base",
     "license": "MIT",
     "classifiers": [
-        "Programming Language :: Python",
+        "License :: OSI Approved :: MIT License",
+        "Programming Language :: Python :: 3",
         "Framework :: AiiDA",
         "Development Status :: 4 - Beta"
     ],
     "install_requires": [
+        "aiida-core>=1.0.0,<2.0.0",
         "ase",
         "bokeh",
-        "numpy",
-        "ipywidgets",
         "fileupload",
-        "nglview"
+        "ipywidgets",
+        "nglview",
+        "numpy",
+        "pandas"
     ],
     "extras_require": {
         "testing": [
