@@ -656,18 +656,20 @@ class ComputerDropdown(ipw.VBox):
 
     Attributes:
         selected_computer(Unicode or Computer): Trait that points to the selected Computer instance.
-            It can be set either using Computer or computer's name. It is linked to the 'value' trait
-            of `self._dropdown` widget.
+            It can be set either to an AiiDA Computer instance or to a computer label (will
+            automatically be replaced by the corresponding Computer instance). It is linked to the
+            'value' trait of `self._dropdown` widget.
 
-        computers(Dict): Trait that contains computers found in the AiiDA database. It is linked
-        to the 'options' trait of `self._dropdown` widget.
+        computers(Dict): Trait that contains a dictionary (label => Computer instance) for all
+        computers found in the AiiDA database. It is linked to the 'options' trait of
+        `self._dropdown` widget.
     """
 
     selected_computer = Union([Unicode(), Instance(Computer)], allow_none=True)
     computers = Dict(allow_none=True)
 
     def __init__(self, text='Select computer:', path_to_root='../', **kwargs):
-        """Dropdown for Codes for one input plugin.
+        """Dropdown for configured AiiDA Computers.
 
         :param text: Text to display before dropdown
         :type text: str"""
@@ -726,12 +728,13 @@ class ComputerDropdown(ipw.VBox):
         if isinstance(computer, str):
             if computer in self.computers:
                 return self.computers[computer]
-            raise KeyError("The computer named '{}' wasn't found in AiiDA database.".format(computer))
+            raise KeyError("No computer named '{}' was found in AiiDA database.".format(computer))
 
         if isinstance(computer, Computer):
             if computer.name in self.computers:
                 return computer
-            raise ValueError("The computer '{}' wasn't found in AiiDA database.".format(computer))
+            raise ValueError("The computer instance '{}' supplied was not found in  the AiiDA database. "
+                             "Consider reloading".format(computer))
 
         # This place will never be reached, because the trait's type is checked before validation.
         return None
