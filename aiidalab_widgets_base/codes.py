@@ -125,7 +125,7 @@ class CodeDropdown(ipw.VBox):
             label = self._full_code_label(code)
             if label in self.codes:
                 return code
-            raise ValueError("The code '{}' wasn't found in AiiDA database.".format(code))
+            raise ValueError("The code instance '{}' supplied was not found in  the AiiDA database. Consider reloading.".format(code))
 
         # This place will never be reached, because the trait's type is checked.
         return None
