@@ -24,7 +24,7 @@ class CodeDropdown(ipw.VBox):
     Attributes:
         selected_code(Unicode or Code): Trait that points to the selected Code instance.
             It can be set either to an AiiDA Code instance or to a code label (will automatically be replaced by the corresponding Code instance).
-            of `self.dropdown` widget.
+             It is linked to the 'value' trait of the `self.dropdown` widget.
 
         codes(Dict): Trait that contains codes found for the selected plugin. It is linked
         to the 'options' trait of `self.dropdown` widget.
