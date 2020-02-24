@@ -140,16 +140,27 @@ class _StructureDataBaseViewer(ipw.VBox):
 
         # Defining appearance tab.
 
-        # 1. Choose background color.
+        # 1. Supercell
+        self.supercell_x = ipw.BoundedIntText(value=1, min=1, layout={"width": "30px"})
+        self.supercell_y = ipw.BoundedIntText(value=1, min=1, layout={"width": "30px"})
+        self.supercell_z = ipw.BoundedIntText(value=1, min=1, layout={"width": "30px"})
+        supercell_selector = ipw.HBox([
+            ipw.HTML(description="Super cell:", layout={"width": "initial"}),
+            self.supercell_x,
+            self.supercell_y,
+            self.supercell_z,
+        ])
+
+        # 2. Choose background color.
         background_color = ipw.ColorPicker(description="Background")
         ipw.link((background_color, 'value'), (self._viewer, 'background'))
         background_color.value = 'white'
 
-        # 2. Center button.
+        # 3. Center button.
         center_button = ipw.Button(description="Center")
         center_button.on_click(lambda c: self._viewer.center())
 
-        appearance_tab = ipw.VBox([background_color, center_button])
+        appearance_tab = ipw.VBox([supercell_selector, background_color, center_button])
 
         # Defining download tab.
 
@@ -274,13 +285,35 @@ class _StructureDataBaseViewer(ipw.VBox):
 class StructureDataViewer(_StructureDataBaseViewer):
     """Viewer class for AiiDA structure objects.
 
-    :param structure: structure object to be viewed
-    :type structure: StructureData or CifData"""
+    Attributes:
+        structure (Atoms, StructureData, CifData): Trait that contains a structure object,
+        which was initially provided to the viewer. It can be either directly set to an
+        ASE Atoms object or to AiiDA structure object containing `get_ase()` method.
+
+        displayed_structure (Atoms): Trait that contains a structure object that is
+        currently displayed (super cell, for example). The trait is generated automatically
+        and can't be set outside of the class.
+    """
     structure = Union([Instance(Atoms), Instance(Node)], allow_none=True)
+    displayed_structure = Instance(Atoms, read_only=True)
 
     def __init__(self, structure=None, **kwargs):
         super().__init__(**kwargs)
         self.structure = structure
+
+        self.supercell_x.observe(self.repeat, names='value')
+        self.supercell_y.observe(self.repeat, names='value')
+        self.supercell_z.observe(self.repeat, names='value')
+
+    def repeat(self, _):
+        if self.structure is not None:
+            self.set_trait(
+                'displayed_structure',
+                self.structure.repeat([
+                    self.supercell_x.value,
+                    self.supercell_y.value,
+                    self.supercell_z.value,
+                ]))
 
     @validate('structure')
     def _valid_structure(self, change):  # pylint: disable=no-self-use
@@ -298,15 +331,25 @@ class StructureDataViewer(_StructureDataBaseViewer):
                          "ASE Atoms object, AiiDA CifData or StructureData.")
 
     @observe('structure')
-    def _update_structure_view(self, change):
-        """Update structure view after structure was modified."""
+    def _update_displayed_structure(self, change):
+        """Update displayed_structure trait after the structure trait has been modified."""
         # Remove the current structure(s) from the viewer.
+        if change['new'] is not None:
+            self.set_trait(
+                'displayed_structure',
+                change['new'].repeat([self.supercell_x.value, self.supercell_y.value, self.supercell_z.value]))
+
+    @observe('displayed_structure')
+    def _update_structure_viewer(self, change):
+        """Update the view if displayed_structure trait was modified."""
         with self.hold_trait_notifications():
             for comp_id in self._viewer._ngl_component_ids:  # pylint: disable=protected-access
                 self._viewer.remove_component(comp_id)
             self.clear_selection()
             if change['new'] is not None:
-                self._viewer.add_component(nglview.ASEStructure(change['new']))  # adds ball+stick
+                self._viewer.add_component(nglview.ASEStructure(change['new']))
+                self._viewer.clear()
+                self._viewer.add_ball_and_stick(aspectRatio=4)  # pylint: disable=no-member
                 self._viewer.add_unitcell()  # pylint: disable=no-member
 
 
