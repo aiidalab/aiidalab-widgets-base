@@ -141,9 +141,9 @@ class _StructureDataBaseViewer(ipw.VBox):
         # Defining appearance tab.
 
         # 1. Supercell
-        self.supercell_x = ipw.BoundedIntText(value=1, layout={"width": "30px"})
-        self.supercell_y = ipw.BoundedIntText(value=1, layout={"width": "30px"})
-        self.supercell_z = ipw.BoundedIntText(value=1, layout={"width": "30px"})
+        self.supercell_x = ipw.BoundedIntText(value=1, min=1, layout={"width": "30px"})
+        self.supercell_y = ipw.BoundedIntText(value=1, min=1, layout={"width": "30px"})
+        self.supercell_z = ipw.BoundedIntText(value=1, min=1, layout={"width": "30px"})
         supercell_selector = ipw.HBox([
             ipw.HTML(description="Super cell:", layout={"width": "initial"}),
             self.supercell_x,
@@ -285,8 +285,13 @@ class _StructureDataBaseViewer(ipw.VBox):
 class StructureDataViewer(_StructureDataBaseViewer):
     """Viewer class for AiiDA structure objects.
 
-    :param structure: structure object to be viewed
-    :type structure: StructureData or CifData"""
+    Attributes:
+        structure (Atoms): Trait that contains a structure object, which was initially
+        provided to the viewer.
+
+        displayed_structure (Atoms): Trait that contains a structure object that is
+        currently displayed (super cell, for example).
+    """
     structure = Union([Instance(Atoms), Instance(Node)], allow_none=True)
     displayed_structure = Instance(Atoms, read_only=True)
 
@@ -324,7 +329,7 @@ class StructureDataViewer(_StructureDataBaseViewer):
                          "ASE Atoms object, AiiDA CifData or StructureData.")
 
     @observe('structure')
-    def _update_structure(self, change):
+    def _update_displayed_structure(self, change):
         """Update displayed_structure trait after the structure trait has been modified."""
         # Remove the current structure(s) from the viewer.
         if change['new'] is not None:
@@ -333,7 +338,7 @@ class StructureDataViewer(_StructureDataBaseViewer):
                 change['new'].repeat([self.supercell_x.value, self.supercell_y.value, self.supercell_z.value]))
 
     @observe('displayed_structure')
-    def _structure_viewer(self, change):
+    def _update_structure_viewer(self, change):
         """Update the view if displayed_structure trait was modified."""
         with self.hold_trait_notifications():
             for comp_id in self._viewer._ngl_component_ids:  # pylint: disable=protected-access
