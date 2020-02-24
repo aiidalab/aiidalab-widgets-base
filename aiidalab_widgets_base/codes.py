@@ -118,7 +118,7 @@ class CodeDropdown(ipw.VBox):
         if isinstance(code, str):
             if code in self.codes:
                 return self.codes[code]
-            raise KeyError("The code named '{}' wasn't found in AiiDA database.".format(code))
+            raise KeyError("No code named '{}' found in  the AiiDA database.".format(code))
 
         # Check code by value.
         if isinstance(code, Code):
