@@ -23,11 +23,13 @@ class CodeDropdown(ipw.VBox):
     """Code selection widget.
     Attributes:
         selected_code(Unicode or Code): Trait that points to the selected Code instance.
-            It can be set either to an AiiDA Code instance or to a code label (will automatically be replaced by the corresponding Code instance).
-             It is linked to the 'value' trait of the `self.dropdown` widget.
+            It can be set either to an AiiDA Code instance or to a code label (will
+            automatically be replaced by the corresponding Code instance).
+            It is linked to the 'value' trait of the `self.dropdown` widget.
 
-        codes(Dict): Trait that contains a dictionary (label => Code instance) for all codes found in the AiiDA database for the selected plugin. It is linked
-        to the 'options' trait of the `self.dropdown` widget.
+        codes(Dict): Trait that contains a dictionary (label => Code instance) for all
+            codes found in the AiiDA database for the selected plugin. It is linked
+            to the 'options' trait of the `self.dropdown` widget.
     """
     selected_code = Union([Unicode(), Instance(Code)], allow_none=True)
     codes = Dict(allow_none=True)
@@ -38,7 +40,8 @@ class CodeDropdown(ipw.VBox):
         :param input_plugin: Input plugin of codes to show
         :type input_plugin: str
         :param text: Text to display before dropdown
-        :type text: str"""
+        :type text: str
+        """
 
         self.input_plugin = input_plugin
         self.output = ipw.Output()
@@ -125,7 +128,9 @@ class CodeDropdown(ipw.VBox):
             label = self._full_code_label(code)
             if label in self.codes:
                 return code
-            raise ValueError("The code instance '{}' supplied was not found in  the AiiDA database. Consider reloading.".format(code))
+            raise ValueError(
+                "The code instance '{}' supplied was not found in  the AiiDA database. Consider reloading.".format(
+                    code))
 
         # This place will never be reached, because the trait's type is checked.
         return None
