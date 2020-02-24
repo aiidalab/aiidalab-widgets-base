@@ -26,7 +26,7 @@ class CodeDropdown(ipw.VBox):
             It can be set either to an AiiDA Code instance or to a code label (will automatically be replaced by the corresponding Code instance).
              It is linked to the 'value' trait of the `self.dropdown` widget.
 
-        codes(Dict): Trait that contains codes found for the selected plugin. It is linked
+        codes(Dict): Trait that contains a dictionary (label => Code instance) for all codes found in the AiiDA database for the selected plugin. It is linked
         to the 'options' trait of the `self.dropdown` widget.
     """
     selected_code = Union([Unicode(), Instance(Code)], allow_none=True)
