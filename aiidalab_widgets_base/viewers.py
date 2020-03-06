@@ -7,7 +7,7 @@ from IPython.display import display
 import nglview
 from ase import Atoms
 
-from traitlets import Instance, Int, Set, Union, observe, validate
+from traitlets import Instance, Int, Set, Unicode, Union, observe, link, validate
 from aiida.orm import Node
 
 from .utils import find_ranges, string_range_to_set
@@ -80,7 +80,7 @@ class _StructureDataBaseViewer(ipw.VBox):
 
     :param configure_view: If True, add configuration tabs
     :type configure_view: bool"""
-    selection = Set(Int, read_only=True)
+    selection = Union([Set(Int), Unicode()])
     DEFAULT_SELECTION_OPACITY = 0.2
     DEFAULT_SELECTION_RADIUS = 6
     DEFAULT_SELECTION_COLOR = 'green'
@@ -119,11 +119,11 @@ class _StructureDataBaseViewer(ipw.VBox):
                                         placeholder="Example: 2 5 8..10",
                                         value='',
                                         style={'description_width': 'initial'})
-        self._selected_atoms.observe(self._apply_selection, names='value')
+        #self._selected_atoms.observe(self._apply_selection, names='value')
 
         # 2. Copy to clipboard
         copy_to_clipboard = CopyToClipboardButton(description="Copy to clipboard")
-        ipw.link((self._selected_atoms, 'value'), (copy_to_clipboard, 'value'))
+        link((self._selected_atoms, 'value'), (copy_to_clipboard, 'value'))
 
         # 3. Informing about wrong syntax.
         self.wrong_syntax = ipw.HTML(
@@ -153,7 +153,7 @@ class _StructureDataBaseViewer(ipw.VBox):
 
         # 2. Choose background color.
         background_color = ipw.ColorPicker(description="Background")
-        ipw.link((background_color, 'value'), (self._viewer, 'background'))
+        link((background_color, 'value'), (self._viewer, 'background'))
         background_color.value = 'white'
 
         # 3. Center button.
@@ -204,11 +204,13 @@ class _StructureDataBaseViewer(ipw.VBox):
 
         index = self._viewer.picked['atom1']['index']
 
+        if self.selection is None:
+            self.selection = {index}
+
         if index not in self.selection:
-            self.selection.add(index)
+            self.selection = self.selection.union({index})
         else:
-            self.selection.discard(index)
-        self._selected_atoms.value = self.shortened_selection()
+            self.selection = self.selection.difference({index})
 
     def highlight_atoms(self,
                         vis_list,
@@ -226,24 +228,31 @@ class _StructureDataBaseViewer(ipw.VBox):
             aspectRatio=size,
             opacity=opacity)
 
-    def _apply_selection(self, change=None):  # pylint:disable=unused-argument
-        """Apply selection specified in the text area."""
-        short_selection = change['new']
-        expanded_selection, syntax_ok = string_range_to_set(short_selection)
-        self.set_trait('selection', expanded_selection)
+    @validate('selection')
+    def _validate_selection(self, change):
+        """If selection is provided as string, convert it into set."""
 
+        selection = change['value']
         with self.hold_trait_notifications():
-            if syntax_ok:
-                self.wrong_syntax.layout.visibility = 'hidden'
-                self.highlight_atoms(self.selection)
-            else:
-                self.wrong_syntax.layout.visibility = 'visible'
+
+            if isinstance(selection, (list, set)):
+                selection = set(selection)
+
+            if isinstance(selection, str):
+                selection, syntax_ok = string_range_to_set(selection)
+
+                if syntax_ok:
+                    self.wrong_syntax.layout.visibility = 'hidden'
+                else:
+                    self.wrong_syntax.layout.visibility = 'visible'
+
+            self.highlight_atoms(selection)
+            return selection
 
     def clear_selection(self, change=None):  # pylint:disable=unused-argument
         with self.hold_trait_notifications():
             self._viewer._remove_representations_by_name(repr_name='selected_atoms')  # pylint:disable=protected-access
-            self.set_trait('selection', set())
-            self._selected_atoms.value = self.shortened_selection()
+            self.selection = set()
 
     def shortened_selection(self):
         return " ".join([
@@ -295,7 +304,7 @@ class StructureDataViewer(_StructureDataBaseViewer):
         and can't be set outside of the class.
     """
     structure = Union([Instance(Atoms), Instance(Node)], allow_none=True)
-    displayed_structure = Instance(Atoms, read_only=True)
+    displayed_structure = Instance(Atoms, allow_none=True, read_only=True)
 
     def __init__(self, structure=None, **kwargs):
         super().__init__(**kwargs)
@@ -338,6 +347,8 @@ class StructureDataViewer(_StructureDataBaseViewer):
             self.set_trait(
                 'displayed_structure',
                 change['new'].repeat([self.supercell_x.value, self.supercell_y.value, self.supercell_z.value]))
+        else:
+            self.set_trait('displayed_structure', None)
 
     @observe('displayed_structure')
     def _update_structure_viewer(self, change):
