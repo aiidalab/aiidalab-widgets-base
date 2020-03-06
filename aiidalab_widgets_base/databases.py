@@ -1,5 +1,7 @@
 """Widgets that allow to query online databases."""
 import ipywidgets as ipw
+from traitlets import Instance
+from ase import Atoms
 
 from aiida.tools.dbimporters.plugins.cod import CodDbImporter
 
@@ -7,10 +9,9 @@ from aiida.tools.dbimporters.plugins.cod import CodDbImporter
 class CodQueryWidget(ipw.VBox):
     '''Query structures in Crystallography Open Database (COD)
     Useful class members:
-    :ivar has_structure: link to a method to be overloaded. It is called evey time when `self.drop_structure`
-    widget has changed its name
-    :vartype has_structure: function
-    '''
+    :ivar structure(Atoms): trait that contains the selected structure, None if structure is not selected.'''
+
+    structure = Instance(Atoms, allow_none=True)
 
     def __init__(self, **kwargs):
         description = ipw.HTML("""<h3>Get crystal structures from
@@ -47,8 +48,6 @@ class CodQueryWidget(ipw.VBox):
                                            style=style,
                                            layout=layout)
         self.link = ipw.HTML("Link to the web-page will appear here")
-        self.structure_ase = None
-
         self.btn_query.on_click(self._on_click_query)
         self.drop_structure.observe(self._on_select_structure, names=['value'])
 
@@ -101,14 +100,8 @@ class CodQueryWidget(ipw.VBox):
         """When a structure was selected."""
         selected = change['new']
         if selected['status'] is False:
-            self.structure_ase = None
+            self.structure = None
             return
-        self.structure_ase = selected['cif'].get_ase()
-        formula = self.structure_ase.get_chemical_formula()
+        self.structure = selected['cif'].get_ase()
         struct_url = selected['url'].split('.cif')[0] + '.html'
         self.link.value = '<a href="{}" target="_blank">COD entry {}</a>'.format(struct_url, selected['id'])
-        if self.on_structure_selection is not None:
-            self.on_structure_selection(structure_ase=self.structure_ase, name=formula)
-
-    def on_structure_selection(self, structure_ase, name):
-        pass
