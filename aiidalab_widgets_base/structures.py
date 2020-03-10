@@ -1,4 +1,5 @@
 """Module to provide functionality to import structures."""
+# pylint: disable=no-self-use
 
 import os
 import tempfile
@@ -6,7 +7,7 @@ import datetime
 from collections import OrderedDict
 import numpy as np
 import ipywidgets as ipw
-from traitlets import Instance, Unicode, Union, link, observe, validate
+from traitlets import Instance, Unicode, Union, link, default, observe, validate
 
 # ASE imports
 from ase import Atom, Atoms
@@ -16,6 +17,7 @@ from ase.data import chemical_symbols
 from aiida.orm import CalcFunctionNode, CalcJobNode, Data, QueryBuilder, Node, StructureData, WorkChainNode
 from aiida.plugins import DataFactory
 from .utils import get_ase_from_file
+from .viewers import StructureDataViewer
 
 
 class StructureManagerWidget(ipw.VBox):
@@ -31,7 +33,7 @@ class StructureManagerWidget(ipw.VBox):
     structure_node = Instance(Data, allow_none=True, read_only=True)
     node_class = Unicode()
 
-    DATA_FORMATS = {'CifData': 'cif', 'StructureData': 'structure'}
+    SUPPORTED_DATA_FORMATS = {'CifData': 'cif', 'StructureData': 'structure'}
 
     def __init__(self, importers, storable=True, node_class=None, **kwargs):
         """
@@ -47,8 +49,6 @@ class StructureManagerWidget(ipw.VBox):
                 Note: If your workflows require a specific node class, better fix it here.
         """
 
-        from .viewers import StructureDataViewer
-
         # Make sure the list is not empty
         if not importers:
             raise ValueError("The parameter importers should contain a list (or tuple) of tuples "
@@ -59,17 +59,15 @@ class StructureManagerWidget(ipw.VBox):
         self.btn_store.on_click(self._on_click_store)
 
         # Setting traits' initial values
-        self.structure = None
         self._inserted_structure = None
-        self.set_trait('structure_node', None)
 
         # Structure viewer.
         self.viewer = StructureDataViewer(downloadable=False)
         link((self, 'structure'), (self.viewer, 'structure'))
 
         # Store format selector.
-        data_format = ipw.RadioButtons(options=self.DATA_FORMATS, description='Data type:')
-        link((data_format, 'label'), (self, 'node_class'))
+        data_format = ipw.RadioButtons(options=self.SUPPORTED_DATA_FORMATS, description='Data type:')
+        link((self, 'node_class'), (data_format, 'label'))
 
         # Description that is stored along with the new structure.
         self.structure_description = ipw.Text(placeholder="Description (optional)")
@@ -95,15 +93,19 @@ class StructureManagerWidget(ipw.VBox):
             store_and_description.append(self.btn_store)
         if node_class is None:
             store_and_description.append(data_format)
-        elif node_class not in self.DATA_FORMATS:
-            raise ValueError("Unknown data format '{}'. Options: {}".format(node_class, list(self.DATA_FORMATS.keys())))
+        elif node_class not in self.SUPPORTED_DATA_FORMATS:
+            raise ValueError("Unknown data format '{}'. Options: {}".format(node_class,
+                                                                            list(self.SUPPORTED_DATA_FORMATS.keys())))
         else:
             self.node_class = node_class
+
+        self.output = ipw.HTML('')
 
         store_and_description.append(self.structure_description)
         store_and_description = ipw.HBox(store_and_description)
 
-        super().__init__(children=[self._structure_sources_tab, self.viewer, store_and_description], **kwargs)
+        super().__init__(children=[self._structure_sources_tab, self.viewer, store_and_description, self.output],
+                         **kwargs)
 
     def _on_click_store(self, change):  # pylint: disable=unused-argument
         self.store_structure()
@@ -114,68 +116,83 @@ class StructureManagerWidget(ipw.VBox):
         if self.structure_node is None:
             return
         if self.structure_node.is_stored:
-            print("Already stored in AiiDA: " + repr(self.structure_node) + " skipping..")
+            self.output.value = "Already stored in AiiDA [{}], skipping...".format(self.structure_node)
             return
         if label:
             self.structure_node.label = label
         if description:
             self.structure_node.description = description
         self.structure_node.store()
-        print("Stored in AiiDA: " + repr(self.structure_node))
+        self.output.value = "Stored in AiiDA [{}]".format(self.structure_node)
+
+    @staticmethod
+    @default('node_class')
+    def _default_node_class():
+        return 'StructureData'
 
     @observe('node_class')
-    def _change_structure_node(self, change):
-        if change['new'] is not None:
-            self.structure = self._inserted_structure
+    def _change_structure_node(self, _=None):
+        self._structure_changed()
+
+    @default('structure')
+    def _default_structure(self):
+        return None
 
     @validate('structure')
     def _valid_structure(self, change):
         """Returns ASE atoms object and sets structure_node trait."""
 
         self._inserted_structure = change['value']
-        structure_ase = None
-        structure_node = None
-
-        # Chosing type for the structure node.
-        StructureNode = DataFactory(self.DATA_FORMATS[self.node_class])  # pylint: disable=invalid-name
-
-        # If no structure is provided, the rest of the code can be skipped
-        if self._inserted_structure is None:
-            return None
 
         # If structure trait is set to Atoms object, structure node must be generated
         if isinstance(self._inserted_structure, Atoms):
-            structure_ase = self._inserted_structure
+            return self._inserted_structure
+
+        # If structure trait is set to AiiDA node, converting it to ASE Atoms object
+        if isinstance(self._inserted_structure, Data):
+            return self._inserted_structure.get_ase()
+
+        return None
+
+    @observe('structure')
+    def _structure_changed(self, _=None):
+        """This function enables/disables `btn_store` widget if structure is provided/set to None.
+        Also, the function sets `structure_node` trait to the selected node type."""
+
+        # If structure trait was set to None, structure_node should become None as well.
+        if self.structure is None:
+            self.set_trait('structure_node', None)
+            self.btn_store.disabled = True
+            return
+
+        self.btn_store.disabled = False
+
+        # Chosing type for the structure node.
+        StructureNode = DataFactory(self.SUPPORTED_DATA_FORMATS[self.node_class])  # pylint: disable=invalid-name
+
+        # If structure trait is set to Atoms object, structure node must be created from it.
+        if isinstance(self._inserted_structure, Atoms):
             structure_node = StructureNode(ase=self._inserted_structure)
 
         # If structure trait is set to AiiDA node, converting it to ASE Atoms object
         elif isinstance(self._inserted_structure, Data):
-            structure_ase = self._inserted_structure.get_ase()
 
             # Transform the structure to the StructureNode if needed.
             if isinstance(self._inserted_structure, StructureNode):
                 structure_node = self._inserted_structure
-            else:
-                structure_node = StructureNode(ase=structure_ase)
 
-        # Setting structure_node trait.
+            else:
+                # self.structure was already converted to ASE Atoms object.
+                structure_node = StructureNode(ase=self.structure)
+
+        # Setting the structure_node trait.
         self.set_trait('structure_node', structure_node)
         self.structure_node.description = self.structure_description.value
-        self.structure_node.label = structure_ase.get_chemical_formula()
+        self.structure_node.label = self.structure.get_chemical_formula()
 
-        return structure_ase
-
-    @observe('structure')
-    def _structure_changed(self, change):
-        """If structure trait is set to None, unlike this function `_valid_structure` is not called.
-        Therefore this function is used to set `structure_node` trait to None. Also it
-        enables/disables store button if structure is selected/not selected."""
-
-        if change['new'] is None:
-            self.set_trait('structure_node', None)
-            self.btn_store.disabled = True
-        else:
-            self.btn_store.disabled = False
+    @default('structure_node')
+    def _default_structure_node(self):
+        return None
 
 
 class StructureUploadWidget(ipw.VBox):
@@ -201,6 +218,10 @@ class StructureUploadWidget(ipw.VBox):
             fobj.write(self.file_upload.data.decode("utf-8"))
         self.structure = get_ase_from_file(self.file_path)
 
+    @default('structure')
+    def _default_structure(self):
+        return None
+
 
 class StructureExamplesWidget(ipw.VBox):
     """Class to provide example structures for selection."""
@@ -223,6 +244,10 @@ class StructureExamplesWidget(ipw.VBox):
         """When structure is selected."""
 
         self.structure = None if not self._select_structure.value else get_ase_from_file(self._select_structure.value)
+
+    @default('structure')
+    def _default_structure(self):
+        return None
 
 
 class StructureBrowserWidget(ipw.VBox):
@@ -339,7 +364,11 @@ class StructureBrowserWidget(ipw.VBox):
 
     def _on_select_structure(self, change):  # pylint: disable=unused-argument
         """When a structure was selected."""
-        self.structure = None if not self.results.value else self.results.value
+        self.structure = self.results.value or None
+
+    @default('structure')
+    def _default_structure(self):
+        return None
 
 
 class SmilesWidget(ipw.VBox):
@@ -417,3 +446,7 @@ class SmilesWidget(ipw.VBox):
         mol.addh()
         self._optimize_mol(mol)
         self.structure = self.pymol_2_ase(mol)
+
+    @default('structure')
+    def _default_structure(self):
+        return None

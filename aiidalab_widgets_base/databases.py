@@ -1,6 +1,6 @@
 """Widgets that allow to query online databases."""
 import ipywidgets as ipw
-from traitlets import Instance
+from traitlets import Instance, default
 from ase import Atoms
 
 from aiida.tools.dbimporters.plugins.cod import CodDbImporter
@@ -105,3 +105,7 @@ class CodQueryWidget(ipw.VBox):
         self.structure = selected['cif'].get_ase()
         struct_url = selected['url'].split('.cif')[0] + '.html'
         self.link.value = '<a href="{}" target="_blank">COD entry {}</a>'.format(struct_url, selected['id'])
+
+    @default('structure')
+    def _default_structure(self):  # pylint: disable=no-self-use
+        return None
