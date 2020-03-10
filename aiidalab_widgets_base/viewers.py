@@ -10,7 +10,7 @@ from ase import Atoms
 from traitlets import Instance, Int, Set, Unicode, Union, observe, link, validate
 from aiida.orm import Node
 
-from .utils import find_ranges, string_range_to_set
+from .utils import string_range_to_set, set_to_string_range
 from .misc import CopyToClipboardButton
 
 
@@ -115,11 +115,7 @@ class _StructureDataBaseViewer(ipw.VBox):
         # Defining selection tab.
 
         # 1. Selected atoms.
-        self._selected_atoms = ipw.Text(description='Selected atoms:',
-                                        placeholder="Example: 2 5 8..10",
-                                        value='',
-                                        style={'description_width': 'initial'})
-        #self._selected_atoms.observe(self._apply_selection, names='value')
+        self._selected_atoms = ipw.Text(description='Selected atoms:', value='', style={'description_width': 'initial'})
 
         # 2. Copy to clipboard
         copy_to_clipboard = CopyToClipboardButton(description="Copy to clipboard")
@@ -134,9 +130,13 @@ class _StructureDataBaseViewer(ipw.VBox):
         clear_selection = ipw.Button(description="Clear selection")
         clear_selection.on_click(self.clear_selection)
 
+        # 5. Button to apply selection
+        apply_selection = ipw.Button(description="Apply selection")
+        apply_selection.on_click(self.apply_selection)
+
         selection_tab = ipw.VBox(
-            [self._selected_atoms, self.wrong_syntax,
-             ipw.HBox([copy_to_clipboard, clear_selection])])
+            [self._selected_atoms,
+             ipw.HBox([copy_to_clipboard, clear_selection, apply_selection])])
 
         # Defining appearance tab.
 
@@ -201,16 +201,17 @@ class _StructureDataBaseViewer(ipw.VBox):
         """Update selection when clicked on atom."""
         if 'atom1' not in self._viewer.picked.keys():
             return  # did not click on atom
-
         index = self._viewer.picked['atom1']['index']
 
-        if self.selection is None:
+        if not self.selection:
             self.selection = {index}
+            return
 
         if index not in self.selection:
             self.selection = self.selection.union({index})
-        else:
-            self.selection = self.selection.difference({index})
+            return
+
+        self.selection = self.selection.difference({index})
 
     def highlight_atoms(self,
                         vis_list,
@@ -231,10 +232,8 @@ class _StructureDataBaseViewer(ipw.VBox):
     @validate('selection')
     def _validate_selection(self, change):
         """If selection is provided as string, convert it into set."""
-
         selection = change['value']
         with self.hold_trait_notifications():
-
             if isinstance(selection, (list, set)):
                 selection = set(selection)
 
@@ -247,17 +246,14 @@ class _StructureDataBaseViewer(ipw.VBox):
                     self.wrong_syntax.layout.visibility = 'visible'
 
             self.highlight_atoms(selection)
+            self._selected_atoms.value = set_to_string_range(selection)
             return selection
 
-    def clear_selection(self, change=None):  # pylint:disable=unused-argument
-        with self.hold_trait_notifications():
-            self._viewer._remove_representations_by_name(repr_name='selected_atoms')  # pylint:disable=protected-access
-            self.selection = set()
+    def clear_selection(self, _=None):
+        self.selection = set()
 
-    def shortened_selection(self):
-        return " ".join([
-            str(t) if isinstance(t, int) else "{}..{}".format(t[0], t[1]) for t in find_ranges(sorted(self.selection))
-        ])
+    def apply_selection(self, _=None):
+        self.selection = string_range_to_set(self._selected_atoms.value)[0]
 
     def download(self, change=None):  # pylint: disable=unused-argument
         """Prepare a structure for downloading."""
