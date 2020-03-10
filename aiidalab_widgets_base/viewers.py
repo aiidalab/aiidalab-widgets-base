@@ -430,7 +430,7 @@ class BandsDataViewer(ipw.VBox):
             labels = plot_info['labels']
             # Create the figure
             plot = figure(y_axis_label='Dispersion ({})'.format(bands.units))
-            plot.multi_line(x_data, y_data, line_width=2, line_color='red')
+            plot.multi_line(x_data, y_data, line_width=2, line_color='red')  # pylint: disable=too-many-function-args
             plot.xaxis.ticker = [l[0] for l in labels]
             # This trick was suggested here: https://github.com/bokeh/bokeh/issues/8166#issuecomment-426124290
             plot.xaxis.major_label_overrides = {int(l[0]) if l[0].is_integer() else l[0]: l[1] for l in labels}
