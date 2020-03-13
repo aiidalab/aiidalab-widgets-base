@@ -1,4 +1,6 @@
 """Jupyter viewers for AiiDA data objects."""
+# pylint: disable=no-self-use
+
 import base64
 import warnings
 
@@ -7,10 +9,10 @@ from IPython.display import display
 import nglview
 from ase import Atoms
 
-from traitlets import Instance, Int, Set, Union, observe, validate
+from traitlets import Instance, Int, Set, Union, default, link, observe, validate
 from aiida.orm import Node
 
-from .utils import find_ranges, string_range_to_set
+from .utils import string_range_to_set, set_to_string_range
 from .misc import CopyToClipboardButton
 
 
@@ -80,7 +82,7 @@ class _StructureDataBaseViewer(ipw.VBox):
 
     :param configure_view: If True, add configuration tabs
     :type configure_view: bool"""
-    selection = Set(Int, read_only=True)
+    selection = Set(Int)
     DEFAULT_SELECTION_OPACITY = 0.2
     DEFAULT_SELECTION_RADIUS = 6
     DEFAULT_SELECTION_COLOR = 'green'
@@ -115,15 +117,11 @@ class _StructureDataBaseViewer(ipw.VBox):
         # Defining selection tab.
 
         # 1. Selected atoms.
-        self._selected_atoms = ipw.Text(description='Selected atoms:',
-                                        placeholder="Example: 2 5 8..10",
-                                        value='',
-                                        style={'description_width': 'initial'})
-        self._selected_atoms.observe(self._apply_selection, names='value')
+        self._selected_atoms = ipw.Text(description='Selected atoms:', value='', style={'description_width': 'initial'})
 
         # 2. Copy to clipboard
         copy_to_clipboard = CopyToClipboardButton(description="Copy to clipboard")
-        ipw.link((self._selected_atoms, 'value'), (copy_to_clipboard, 'value'))
+        link((self._selected_atoms, 'value'), (copy_to_clipboard, 'value'))
 
         # 3. Informing about wrong syntax.
         self.wrong_syntax = ipw.HTML(
@@ -132,11 +130,16 @@ class _StructureDataBaseViewer(ipw.VBox):
 
         # 4. Button to clear selection.
         clear_selection = ipw.Button(description="Clear selection")
-        clear_selection.on_click(self.clear_selection)
+        clear_selection.on_click(lambda _: self.set_trait('selection', set()))  # lambda cannot contain assignments
 
-        selection_tab = ipw.VBox(
-            [self._selected_atoms, self.wrong_syntax,
-             ipw.HBox([copy_to_clipboard, clear_selection])])
+        # 5. Button to apply selection
+        apply_selection = ipw.Button(description="Apply selection")
+        apply_selection.on_click(self.apply_selection)
+
+        selection_tab = ipw.VBox([
+            ipw.HBox([self._selected_atoms, self.wrong_syntax]),
+            ipw.HBox([copy_to_clipboard, clear_selection, apply_selection])
+        ])
 
         # Defining appearance tab.
 
@@ -153,7 +156,7 @@ class _StructureDataBaseViewer(ipw.VBox):
 
         # 2. Choose background color.
         background_color = ipw.ColorPicker(description="Background")
-        ipw.link((background_color, 'value'), (self._viewer, 'background'))
+        link((background_color, 'value'), (self._viewer, 'background'))
         background_color.value = 'white'
 
         # 3. Center button.
@@ -201,14 +204,17 @@ class _StructureDataBaseViewer(ipw.VBox):
         """Update selection when clicked on atom."""
         if 'atom1' not in self._viewer.picked.keys():
             return  # did not click on atom
-
         index = self._viewer.picked['atom1']['index']
 
+        if not self.selection:
+            self.selection = {index}
+            return
+
         if index not in self.selection:
-            self.selection.add(index)
-        else:
-            self.selection.discard(index)
-        self._selected_atoms.value = self.shortened_selection()
+            self.selection = self.selection.union({index})
+            return
+
+        self.selection = self.selection.difference({index})
 
     def highlight_atoms(self,
                         vis_list,
@@ -221,34 +227,31 @@ class _StructureDataBaseViewer(ipw.VBox):
         self._viewer._remove_representations_by_name(repr_name='selected_atoms')  # pylint:disable=protected-access
         self._viewer.add_ball_and_stick(  # pylint:disable=no-member
             name="selected_atoms",
-            selection=vis_list,
+            selection=list() if vis_list is None else vis_list,
             color=color,
             aspectRatio=size,
             opacity=opacity)
 
-    def _apply_selection(self, change=None):  # pylint:disable=unused-argument
-        """Apply selection specified in the text area."""
-        short_selection = change['new']
-        expanded_selection, syntax_ok = string_range_to_set(short_selection)
-        self.set_trait('selection', expanded_selection)
+    @default('selection')
+    def _default_selection(self):
+        return set()
 
-        with self.hold_trait_notifications():
-            if syntax_ok:
-                self.wrong_syntax.layout.visibility = 'hidden'
-                self.highlight_atoms(self.selection)
-            else:
-                self.wrong_syntax.layout.visibility = 'visible'
+    @validate('selection')
+    def _validate_selection(self, provided):
+        return set(provided['value'])
 
-    def clear_selection(self, change=None):  # pylint:disable=unused-argument
-        with self.hold_trait_notifications():
-            self._viewer._remove_representations_by_name(repr_name='selected_atoms')  # pylint:disable=protected-access
-            self.set_trait('selection', set())
-            self._selected_atoms.value = self.shortened_selection()
+    @observe('selection')
+    def _observe_selection(self, _=None):
+        self.highlight_atoms(self.selection)
+        self._selected_atoms.value = set_to_string_range(self.selection)
 
-    def shortened_selection(self):
-        return " ".join([
-            str(t) if isinstance(t, int) else "{}..{}".format(t[0], t[1]) for t in find_ranges(sorted(self.selection))
-        ])
+    def apply_selection(self, _=None):
+        """Apply selection specified in the text field."""
+        selection_string = self._selected_atoms.value
+        expanded_selection, syntax_ok = string_range_to_set(self._selected_atoms.value)
+        self.wrong_syntax.layout.visibility = 'hidden' if syntax_ok else 'visible'
+        self.selection = expanded_selection
+        self._selected_atoms.value = selection_string  # Keep the old string for further editing.
 
     def download(self, change=None):  # pylint: disable=unused-argument
         """Prepare a structure for downloading."""
@@ -295,7 +298,7 @@ class StructureDataViewer(_StructureDataBaseViewer):
         and can't be set outside of the class.
     """
     structure = Union([Instance(Atoms), Instance(Node)], allow_none=True)
-    displayed_structure = Instance(Atoms, read_only=True)
+    displayed_structure = Instance(Atoms, allow_none=True, read_only=True)
 
     def __init__(self, structure=None, **kwargs):
         super().__init__(**kwargs)
@@ -338,6 +341,8 @@ class StructureDataViewer(_StructureDataBaseViewer):
             self.set_trait(
                 'displayed_structure',
                 change['new'].repeat([self.supercell_x.value, self.supercell_y.value, self.supercell_z.value]))
+        else:
+            self.set_trait('displayed_structure', None)
 
     @observe('displayed_structure')
     def _update_structure_viewer(self, change):
@@ -345,7 +350,7 @@ class StructureDataViewer(_StructureDataBaseViewer):
         with self.hold_trait_notifications():
             for comp_id in self._viewer._ngl_component_ids:  # pylint: disable=protected-access
                 self._viewer.remove_component(comp_id)
-            self.clear_selection()
+            self.selection = set()
             if change['new'] is not None:
                 self._viewer.add_component(nglview.ASEStructure(change['new']))
                 self._viewer.clear()
@@ -423,7 +428,7 @@ class BandsDataViewer(ipw.VBox):
             labels = plot_info['labels']
             # Create the figure
             plot = figure(y_axis_label='Dispersion ({})'.format(bands.units))
-            plot.multi_line(x_data, y_data, line_width=2, line_color='red')
+            plot.multi_line(x_data, y_data, line_width=2, line_color='red')  # pylint: disable=too-many-function-args
             plot.xaxis.ticker = [l[0] for l in labels]
             # This trick was suggested here: https://github.com/bokeh/bokeh/issues/8166#issuecomment-426124290
             plot.xaxis.major_label_overrides = {int(l[0]) if l[0].is_integer() else l[0]: l[1] for l in labels}
