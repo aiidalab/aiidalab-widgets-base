@@ -53,20 +53,20 @@ class SubmitButtonWidget(VBox):
     def on_click(self, function):
         self.btn_submit.on_click(function)
 
-    def on_btn_submit_press(self, _):
+    def on_btn_submit_press(self, _=None):
         """When submit button is pressed."""
         self.submit_out.value = ''
         input_dict = self.input_dictionary_function()
-        if input_dict is not None:
+        if input_dict is None:
+            self.submit_out.value = "SubmitButtonWidget: did not recieve input dictionary."
+        else:
             self.btn_submit.disabled = True
             self.process = submit(self._process_class, **input_dict)
             self.submit_out.value = "Submitted process {}".format(self.process)
             for func in self._run_after_submitted:
                 func(self.process)
-        else:
-            self.submit_out.value = "SubmitButtonWidget: did not recieve input dictionary."
 
-    def run_after_submitted(self, function):
+    def on_submitted(self, function):
         """Run functions after a process has been submitted sucesfully."""
         if callable(function):
             self._run_after_submitted.append(function)
