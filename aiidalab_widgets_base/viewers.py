@@ -1,4 +1,6 @@
 """Jupyter viewers for AiiDA data objects."""
+# pylint: disable=no-self-use
+
 import base64
 import warnings
 
@@ -7,7 +9,7 @@ from IPython.display import display
 import nglview
 from ase import Atoms
 
-from traitlets import Instance, Int, Set, Unicode, Union, default, link, observe, validate
+from traitlets import Instance, Int, Set, Union, default, link, observe, validate
 from aiida.orm import Node
 
 from .utils import string_range_to_set, set_to_string_range
@@ -80,7 +82,7 @@ class _StructureDataBaseViewer(ipw.VBox):
 
     :param configure_view: If True, add configuration tabs
     :type configure_view: bool"""
-    selection = Union([Set(Int), Unicode()])
+    selection = Set(Int)
     DEFAULT_SELECTION_OPACITY = 0.2
     DEFAULT_SELECTION_RADIUS = 6
     DEFAULT_SELECTION_COLOR = 'green'
@@ -231,30 +233,25 @@ class _StructureDataBaseViewer(ipw.VBox):
             opacity=opacity)
 
     @default('selection')
-    def _default_selection(self):  # pylint: disable=no-self-use
+    def _default_selection(self):
         return set()
 
     @validate('selection')
-    def _validate_selection(self, change):
-        """If selection is provided as string, convert it into set."""
-        selection = change['value']
-        with self.hold_trait_notifications():
-            if isinstance(selection, (list, set)):
-                selection = set(selection)
-            if isinstance(selection, str):
-                selection, syntax_ok = string_range_to_set(selection)
-                if not syntax_ok:
-                    self.highlight_atoms(None)
-                    self.wrong_syntax.layout.visibility = 'visible'
-                    return None
+    def _validate_selection(self, provided):
+        return set(provided['value'])
 
-            self.wrong_syntax.layout.visibility = 'hidden'
-            self.highlight_atoms(selection)
-            self._selected_atoms.value = set_to_string_range(selection)
-            return selection
+    @observe('selection')
+    def _observe_selection(self, _=None):
+        self.highlight_atoms(self.selection)
+        self._selected_atoms.value = set_to_string_range(self.selection)
 
     def apply_selection(self, _=None):
-        self.selection = self._selected_atoms.value
+        """Apply selection specified in the text field."""
+        selection_string = self._selected_atoms.value
+        expanded_selection, syntax_ok = string_range_to_set(self._selected_atoms.value)
+        self.wrong_syntax.layout.visibility = 'hidden' if syntax_ok else 'visible'
+        self.selection = expanded_selection
+        self._selected_atoms.value = selection_string  # Keep the old string for further editing.
 
     def download(self, change=None):  # pylint: disable=unused-argument
         """Prepare a structure for downloading."""
