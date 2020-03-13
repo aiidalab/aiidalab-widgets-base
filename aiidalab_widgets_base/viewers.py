@@ -225,7 +225,7 @@ class _StructureDataBaseViewer(ipw.VBox):
         self._viewer._remove_representations_by_name(repr_name='selected_atoms')  # pylint:disable=protected-access
         self._viewer.add_ball_and_stick(  # pylint:disable=no-member
             name="selected_atoms",
-            selection=vis_list or [],
+            selection=list() if vis_list is None else vis_list,
             color=color,
             aspectRatio=size,
             opacity=opacity)
