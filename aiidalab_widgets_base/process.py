@@ -68,8 +68,7 @@ class SubmitButtonWidget(VBox):
 
     def on_submitted(self, function):
         """Run functions after a process has been submitted sucesfully."""
-        if callable(function):
-            self._run_after_submitted.append(function)
+        self._run_after_submitted.append(function)
 
 
 class ProcessFollowerWidget(VBox):
@@ -112,10 +111,9 @@ class ProcessFollowerWidget(VBox):
             for func in self._run_after_completed:
                 func(self.process)
 
-    def run_after_completed(self, function):
+    def on_completed(self, function):
         """Run functions after a process has been completed."""
-        if callable(function):
-            self._run_after_completed.append(function)
+        self._run_after_completed.append(function)
 
 
 class ProgressBarWidget(VBox):
