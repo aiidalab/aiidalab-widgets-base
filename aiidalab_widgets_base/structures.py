@@ -14,7 +14,7 @@ from ase import Atom, Atoms
 from ase.data import chemical_symbols
 
 # AiiDA and AiiDA lab imports
-from aiida.orm import CalcFunctionNode, CalcJobNode, Data, QueryBuilder, Node, StructureData, WorkChainNode
+from aiida.orm import CalcFunctionNode, CalcJobNode, Data, QueryBuilder, Node, WorkChainNode
 from aiida.plugins import DataFactory
 from .utils import get_ase_from_file
 from .viewers import StructureDataViewer
@@ -67,7 +67,7 @@ class StructureManagerWidget(ipw.VBox):
 
         # Store format selector.
         data_format = ipw.RadioButtons(options=self.SUPPORTED_DATA_FORMATS, description='Data type:')
-        link((self, 'node_class'), (data_format, 'label'))
+        link((data_format, 'label'), (self, 'node_class'))
 
         # Description that is stored along with the new structure.
         self.structure_description = ipw.Text(placeholder="Description (optional)")
@@ -93,12 +93,11 @@ class StructureManagerWidget(ipw.VBox):
             store_and_description.append(self.btn_store)
         if node_class is None:
             store_and_description.append(data_format)
-        elif node_class not in self.SUPPORTED_DATA_FORMATS:
+        elif node_class in self.SUPPORTED_DATA_FORMATS:
+            self.node_class = node_class
+        else:
             raise ValueError("Unknown data format '{}'. Options: {}".format(node_class,
                                                                             list(self.SUPPORTED_DATA_FORMATS.keys())))
-        else:
-            self.node_class = node_class
-
         self.output = ipw.HTML('')
 
         store_and_description.append(self.structure_description)
@@ -255,98 +254,120 @@ class StructureBrowserWidget(ipw.VBox):
     structure = Union([Instance(Atoms), Instance(Data)], allow_none=True)
 
     def __init__(self):
-        # Find all process labels.
-        qbuilder = QueryBuilder()
-        qbuilder.append(WorkChainNode, project="label")
-        qbuilder.order_by({WorkChainNode: {'ctime': 'desc'}})
-        process_labels = {i[0] for i in qbuilder.all() if i[0]}
 
-        layout = ipw.Layout(width="900px")
-        self.mode = ipw.RadioButtons(options=['all', 'uploaded', 'edited', 'calculated'],
-                                     layout=ipw.Layout(width="25%"))
-        self.mode.observe(self.search, names='value')
+        # Structure objects we want to query for.
+        self.what_query_for = (DataFactory('structure'), DataFactory('cif'))
 
-        # Date range.
-        self.date_start = ipw.Text(value='', description='From: ', style={'description_width': '120px'})
-        self.date_end = ipw.Text(value='', description='To: ')
-        date_text = ipw.HTML(value='<p>Select the date range:</p>')
-        btn_date = ipw.Button(description='Search', layout={'margin': '1em 0 0 0'})
-        btn_date.on_click(self.search)
-
-        age_selection = ipw.VBox([date_text, ipw.HBox([self.date_start, self.date_end]), btn_date],
-                                 layout={
-                                     'border': '1px solid #fafafa',
-                                     'padding': '1em'
-                                 })
-
-        # Labels.
-        self.drop_label = ipw.Dropdown(options=({'All'}.union(process_labels)),
+        # Extracting available process labels.
+        qbuilder = QueryBuilder().append((CalcJobNode, WorkChainNode), project="label")
+        self.drop_label = ipw.Dropdown(options=sorted({'All'}.union({i[0] for i in qbuilder.iterall() if i[0]})),
                                        value='All',
                                        description='Process Label',
+                                       disabled=True,
                                        style={'description_width': '120px'},
                                        layout={'width': '50%'})
         self.drop_label.observe(self.search, names='value')
 
+        # Disable process labels selection if we are not looking for the calculated structures.
+        def disable_drop_label(change):
+            self.drop_label.disabled = not change['new'] == 'calculated'
+
+        # Select structures kind.
+        self.mode = ipw.RadioButtons(options=['all', 'uploaded', 'edited', 'calculated'], layout={'width': '25%'})
+        self.mode.observe(self.search, names='value')
+        self.mode.observe(disable_drop_label, names='value')
+
+        # Date range.
+        # Note: there is Date picker widget, but it currently does not work in Safari:
+        # https://ipywidgets.readthedocs.io/en/latest/examples/Widget%20List.html#Date-picker
+        date_text = ipw.HTML(value='<p>Select the date range:</p>')
+        self.start_date_widget = ipw.Text(value='', description='From: ', style={'description_width': '120px'})
+        self.end_date_widget = ipw.Text(value='', description='To: ')
+
+        # Search button.
+        btn_search = ipw.Button(description='Search',
+                                button_style='info',
+                                layout={
+                                    'width': 'initial',
+                                    'margin': '2px 0 0 2em'
+                                })
+        btn_search.on_click(self.search)
+
+        age_selection = ipw.VBox(
+            [date_text, ipw.HBox([self.start_date_widget, self.end_date_widget, btn_search])],
+            layout={
+                'border': '1px solid #fafafa',
+                'padding': '1em'
+            })
+
         h_line = ipw.HTML('<hr>')
         box = ipw.VBox([age_selection, h_line, ipw.HBox([self.mode, self.drop_label])])
 
-        self.results = ipw.Dropdown(layout=layout)
+        self.results = ipw.Dropdown(layout={'width': '900px'})
         self.results.observe(self._on_select_structure)
         self.search()
-        super(StructureBrowserWidget, self).__init__([box, h_line, self.results])
+        super().__init__([box, h_line, self.results])
 
-    @staticmethod
-    def preprocess():
-        """Search structures in AiiDA database."""
+    def preprocess(self):
+        """Search structures in AiiDA database and add formula extra to them."""
 
         queryb = QueryBuilder()
-        queryb.append(StructureData, filters={'extras': {'!has_key': 'formula'}})
+        queryb.append(self.what_query_for, filters={'extras': {'!has_key': 'formula'}})
         for itm in queryb.all():  # iterall() would interfere with set_extra()
-            formula = itm[0].get_formula()
+            try:
+                formula = itm[0].get_formula()
+            except AttributeError:
+                # Slow part.
+                formula = itm[0].get_ase().get_chemical_formula()
             itm[0].set_extra("formula", formula)
 
-    def search(self, change=None):  # pylint: disable=unused-argument
+    def search(self, _=None):
         """Launch the search of structures in AiiDA database."""
         self.preprocess()
 
         qbuild = QueryBuilder()
-        try:  # If the date range is valid, use it for the search
-            self.start_date = datetime.datetime.strptime(self.date_start.value, '%Y-%m-%d')
-            self.end_date = datetime.datetime.strptime(self.date_end.value, '%Y-%m-%d') + datetime.timedelta(hours=24)
-        except ValueError:  # Otherwise revert to the standard (i.e. last 7 days)
-            self.start_date = datetime.datetime.now() - datetime.timedelta(days=10)
-            self.end_date = datetime.datetime.now() + datetime.timedelta(hours=24)
 
-            self.date_start.value = self.start_date.strftime('%Y-%m-%d')
-            self.date_end.value = self.end_date.strftime('%Y-%m-%d')
+        # If the date range is valid, use it for the search
+        try:
+            start_date = datetime.datetime.strptime(self.start_date_widget.value, '%Y-%m-%d')
+            end_date = datetime.datetime.strptime(self.end_date_widget.value, '%Y-%m-%d') + datetime.timedelta(hours=24)
+
+        # Otherwise revert to the standard (i.e. last 7 days)
+        except ValueError:
+            start_date = datetime.datetime.now() - datetime.timedelta(days=7)
+            end_date = datetime.datetime.now() + datetime.timedelta(hours=24)
+
+            self.start_date_widget.value = start_date.strftime('%Y-%m-%d')
+            self.end_date_widget.value = end_date.strftime('%Y-%m-%d')
 
         filters = {}
-        filters['ctime'] = {'and': [{'<=': self.end_date}, {'>': self.start_date}]}
-        if self.drop_label.value != 'All':
-            qbuild.append(WorkChainNode, filters={'label': self.drop_label.value})
-            qbuild.append(StructureData, with_incoming=WorkChainNode, filters=filters)
-        else:
-            if self.mode.value == "uploaded":
-                qbuild2 = QueryBuilder()
-                qbuild2.append(StructureData, project=["id"])
-                qbuild2.append(Node, with_outgoing=StructureData)
-                processed_nodes = [n[0] for n in qbuild2.all()]
-                if processed_nodes:
-                    filters['id'] = {"!in": processed_nodes}
-                qbuild.append(StructureData, filters=filters)
+        filters['ctime'] = {'and': [{'>': start_date}, {'<=': end_date}]}
 
-            elif self.mode.value == "calculated":
-                qbuild.append(CalcJobNode)
-                qbuild.append(StructureData, with_incoming=CalcJobNode, filters=filters)
+        if self.mode.value == "uploaded":
+            qbuild2 = QueryBuilder().append(self.what_query_for, project=["id"],
+                                            tag='structures').append(Node, with_outgoing='structures')
+            processed_nodes = [n[0] for n in qbuild2.all()]
+            if processed_nodes:
+                filters['id'] = {"!in": processed_nodes}
+            qbuild.append(self.what_query_for, filters=filters)
 
-            elif self.mode.value == "edited":
-                qbuild.append(CalcFunctionNode)
-                qbuild.append(StructureData, with_incoming=CalcFunctionNode, filters=filters)
+        elif self.mode.value == "calculated":
+            if self.drop_label.value == 'All':
+                qbuild.append((CalcJobNode, WorkChainNode), tag='calcjobworkchain')
+            else:
+                qbuild.append((CalcJobNode, WorkChainNode),
+                              filters={'label': self.drop_label.value},
+                              tag='calcjobworkchain')
+            qbuild.append(self.what_query_for, with_incoming='calcjobworkchain', filters=filters)
 
-            elif self.mode.value == "all":
-                qbuild.append(StructureData, filters=filters)
+        elif self.mode.value == "edited":
+            qbuild.append(CalcFunctionNode)
+            qbuild.append(self.what_query_for, with_incoming=CalcFunctionNode, filters=filters)
 
-        qbuild.order_by({StructureData: {'ctime': 'desc'}})
+        elif self.mode.value == "all":
+            qbuild.append(self.what_query_for, filters=filters)
+
+        qbuild.order_by({self.what_query_for: {'ctime': 'desc'}})
         matches = {n[0] for n in qbuild.iterall()}
         matches = sorted(matches, reverse=True, key=lambda n: n.ctime)
 
@@ -354,16 +375,16 @@ class StructureBrowserWidget(ipw.VBox):
         options["Select a Structure ({} found)".format(len(matches))] = False
 
         for mch in matches:
-            label = "PK: %d" % mch.pk
+            label = "PK: {}".format(mch.id)
             label += " | " + mch.ctime.strftime("%Y-%m-%d %H:%M")
             label += " | " + mch.get_extra("formula")
+            label += " | " + mch.node_type.split('.')[-2]
             label += " | " + mch.description
             options[label] = mch
 
         self.results.options = options
 
-    def _on_select_structure(self, change):  # pylint: disable=unused-argument
-        """When a structure was selected."""
+    def _on_select_structure(self, _=None):
         self.structure = self.results.value or None
 
     @default('structure')
