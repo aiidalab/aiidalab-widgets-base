@@ -155,8 +155,11 @@ class StructureManagerWidget(ipw.VBox):
 
     @observe('structure')
     def _structure_changed(self, _=None):
-        """This function enables/disables `btn_store` widget if structure is provided/set to None.
-        Also, the function sets `structure_node` trait to the selected node type."""
+        """Perform some operations that depend on the value of `structure` trait.
+
+        This function enables/disables `btn_store` widget if structure is provided/set to None.
+        Also, the function sets `structure_node` trait to the selected node type.
+        """
 
         # If structure trait was set to None, structure_node should become None as well.
         if self.structure is None:
@@ -242,7 +245,7 @@ class StructureExamplesWidget(ipw.VBox):
     def _on_select_structure(self, change):  # pylint: disable=unused-argument
         """When structure is selected."""
 
-        self.structure = None if not self._select_structure.value else get_ase_from_file(self._select_structure.value)
+        self.structure = get_ase_from_file(self._select_structure.value) if self._select_structure.value else None
 
     @default('structure')
     def _default_structure(self):
@@ -256,7 +259,7 @@ class StructureBrowserWidget(ipw.VBox):
     def __init__(self):
 
         # Structure objects we want to query for.
-        self.what_query_for = (DataFactory('structure'), DataFactory('cif'))
+        self.query_structure_type = (DataFactory('structure'), DataFactory('cif'))
 
         # Extracting available process labels.
         qbuilder = QueryBuilder().append((CalcJobNode, WorkChainNode), project="label")
@@ -312,14 +315,14 @@ class StructureBrowserWidget(ipw.VBox):
         """Search structures in AiiDA database and add formula extra to them."""
 
         queryb = QueryBuilder()
-        queryb.append(self.what_query_for, filters={'extras': {'!has_key': 'formula'}})
-        for itm in queryb.all():  # iterall() would interfere with set_extra()
+        queryb.append(self.query_structure_type, filters={'extras': {'!has_key': 'formula'}})
+        for item in queryb.all():  # iterall() would interfere with set_extra()
             try:
-                formula = itm[0].get_formula()
+                formula = item[0].get_formula()
             except AttributeError:
                 # Slow part.
-                formula = itm[0].get_ase().get_chemical_formula()
-            itm[0].set_extra("formula", formula)
+                formula = item[0].get_ase().get_chemical_formula()
+            item[0].set_extra("formula", formula)
 
     def search(self, _=None):
         """Launch the search of structures in AiiDA database."""
@@ -344,12 +347,12 @@ class StructureBrowserWidget(ipw.VBox):
         filters['ctime'] = {'and': [{'>': start_date}, {'<=': end_date}]}
 
         if self.mode.value == "uploaded":
-            qbuild2 = QueryBuilder().append(self.what_query_for, project=["id"],
+            qbuild2 = QueryBuilder().append(self.query_structure_type, project=["id"],
                                             tag='structures').append(Node, with_outgoing='structures')
             processed_nodes = [n[0] for n in qbuild2.all()]
             if processed_nodes:
                 filters['id'] = {"!in": processed_nodes}
-            qbuild.append(self.what_query_for, filters=filters)
+            qbuild.append(self.query_structure_type, filters=filters)
 
         elif self.mode.value == "calculated":
             if self.drop_label.value == 'All':
@@ -358,16 +361,16 @@ class StructureBrowserWidget(ipw.VBox):
                 qbuild.append((CalcJobNode, WorkChainNode),
                               filters={'label': self.drop_label.value},
                               tag='calcjobworkchain')
-            qbuild.append(self.what_query_for, with_incoming='calcjobworkchain', filters=filters)
+            qbuild.append(self.query_structure_type, with_incoming='calcjobworkchain', filters=filters)
 
         elif self.mode.value == "edited":
             qbuild.append(CalcFunctionNode)
-            qbuild.append(self.what_query_for, with_incoming=CalcFunctionNode, filters=filters)
+            qbuild.append(self.query_structure_type, with_incoming=CalcFunctionNode, filters=filters)
 
         elif self.mode.value == "all":
-            qbuild.append(self.what_query_for, filters=filters)
+            qbuild.append(self.query_structure_type, filters=filters)
 
-        qbuild.order_by({self.what_query_for: {'ctime': 'desc'}})
+        qbuild.order_by({self.query_structure_type: {'ctime': 'desc'}})
         matches = {n[0] for n in qbuild.iterall()}
         matches = sorted(matches, reverse=True, key=lambda n: n.ctime)
 
