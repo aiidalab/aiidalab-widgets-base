@@ -1,184 +1,209 @@
 """Module to provide functionality to import structures."""
+# pylint: disable=no-self-use
 
 import os
 import tempfile
 import datetime
 from collections import OrderedDict
-from traitlets import Bool
+import numpy as np
 import ipywidgets as ipw
+from traitlets import Instance, Unicode, Union, link, default, observe, validate
 
-from aiida.orm import CalcFunctionNode, CalcJobNode, Node, QueryBuilder, WorkChainNode, StructureData
+# ASE imports
+from ase import Atom, Atoms
+from ase.data import chemical_symbols
+
+# AiiDA and AiiDA lab imports
+from aiida.orm import CalcFunctionNode, CalcJobNode, Data, QueryBuilder, Node, WorkChainNode
+from aiida.plugins import DataFactory
 from .utils import get_ase_from_file
+from .viewers import StructureDataViewer
 
 
-class StructureManagerWidget(ipw.VBox):  # pylint: disable=too-many-instance-attributes
+class StructureManagerWidget(ipw.VBox):
     '''Upload a structure and store it in AiiDA database.
 
-    Useful class members:
-    :ivar has_structure: whether the widget contains a structure
-    :vartype has_structure: bool
-    :ivar frozen: whenter the widget is frozen (can't be modified) or not
-    :vartype frozen: bool
-    :ivar structure_node: link to AiiDA structure object
-    :vartype structure_node: StructureData or CifData'''
+    Attributes:
+        structure(Atoms): trait that contains the selected structure. 'None' if no structure is selected.
+        structure_node(StructureData, CifData): trait that contains AiiDA structure object
+        node_class(str): trait that contains structure_node type (as string).
+    '''
 
-    has_structure = Bool(False)
-    frozen = Bool(False)
-    DATA_FORMATS = ('StructureData', 'CifData')
+    structure = Union([Instance(Atoms), Instance(Data)], allow_none=True)
+    structure_node = Instance(Data, allow_none=True, read_only=True)
+    node_class = Unicode()
+
+    SUPPORTED_DATA_FORMATS = {'CifData': 'cif', 'StructureData': 'structure'}
 
     def __init__(self, importers, storable=True, node_class=None, **kwargs):
         """
-        :param storable: Whether to provide Store button (together with Store format)
-        :type storable: bool
-        :param node_class: AiiDA node class for storing the structure.
-            Possible values: 'StructureData', 'CifData' or None (let the user decide).
-            Note: If your workflows require a specific node class, better fix it here.
-        :param examples: list of tuples each containing a name and a path to an example structure
-        :type examples: list
-        :param importers: list of tuples each containing a name and an object for data importing. Each object
-        should containt an empty `on_structure_selection()` method that has two parameters: structure_ase, name
-        :type examples: list"""
+        Arguments:
+            importers(list): list of tuples each containing the displayed name of importer and the
+                importer object. Each object should containt 'structure' trait pointing to the imported
+                structure. The trait will be linked to 'structure' trait of this class.
 
-        from .viewers import StructureDataViewer
-        if not importers:  # we make sure the list is not empty
+            storable(bool): Whether to provide Store button (together with Store format)
+
+            node_class(str): AiiDA node class for storing the structure.
+                Possible values: 'StructureData', 'CifData' or None (let the user decide).
+                Note: If your workflows require a specific node class, better fix it here.
+        """
+
+        # Make sure the list is not empty
+        if not importers:
             raise ValueError("The parameter importers should contain a list (or tuple) of tuples "
                              "(\"importer name\", importer), got a falsy object.")
 
-        self.structure_ase = None
-        self._structure_node = None
-
-        self.viewer = StructureDataViewer(downloadable=False)
-
+        # Store button.
         self.btn_store = ipw.Button(description='Store in AiiDA', disabled=True)
         self.btn_store.on_click(self._on_click_store)
 
-        # Description that will is stored along with the new structure.
+        # Setting traits' initial values
+        self._inserted_structure = None
+
+        # Structure viewer.
+        self.viewer = StructureDataViewer(downloadable=False)
+        link((self, 'structure'), (self.viewer, 'structure'))
+
+        # Store format selector.
+        data_format = ipw.RadioButtons(options=self.SUPPORTED_DATA_FORMATS, description='Data type:')
+        link((data_format, 'label'), (self, 'node_class'))
+
+        # Description that is stored along with the new structure.
         self.structure_description = ipw.Text(placeholder="Description (optional)")
 
-        # Select format to store in the AiiDA database.
-        self.data_format = ipw.RadioButtons(options=self.DATA_FORMATS, description='Data type:')
-        self.data_format.observe(self.reset_structure, names=['value'])
-
+        # Displaying structure importers.
         if len(importers) == 1:
             # If there is only one importer - no need to make tabs.
             self._structure_sources_tab = importers[0][1]
             # Assigning a function which will be called when importer provides a structure.
-            importers[0][1].on_structure_selection = self.select_structure
+            link((self, 'structure'), (importers[0][1], 'structure'))
         else:
             self._structure_sources_tab = ipw.Tab()  # Tabs.
             self._structure_sources_tab.children = [i[1] for i in importers]  # One importer per tab.
             for i, (label, importer) in enumerate(importers):
                 # Labeling tabs.
                 self._structure_sources_tab.set_title(i, label)
-                # Assigning a function which will be called when importer provides a structure.
-                importer.on_structure_selection = self.select_structure
+                link((self, 'structure'), (importer, 'structure'))
+
+        # Store button, store class selector, description.
+        store_and_description = []
 
         if storable:
-            if node_class is None:
-                store = [self.btn_store, self.data_format, self.structure_description]
-            elif node_class not in self.DATA_FORMATS:
-                raise ValueError("Unknown data format '{}'. Options: {}".format(node_class, self.DATA_FORMATS))
-            else:
-                self.data_format.value = node_class
-                store = [self.btn_store, self.structure_description]
+            store_and_description.append(self.btn_store)
+        if node_class is None:
+            store_and_description.append(data_format)
+        elif node_class in self.SUPPORTED_DATA_FORMATS:
+            self.node_class = node_class
         else:
-            store = [self.structure_description]
-        store = ipw.HBox(store)
+            raise ValueError("Unknown data format '{}'. Options: {}".format(node_class,
+                                                                            list(self.SUPPORTED_DATA_FORMATS.keys())))
+        self.output = ipw.HTML('')
 
-        super().__init__(children=[self._structure_sources_tab, self.viewer, store], **kwargs)
+        store_and_description.append(self.structure_description)
+        store_and_description = ipw.HBox(store_and_description)
 
-    def reset_structure(self, change=None):  # pylint: disable=unused-argument
-        if self.frozen:
-            return
-        self._structure_node = None
-        self.viewer.structure = None
-
-    def select_structure(self, structure_ase, name):
-        """Select structure
-
-        :param structure_ase: ASE object containing structure
-        :type structure_ase: ASE Atoms
-        :param name: File name with extension but without path
-        :type name: str"""
-
-        if self.frozen:
-            return
-        self._structure_node = None
-        if not structure_ase:
-            self.btn_store.disabled = True
-            self.has_structure = False
-            self.structure_ase = None
-            self.structure_description.value = ''
-            self.reset_structure()
-            return
-        self.btn_store.disabled = False
-        self.has_structure = True
-        self.structure_description.value = "{} ({})".format(structure_ase.get_chemical_formula(), name)
-        self.structure_ase = structure_ase
-        self.viewer.structure = structure_ase
+        super().__init__(children=[self._structure_sources_tab, self.viewer, store_and_description, self.output],
+                         **kwargs)
 
     def _on_click_store(self, change):  # pylint: disable=unused-argument
         self.store_structure()
 
     def store_structure(self, label=None, description=None):
         """Stores the structure in AiiDA database."""
-        if self.frozen:
-            return
+
         if self.structure_node is None:
             return
         if self.structure_node.is_stored:
-            print("Already stored in AiiDA: " + repr(self.structure_node) + " skipping..")
+            self.output.value = "Already stored in AiiDA [{}], skipping...".format(self.structure_node)
             return
         if label:
             self.structure_node.label = label
         if description:
             self.structure_node.description = description
         self.structure_node.store()
-        print("Stored in AiiDA: " + repr(self.structure_node))
+        self.output.value = "Stored in AiiDA [{}]".format(self.structure_node)
 
-    def freeze(self):
-        """Do not allow any further modifications"""
-        self._structure_sources_tab.layout.visibility = 'hidden'
-        self.frozen = True
-        self.btn_store.disabled = True
-        self.structure_description.disabled = True
-        self.data_format.disabled = True
+    @staticmethod
+    @default('node_class')
+    def _default_node_class():
+        return 'StructureData'
 
-    @property
-    def node_class(self):
-        return self.data_format.value
+    @observe('node_class')
+    def _change_structure_node(self, _=None):
+        self._structure_changed()
 
-    @node_class.setter
-    def node_class(self, value):
-        if self.frozen:
+    @default('structure')
+    def _default_structure(self):
+        return None
+
+    @validate('structure')
+    def _valid_structure(self, change):
+        """Returns ASE atoms object and sets structure_node trait."""
+
+        self._inserted_structure = change['value']
+
+        # If structure trait is set to Atoms object, structure node must be generated
+        if isinstance(self._inserted_structure, Atoms):
+            return self._inserted_structure
+
+        # If structure trait is set to AiiDA node, converting it to ASE Atoms object
+        if isinstance(self._inserted_structure, Data):
+            return self._inserted_structure.get_ase()
+
+        return None
+
+    @observe('structure')
+    def _structure_changed(self, _=None):
+        """Perform some operations that depend on the value of `structure` trait.
+
+        This function enables/disables `btn_store` widget if structure is provided/set to None.
+        Also, the function sets `structure_node` trait to the selected node type.
+        """
+
+        # If structure trait was set to None, structure_node should become None as well.
+        if self.structure is None:
+            self.set_trait('structure_node', None)
+            self.btn_store.disabled = True
             return
-        self.data_format.value = value
 
-    @property
-    def structure_node(self):
-        """Returns AiiDA StructureData node."""
-        if self._structure_node is None:
-            if self.structure_ase is None:
-                return None
-            # perform conversion
-            if self.data_format.value == 'CifData':
-                from aiida.orm.nodes.data.cif import CifData
-                self._structure_node = CifData()
-                self._structure_node.set_ase(self.structure_ase)
-            else:  # Target format is StructureData
-                self._structure_node = StructureData(ase=self.structure_ase)
-            self._structure_node.description = self.structure_description.value
-            self._structure_node.label = self.structure_ase.get_chemical_formula()
-        return self._structure_node
+        self.btn_store.disabled = False
+
+        # Chosing type for the structure node.
+        StructureNode = DataFactory(self.SUPPORTED_DATA_FORMATS[self.node_class])  # pylint: disable=invalid-name
+
+        # If structure trait is set to Atoms object, structure node must be created from it.
+        if isinstance(self._inserted_structure, Atoms):
+            structure_node = StructureNode(ase=self._inserted_structure)
+
+        # If structure trait is set to AiiDA node, converting it to ASE Atoms object
+        elif isinstance(self._inserted_structure, Data):
+
+            # Transform the structure to the StructureNode if needed.
+            if isinstance(self._inserted_structure, StructureNode):
+                structure_node = self._inserted_structure
+
+            else:
+                # self.structure was already converted to ASE Atoms object.
+                structure_node = StructureNode(ase=self.structure)
+
+        # Setting the structure_node trait.
+        self.set_trait('structure_node', structure_node)
+        self.structure_node.description = self.structure_description.value
+        self.structure_node.label = self.structure.get_chemical_formula()
+
+    @default('structure_node')
+    def _default_structure_node(self):
+        return None
 
 
 class StructureUploadWidget(ipw.VBox):
     """Class that allows to upload structures from user's computer."""
+    structure = Instance(Atoms, allow_none=True)
 
     def __init__(self, text="Upload Structure"):
         from fileupload import FileUploadWidget
 
-        self.on_structure_selection = lambda structure_ase, name: None
         self.file_path = None
         self.file_upload = FileUploadWidget(text)
         supported_formats = ipw.HTML(
@@ -193,12 +218,16 @@ class StructureUploadWidget(ipw.VBox):
         self.file_path = os.path.join(tempfile.mkdtemp(), self.file_upload.filename)
         with open(self.file_path, 'w') as fobj:
             fobj.write(self.file_upload.data.decode("utf-8"))
-        structure_ase = get_ase_from_file(self.file_path)
-        self.on_structure_selection(structure_ase=structure_ase, name=self.file_upload.filename)
+        self.structure = get_ase_from_file(self.file_path)
+
+    @default('structure')
+    def _default_structure(self):
+        return None
 
 
 class StructureExamplesWidget(ipw.VBox):
     """Class to provide example structures for selection."""
+    structure = Instance(Atoms, allow_none=True)
 
     def __init__(self, examples, **kwargs):
         self.on_structure_selection = lambda structure_ase, name: None
@@ -215,113 +244,133 @@ class StructureExamplesWidget(ipw.VBox):
 
     def _on_select_structure(self, change):  # pylint: disable=unused-argument
         """When structure is selected."""
-        if not self._select_structure.value:
-            return
-        structure_ase = get_ase_from_file(self._select_structure.value)
-        self.on_structure_selection(structure_ase=structure_ase, name=self._select_structure.label)
+
+        self.structure = get_ase_from_file(self._select_structure.value) if self._select_structure.value else None
+
+    @default('structure')
+    def _default_structure(self):
+        return None
 
 
 class StructureBrowserWidget(ipw.VBox):
     """Class to query for structures stored in the AiiDA database."""
+    structure = Union([Instance(Atoms), Instance(Data)], allow_none=True)
 
     def __init__(self):
-        # Find all process labels
-        qbuilder = QueryBuilder()
-        qbuilder.append(WorkChainNode, project="label")
-        qbuilder.order_by({WorkChainNode: {'ctime': 'desc'}})
-        process_labels = {i[0] for i in qbuilder.all() if i[0]}
 
-        layout = ipw.Layout(width="900px")
-        self.mode = ipw.RadioButtons(options=['all', 'uploaded', 'edited', 'calculated'],
-                                     layout=ipw.Layout(width="25%"))
+        # Structure objects we want to query for.
+        self.query_structure_type = (DataFactory('structure'), DataFactory('cif'))
 
-        # Date range
-        self.dt_now = datetime.datetime.now()
-        self.dt_end = self.dt_now - datetime.timedelta(days=10)
-        self.date_start = ipw.Text(value='', description='From: ', style={'description_width': '120px'})
+        # Extracting available process labels.
+        qbuilder = QueryBuilder().append((CalcJobNode, WorkChainNode), project="label")
+        self.drop_label = ipw.Dropdown(options=sorted({'All'}.union({i[0] for i in qbuilder.iterall() if i[0]})),
+                                       value='All',
+                                       description='Process Label',
+                                       disabled=True,
+                                       style={'description_width': '120px'},
+                                       layout={'width': '50%'})
+        self.drop_label.observe(self.search, names='value')
 
-        self.date_end = ipw.Text(value='', description='To: ')
-        self.date_text = ipw.HTML(value='<p>Select the date range:</p>')
-        self.btn_date = ipw.Button(description='Search', layout={'margin': '1em 0 0 0'})
-        self.age_selection = ipw.VBox(
-            [self.date_text, ipw.HBox([self.date_start, self.date_end]), self.btn_date],
+        # Disable process labels selection if we are not looking for the calculated structures.
+        def disable_drop_label(change):
+            self.drop_label.disabled = not change['new'] == 'calculated'
+
+        # Select structures kind.
+        self.mode = ipw.RadioButtons(options=['all', 'uploaded', 'edited', 'calculated'], layout={'width': '25%'})
+        self.mode.observe(self.search, names='value')
+        self.mode.observe(disable_drop_label, names='value')
+
+        # Date range.
+        # Note: there is Date picker widget, but it currently does not work in Safari:
+        # https://ipywidgets.readthedocs.io/en/latest/examples/Widget%20List.html#Date-picker
+        date_text = ipw.HTML(value='<p>Select the date range:</p>')
+        self.start_date_widget = ipw.Text(value='', description='From: ', style={'description_width': '120px'})
+        self.end_date_widget = ipw.Text(value='', description='To: ')
+
+        # Search button.
+        btn_search = ipw.Button(description='Search',
+                                button_style='info',
+                                layout={
+                                    'width': 'initial',
+                                    'margin': '2px 0 0 2em'
+                                })
+        btn_search.on_click(self.search)
+
+        age_selection = ipw.VBox(
+            [date_text, ipw.HBox([self.start_date_widget, self.end_date_widget, btn_search])],
             layout={
                 'border': '1px solid #fafafa',
                 'padding': '1em'
             })
 
-        # Labels
-        self.drop_label = ipw.Dropdown(options=({'All'}.union(process_labels)),
-                                       value='All',
-                                       description='Process Label',
-                                       style={'description_width': '120px'},
-                                       layout={'width': '50%'})
-
-        self.btn_date.on_click(self.search)
-        self.mode.observe(self.search, names='value')
-        self.drop_label.observe(self.search, names='value')
-
         h_line = ipw.HTML('<hr>')
-        box = ipw.VBox([self.age_selection, h_line, ipw.HBox([self.mode, self.drop_label])])
+        box = ipw.VBox([age_selection, h_line, ipw.HBox([self.mode, self.drop_label])])
 
-        self.results = ipw.Dropdown(layout=layout)
+        self.results = ipw.Dropdown(layout={'width': '900px'})
         self.results.observe(self._on_select_structure)
         self.search()
-        super(StructureBrowserWidget, self).__init__([box, h_line, self.results])
+        super().__init__([box, h_line, self.results])
 
-    @staticmethod
-    def preprocess():
-        """Search structures in AiiDA database."""
+    def preprocess(self):
+        """Search structures in AiiDA database and add formula extra to them."""
+
         queryb = QueryBuilder()
-        queryb.append(StructureData, filters={'extras': {'!has_key': 'formula'}})
-        for itm in queryb.all():  # iterall() would interfere with set_extra()
-            formula = itm[0].get_formula()
-            itm[0].set_extra("formula", formula)
+        queryb.append(self.query_structure_type, filters={'extras': {'!has_key': 'formula'}})
+        for item in queryb.all():  # iterall() would interfere with set_extra()
+            try:
+                formula = item[0].get_formula()
+            except AttributeError:
+                # Slow part.
+                formula = item[0].get_ase().get_chemical_formula()
+            item[0].set_extra("formula", formula)
 
-    def search(self, change=None):  # pylint: disable=unused-argument
+    def search(self, _=None):
         """Launch the search of structures in AiiDA database."""
         self.preprocess()
 
         qbuild = QueryBuilder()
-        try:  # If the date range is valid, use it for the search
-            self.start_date = datetime.datetime.strptime(self.date_start.value, '%Y-%m-%d')
-            self.end_date = datetime.datetime.strptime(self.date_end.value, '%Y-%m-%d') + datetime.timedelta(hours=24)
-        except ValueError:  # Otherwise revert to the standard (i.e. last 7 days)
-            self.start_date = self.dt_end
-            self.end_date = self.dt_now + datetime.timedelta(hours=24)
 
-            self.date_start.value = self.start_date.strftime('%Y-%m-%d')
-            self.date_end.value = self.end_date.strftime('%Y-%m-%d')
+        # If the date range is valid, use it for the search
+        try:
+            start_date = datetime.datetime.strptime(self.start_date_widget.value, '%Y-%m-%d')
+            end_date = datetime.datetime.strptime(self.end_date_widget.value, '%Y-%m-%d') + datetime.timedelta(hours=24)
+
+        # Otherwise revert to the standard (i.e. last 7 days)
+        except ValueError:
+            start_date = datetime.datetime.now() - datetime.timedelta(days=7)
+            end_date = datetime.datetime.now() + datetime.timedelta(hours=24)
+
+            self.start_date_widget.value = start_date.strftime('%Y-%m-%d')
+            self.end_date_widget.value = end_date.strftime('%Y-%m-%d')
 
         filters = {}
-        filters['ctime'] = {'and': [{'<=': self.end_date}, {'>': self.start_date}]}
-        if self.drop_label.value != 'All':
-            qbuild.append(WorkChainNode, filters={'label': self.drop_label.value})
-            #             print(qbuild.all())
-            #             qbuild.append(CalcJobNode, with_incoming=WorkChainNode)
-            qbuild.append(StructureData, with_incoming=WorkChainNode, filters=filters)
-        else:
-            if self.mode.value == "uploaded":
-                qbuild2 = QueryBuilder()
-                qbuild2.append(StructureData, project=["id"])
-                qbuild2.append(Node, with_outgoing=StructureData)
-                processed_nodes = [n[0] for n in qbuild2.all()]
-                if processed_nodes:
-                    filters['id'] = {"!in": processed_nodes}
-                qbuild.append(StructureData, filters=filters)
+        filters['ctime'] = {'and': [{'>': start_date}, {'<=': end_date}]}
 
-            elif self.mode.value == "calculated":
-                qbuild.append(CalcJobNode)
-                qbuild.append(StructureData, with_incoming=CalcJobNode, filters=filters)
+        if self.mode.value == "uploaded":
+            qbuild2 = QueryBuilder().append(self.query_structure_type, project=["id"],
+                                            tag='structures').append(Node, with_outgoing='structures')
+            processed_nodes = [n[0] for n in qbuild2.all()]
+            if processed_nodes:
+                filters['id'] = {"!in": processed_nodes}
+            qbuild.append(self.query_structure_type, filters=filters)
 
-            elif self.mode.value == "edited":
-                qbuild.append(CalcFunctionNode)
-                qbuild.append(StructureData, with_incoming=CalcFunctionNode, filters=filters)
+        elif self.mode.value == "calculated":
+            if self.drop_label.value == 'All':
+                qbuild.append((CalcJobNode, WorkChainNode), tag='calcjobworkchain')
+            else:
+                qbuild.append((CalcJobNode, WorkChainNode),
+                              filters={'label': self.drop_label.value},
+                              tag='calcjobworkchain')
+            qbuild.append(self.query_structure_type, with_incoming='calcjobworkchain', filters=filters)
 
-            elif self.mode.value == "all":
-                qbuild.append(StructureData, filters=filters)
+        elif self.mode.value == "edited":
+            qbuild.append(CalcFunctionNode)
+            qbuild.append(self.query_structure_type, with_incoming=CalcFunctionNode, filters=filters)
 
-        qbuild.order_by({StructureData: {'ctime': 'desc'}})
+        elif self.mode.value == "all":
+            qbuild.append(self.query_structure_type, filters=filters)
+
+        qbuild.order_by({self.query_structure_type: {'ctime': 'desc'}})
         matches = {n[0] for n in qbuild.iterall()}
         matches = sorted(matches, reverse=True, key=lambda n: n.ctime)
 
@@ -329,29 +378,26 @@ class StructureBrowserWidget(ipw.VBox):
         options["Select a Structure ({} found)".format(len(matches))] = False
 
         for mch in matches:
-            label = "PK: %d" % mch.pk
+            label = "PK: {}".format(mch.id)
             label += " | " + mch.ctime.strftime("%Y-%m-%d %H:%M")
             label += " | " + mch.get_extra("formula")
+            label += " | " + mch.node_type.split('.')[-2]
             label += " | " + mch.description
             options[label] = mch
 
         self.results.options = options
 
-    def _on_select_structure(self, change):  # pylint: disable=unused-argument
-        """When a structure was selected."""
-        if not self.results.value:
-            return
-        structure_ase = self.results.value.get_ase()
-        formula = structure_ase.get_chemical_formula()
-        if self.on_structure_selection is not None:
-            self.on_structure_selection(structure_ase=structure_ase, name=formula)
+    def _on_select_structure(self, _=None):
+        self.structure = self.results.value or None
 
-    def on_structure_selection(self, structure_ase, name):
-        pass
+    @default('structure')
+    def _default_structure(self):
+        return None
 
 
 class SmilesWidget(ipw.VBox):
     """Conver SMILES into 3D structure."""
+    structure = Instance(Atoms, allow_none=True)
 
     SPINNER = """<i class="fa fa-spinner fa-pulse" style="color:red;" ></i>"""
 
@@ -373,9 +419,6 @@ class SmilesWidget(ipw.VBox):
     @staticmethod
     def pymol_2_ase(pymol):
         """Convert pymol object into ASE Atoms."""
-        import numpy as np
-        from ase import Atoms, Atom
-        from ase.data import chemical_symbols
 
         asemol = Atoms()
         for atm in pymol.atoms:
@@ -426,11 +469,8 @@ class SmilesWidget(ipw.VBox):
         pybel._builder.Build(mol.OBMol)  # pylint: disable=protected-access
         mol.addh()
         self._optimize_mol(mol)
+        self.structure = self.pymol_2_ase(mol)
 
-        structure_ase = self.pymol_2_ase(mol)
-        formula = structure_ase.get_chemical_formula()
-        if self.on_structure_selection is not None:
-            self.on_structure_selection(structure_ase=structure_ase, name=formula)
-
-    def on_structure_selection(self, structure_ase, name):
-        pass
+    @default('structure')
+    def _default_structure(self):
+        return None

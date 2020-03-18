@@ -16,4 +16,4 @@ from .structures import StructureBrowserWidget, StructureExamplesWidget, Structu
 from .structures_multi import MultiStructureUploadWidget  # noqa
 from .viewers import viewer  # noqa
 
-__version__ = "1.0.0b2"
+__version__ = "1.0.0b3"
