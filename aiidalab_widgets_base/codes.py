@@ -34,19 +34,30 @@ class CodeDropdown(ipw.VBox):
     selected_code = Union([Unicode(), Instance(Code)], allow_none=True)
     codes = Dict(allow_none=True)
 
-    def __init__(self, input_plugin, text='Select code:', path_to_root='../', **kwargs):
+    def __init__(self,
+                 input_plugin,
+                 text='Select code:',
+                 hidden_codes=False,
+                 disabled_computers=False,
+                 path_to_root='../',
+                 **kwargs):
         """Dropdown for Codes for one input plugin.
 
-        :param input_plugin: Input plugin of codes to show
-        :type input_plugin: str
-        :param text: Text to display before dropdown
-        :type text: str
+        input_plugin (str): Input plugin of codes to show.
+
+        text (str): Text to display before the dropdown.
+
+        hidden_codes (bool): Whether to allow selecting hidden codes.
+
+        disabled_computers (bool): Whether to allow selecting codes on disabled computers.
         """
 
         self.input_plugin = input_plugin
+        self.hidden_codes = hidden_codes
+        self.disabled_computers = disabled_computers
         self.output = ipw.Output()
 
-        self.dropdown = ipw.Dropdown(optionsdescription=text, disabled=True, value=None)
+        self.dropdown = ipw.Dropdown(description=text, disabled=True, value=None)
         link((self, 'codes'), (self.dropdown, 'options'))
         link((self.dropdown, 'value'), (self, 'selected_code'))
 
@@ -79,11 +90,20 @@ class CodeDropdown(ipw.VBox):
                           },
                           project=['*'])
 
+        # Whether to show or not hidden codes.
+        if self.hidden_codes:
+            to_return = [c[0] for c in querybuild.all()]
+        else:
+            to_return = [c[0] for c in querybuild.all() if not c[0].hidden]
+
+        # Whether to show the codes on disabled computers.
+        to_return = to_return if self.disabled_computers else [
+            c for c in to_return if c.computer.is_user_enabled(User.objects.get_default())
+        ]
+
         # Only codes on computers configured for the current user.
         return {
-            self._full_code_label(c[0]): c[0]
-            for c in querybuild.all()
-            if c[0].computer.is_user_configured(User.objects.get_default())
+            self._full_code_label(c): c for c in to_return if c.computer.is_user_configured(User.objects.get_default())
         }
 
     @staticmethod
