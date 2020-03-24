@@ -668,13 +668,18 @@ class ComputerDropdown(ipw.VBox):
     selected_computer = Union([Unicode(), Instance(Computer)], allow_none=True)
     computers = Dict(allow_none=True)
 
-    def __init__(self, text='Select computer:', path_to_root='../', **kwargs):
+    def __init__(self, text='Select computer:', disabled_computers=False, path_to_root='../', **kwargs):
         """Dropdown for configured AiiDA Computers.
 
-        :param text: Text to display before dropdown
-        :type text: str"""
-        self.output = ipw.Output()
+        text (str): Text to display before dropdown.
 
+        disabled_computers (bool): Whether to allow selecting disabled computers.
+
+        path_to_root (str): Path to the app's root folder.
+        """
+
+        self.output = ipw.Output()
+        self.disabled_computers = disabled_computers
         self._dropdown = ipw.Dropdown(options={},
                                       value=None,
                                       description=text,
@@ -693,14 +698,18 @@ class ComputerDropdown(ipw.VBox):
         self._refresh()
         super().__init__(children=children, **kwargs)
 
-    @staticmethod
-    def _get_computers():
+    def _get_computers(self):
         """Get the list of available computers."""
-        query_b = QueryBuilder()
-        query_b.append(Computer, tag='computer')
+        querybuild = QueryBuilder()
+        querybuild.append(Computer, tag='computer')
+
+        if self.disabled_computers:
+            to_return = [c[0] for c in querybuild.all()]
+        else:
+            to_return = [c[0] for c in querybuild.all() if c[0].is_user_enabled(User.objects.get_default())]
 
         # Only computers configured for the current user.
-        return {c[0].name: c[0] for c in query_b.all() if c[0].is_user_configured(User.objects.get_default())}
+        return {c.name: c for c in to_return if c.is_user_configured(User.objects.get_default())}
 
     def _refresh(self, _=None):
         """Refresh the list of configured computers."""
