@@ -71,13 +71,13 @@ class SubmitButtonWidget(VBox):
     def on_btn_submit_press(self, _=None):
         """When submit button is pressed."""
 
-        if self.append_output:
+        if not self.append_output:
             self.submit_out.value = ''
 
         input_dict = self.input_dictionary_function()
         if input_dict is None:
             if self.append_output:
-                self.submit_out.value += "SubmitButtonWidget: did not recieve input dictionary.\n"
+                self.submit_out.value += "SubmitButtonWidget: did not recieve input dictionary.<br>"
             else:
                 self.submit_out.value = "SubmitButtonWidget: did not recieve input dictionary."
         else:
@@ -85,9 +85,9 @@ class SubmitButtonWidget(VBox):
             self.process = submit(self._process_class, **input_dict)
 
             if self.append_output:
-                self.submit_out.value = "Submitted process {}".format(self.process)
+                self.submit_out.value += "Submitted process {}<br>".format(self.process)
             else:
-                self.submit_out.value += "Submitted process {}\n".format(self.process)
+                self.submit_out.value = "Submitted process {}".format(self.process)
 
             for func in self._run_after_submitted:
                 func(self.process)
