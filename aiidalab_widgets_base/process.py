@@ -30,13 +30,28 @@ def get_running_calcs(process):
 class SubmitButtonWidget(VBox):
     """Submit button class that creates submit button jupyter widget."""
 
-    def __init__(self, process, input_dictionary_function, description="Submit"):
-        """Submit Button
-        :process: work chain to run
-        :param_funtion: the function that generates input parameters dictionary
+    def __init__(self,
+                 process,
+                 input_dictionary_function,
+                 description="Submit",
+                 disable_after_submit=True,
+                 append_output=False):
+        """Submit Button widget.
+
+        process (Process): Process to submit.
+
+        input_dictionary_function (func): Function that generates input parameters dictionary.
+
+        description (str): Description written on the submission button.
+
+        disable_after_submit (bool): Whether to disable the button after the process was submitted.
+
+        append_output (bool): Whether to clean the widget output before every submission.
         """
 
         self.process = None
+        self.disable_after_submit = disable_after_submit
+        self.append_output = append_output
         self._process_class = process
         self._run_after_submitted = []
 
@@ -55,14 +70,25 @@ class SubmitButtonWidget(VBox):
 
     def on_btn_submit_press(self, _=None):
         """When submit button is pressed."""
-        self.submit_out.value = ''
+
+        if self.append_output:
+            self.submit_out.value = ''
+
         input_dict = self.input_dictionary_function()
         if input_dict is None:
-            self.submit_out.value = "SubmitButtonWidget: did not recieve input dictionary."
+            if self.append_output:
+                self.submit_out.value += "SubmitButtonWidget: did not recieve input dictionary.\n"
+            else:
+                self.submit_out.value = "SubmitButtonWidget: did not recieve input dictionary."
         else:
-            self.btn_submit.disabled = True
+            self.btn_submit.disabled = self.disable_after_submit
             self.process = submit(self._process_class, **input_dict)
-            self.submit_out.value = "Submitted process {}".format(self.process)
+
+            if self.append_output:
+                self.submit_out.value = "Submitted process {}".format(self.process)
+            else:
+                self.submit_out.value += "Submitted process {}\n".format(self.process)
+
             for func in self._run_after_submitted:
                 func(self.process)
 
@@ -100,6 +126,10 @@ class ProcessFollowerWidget(VBox):
             sleep(self.update_interval)
         self.update()  # update the state for the last time to be 100% sure
 
+        # Call functions to be run after the process is completed.
+        for func in self._run_after_completed:
+            func(self.process)
+
     def follow(self, detach=False):
         """Follow the process in blocking or non-blocking manner."""
         if detach:
@@ -108,8 +138,6 @@ class ProcessFollowerWidget(VBox):
             update_state.start()
         else:
             self._follow()
-            for func in self._run_after_completed:
-                func(self.process)
 
     def on_completed(self, function):
         """Run functions after a process has been completed."""
