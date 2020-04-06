@@ -46,7 +46,7 @@ class SubmitButtonWidget(VBox):
 
         disable_after_submit (bool): Whether to disable the button after the process was submitted.
 
-        append_output (bool): Whether to clean the widget output before every submission.
+        append_output (bool): Whether to clear widget output for each subsequent submission.
         """
 
         self.process = None
