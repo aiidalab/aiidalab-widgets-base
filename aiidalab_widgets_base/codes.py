@@ -4,7 +4,7 @@ from subprocess import check_output
 
 import ipywidgets as ipw
 from IPython.display import clear_output
-from traitlets import Dict, Instance, Unicode, Union, link, validate
+from traitlets import Bool, Dict, Instance, Unicode, Union, link, observe, validate
 
 from aiida.orm import Code, QueryBuilder, User
 
@@ -33,43 +33,38 @@ class CodeDropdown(ipw.VBox):
     """
     selected_code = Union([Unicode(), Instance(Code)], allow_none=True)
     codes = Dict(allow_none=True)
+    allow_hidden_codes = Bool(False)
+    allow_disabled_computers = Bool(False)
 
-    def __init__(self,
-                 input_plugin,
-                 text='Select code:',
-                 hidden_codes=False,
-                 disabled_computers=False,
-                 path_to_root='../',
-                 **kwargs):
+    def __init__(self, input_plugin, text='Select code:', path_to_root='../', **kwargs):
         """Dropdown for Codes for one input plugin.
 
         input_plugin (str): Input plugin of codes to show.
 
         text (str): Text to display before the dropdown.
-
-        hidden_codes (bool): Whether to allow selecting hidden codes.
-
-        disabled_computers (bool): Whether to allow selecting codes on disabled computers.
         """
+        self.output = ipw.Output()
 
         self.input_plugin = input_plugin
-        self.hidden_codes = hidden_codes
-        self.disabled_computers = disabled_computers
-        self.output = ipw.Output()
+
+        if 'allow_hidden_codes' in kwargs:
+            self.allow_hidden_codes = kwargs['allow_hidden_codes']
+        if 'allow_disabled_computers' in kwargs:
+            self.allow_disabled_computers = kwargs['allow_disabled_computers']
 
         self.dropdown = ipw.Dropdown(description=text, disabled=True, value=None)
         link((self, 'codes'), (self.dropdown, 'options'))
         link((self.dropdown, 'value'), (self, 'selected_code'))
 
-        self._btn_refresh = ipw.Button(description="Refresh", layout=ipw.Layout(width="70px"))
-        self._btn_refresh.on_click(self.refresh)
+        btn_refresh = ipw.Button(description="Refresh", layout=ipw.Layout(width="70px"))
+        btn_refresh.on_click(self.refresh)
 
         # FOR LATER: use base_url here, when it will be implemented in the appmode.
         self._setup_another = ipw.HTML(value="""<a href={path_to_root}aiidalab-widgets-base/setup_code.ipynb?
                       label={label}&plugin={plugin} target="_blank">Setup new code</a>""".format(
             path_to_root=path_to_root, label=input_plugin, plugin=input_plugin))
 
-        children = [ipw.HBox([self.dropdown, self._btn_refresh, self._setup_another]), self.output]
+        children = [ipw.HBox([self.dropdown, btn_refresh, self._setup_another]), self.output]
 
         super().__init__(children=children, **kwargs)
 
@@ -78,38 +73,26 @@ class CodeDropdown(ipw.VBox):
     def _get_codes(self):
         """Query the list of available codes."""
 
-        querybuild = QueryBuilder()
-        querybuild.append(Code,
-                          filters={
-                              'attributes.input_plugin': {
-                                  '==': self.input_plugin
-                              },
-                              'extras.hidden': {
-                                  "~==": True
-                              }
-                          },
-                          project=['*'])
+        user = User.objects.get_default()
 
-        # Whether to show or not hidden codes.
-        if self.hidden_codes:
-            to_return = [c[0] for c in querybuild.all()]
-        else:
-            to_return = [c[0] for c in querybuild.all() if not c[0].hidden]
-
-        # Whether to show the codes on disabled computers.
-        to_return = to_return if self.disabled_computers else [
-            c for c in to_return if c.computer.is_user_enabled(User.objects.get_default())
-        ]
-
-        # Only codes on computers configured for the current user.
         return {
-            self._full_code_label(c): c for c in to_return if c.computer.is_user_configured(User.objects.get_default())
+            self._full_code_label(c[0]): c[0]
+            for c in QueryBuilder().append(Code, filters={
+                'attributes.input_plugin': self.input_plugin
+            }).all()
+            if c[0].computer.is_user_configured(user) and (self.allow_hidden_codes or not c[0].hidden) and
+            (self.allow_disabled_computers or c[0].computer.is_user_enabled(user))
         }
 
     @staticmethod
     def _full_code_label(code):
         return "{}@{}".format(code.label, code.computer.name)
 
+    @observe('allow_disabled_computers')
+    def _observe_allow_disabl_comp(self, _=None):
+        self.refresh()
+
+    @observe('allow_hidden_codes')
     def refresh(self, _=None):
         """Refresh available codes.
 
