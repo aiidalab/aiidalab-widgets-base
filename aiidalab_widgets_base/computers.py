@@ -691,14 +691,14 @@ class ComputerDropdown(ipw.VBox):
         link((self._dropdown, 'value'), (self, 'selected_computer'))
 
         btn_refresh = ipw.Button(description="Refresh", layout=ipw.Layout(width="70px"))
-        btn_refresh.on_click(self._refresh)
+        btn_refresh.on_click(self.refresh)
 
         self._setup_another = ipw.HTML(
             value="""<a href={path_to_root}aiidalab-widgets-base/setup_computer.ipynb target="_blank">
             Setup new computer</a>""".format(path_to_root=path_to_root))
 
         children = [ipw.HBox([self._dropdown, btn_refresh, self._setup_another]), self.output]
-        self._refresh()
+        self.refresh()
         super().__init__(children=children, **kwargs)
 
     def _get_computers(self):
@@ -714,7 +714,7 @@ class ComputerDropdown(ipw.VBox):
         }
 
     @observe('allow_select_disabled')
-    def _refresh(self, _=None):
+    def refresh(self, _=None):
         """Refresh the list of configured computers."""
 
         with self.output:
