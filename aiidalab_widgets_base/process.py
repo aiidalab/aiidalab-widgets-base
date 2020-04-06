@@ -2,6 +2,7 @@
 
 import os
 from ipywidgets import Button, HTML, IntProgress, Layout, Textarea, VBox
+from traitlets import Instance
 
 # AiiDA imports
 from aiida.engine import submit
@@ -29,6 +30,7 @@ def get_running_calcs(process):
 
 class SubmitButtonWidget(VBox):
     """Submit button class that creates submit button jupyter widget."""
+    process = Instance(ProcessNode, allow_none=True)
 
     def __init__(self,
                  process_class,
@@ -49,7 +51,6 @@ class SubmitButtonWidget(VBox):
         append_output (bool): Whether to clear widget output for each subsequent submission.
         """
 
-        self.process = None
         self.disable_after_submit = disable_after_submit
         self.append_output = append_output
         self._process_class = process_class
