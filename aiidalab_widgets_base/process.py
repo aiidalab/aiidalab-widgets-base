@@ -31,14 +31,14 @@ class SubmitButtonWidget(VBox):
     """Submit button class that creates submit button jupyter widget."""
 
     def __init__(self,
-                 process,
+                 process_class,
                  input_dictionary_function,
                  description="Submit",
                  disable_after_submit=True,
                  append_output=False):
         """Submit Button widget.
 
-        process (Process): Process to submit.
+        process_class (Process): Process class to submit.
 
         input_dictionary_function (func): Function that generates input parameters dictionary.
 
@@ -52,7 +52,7 @@ class SubmitButtonWidget(VBox):
         self.process = None
         self.disable_after_submit = disable_after_submit
         self.append_output = append_output
-        self._process_class = process
+        self._process_class = process_class
         self._run_after_submitted = []
 
         self.input_dictionary_function = input_dictionary_function
@@ -93,7 +93,7 @@ class SubmitButtonWidget(VBox):
                 func(self.process)
 
     def on_submitted(self, function):
-        """Run functions after a process has been submitted sucesfully."""
+        """Run functions after a process has been submitted successfully."""
         self._run_after_submitted.append(function)
 
 
