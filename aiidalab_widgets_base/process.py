@@ -1,11 +1,12 @@
 """Widgets to work with processes."""
 
 import os
+from inspect import isclass
 from ipywidgets import Button, HTML, IntProgress, Layout, Textarea, VBox
 from traitlets import Instance
 
 # AiiDA imports
-from aiida.engine import submit
+from aiida.engine import submit, Process
 from aiida.orm import CalcJobNode, ProcessNode, WorkChainNode
 
 
@@ -51,12 +52,21 @@ class SubmitButtonWidget(VBox):
         append_output (bool): Whether to clear widget output for each subsequent submission.
         """
 
+        if isclass(process_class) and issubclass(process_class, Process):
+            self._process_class = process_class
+        else:
+            raise ValueError("process_class argument must be a sublcass of {}, got {}".format(Process, process_class))
+
+        if callable(input_dictionary_function):
+            self.input_dictionary_function = input_dictionary_function
+        else:
+            raise ValueError(
+                "input_dictionary_function argument must be a function that returns input dictionary, got {}".format(
+                    input_dictionary_function))
+
         self.disable_after_submit = disable_after_submit
         self.append_output = append_output
-        self._process_class = process_class
-        self._run_after_submitted = []
 
-        self.input_dictionary_function = input_dictionary_function
         self.btn_submit = Button(description=description, disabled=False)
         self.btn_submit.on_click(self.on_btn_submit_press)
         self.submit_out = HTML('')
@@ -64,6 +74,9 @@ class SubmitButtonWidget(VBox):
             self.btn_submit,
             self.submit_out,
         ]
+
+        self._run_after_submitted = []
+
         super(SubmitButtonWidget, self).__init__(children=children)
 
     def on_click(self, function):
