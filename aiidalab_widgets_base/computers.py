@@ -7,7 +7,7 @@ from subprocess import check_output, call
 import pexpect
 import ipywidgets as ipw
 from IPython.display import clear_output
-from traitlets import Dict, Instance, Int, Unicode, Union, validate, link
+from traitlets import Bool, Dict, Instance, Int, Unicode, Union, link, observe, validate
 
 from aiida.common import NotExistent
 from aiida.orm import Computer, QueryBuilder, User
@@ -667,13 +667,20 @@ class ComputerDropdown(ipw.VBox):
 
     selected_computer = Union([Unicode(), Instance(Computer)], allow_none=True)
     computers = Dict(allow_none=True)
+    allow_select_disabled = Bool(False)
 
     def __init__(self, text='Select computer:', path_to_root='../', **kwargs):
         """Dropdown for configured AiiDA Computers.
 
-        :param text: Text to display before dropdown
-        :type text: str"""
+        text (str): Text to display before dropdown.
+
+        path_to_root (str): Path to the app's root folder.
+        """
+
         self.output = ipw.Output()
+
+        if 'allow_select_disabled' in kwargs:
+            self.allow_select_disabled = kwargs['allow_select_disabled']
 
         self._dropdown = ipw.Dropdown(options={},
                                       value=None,
@@ -683,26 +690,31 @@ class ComputerDropdown(ipw.VBox):
         link((self, 'computers'), (self._dropdown, 'options'))
         link((self._dropdown, 'value'), (self, 'selected_computer'))
 
-        self._btn_refresh = ipw.Button(description="Refresh", layout=ipw.Layout(width="70px"))
+        btn_refresh = ipw.Button(description="Refresh", layout=ipw.Layout(width="70px"))
+        btn_refresh.on_click(self.refresh)
+
         self._setup_another = ipw.HTML(
             value="""<a href={path_to_root}aiidalab-widgets-base/setup_computer.ipynb target="_blank">
             Setup new computer</a>""".format(path_to_root=path_to_root))
-        self._btn_refresh.on_click(self._refresh)
 
-        children = [ipw.HBox([self._dropdown, self._btn_refresh, self._setup_another]), self.output]
-        self._refresh()
+        children = [ipw.HBox([self._dropdown, btn_refresh, self._setup_another]), self.output]
+        self.refresh()
         super().__init__(children=children, **kwargs)
 
-    @staticmethod
-    def _get_computers():
+    def _get_computers(self):
         """Get the list of available computers."""
-        query_b = QueryBuilder()
-        query_b.append(Computer, tag='computer')
 
-        # Only computers configured for the current user.
-        return {c[0].name: c[0] for c in query_b.all() if c[0].is_user_configured(User.objects.get_default())}
+        # Getting the current user.
+        user = User.objects.get_default()
 
-    def _refresh(self, _=None):
+        return {
+            c[0].name: c[0]
+            for c in QueryBuilder().append(Computer).all()
+            if c[0].is_user_configured(user) and (self.allow_select_disabled or c[0].is_user_enabled(user))
+        }
+
+    @observe('allow_select_disabled')
+    def refresh(self, _=None):
         """Refresh the list of configured computers."""
 
         with self.output:
