@@ -1,10 +1,12 @@
 """Widgets to work with processes."""
 
 import os
+from inspect import isclass
 from ipywidgets import Button, HTML, IntProgress, Layout, Textarea, VBox
+from traitlets import Instance
 
 # AiiDA imports
-from aiida.engine import submit
+from aiida.engine import submit, Process
 from aiida.orm import CalcJobNode, ProcessNode, WorkChainNode
 
 
@@ -29,18 +31,42 @@ def get_running_calcs(process):
 
 class SubmitButtonWidget(VBox):
     """Submit button class that creates submit button jupyter widget."""
+    process = Instance(ProcessNode, allow_none=True)
 
-    def __init__(self, process, input_dictionary_function, description="Submit"):
-        """Submit Button
-        :process: work chain to run
-        :param_funtion: the function that generates input parameters dictionary
+    def __init__(self,
+                 process_class,
+                 input_dictionary_function,
+                 description="Submit",
+                 disable_after_submit=True,
+                 append_output=False):
+        """Submit Button widget.
+
+        process_class (Process): Process class to submit.
+
+        input_dictionary_function (func): Function that generates input parameters dictionary.
+
+        description (str): Description written on the submission button.
+
+        disable_after_submit (bool): Whether to disable the button after the process was submitted.
+
+        append_output (bool): Whether to clear widget output for each subsequent submission.
         """
 
-        self.process = None
-        self._process_class = process
-        self._run_after_submitted = []
+        if isclass(process_class) and issubclass(process_class, Process):
+            self._process_class = process_class
+        else:
+            raise ValueError("process_class argument must be a sublcass of {}, got {}".format(Process, process_class))
 
-        self.input_dictionary_function = input_dictionary_function
+        if callable(input_dictionary_function):
+            self.input_dictionary_function = input_dictionary_function
+        else:
+            raise ValueError(
+                "input_dictionary_function argument must be a function that returns input dictionary, got {}".format(
+                    input_dictionary_function))
+
+        self.disable_after_submit = disable_after_submit
+        self.append_output = append_output
+
         self.btn_submit = Button(description=description, disabled=False)
         self.btn_submit.on_click(self.on_btn_submit_press)
         self.submit_out = HTML('')
@@ -48,6 +74,9 @@ class SubmitButtonWidget(VBox):
             self.btn_submit,
             self.submit_out,
         ]
+
+        self._run_after_submitted = []
+
         super(SubmitButtonWidget, self).__init__(children=children)
 
     def on_click(self, function):
@@ -55,19 +84,30 @@ class SubmitButtonWidget(VBox):
 
     def on_btn_submit_press(self, _=None):
         """When submit button is pressed."""
-        self.submit_out.value = ''
+
+        if not self.append_output:
+            self.submit_out.value = ''
+
         input_dict = self.input_dictionary_function()
         if input_dict is None:
-            self.submit_out.value = "SubmitButtonWidget: did not recieve input dictionary."
+            if self.append_output:
+                self.submit_out.value += "SubmitButtonWidget: did not recieve input dictionary.<br>"
+            else:
+                self.submit_out.value = "SubmitButtonWidget: did not recieve input dictionary."
         else:
-            self.btn_submit.disabled = True
+            self.btn_submit.disabled = self.disable_after_submit
             self.process = submit(self._process_class, **input_dict)
-            self.submit_out.value = "Submitted process {}".format(self.process)
+
+            if self.append_output:
+                self.submit_out.value += "Submitted process {}<br>".format(self.process)
+            else:
+                self.submit_out.value = "Submitted process {}".format(self.process)
+
             for func in self._run_after_submitted:
                 func(self.process)
 
     def on_submitted(self, function):
-        """Run functions after a process has been submitted sucesfully."""
+        """Run functions after a process has been submitted successfully."""
         self._run_after_submitted.append(function)
 
 
@@ -100,6 +140,10 @@ class ProcessFollowerWidget(VBox):
             sleep(self.update_interval)
         self.update()  # update the state for the last time to be 100% sure
 
+        # Call functions to be run after the process is completed.
+        for func in self._run_after_completed:
+            func(self.process)
+
     def follow(self, detach=False):
         """Follow the process in blocking or non-blocking manner."""
         if detach:
@@ -108,8 +152,6 @@ class ProcessFollowerWidget(VBox):
             update_state.start()
         else:
             self._follow()
-            for func in self._run_after_completed:
-                func(self.process)
 
     def on_completed(self, function):
         """Run functions after a process has been completed."""
