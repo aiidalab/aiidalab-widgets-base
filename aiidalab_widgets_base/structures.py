@@ -7,11 +7,15 @@ import datetime
 from collections import OrderedDict
 import numpy as np
 import ipywidgets as ipw
-from traitlets import Instance, Unicode, Union, link, default, observe, validate
+from traitlets import Instance, Int, Set, Unicode, Union, link, default, observe, validate
+from IPython.display import clear_output
 
 # ASE imports
 from ase import Atom, Atoms
-from ase.data import chemical_symbols
+from ase.data import chemical_symbols, covalent_radii, vdw_radii
+from ase.neighborlist import NeighborList
+
+from apps.surfaces.widgets import analyze_structure
 
 # AiiDA and AiiDA lab imports
 from aiida.orm import CalcFunctionNode, CalcJobNode, Data, QueryBuilder, Node, WorkChainNode
@@ -35,7 +39,7 @@ class StructureManagerWidget(ipw.VBox):
 
     SUPPORTED_DATA_FORMATS = {'CifData': 'cif', 'StructureData': 'structure'}
 
-    def __init__(self, importers, storable=True, node_class=None, **kwargs):
+    def __init__(self, importers, editors=None, storable=True, node_class=None, **kwargs):
         """
         Arguments:
             importers(list): list of tuples each containing the displayed name of importer and the
@@ -87,6 +91,10 @@ class StructureManagerWidget(ipw.VBox):
                 self._structure_sources_tab.set_title(i, label)
                 link((self, 'structure'), (importer, 'structure'))
 
+        self._structure_editor = editors
+        link((self, 'structure'), (self._structure_editor, 'structure'))
+        link((self._structure_editor, 'selection'), (self.viewer, 'selection'))
+
         # Store button, store class selector, description.
         store_and_description = []
 
@@ -105,7 +113,9 @@ class StructureManagerWidget(ipw.VBox):
         store_and_description.append(self.structure_description)
         store_and_description = ipw.HBox(store_and_description)
 
-        super().__init__(children=[self._structure_sources_tab, self.viewer, store_and_description, self.output],
+        super().__init__(children=[
+            self._structure_sources_tab, self.viewer, store_and_description, self._structure_editor, self.output
+        ],
                          **kwargs)
 
     def _on_click_store(self, change):  # pylint: disable=unused-argument
@@ -470,3 +480,244 @@ class SmilesWidget(ipw.VBox):
     @default('structure')
     def _default_structure(self):
         return None
+
+
+class BasicStructureEditor(ipw.VBox):
+
+    structure = Instance(Atoms, allow_none=True)
+    selection = Set(Int)
+
+    def __init__(self):
+        ###TEXT description of structure
+        self.mol_ids_info_out = ipw.Output()
+
+        ###CONTROL BUTTONS
+        self.dxyz = ipw.Text(description='',
+                             value='0 0 0',
+                             style={'description_width': '70px'},
+                             layout={'width': '14%'})
+
+        self.dr = ipw.FloatText(description='',
+                                value=1,
+                                step=0.1,
+                                style={'description_width': '40px'},
+                                layout={'width': '15%'})
+
+        self.phi = ipw.FloatText(description='',
+                                 value=0,
+                                 step=5,
+                                 style={'description_width': '40px'},
+                                 layout={'width': '15%'})
+
+        self.axis_p1 = ipw.Text(description='axis P1',
+                                value='0 0 0',
+                                style={'description_width': '70px'},
+                                layout={'width': '14%'})
+        self.axis_p2 = ipw.Text(description='axis P2',
+                                value='0 0 1',
+                                style={'description_width': '70px'},
+                                layout={'width': '14%'})
+
+        self.point = ipw.Text(description='point',
+                              value='0 0 0',
+                              style={'description_width': '70px'},
+                              layout={'width': '14%'})
+
+        btn_move_dxyz = ipw.Button(description='MOVE_XYZ:', layout={'width': '10%'})
+        btn_move_dxyz.on_click(self.translate_dxdydz)
+
+        btn_move_dr = ipw.Button(description='MOVE_DR:', layout={'width': '10%'})
+        btn_move_dr.on_click(self.translate_dr)
+
+        btn_rotate = ipw.Button(description='ROTATE PHI:', layout={'width': '10%'})
+        btn_rotate.on_click(self.rotate)
+
+        btn_modify = ipw.Button(description='Modify in:', layout={'width': '12%'})
+        btn_modify.on_click(self.mod_element)
+
+        btn_add = ipw.Button(description='ADD:', style={'description_width': '120px'}, layout={'width': '12%'})
+        btn_add.on_click(self.add)
+
+        btn_remove = ipw.Button(description='REMOVE ATOMS',
+                                button_style='danger',
+                                style={'description_width': '120px'},
+                                layout={'width': '18%'})
+        btn_remove.on_click(self.remove)
+
+        btn_def_pnt = ipw.Button(description='from sel.', button_style='info', layout={'width': '9%'})
+        btn_def_pnt.on_click(self.def_point)
+
+        btn_def_atom1 = ipw.Button(description='from sel.', button_style='info', layout={'width': '9%'})
+        btn_def_atom1.on_click(self.def_axis_p1)
+
+        btn_def_atom2 = ipw.Button(description='from sel.', button_style='info', layout={'width': '9%'})
+        btn_def_atom2.on_click(self.def_axis_p2)
+
+        self.element = ipw.Dropdown(
+            description="",
+            options=["H", "C", "N", "O", "Br", "B"],
+            value="H",
+            style={'description_width': 'initial'},
+            layout={'width': '5%'},
+        )
+        self.add_list = ipw.Dropdown(
+            description="",
+            options=["H", "2H", "C"],
+            value="H",
+            style={'description_width': '4px'},
+            layout={'width': '5%'},
+        )
+
+        super().__init__(children=[
+            ipw.HBox([btn_rotate, self.phi, btn_move_dr, self.dr, btn_move_dxyz, self.dxyz]),
+            ipw.HBox([self.axis_p1, btn_def_atom1, self.axis_p2, btn_def_atom2, self.point, btn_def_pnt]),
+            ipw.HBox([btn_modify, self.element, btn_add, self.add_list, btn_remove]),
+            self.mol_ids_info_out,
+        ])
+
+    @observe('structure')
+    def _structure_changed(self, _=None):
+
+        if self.structure is None:
+            return
+        self.original_structure = self.structure
+
+        self.update_summary()
+
+    def str2vec(self, s):
+        return np.array(list(map(float, s.split())))
+
+    def vec2str(self, v):
+        return str(round(v[0], 2)) + ' ' + str(round(v[1], 2)) + ' ' + str(round(v[2], 2))
+
+    def sel2com(self):
+
+        selection = list(self.selection)
+        if len(selection) == 0:
+            com = [0, 0, 0]
+        else:
+            com = self.structure[selection].get_center_of_mass()
+        return com
+
+    def axis_from_points(self):
+        normal = self.str2vec(self.axis_p2.value) - self.str2vec(self.axis_p1.value)
+        norma = np.linalg.norm(normal)
+        return normal / norma
+
+    def def_point(self, c):
+        self.point.value = self.vec2str(self.sel2com())
+
+    def def_axis_p1(self, c):
+        self.axis_p1.value = self.vec2str(self.sel2com())
+
+    def def_axis_p2(self, c):
+        if len(self.selection) == 0:
+            com = [0, 0, 1]
+        else:
+            com = self.structure[list(self.selection)].get_center_of_mass()
+        self.axis_p2.value = self.vec2str(com)
+
+    def translate_dr(self, c):
+        atoms = self.original_structure.copy()
+        selection = self.selection
+
+        atoms.positions[list(self.selection)] += np.array(self.axis_from_points() * self.dr.value)
+
+        self.structure = atoms
+        self.selection = selection
+
+    def translate_dxdydz(self, c):
+        selection = self.selection
+        atoms = self.original_structure.copy()
+
+        # Actual action.
+        atoms.positions[list(self.selection)] += np.array(self.str2vec(self.dxyz.value))
+
+        self.structure = atoms
+        self.selection = selection
+
+    def rotate(self, c):
+        """Rotate atoms around selected point in space and vector."""
+
+        selection = self.selection
+        atoms = self.original_structure.copy()
+
+        # Actual action.
+        rotated_subset = atoms[list(self.selection)]
+        vec = self.str2vec(self.vec2str(self.axis_from_points()))
+        center = self.str2vec(self.point.value)
+        rotated_subset.rotate(self.phi.value, v=vec, center=center, rotate_cell=False)
+        atoms.positions[list(self.selection)] = rotated_subset.positions
+
+        self.structure = atoms
+        self.selection = selection
+
+    def mod_element(self, _=None):
+        """Modify selected atoms into the given element."""
+        atoms = self.original_structure.copy()
+        selection = self.selection
+
+        # Actual action.
+        for i in self.selection:
+            atoms[i].symbol = self.element.value
+
+        self.structure = atoms
+        self.selection = selection
+
+    def add(self, c):
+        """Add atoms."""
+
+        if not len(self.selection) == 1:
+            print("Please, select one atom only.")
+            return
+
+        atoms = self.original_structure.copy()
+
+        idx = list(self.selection)[0]
+        vec = np.zeros(3)
+
+        cov_radii = [covalent_radii[a.number] for a in atoms]
+        nl = NeighborList(cov_radii, bothways=True, self_interaction=False)
+        nl.update(atoms)
+
+        if self.add_list.value == 'H':
+            dCH = 1.10  #1.1 for single H
+            indices, offsets = nl.get_neighbors(idx)
+            for i, offset in zip(indices, offsets):
+                if atoms[i].symbol == 'C':
+                    vec += -atoms[idx].position + (atoms.positions[i] + np.dot(offset, atoms.get_cell()))
+            vec = -vec / np.linalg.norm(vec) * dCH + atoms[idx].position
+            atoms.append(Atom('H', vec))
+
+        elif self.add_list.valu == '2H':
+            dCH = 0.66  # 0.66 for double H
+            vecz = np.array((0.00, 0.00, 0.88))
+
+            indices, offsets = nl.get_neighbors(idx)
+            for i, offset in zip(indices, offsets):
+                if atoms[i].symbol == 'C':
+                    vec += -atoms[idx].position + (atoms.positions[i] + np.dot(offset, atoms.get_cell()))
+
+            vec = -vec / np.linalg.norm(vec) * dCH + atoms[idx].position
+            atoms.append(Atom('H', vec + vecz))
+            atoms.append(Atom('H', vec - vecz))
+        else:
+            position = self.str2vec(self.point.value) + self.axis_from_points() * self.dr.value
+            atoms.append(Atom(self.add_list.value, position))
+
+        self.structure = atoms
+
+    def remove(self, c):
+        atoms = self.original_structure.copy()
+
+        del [atoms[list(self.selection)]]
+
+        self.structure = atoms
+
+    def update_summary(self):
+        details = analyze_structure.analyze(self.structure)
+        msg = details['summary']
+
+        with self.mol_ids_info_out:
+            clear_output()
+            print(msg)
