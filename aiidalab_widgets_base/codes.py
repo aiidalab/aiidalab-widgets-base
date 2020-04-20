@@ -52,11 +52,6 @@ class CodeDropdown(ipw.VBox):
 
         self.input_plugin = input_plugin
 
-        if 'allow_hidden_codes' in kwargs:
-            self.allow_hidden_codes = kwargs['allow_hidden_codes']
-        if 'allow_disabled_computers' in kwargs:
-            self.allow_disabled_computers = kwargs['allow_disabled_computers']
-
         self.dropdown = ipw.Dropdown(description=description, disabled=True, value=None)
         link((self, 'codes'), (self.dropdown, 'options'))
         link((self.dropdown, 'value'), (self, 'selected_code'))
