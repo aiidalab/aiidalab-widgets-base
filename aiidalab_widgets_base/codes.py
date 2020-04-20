@@ -4,7 +4,7 @@ from subprocess import check_output
 
 import ipywidgets as ipw
 from IPython.display import clear_output
-from traitlets import Bool, Dict, Instance, Unicode, Union, link, observe, validate
+from traitlets import Bool, Dict, Instance, Unicode, Union, link, validate
 
 from aiida.orm import Code, QueryBuilder, User
 
@@ -30,18 +30,23 @@ class CodeDropdown(ipw.VBox):
         codes(Dict): Trait that contains a dictionary (label => Code instance) for all
             codes found in the AiiDA database for the selected plugin. It is linked
             to the 'options' trait of the `self.dropdown` widget.
+
+        allow_hidden_codes(Bool): Trait that defines whether to show hidden codes or not.
+
+        allow_disabled_computers(Bool): Trait that defines whether to show codes on disabled
+            computers.
     """
     selected_code = Union([Unicode(), Instance(Code)], allow_none=True)
     codes = Dict(allow_none=True)
     allow_hidden_codes = Bool(False)
     allow_disabled_computers = Bool(False)
 
-    def __init__(self, input_plugin, text='Select code:', path_to_root='../', **kwargs):
+    def __init__(self, input_plugin, description='Select code:', path_to_root='../', **kwargs):
         """Dropdown for Codes for one input plugin.
 
         input_plugin (str): Input plugin of codes to show.
 
-        text (str): Text to display before the dropdown.
+        description (str): Description to display before the dropdown.
         """
         self.output = ipw.Output()
 
@@ -52,12 +57,14 @@ class CodeDropdown(ipw.VBox):
         if 'allow_disabled_computers' in kwargs:
             self.allow_disabled_computers = kwargs['allow_disabled_computers']
 
-        self.dropdown = ipw.Dropdown(description=text, disabled=True, value=None)
+        self.dropdown = ipw.Dropdown(description=description, disabled=True, value=None)
         link((self, 'codes'), (self.dropdown, 'options'))
         link((self.dropdown, 'value'), (self, 'selected_code'))
 
         btn_refresh = ipw.Button(description="Refresh", layout=ipw.Layout(width="70px"))
         btn_refresh.on_click(self.refresh)
+
+        self.observe(self.refresh, names=['allow_disabled_computers', 'allow_hidden_codes'])
 
         # FOR LATER: use base_url here, when it will be implemented in the appmode.
         self._setup_another = ipw.HTML(value="""<a href={path_to_root}aiidalab-widgets-base/setup_code.ipynb?
@@ -88,11 +95,6 @@ class CodeDropdown(ipw.VBox):
     def _full_code_label(code):
         return "{}@{}".format(code.label, code.computer.name)
 
-    @observe('allow_disabled_computers')
-    def _observe_allow_disabl_comp(self, _=None):
-        self.refresh()
-
-    @observe('allow_hidden_codes')
     def refresh(self, _=None):
         """Refresh available codes.
 
