@@ -4,7 +4,7 @@ from subprocess import check_output
 
 import ipywidgets as ipw
 from IPython.display import clear_output
-from traitlets import Dict, Instance, Unicode, Union, link, validate
+from traitlets import Bool, Dict, Instance, Unicode, Union, link, validate
 
 from aiida.orm import Code, QueryBuilder, User
 
@@ -30,35 +30,43 @@ class CodeDropdown(ipw.VBox):
         codes(Dict): Trait that contains a dictionary (label => Code instance) for all
             codes found in the AiiDA database for the selected plugin. It is linked
             to the 'options' trait of the `self.dropdown` widget.
+
+        allow_hidden_codes(Bool): Trait that defines whether to show hidden codes or not.
+
+        allow_disabled_computers(Bool): Trait that defines whether to show codes on disabled
+            computers.
     """
     selected_code = Union([Unicode(), Instance(Code)], allow_none=True)
     codes = Dict(allow_none=True)
+    allow_hidden_codes = Bool(False)
+    allow_disabled_computers = Bool(False)
 
-    def __init__(self, input_plugin, text='Select code:', path_to_root='../', **kwargs):
+    def __init__(self, input_plugin, description='Select code:', path_to_root='../', **kwargs):
         """Dropdown for Codes for one input plugin.
 
-        :param input_plugin: Input plugin of codes to show
-        :type input_plugin: str
-        :param text: Text to display before dropdown
-        :type text: str
-        """
+        input_plugin (str): Input plugin of codes to show.
 
-        self.input_plugin = input_plugin
+        description (str): Description to display before the dropdown.
+        """
         self.output = ipw.Output()
 
-        self.dropdown = ipw.Dropdown(optionsdescription=text, disabled=True, value=None)
+        self.input_plugin = input_plugin
+
+        self.dropdown = ipw.Dropdown(description=description, disabled=True, value=None)
         link((self, 'codes'), (self.dropdown, 'options'))
         link((self.dropdown, 'value'), (self, 'selected_code'))
 
-        self._btn_refresh = ipw.Button(description="Refresh", layout=ipw.Layout(width="70px"))
-        self._btn_refresh.on_click(self.refresh)
+        btn_refresh = ipw.Button(description="Refresh", layout=ipw.Layout(width="70px"))
+        btn_refresh.on_click(self.refresh)
+
+        self.observe(self.refresh, names=['allow_disabled_computers', 'allow_hidden_codes'])
 
         # FOR LATER: use base_url here, when it will be implemented in the appmode.
         self._setup_another = ipw.HTML(value="""<a href={path_to_root}aiidalab-widgets-base/setup_code.ipynb?
                       label={label}&plugin={plugin} target="_blank">Setup new code</a>""".format(
             path_to_root=path_to_root, label=input_plugin, plugin=input_plugin))
 
-        children = [ipw.HBox([self.dropdown, self._btn_refresh, self._setup_another]), self.output]
+        children = [ipw.HBox([self.dropdown, btn_refresh, self._setup_another]), self.output]
 
         super().__init__(children=children, **kwargs)
 
@@ -67,23 +75,15 @@ class CodeDropdown(ipw.VBox):
     def _get_codes(self):
         """Query the list of available codes."""
 
-        querybuild = QueryBuilder()
-        querybuild.append(Code,
-                          filters={
-                              'attributes.input_plugin': {
-                                  '==': self.input_plugin
-                              },
-                              'extras.hidden': {
-                                  "~==": True
-                              }
-                          },
-                          project=['*'])
+        user = User.objects.get_default()
 
-        # Only codes on computers configured for the current user.
         return {
             self._full_code_label(c[0]): c[0]
-            for c in querybuild.all()
-            if c[0].computer.is_user_configured(User.objects.get_default())
+            for c in QueryBuilder().append(Code, filters={
+                'attributes.input_plugin': self.input_plugin
+            }).all()
+            if c[0].computer.is_user_configured(user) and (self.allow_hidden_codes or not c[0].hidden) and
+            (self.allow_disabled_computers or c[0].computer.is_user_enabled(user))
         }
 
     @staticmethod
