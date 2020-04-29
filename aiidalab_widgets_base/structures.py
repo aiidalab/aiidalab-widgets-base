@@ -88,9 +88,18 @@ class StructureManagerWidget(ipw.VBox):
                 self._structure_sources_tab.set_title(i, label)
                 link((self, 'structure'), (importer, 'structure'))
 
-        self._structure_editor = editors
-        link((self, 'structure'), (self._structure_editor, 'structure'))
-        link((self._structure_editor, 'selection'), (self.viewer, 'selection'))
+        # Displaying structure editors
+        if editors and len(editors) == 1:
+            structure_editors_tab = editors[0][1]
+            structure_editors_tab.manager = self
+        elif editors:
+            structure_editors_tab = ipw.Tab()
+            structure_editors_tab.children = [i[1] for i in editors]
+            for i, (label, editor) in enumerate(editors):
+                structure_editors_tab.set_title(i, label)
+                editor.manager = self
+        else:
+            structure_editors_tab = None
 
         # Store button, store class selector, description.
         store_and_description = []
@@ -110,10 +119,10 @@ class StructureManagerWidget(ipw.VBox):
         store_and_description.append(self.structure_description)
         store_and_description = ipw.HBox(store_and_description)
 
-        super().__init__(children=[
-            self._structure_sources_tab, self.viewer, store_and_description, self._structure_editor, self.output
-        ],
-                         **kwargs)
+        children = [self._structure_sources_tab, self.viewer, store_and_description]
+        children += [structure_editors_tab] if structure_editors_tab else []
+        children += [self.output]
+        super().__init__(children=children, **kwargs)
 
     def _on_click_store(self, change):  # pylint: disable=unused-argument
         self.store_structure()
@@ -482,6 +491,7 @@ class SmilesWidget(ipw.VBox):
 class BasicStructureEditor(ipw.VBox):
     """Widget that allows for the basic structure editing."""
 
+    manager = Instance(StructureManagerWidget, allow_none=True)
     structure = Instance(Atoms, allow_none=True)
     selection = Set(Int)
 
@@ -559,6 +569,15 @@ class BasicStructureEditor(ipw.VBox):
             ipw.HBox([self.element], layout={'margin': '0px 0px 0px 20px'}),
             ipw.HBox([btn_add, btn_modify, btn_remove], layout={'margin': '0px 0px 0px 20px'}),
         ])
+
+    @observe('manager')
+    def _change_manager(self, value):
+        """Set structure manager trait."""
+        manager = value['new']
+        if manager is None:
+            return
+        link((manager, 'structure'), (self, 'structure'))
+        link((self, 'selection'), (manager.viewer, 'selection'))
 
     def str2vec(self, string):
         return np.array(list(map(float, string.split())))
