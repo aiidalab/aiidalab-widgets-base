@@ -486,87 +486,78 @@ class BasicStructureEditor(ipw.VBox):
     selection = Set(Int)
 
     def __init__(self):
-        ###CONTROL BUTTONS
-        self.dxyz = ipw.Text(description='',
-                             value='0 0 0',
-                             style={'description_width': '70px'},
-                             layout={'width': '14%'})
 
-        self.displacement = ipw.FloatText(description='',
-                                          value=1,
-                                          step=0.1,
-                                          style={'description_width': '40px'},
-                                          layout={'width': '15%'})
-
-        self.phi = ipw.FloatText(description='',
-                                 value=0,
-                                 step=5,
-                                 style={'description_width': '40px'},
-                                 layout={'width': '15%'})
-
-        self.axis_p1 = ipw.Text(description='axis P1',
-                                value='0 0 0',
-                                style={'description_width': '70px'},
-                                layout={'width': '14%'})
-        self.axis_p2 = ipw.Text(description='axis P2',
-                                value='0 0 1',
-                                style={'description_width': '70px'},
-                                layout={'width': '14%'})
-
-        self.point = ipw.Text(description='point',
-                              value='0 0 0',
-                              style={'description_width': '70px'},
-                              layout={'width': '14%'})
-
-        btn_move_dxyz = ipw.Button(description='MOVE_XYZ:', layout={'width': '10%'})
-        btn_move_dxyz.on_click(self.translate_dxdydz)
-
-        btn_move_dr = ipw.Button(description='MOVE_DR:', layout={'width': '10%'})
-        btn_move_dr.on_click(self.translate_dr)
-
-        btn_rotate = ipw.Button(description='ROTATE PHI:', layout={'width': '10%'})
-        btn_rotate.on_click(self.rotate)
-
-        btn_modify = ipw.Button(description='Modify in:', layout={'width': '12%'})
-        btn_modify.on_click(self.mod_element)
-
-        btn_add = ipw.Button(description='ADD:', style={'description_width': '120px'}, layout={'width': '12%'})
-        btn_add.on_click(self.add)
-
-        btn_remove = ipw.Button(description='REMOVE ATOMS',
-                                button_style='danger',
-                                style={'description_width': '120px'},
-                                layout={'width': '18%'})
-        btn_remove.on_click(self.remove)
-
-        btn_def_pnt = ipw.Button(description='from sel.', button_style='info', layout={'width': '9%'})
-        btn_def_pnt.on_click(self.def_point)
-
-        btn_def_atom1 = ipw.Button(description='from sel.', button_style='info', layout={'width': '9%'})
+        # Define action vector.
+        self.axis_p1 = ipw.Text(description='Starting point', value='0 0 0', layout={'width': 'initial'})
+        self.axis_p2 = ipw.Text(description='Ending point', value='0 0 1', layout={'width': 'initial'})
+        btn_def_atom1 = ipw.Button(description='From selection', layout={'width': 'initial'})
         btn_def_atom1.on_click(self.def_axis_p1)
-
-        btn_def_atom2 = ipw.Button(description='from sel.', button_style='info', layout={'width': '9%'})
+        btn_def_atom2 = ipw.Button(description='From selection', layout={'width': 'initial'})
         btn_def_atom2.on_click(self.def_axis_p2)
 
+        # Define action point.
+        self.point = ipw.Text(description='Action point', value='0 0 0', layout={'width': 'initial'})
+        btn_def_pnt = ipw.Button(description='From selection', layout={'width': 'initial'})
+        btn_def_pnt.on_click(self.def_point)
+
+        # Move atoms.
+        btn_move_dr = ipw.Button(description='Move', layout={'width': 'initial'})
+        btn_move_dr.on_click(self.translate_dr)
+        self.displacement = ipw.FloatText(description='Move along the action vector',
+                                          value=1,
+                                          step=0.1,
+                                          style={'description_width': 'initial'},
+                                          layout={'width': 'initial'})
+
+        btn_move_dxyz = ipw.Button(description='Move', layout={'width': 'initial'})
+        btn_move_dxyz.on_click(self.translate_dxdydz)
+        self.dxyz = ipw.Text(description='Move along (XYZ)',
+                             value='0 0 0',
+                             style={'description_width': 'initial'},
+                             layout={
+                                 'width': 'initial',
+                                 'margin': '0px 0px 0px 20px'
+                             })
+        # Rotate atoms.
+        btn_rotate = ipw.Button(description='Rotate', layout={'width': '10%'})
+        btn_rotate.on_click(self.rotate)
+        self.phi = ipw.FloatText(description='Rotate around the action vector which starts from the action point',
+                                 value=0,
+                                 step=5,
+                                 style={'description_width': 'initial'},
+                                 layout={'width': 'initial'})
+
+        # Modify atoms
         self.element = ipw.Dropdown(
-            description="",
+            description="Select element",
             options=["H", "C", "N", "O", "Br", "B"],
             value="H",
             style={'description_width': 'initial'},
-            layout={'width': '5%'},
-        )
-        self.add_list = ipw.Dropdown(
-            description="",
-            options=["H", "2H", "C"],
-            value="H",
-            style={'description_width': '4px'},
-            layout={'width': '5%'},
+            layout={'width': 'initial'},
         )
 
+        # Add atom.
+        btn_add = ipw.Button(description='Add to selected', layout={'width': 'initial'})
+        btn_add.on_click(self.add)
+
+        # Modify atom.
+        btn_modify = ipw.Button(description='Modify selected', button_style='warning', layout={'width': 'initial'})
+        btn_modify.on_click(self.mod_element)
+
+        # Remove atom.
+        btn_remove = ipw.Button(description='Remove selected', button_style='danger', layout={'width': 'initial'})
+        btn_remove.on_click(self.remove)
+
         super().__init__(children=[
-            ipw.HBox([btn_rotate, self.phi, btn_move_dr, self.displacement, btn_move_dxyz, self.dxyz]),
-            ipw.HBox([self.axis_p1, btn_def_atom1, self.axis_p2, btn_def_atom2, self.point, btn_def_pnt]),
-            ipw.HBox([btn_modify, self.element, btn_add, self.add_list, btn_remove]),
+            ipw.HTML("<b>Action vector and point:</b>", layout={'margin': '20px 0px 10px 0px'}),
+            ipw.HBox([self.axis_p1, btn_def_atom1, self.axis_p2, btn_def_atom2], layout={'margin': '0px 0px 0px 20px'}),
+            ipw.HBox([self.point, btn_def_pnt], layout={'margin': '0px 0px 0px 20px'}),
+            ipw.HTML("<b>Move atom(s):</b>", layout={'margin': '20px 0px 10px 0px'}),
+            ipw.HBox([self.displacement, btn_move_dr, self.dxyz, btn_move_dxyz], layout={'margin': '0px 0px 0px 20px'}),
+            ipw.HBox([self.phi, btn_rotate], layout={'margin': '0px 0px 0px 20px'}),
+            ipw.HTML("<b>Modify atom(s):</v>", layout={'margin': '20px 0px 10px 0px'}),
+            ipw.HBox([self.element], layout={'margin': '0px 0px 0px 20px'}),
+            ipw.HBox([btn_add, btn_modify, btn_remove], layout={'margin': '0px 0px 0px 20px'}),
         ])
 
     def str2vec(self, string):
@@ -665,30 +656,13 @@ class BasicStructureEditor(ipw.VBox):
         nl = NeighborList(cov_radii, bothways=True, self_interaction=False)
         nl.update(atoms)
 
-        if self.add_list.value == 'H':
-            dCH = 1.10  #1.1 for single H
-            indices, offsets = nl.get_neighbors(idx)
-            for i, offset in zip(indices, offsets):
-                if atoms[i].symbol == 'C':
-                    vec += -atoms[idx].position + (atoms.positions[i] + np.dot(offset, atoms.get_cell()))
-            vec = -vec / np.linalg.norm(vec) * dCH + atoms[idx].position
-            atoms.append(Atom('H', vec))
-
-        elif self.add_list.value == '2H':
-            dCH = 0.66  # 0.66 for double H
-            vecz = np.array((0.00, 0.00, 0.88))
-
-            indices, offsets = nl.get_neighbors(idx)
-            for i, offset in zip(indices, offsets):
-                if atoms[i].symbol == 'C':
-                    vec += -atoms[idx].position + (atoms.positions[i] + np.dot(offset, atoms.get_cell()))
-
-            vec = -vec / np.linalg.norm(vec) * dCH + atoms[idx].position
-            atoms.append(Atom('H', vec + vecz))
-            atoms.append(Atom('H', vec - vecz))
-        else:
-            position = self.str2vec(self.point.value) + self.axis_from_points() * self.displacement.value
-            atoms.append(Atom(self.add_list.value, position))
+        dCH = 1.10  #1.1 for single H
+        indices, offsets = nl.get_neighbors(idx)
+        for i, offset in zip(indices, offsets):
+            if atoms[i].symbol == 'C':
+                vec += -atoms[idx].position + (atoms.positions[i] + np.dot(offset, atoms.get_cell()))
+        vec = -vec / np.linalg.norm(vec) * dCH + atoms[idx].position
+        atoms.append(Atom(self.element.value, vec))
 
         self.structure = atoms
 
