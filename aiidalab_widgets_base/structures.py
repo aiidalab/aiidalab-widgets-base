@@ -569,15 +569,6 @@ class BasicStructureEditor(ipw.VBox):
             ipw.HBox([btn_modify, self.element, btn_add, self.add_list, btn_remove]),
         ])
 
-    @observe('structure')
-    def _structure_changed(self, _=None):
-        """Set the original_structure attribute."""
-
-        if self.structure is None:
-            return
-        self.original_structure = self.structure
-        # TODO: replace original_structure (I think it is not needed) with just structure
-
     def str2vec(self, string):
         return np.array(list(map(float, string.split())))
 
@@ -610,7 +601,7 @@ class BasicStructureEditor(ipw.VBox):
 
     def translate_dr(self, _=None):
         """Translate by dr along the selected vector."""
-        atoms = self.original_structure.copy()
+        atoms = self.structure.copy()
         selection = self.selection
 
         atoms.positions[list(self.selection)] += np.array(self.axis_from_points() * self.displacement.value)
@@ -621,7 +612,7 @@ class BasicStructureEditor(ipw.VBox):
     def translate_dxdydz(self, _=None):
         """Translate along the selected vector."""
         selection = self.selection
-        atoms = self.original_structure.copy()
+        atoms = self.structure.copy()
 
         # The action.
         atoms.positions[list(self.selection)] += np.array(self.str2vec(self.dxyz.value))
@@ -633,7 +624,7 @@ class BasicStructureEditor(ipw.VBox):
         """Rotate atoms around selected point in space and vector."""
 
         selection = self.selection
-        atoms = self.original_structure.copy()
+        atoms = self.structure.copy()
 
         # The action.
         rotated_subset = atoms[list(self.selection)]
@@ -647,7 +638,7 @@ class BasicStructureEditor(ipw.VBox):
 
     def mod_element(self, _=None):
         """Modify selected atoms into the given element."""
-        atoms = self.original_structure.copy()
+        atoms = self.structure.copy()
         selection = self.selection
 
         # The action.
@@ -665,7 +656,7 @@ class BasicStructureEditor(ipw.VBox):
             print("Please, select one atom only.")
             return
 
-        atoms = self.original_structure.copy()
+        atoms = self.structure.copy()
 
         idx = list(self.selection)[0]
         vec = np.zeros(3)
@@ -703,6 +694,6 @@ class BasicStructureEditor(ipw.VBox):
 
     def remove(self, _):
         """Remove selected atoms."""
-        atoms = self.original_structure.copy()
+        atoms = self.structure.copy()
         del [atoms[list(self.selection)]]
         self.structure = atoms
