@@ -12,13 +12,14 @@ from traitlets import Instance, Int, Set, Unicode, Union, link, default, observe
 # ASE imports
 from ase import Atom, Atoms
 from ase.data import chemical_symbols, covalent_radii
-from ase.neighborlist import NeighborList
 
 # AiiDA and AiiDA lab imports
 from aiida.orm import CalcFunctionNode, CalcJobNode, Data, QueryBuilder, Node, WorkChainNode
 from aiida.plugins import DataFactory
 from .utils import get_ase_from_file
 from .viewers import StructureDataViewer
+
+SYMBOL_RADIUS = {key: covalent_radii[i] for i, key in enumerate(chemical_symbols)}
 
 
 class StructureManagerWidget(ipw.VBox):
@@ -504,6 +505,10 @@ class BasicStructureEditor(ipw.VBox):
         btn_def_atom1.on_click(self.def_axis_p1)
         btn_def_atom2 = ipw.Button(description='From selection', layout={'width': 'initial'})
         btn_def_atom2.on_click(self.def_axis_p2)
+        btn_get_from_camera = ipw.Button(description='Perp. to screen',
+                                         button_style='warning',
+                                         layout={'width': 'initial'})
+        btn_get_from_camera.on_click(self.def_perpendicular_to_screen)
 
         # Define action point.
         self.point = ipw.Text(description='Action point', value='0 0 0', layout={'width': 'initial'})
@@ -540,7 +545,7 @@ class BasicStructureEditor(ipw.VBox):
         # Modify atoms
         self.element = ipw.Dropdown(
             description="Select element",
-            options=["H", "C", "N", "O", "Br", "B"],
+            options=chemical_symbols,
             value="H",
             style={'description_width': 'initial'},
             layout={'width': 'initial'},
@@ -549,6 +554,12 @@ class BasicStructureEditor(ipw.VBox):
         # Add atom.
         btn_add = ipw.Button(description='Add to selected', layout={'width': 'initial'})
         btn_add.on_click(self.add)
+        self.bond_length = ipw.FloatText(description="Bond lenght.", value=1.0, layout={'width': '140px'})
+        self.use_covalent_radius = ipw.Checkbox(
+            value=False,
+            description='Use covalent radius',
+        )
+        self.use_covalent_radius.observe(self._observe_use_cov_radius, names='value')
 
         # Modify atom.
         btn_modify = ipw.Button(description='Modify selected', button_style='warning', layout={'width': 'initial'})
@@ -560,14 +571,16 @@ class BasicStructureEditor(ipw.VBox):
 
         super().__init__(children=[
             ipw.HTML("<b>Action vector and point:</b>", layout={'margin': '20px 0px 10px 0px'}),
-            ipw.HBox([self.axis_p1, btn_def_atom1, self.axis_p2, btn_def_atom2], layout={'margin': '0px 0px 0px 20px'}),
+            ipw.HBox([self.axis_p1, btn_def_atom1, self.axis_p2, btn_def_atom2, btn_get_from_camera],
+                     layout={'margin': '0px 0px 0px 20px'}),
             ipw.HBox([self.point, btn_def_pnt], layout={'margin': '0px 0px 0px 20px'}),
             ipw.HTML("<b>Move atom(s):</b>", layout={'margin': '20px 0px 10px 0px'}),
             ipw.HBox([self.displacement, btn_move_dr, self.dxyz, btn_move_dxyz], layout={'margin': '0px 0px 0px 20px'}),
             ipw.HBox([self.phi, btn_rotate], layout={'margin': '0px 0px 0px 20px'}),
             ipw.HTML("<b>Modify atom(s):</v>", layout={'margin': '20px 0px 10px 0px'}),
             ipw.HBox([self.element], layout={'margin': '0px 0px 0px 20px'}),
-            ipw.HBox([btn_add, btn_modify, btn_remove], layout={'margin': '0px 0px 0px 20px'}),
+            ipw.HBox([btn_add, self.bond_length, self.use_covalent_radius], layout={'margin': '0px 0px 0px 20px'}),
+            ipw.HBox([btn_modify, btn_remove], layout={'margin': '0px 0px 0px 20px'}),
         ])
 
     @observe('manager')
@@ -578,6 +591,12 @@ class BasicStructureEditor(ipw.VBox):
             return
         link((manager, 'structure'), (self, 'structure'))
         link((self, 'selection'), (manager.viewer, 'selection'))
+
+    def _observe_use_cov_radius(self, _=None):
+        if self.use_covalent_radius.value:
+            self.bond_length.disabled = True
+        else:
+            self.bond_length.disabled = False
 
     def str2vec(self, string):
         return np.array(list(map(float, string.split())))
@@ -608,6 +627,12 @@ class BasicStructureEditor(ipw.VBox):
     def def_axis_p2(self, _=None):
         com = self.structure[list(self.selection)].get_center_of_mass() if self.selection else [0, 0, 1]
         self.axis_p2.value = self.vec2str(com)
+
+    def def_perpendicular_to_screen(self, _=None):
+        cmr = self.manager.viewer._viewer._camera_orientation  # pylint: disable=protected-access
+        if cmr:
+            self.axis_p1.value = "0 0 0"
+            self.axis_p2.value = self.vec2str([-cmr[2], -cmr[6], -cmr[10]])
 
     def translate_dr(self, _=None):
         """Translate by dr along the selected vector."""
@@ -659,29 +684,22 @@ class BasicStructureEditor(ipw.VBox):
         self.selection = selection
 
     def add(self, _=None):
-        # pylint: disable=invalid-name
         """Add atoms."""
-
-        if not len(self.selection) == 1:
-            print("Please, select one atom only.")
-            return
-
         atoms = self.structure.copy()
 
-        idx = list(self.selection)[0]
-        vec = np.zeros(3)
-
-        cov_radii = [covalent_radii[a.number] for a in atoms]
-        nl = NeighborList(cov_radii, bothways=True, self_interaction=False)
-        nl.update(atoms)
-
-        dCH = 1.10  #1.1 for single H
-        indices, offsets = nl.get_neighbors(idx)
-        for i, offset in zip(indices, offsets):
-            if atoms[i].symbol == 'C':
-                vec += -atoms[idx].position + (atoms.positions[i] + np.dot(offset, atoms.get_cell()))
-        vec = -vec / np.linalg.norm(vec) * dCH + atoms[idx].position
-        atoms.append(Atom(self.element.value, vec))
+        if self.use_covalent_radius.value:
+            for idx in list(self.selection):
+                position = self.structure.positions[idx]
+                rad_1 = SYMBOL_RADIUS[self.structure.symbols[idx]]
+                rad_2 = SYMBOL_RADIUS[self.element.value]
+                position = self.structure.positions[idx]
+                position += self.axis_from_points() * (rad_1 + rad_2)
+                atoms.append(Atom(self.element.value, position))
+        else:
+            for idx in list(self.selection):
+                position = self.structure.positions[idx]
+                position += self.axis_from_points() * self.bond_length.value
+                atoms.append(Atom(self.element.value, position))
 
         self.structure = atoms
 
