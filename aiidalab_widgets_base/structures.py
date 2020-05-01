@@ -70,7 +70,8 @@ class StructureManagerWidget(ipw.VBox):
         link((data_format, 'label'), (self, 'node_class'))
 
         # Description that is stored along with the new structure.
-        self.structure_description = ipw.Text(placeholder="Description (optional)")
+        self.structure_label = ipw.Text(description='Label')
+        self.structure_description = ipw.Text(description='Description')
 
         # Displaying structure importers.
         if len(importers) == 1:
@@ -100,6 +101,7 @@ class StructureManagerWidget(ipw.VBox):
                                                                             list(self.SUPPORTED_DATA_FORMATS.keys())))
         self.output = ipw.HTML('')
 
+        store_and_description.append(self.structure_label)
         store_and_description.append(self.structure_description)
         store_and_description = ipw.HBox(store_and_description)
 
@@ -109,7 +111,7 @@ class StructureManagerWidget(ipw.VBox):
     def _on_click_store(self, change):  # pylint: disable=unused-argument
         self.store_structure()
 
-    def store_structure(self, label=None, description=None):
+    def store_structure(self):
         """Stores the structure in AiiDA database."""
 
         if self.structure_node is None:
@@ -117,10 +119,8 @@ class StructureManagerWidget(ipw.VBox):
         if self.structure_node.is_stored:
             self.output.value = "Already stored in AiiDA [{}], skipping...".format(self.structure_node)
             return
-        if label:
-            self.structure_node.label = label
-        if description:
-            self.structure_node.description = description
+        self.structure_node.label = self.structure_label.value
+        self.structure_node.description = self.structure_description.value
         self.structure_node.store()
         self.output.value = "Stored in AiiDA [{}]".format(self.structure_node)
 
@@ -132,10 +132,6 @@ class StructureManagerWidget(ipw.VBox):
     @observe('node_class')
     def _change_structure_node(self, _=None):
         self._structure_changed()
-
-    @default('structure')
-    def _default_structure(self):
-        return None
 
     @validate('structure')
     def _valid_structure(self, change):
@@ -189,8 +185,7 @@ class StructureManagerWidget(ipw.VBox):
 
         # Setting the structure_node trait.
         self.set_trait('structure_node', structure_node)
-        self.structure_node.description = self.structure_description.value
-        self.structure_node.label = self.structure.get_chemical_formula()
+        self.structure_label.value = self.structure.get_chemical_formula()
 
     @default('structure_node')
     def _default_structure_node(self):
@@ -382,6 +377,7 @@ class StructureBrowserWidget(ipw.VBox):
             label += " | " + mch.ctime.strftime("%Y-%m-%d %H:%M")
             label += " | " + mch.get_extra("formula")
             label += " | " + mch.node_type.split('.')[-2]
+            label += " | " + mch.label
             label += " | " + mch.description
             options[label] = mch
 
