@@ -18,6 +18,7 @@ from aiida.orm import CalcFunctionNode, CalcJobNode, Data, QueryBuilder, Node, W
 from aiida.plugins import DataFactory
 from .utils import get_ase_from_file
 from .viewers import StructureDataViewer
+from .data import LigandSelectorWidget
 
 SYMBOL_RADIUS = {key: covalent_radii[i] for i, key in enumerate(chemical_symbols)}
 
@@ -103,10 +104,8 @@ class StructureManagerWidget(ipw.VBox):
             structure_editors_tab = None
 
         # Store button, store class selector, description.
-        store_and_description = []
+        store_and_description = [self.btn_store] if storable else []
 
-        if storable:
-            store_and_description.append(self.btn_store)
         if node_class is None:
             store_and_description.append(data_format)
         elif node_class in self.SUPPORTED_DATA_FORMATS:
@@ -116,12 +115,15 @@ class StructureManagerWidget(ipw.VBox):
                                                                             list(self.SUPPORTED_DATA_FORMATS.keys())))
         self.output = ipw.HTML('')
 
-        store_and_description.append(self.structure_label)
-        store_and_description.append(self.structure_description)
-        store_and_description = ipw.HBox(store_and_description)
+        store_and_description = ipw.HBox(store_and_description + [self.structure_label, self.structure_description])
 
         children = [self._structure_sources_tab, self.viewer, store_and_description]
-        children += [structure_editors_tab] if structure_editors_tab else []
+        if structure_editors_tab:
+            accordion = ipw.Accordion([structure_editors_tab])
+            accordion.selected_index = None
+            accordion.set_title(0, 'Edit Structure')
+            children += [accordion]
+
         children += [self.output]
         super().__init__(children=children, **kwargs)
 
@@ -542,14 +544,24 @@ class BasicStructureEditor(ipw.VBox):
                                  style={'description_width': 'initial'},
                                  layout={'width': 'initial'})
 
-        # Modify atoms
+        # Atoms selection.
         self.element = ipw.Dropdown(
             description="Select element",
-            options=chemical_symbols,
+            options=chemical_symbols[1:],
             value="H",
             style={'description_width': 'initial'},
             layout={'width': 'initial'},
         )
+
+        def disable_element(_=None):
+            if self.ligand.value == 0:
+                self.element.disabled = False
+            else:
+                self.element.disabled = True
+
+        # Ligand selection.
+        self.ligand = LigandSelectorWidget()
+        self.ligand.observe(disable_element, names='value')
 
         # Add atom.
         btn_add = ipw.Button(description='Add to selected', layout={'width': 'initial'})
@@ -558,6 +570,7 @@ class BasicStructureEditor(ipw.VBox):
         self.use_covalent_radius = ipw.Checkbox(
             value=False,
             description='Use covalent radius',
+            style={'description_width': 'initial'},
         )
         self.use_covalent_radius.observe(self._observe_use_cov_radius, names='value')
 
@@ -578,9 +591,15 @@ class BasicStructureEditor(ipw.VBox):
             ipw.HBox([self.displacement, btn_move_dr, self.dxyz, btn_move_dxyz], layout={'margin': '0px 0px 0px 20px'}),
             ipw.HBox([self.phi, btn_rotate], layout={'margin': '0px 0px 0px 20px'}),
             ipw.HTML("<b>Modify atom(s):</v>", layout={'margin': '20px 0px 10px 0px'}),
-            ipw.HBox([self.element], layout={'margin': '0px 0px 0px 20px'}),
-            ipw.HBox([btn_add, self.bond_length, self.use_covalent_radius], layout={'margin': '0px 0px 0px 20px'}),
-            ipw.HBox([btn_modify, btn_remove], layout={'margin': '0px 0px 0px 20px'}),
+            ipw.HBox([self.element, self.ligand], layout={'margin': '0px 0px 0px 20px'}),
+            ipw.HBox([
+                btn_modify,
+                btn_add,
+                self.bond_length,
+                self.use_covalent_radius,
+            ],
+                     layout={'margin': '0px 0px 0px 20px'}),
+            ipw.HBox([btn_remove], layout={'margin': '0px 0px 0px 20px'}),
         ])
 
     @observe('manager')
@@ -614,7 +633,8 @@ class BasicStructureEditor(ipw.VBox):
 
         return com
 
-    def axis_from_points(self):
+    @property
+    def action_vector(self):
         normal = self.str2vec(self.axis_p2.value) - self.str2vec(self.axis_p1.value)
         return normal / np.linalg.norm(normal)
 
@@ -639,7 +659,7 @@ class BasicStructureEditor(ipw.VBox):
         atoms = self.structure.copy()
         selection = self.selection
 
-        atoms.positions[list(self.selection)] += np.array(self.axis_from_points() * self.displacement.value)
+        atoms.positions[list(self.selection)] += np.array(self.action_vector * self.displacement.value)
 
         self.structure = atoms
         self.selection = selection
@@ -663,7 +683,7 @@ class BasicStructureEditor(ipw.VBox):
 
         # The action.
         rotated_subset = atoms[list(self.selection)]
-        vec = self.str2vec(self.vec2str(self.axis_from_points()))
+        vec = self.str2vec(self.vec2str(self.action_vector))
         center = self.str2vec(self.point.value)
         rotated_subset.rotate(self.phi.value, v=vec, center=center, rotate_cell=False)
         atoms.positions[list(self.selection)] = rotated_subset.positions
@@ -676,9 +696,16 @@ class BasicStructureEditor(ipw.VBox):
         atoms = self.structure.copy()
         selection = self.selection
 
-        # The action.
-        for i in self.selection:
-            atoms[i].symbol = self.element.value
+        if self.ligand.value == 0:
+            for idx in self.selection:
+                atoms[idx].symbol = self.element.value
+        else:
+            initial_ligand = self.ligand.rotate(align_to=self.action_vector, remove_anchor=True)
+            for idx in self.selection:
+                position = self.structure.positions[idx].copy()
+                lgnd = initial_ligand.copy()
+                lgnd.translate(position)
+                atoms += lgnd
 
         self.structure = atoms
         self.selection = selection
@@ -686,22 +713,29 @@ class BasicStructureEditor(ipw.VBox):
     def add(self, _=None):
         """Add atoms."""
         atoms = self.structure.copy()
+        selection = self.selection
 
-        if self.use_covalent_radius.value:
-            for idx in list(self.selection):
-                position = self.structure.positions[idx]
-                rad_1 = SYMBOL_RADIUS[self.structure.symbols[idx]]
-                rad_2 = SYMBOL_RADIUS[self.element.value]
-                position = self.structure.positions[idx]
-                position += self.axis_from_points() * (rad_1 + rad_2)
-                atoms.append(Atom(self.element.value, position))
+        if self.ligand.value == 0:
+            initial_ligand = Atoms([Atom(self.element.value, [0, 0, 0])])
+            rad = SYMBOL_RADIUS[self.element.value]
         else:
-            for idx in list(self.selection):
-                position = self.structure.positions[idx]
-                position += self.axis_from_points() * self.bond_length.value
-                atoms.append(Atom(self.element.value, position))
+            initial_ligand = self.ligand.rotate(align_to=self.action_vector)
+            rad = SYMBOL_RADIUS[self.ligand.anchoring_atom]
+
+        for idx in self.selection:
+            # It is important to copy, otherwise the initial structure will be modified
+            position = self.structure.positions[idx].copy()
+            lgnd = initial_ligand.copy()
+
+            if self.use_covalent_radius.value:
+                lgnd.translate(position + self.action_vector * (SYMBOL_RADIUS[self.structure.symbols[idx]] + rad))
+            else:
+                lgnd.translate(position + self.action_vector * self.bond_length.value)
+
+            atoms += lgnd
 
         self.structure = atoms
+        self.selection = selection
 
     def remove(self, _):
         """Remove selected atoms."""
