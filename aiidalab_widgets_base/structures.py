@@ -7,17 +7,20 @@ import datetime
 from collections import OrderedDict
 import numpy as np
 import ipywidgets as ipw
-from traitlets import Instance, Unicode, Union, link, default, observe, validate
+from traitlets import Instance, Int, Set, Unicode, Union, link, default, observe, validate
 
 # ASE imports
 from ase import Atom, Atoms
-from ase.data import chemical_symbols
+from ase.data import chemical_symbols, covalent_radii
 
 # AiiDA and AiiDA lab imports
 from aiida.orm import CalcFunctionNode, CalcJobNode, Data, QueryBuilder, Node, WorkChainNode
 from aiida.plugins import DataFactory
 from .utils import get_ase_from_file
 from .viewers import StructureDataViewer
+from .data import LigandSelectorWidget
+
+SYMBOL_RADIUS = {key: covalent_radii[i] for i, key in enumerate(chemical_symbols)}
 
 
 class StructureManagerWidget(ipw.VBox):
@@ -35,7 +38,7 @@ class StructureManagerWidget(ipw.VBox):
 
     SUPPORTED_DATA_FORMATS = {'CifData': 'cif', 'StructureData': 'structure'}
 
-    def __init__(self, importers, storable=True, node_class=None, **kwargs):
+    def __init__(self, importers, editors=None, storable=True, node_class=None, **kwargs):
         """
         Arguments:
             importers(list): list of tuples each containing the displayed name of importer and the
@@ -87,11 +90,22 @@ class StructureManagerWidget(ipw.VBox):
                 self._structure_sources_tab.set_title(i, label)
                 link((self, 'structure'), (importer, 'structure'))
 
-        # Store button, store class selector, description.
-        store_and_description = []
+        # Displaying structure editors
+        if editors and len(editors) == 1:
+            structure_editors_tab = editors[0][1]
+            structure_editors_tab.manager = self
+        elif editors:
+            structure_editors_tab = ipw.Tab()
+            structure_editors_tab.children = [i[1] for i in editors]
+            for i, (label, editor) in enumerate(editors):
+                structure_editors_tab.set_title(i, label)
+                editor.manager = self
+        else:
+            structure_editors_tab = None
 
-        if storable:
-            store_and_description.append(self.btn_store)
+        # Store button, store class selector, description.
+        store_and_description = [self.btn_store] if storable else []
+
         if node_class is None:
             store_and_description.append(data_format)
         elif node_class in self.SUPPORTED_DATA_FORMATS:
@@ -101,12 +115,17 @@ class StructureManagerWidget(ipw.VBox):
                                                                             list(self.SUPPORTED_DATA_FORMATS.keys())))
         self.output = ipw.HTML('')
 
-        store_and_description.append(self.structure_label)
-        store_and_description.append(self.structure_description)
-        store_and_description = ipw.HBox(store_and_description)
+        store_and_description = ipw.HBox(store_and_description + [self.structure_label, self.structure_description])
 
-        super().__init__(children=[self._structure_sources_tab, self.viewer, store_and_description, self.output],
-                         **kwargs)
+        children = [self._structure_sources_tab, self.viewer, store_and_description]
+        if structure_editors_tab:
+            accordion = ipw.Accordion([structure_editors_tab])
+            accordion.selected_index = None
+            accordion.set_title(0, 'Edit Structure')
+            children += [accordion]
+
+        children += [self.output]
+        super().__init__(children=children, **kwargs)
 
     def _on_click_store(self, change):  # pylint: disable=unused-argument
         self.store_structure()
@@ -470,3 +489,256 @@ class SmilesWidget(ipw.VBox):
     @default('structure')
     def _default_structure(self):
         return None
+
+
+class BasicStructureEditor(ipw.VBox):
+    """Widget that allows for the basic structure editing."""
+
+    manager = Instance(StructureManagerWidget, allow_none=True)
+    structure = Instance(Atoms, allow_none=True)
+    selection = Set(Int)
+
+    def __init__(self):
+
+        # Define action vector.
+        self.axis_p1 = ipw.Text(description='Starting point', value='0 0 0', layout={'width': 'initial'})
+        self.axis_p2 = ipw.Text(description='Ending point', value='0 0 1', layout={'width': 'initial'})
+        btn_def_atom1 = ipw.Button(description='From selection', layout={'width': 'initial'})
+        btn_def_atom1.on_click(self.def_axis_p1)
+        btn_def_atom2 = ipw.Button(description='From selection', layout={'width': 'initial'})
+        btn_def_atom2.on_click(self.def_axis_p2)
+        btn_get_from_camera = ipw.Button(description='Perp. to screen',
+                                         button_style='warning',
+                                         layout={'width': 'initial'})
+        btn_get_from_camera.on_click(self.def_perpendicular_to_screen)
+
+        # Define action point.
+        self.point = ipw.Text(description='Action point', value='0 0 0', layout={'width': 'initial'})
+        btn_def_pnt = ipw.Button(description='From selection', layout={'width': 'initial'})
+        btn_def_pnt.on_click(self.def_point)
+
+        # Move atoms.
+        btn_move_dr = ipw.Button(description='Move', layout={'width': 'initial'})
+        btn_move_dr.on_click(self.translate_dr)
+        self.displacement = ipw.FloatText(description='Move along the action vector',
+                                          value=1,
+                                          step=0.1,
+                                          style={'description_width': 'initial'},
+                                          layout={'width': 'initial'})
+
+        btn_move_dxyz = ipw.Button(description='Move', layout={'width': 'initial'})
+        btn_move_dxyz.on_click(self.translate_dxdydz)
+        self.dxyz = ipw.Text(description='Move along (XYZ)',
+                             value='0 0 0',
+                             style={'description_width': 'initial'},
+                             layout={
+                                 'width': 'initial',
+                                 'margin': '0px 0px 0px 20px'
+                             })
+        # Rotate atoms.
+        btn_rotate = ipw.Button(description='Rotate', layout={'width': '10%'})
+        btn_rotate.on_click(self.rotate)
+        self.phi = ipw.FloatText(description='Rotate around the action vector which starts from the action point',
+                                 value=0,
+                                 step=5,
+                                 style={'description_width': 'initial'},
+                                 layout={'width': 'initial'})
+
+        # Atoms selection.
+        self.element = ipw.Dropdown(
+            description="Select element",
+            options=chemical_symbols[1:],
+            value="H",
+            style={'description_width': 'initial'},
+            layout={'width': 'initial'},
+        )
+
+        def disable_element(_=None):
+            if self.ligand.value == 0:
+                self.element.disabled = False
+            else:
+                self.element.disabled = True
+
+        # Ligand selection.
+        self.ligand = LigandSelectorWidget()
+        self.ligand.observe(disable_element, names='value')
+
+        # Add atom.
+        btn_add = ipw.Button(description='Add to selected', layout={'width': 'initial'})
+        btn_add.on_click(self.add)
+        self.bond_length = ipw.FloatText(description="Bond lenght.", value=1.0, layout={'width': '140px'})
+        self.use_covalent_radius = ipw.Checkbox(
+            value=False,
+            description='Use covalent radius',
+            style={'description_width': 'initial'},
+        )
+        self.use_covalent_radius.observe(self._observe_use_cov_radius, names='value')
+
+        # Modify atom.
+        btn_modify = ipw.Button(description='Modify selected', button_style='warning', layout={'width': 'initial'})
+        btn_modify.on_click(self.mod_element)
+
+        # Remove atom.
+        btn_remove = ipw.Button(description='Remove selected', button_style='danger', layout={'width': 'initial'})
+        btn_remove.on_click(self.remove)
+
+        super().__init__(children=[
+            ipw.HTML("<b>Action vector and point:</b>", layout={'margin': '20px 0px 10px 0px'}),
+            ipw.HBox([self.axis_p1, btn_def_atom1, self.axis_p2, btn_def_atom2, btn_get_from_camera],
+                     layout={'margin': '0px 0px 0px 20px'}),
+            ipw.HBox([self.point, btn_def_pnt], layout={'margin': '0px 0px 0px 20px'}),
+            ipw.HTML("<b>Move atom(s):</b>", layout={'margin': '20px 0px 10px 0px'}),
+            ipw.HBox([self.displacement, btn_move_dr, self.dxyz, btn_move_dxyz], layout={'margin': '0px 0px 0px 20px'}),
+            ipw.HBox([self.phi, btn_rotate], layout={'margin': '0px 0px 0px 20px'}),
+            ipw.HTML("<b>Modify atom(s):</v>", layout={'margin': '20px 0px 10px 0px'}),
+            ipw.HBox([self.element, self.ligand], layout={'margin': '0px 0px 0px 20px'}),
+            ipw.HBox([
+                btn_modify,
+                btn_add,
+                self.bond_length,
+                self.use_covalent_radius,
+            ],
+                     layout={'margin': '0px 0px 0px 20px'}),
+            ipw.HBox([btn_remove], layout={'margin': '0px 0px 0px 20px'}),
+        ])
+
+    @observe('manager')
+    def _change_manager(self, value):
+        """Set structure manager trait."""
+        manager = value['new']
+        if manager is None:
+            return
+        link((manager, 'structure'), (self, 'structure'))
+        link((self, 'selection'), (manager.viewer, 'selection'))
+
+    def _observe_use_cov_radius(self, _=None):
+        if self.use_covalent_radius.value:
+            self.bond_length.disabled = True
+        else:
+            self.bond_length.disabled = False
+
+    def str2vec(self, string):
+        return np.array(list(map(float, string.split())))
+
+    def vec2str(self, vector):
+        return str(round(vector[0], 2)) + ' ' + str(round(vector[1], 2)) + ' ' + str(round(vector[2], 2))
+
+    def sel2com(self):
+        """Get center of mass of the selection."""
+        selection = list(self.selection)
+        if selection:
+            com = self.structure[selection].get_center_of_mass()
+        else:
+            com = [0, 0, 0]
+
+        return com
+
+    @property
+    def action_vector(self):
+        normal = self.str2vec(self.axis_p2.value) - self.str2vec(self.axis_p1.value)
+        return normal / np.linalg.norm(normal)
+
+    def def_point(self, _=None):
+        self.point.value = self.vec2str(self.sel2com())
+
+    def def_axis_p1(self, _=None):
+        self.axis_p1.value = self.vec2str(self.sel2com())
+
+    def def_axis_p2(self, _=None):
+        com = self.structure[list(self.selection)].get_center_of_mass() if self.selection else [0, 0, 1]
+        self.axis_p2.value = self.vec2str(com)
+
+    def def_perpendicular_to_screen(self, _=None):
+        cmr = self.manager.viewer._viewer._camera_orientation  # pylint: disable=protected-access
+        if cmr:
+            self.axis_p1.value = "0 0 0"
+            self.axis_p2.value = self.vec2str([-cmr[2], -cmr[6], -cmr[10]])
+
+    def translate_dr(self, _=None):
+        """Translate by dr along the selected vector."""
+        atoms = self.structure.copy()
+        selection = self.selection
+
+        atoms.positions[list(self.selection)] += np.array(self.action_vector * self.displacement.value)
+
+        self.structure = atoms
+        self.selection = selection
+
+    def translate_dxdydz(self, _=None):
+        """Translate along the selected vector."""
+        selection = self.selection
+        atoms = self.structure.copy()
+
+        # The action.
+        atoms.positions[list(self.selection)] += np.array(self.str2vec(self.dxyz.value))
+
+        self.structure = atoms
+        self.selection = selection
+
+    def rotate(self, _=None):
+        """Rotate atoms around selected point in space and vector."""
+
+        selection = self.selection
+        atoms = self.structure.copy()
+
+        # The action.
+        rotated_subset = atoms[list(self.selection)]
+        vec = self.str2vec(self.vec2str(self.action_vector))
+        center = self.str2vec(self.point.value)
+        rotated_subset.rotate(self.phi.value, v=vec, center=center, rotate_cell=False)
+        atoms.positions[list(self.selection)] = rotated_subset.positions
+
+        self.structure = atoms
+        self.selection = selection
+
+    def mod_element(self, _=None):
+        """Modify selected atoms into the given element."""
+        atoms = self.structure.copy()
+        selection = self.selection
+
+        if self.ligand.value == 0:
+            for idx in self.selection:
+                atoms[idx].symbol = self.element.value
+        else:
+            initial_ligand = self.ligand.rotate(align_to=self.action_vector, remove_anchor=True)
+            for idx in self.selection:
+                position = self.structure.positions[idx].copy()
+                lgnd = initial_ligand.copy()
+                lgnd.translate(position)
+                atoms += lgnd
+
+        self.structure = atoms
+        self.selection = selection
+
+    def add(self, _=None):
+        """Add atoms."""
+        atoms = self.structure.copy()
+        selection = self.selection
+
+        if self.ligand.value == 0:
+            initial_ligand = Atoms([Atom(self.element.value, [0, 0, 0])])
+            rad = SYMBOL_RADIUS[self.element.value]
+        else:
+            initial_ligand = self.ligand.rotate(align_to=self.action_vector)
+            rad = SYMBOL_RADIUS[self.ligand.anchoring_atom]
+
+        for idx in self.selection:
+            # It is important to copy, otherwise the initial structure will be modified
+            position = self.structure.positions[idx].copy()
+            lgnd = initial_ligand.copy()
+
+            if self.use_covalent_radius.value:
+                lgnd.translate(position + self.action_vector * (SYMBOL_RADIUS[self.structure.symbols[idx]] + rad))
+            else:
+                lgnd.translate(position + self.action_vector * self.bond_length.value)
+
+            atoms += lgnd
+
+        self.structure = atoms
+        self.selection = selection
+
+    def remove(self, _):
+        """Remove selected atoms."""
+        atoms = self.structure.copy()
+        del [atoms[list(self.selection)]]
+        self.structure = atoms
