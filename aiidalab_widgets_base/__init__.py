@@ -13,7 +13,8 @@ from .export import ExportButtonWidget  # noqa
 from .process import ProcessFollowerWidget, ProgressBarWidget, RunningCalcJobOutputWidget, SubmitButtonWidget  # noqa
 from .structures import StructureManagerWidget  # noqa
 from .structures import StructureBrowserWidget, StructureExamplesWidget, StructureUploadWidget, SmilesWidget  # noqa
+from .structures import BasicStructureEditor  # noqa
 from .structures_multi import MultiStructureUploadWidget  # noqa
 from .viewers import viewer  # noqa
 
-__version__ = "1.0.0b4"
+__version__ = "1.0.0b5"

@@ -7,7 +7,7 @@ from subprocess import check_output, call
 import pexpect
 import ipywidgets as ipw
 from IPython.display import clear_output
-from traitlets import Bool, Dict, Instance, Int, Unicode, Union, link, observe, validate
+from traitlets import Bool, Dict, Instance, Int, Unicode, Union, link, validate
 
 from aiida.common import NotExistent
 from aiida.orm import Computer, QueryBuilder, User
@@ -663,28 +663,27 @@ class ComputerDropdown(ipw.VBox):
         computers(Dict): Trait that contains a dictionary (label => Computer instance) for all
         computers found in the AiiDA database. It is linked to the 'options' trait of
         `self._dropdown` widget.
+
+        allow_select_disabled(Bool):  Trait that defines whether to show disabled computers.
     """
 
     selected_computer = Union([Unicode(), Instance(Computer)], allow_none=True)
     computers = Dict(allow_none=True)
     allow_select_disabled = Bool(False)
 
-    def __init__(self, text='Select computer:', path_to_root='../', **kwargs):
+    def __init__(self, description='Select computer:', path_to_root='../', **kwargs):
         """Dropdown for configured AiiDA Computers.
 
-        text (str): Text to display before dropdown.
+        description (str): Text to display before dropdown.
 
         path_to_root (str): Path to the app's root folder.
         """
 
         self.output = ipw.Output()
 
-        if 'allow_select_disabled' in kwargs:
-            self.allow_select_disabled = kwargs['allow_select_disabled']
-
         self._dropdown = ipw.Dropdown(options={},
                                       value=None,
-                                      description=text,
+                                      description=description,
                                       style={'description_width': 'initial'},
                                       disabled=True)
         link((self, 'computers'), (self._dropdown, 'options'))
@@ -692,6 +691,8 @@ class ComputerDropdown(ipw.VBox):
 
         btn_refresh = ipw.Button(description="Refresh", layout=ipw.Layout(width="70px"))
         btn_refresh.on_click(self.refresh)
+
+        self.observe(self.refresh, names='allow_select_disabled')
 
         self._setup_another = ipw.HTML(
             value="""<a href={path_to_root}aiidalab-widgets-base/setup_computer.ipynb target="_blank">
@@ -713,7 +714,6 @@ class ComputerDropdown(ipw.VBox):
             if c[0].is_user_configured(user) and (self.allow_select_disabled or c[0].is_user_enabled(user))
         }
 
-    @observe('allow_select_disabled')
     def refresh(self, _=None):
         """Refresh the list of configured computers."""
 
