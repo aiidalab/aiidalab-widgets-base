@@ -4,7 +4,7 @@ import ipywidgets as ipw
 TEMPLATE = """
 <table>
 <tr>
-  <th style="text-align:center">Data objects.</th>
+  <th style="text-align:center">Basic data objects.</th>
   <th style="width:70px" rowspan=2></th>
   <th style="text-align:center">Codes and computers.</th>
 <tr>
