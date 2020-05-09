@@ -7,7 +7,7 @@ import datetime
 from collections import OrderedDict
 import numpy as np
 import ipywidgets as ipw
-from traitlets import Instance, Int, Set, Unicode, Union, link, default, observe, validate
+from traitlets import Instance, Int, List, Unicode, Union, link, default, observe, validate
 
 # ASE imports
 from ase import Atom, Atoms
@@ -496,7 +496,7 @@ class BasicStructureEditor(ipw.VBox):
 
     manager = Instance(StructureManagerWidget, allow_none=True)
     structure = Instance(Atoms, allow_none=True)
-    selection = Set(Int)
+    selection = List(Int)
 
     def __init__(self):
 
@@ -625,9 +625,8 @@ class BasicStructureEditor(ipw.VBox):
 
     def sel2com(self):
         """Get center of mass of the selection."""
-        selection = list(self.selection)
-        if selection:
-            com = self.structure[selection].get_center_of_mass()
+        if self.selection:
+            com = self.structure[self.selection].get_center_of_mass()
         else:
             com = [0, 0, 0]
 
@@ -645,7 +644,7 @@ class BasicStructureEditor(ipw.VBox):
         self.axis_p1.value = self.vec2str(self.sel2com())
 
     def def_axis_p2(self, _=None):
-        com = self.structure[list(self.selection)].get_center_of_mass() if self.selection else [0, 0, 1]
+        com = self.structure[self.selection].get_center_of_mass() if self.selection else [0, 0, 1]
         self.axis_p2.value = self.vec2str(com)
 
     def def_perpendicular_to_screen(self, _=None):
@@ -659,7 +658,7 @@ class BasicStructureEditor(ipw.VBox):
         atoms = self.structure.copy()
         selection = self.selection
 
-        atoms.positions[list(self.selection)] += np.array(self.action_vector * self.displacement.value)
+        atoms.positions[self.selection] += np.array(self.action_vector * self.displacement.value)
 
         self.structure = atoms
         self.selection = selection
@@ -670,7 +669,7 @@ class BasicStructureEditor(ipw.VBox):
         atoms = self.structure.copy()
 
         # The action.
-        atoms.positions[list(self.selection)] += np.array(self.str2vec(self.dxyz.value))
+        atoms.positions[self.selection] += np.array(self.str2vec(self.dxyz.value))
 
         self.structure = atoms
         self.selection = selection
@@ -682,7 +681,7 @@ class BasicStructureEditor(ipw.VBox):
         atoms = self.structure.copy()
 
         # The action.
-        rotated_subset = atoms[list(self.selection)]
+        rotated_subset = atoms[self.selection]
         vec = self.str2vec(self.vec2str(self.action_vector))
         center = self.str2vec(self.point.value)
         rotated_subset.rotate(self.phi.value, v=vec, center=center, rotate_cell=False)
@@ -740,5 +739,5 @@ class BasicStructureEditor(ipw.VBox):
     def remove(self, _):
         """Remove selected atoms."""
         atoms = self.structure.copy()
-        del [atoms[list(self.selection)]]
+        del [atoms[self.selection]]
         self.structure = atoms

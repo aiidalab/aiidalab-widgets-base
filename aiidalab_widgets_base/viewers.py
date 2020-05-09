@@ -9,10 +9,10 @@ from IPython.display import display
 import nglview
 from ase import Atoms
 
-from traitlets import Instance, Int, Set, Union, default, link, observe, validate
+from traitlets import Instance, Int, List, Union, default, link, observe, validate
 from aiida.orm import Node
 
-from .utils import string_range_to_set, set_to_string_range
+from .utils import string_range_to_list, list_to_string_range
 from .misc import CopyToClipboardButton
 
 
@@ -82,7 +82,7 @@ class _StructureDataBaseViewer(ipw.VBox):
 
     :param configure_view: If True, add configuration tabs
     :type configure_view: bool"""
-    selection = Set(Int)
+    selection = List(Int)
     DEFAULT_SELECTION_OPACITY = 0.2
     DEFAULT_SELECTION_RADIUS = 6
     DEFAULT_SELECTION_COLOR = 'green'
@@ -130,7 +130,7 @@ class _StructureDataBaseViewer(ipw.VBox):
 
         # 4. Button to clear selection.
         clear_selection = ipw.Button(description="Clear selection")
-        clear_selection.on_click(lambda _: self.set_trait('selection', set()))  # lambda cannot contain assignments
+        clear_selection.on_click(lambda _: self.set_trait('selection', list()))  # lambda cannot contain assignments
 
         # 5. Button to apply selection
         apply_selection = ipw.Button(description="Apply selection")
@@ -205,16 +205,17 @@ class _StructureDataBaseViewer(ipw.VBox):
         if 'atom1' not in self._viewer.picked.keys():
             return  # did not click on atom
         index = self._viewer.picked['atom1']['index']
+        selection = self.selection.copy()
 
-        if not self.selection:
-            self.selection = {index}
-            return
+        if selection:
+            if index not in selection:
+                selection.append(index)
+            else:
+                selection.remove(index)
+        else:
+            selection = [index]
 
-        if index not in self.selection:
-            self.selection = self.selection.union({index})
-            return
-
-        self.selection = self.selection.difference({index})
+        self.selection = selection
 
     def highlight_atoms(self,
                         vis_list,
@@ -234,21 +235,21 @@ class _StructureDataBaseViewer(ipw.VBox):
 
     @default('selection')
     def _default_selection(self):
-        return set()
+        return list()
 
     @validate('selection')
     def _validate_selection(self, provided):
-        return set(provided['value'])
+        return list(provided['value'])
 
     @observe('selection')
     def _observe_selection(self, _=None):
         self.highlight_atoms(self.selection)
-        self._selected_atoms.value = set_to_string_range(self.selection)
+        self._selected_atoms.value = list_to_string_range(self.selection)
 
     def apply_selection(self, _=None):
         """Apply selection specified in the text field."""
         selection_string = self._selected_atoms.value
-        expanded_selection, syntax_ok = string_range_to_set(self._selected_atoms.value)
+        expanded_selection, syntax_ok = string_range_to_list(self._selected_atoms.value)
         self.wrong_syntax.layout.visibility = 'hidden' if syntax_ok else 'visible'
         self.selection = expanded_selection
         self._selected_atoms.value = selection_string  # Keep the old string for further editing.
@@ -350,7 +351,7 @@ class StructureDataViewer(_StructureDataBaseViewer):
         with self.hold_trait_notifications():
             for comp_id in self._viewer._ngl_component_ids:  # pylint: disable=protected-access
                 self._viewer.remove_component(comp_id)
-            self.selection = set()
+            self.selection = list()
             if change['new'] is not None:
                 self._viewer.add_component(nglview.ASEStructure(change['new']))
                 self._viewer.clear()

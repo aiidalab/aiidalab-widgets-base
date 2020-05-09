@@ -52,22 +52,21 @@ def find_ranges(iterable):
             yield group[0], group[-1]
 
 
-def set_to_string_range(selection):
-    """Convert a set like {1, 3, 4, 5} into a string like '1 3..5'."""
-    return " ".join(
-        [str(t) if isinstance(t, int) else "{}..{}".format(t[0], t[1]) for t in find_ranges(sorted(selection))])
+def list_to_string_range(lst):
+    """Converts a list like [1, 3, 4, 5] into a string like '1 3..5'."""
+    return " ".join([str(t) if isinstance(t, int) else "{}..{}".format(t[0], t[1]) for t in find_ranges(sorted(lst))])
 
 
-def string_range_to_set(strng):
-    """Convert a string like '1 3..5' into a set like {1, 3, 4, 5}."""
+def string_range_to_list(strng):
+    """Converts a string like '1 3..5' into a list like [1, 3, 4, 5]."""
     singles = [int(s) for s in strng.split() if s.isdigit()]
     ranges = [r for r in strng.split() if '..' in r]
     if len(singles) + len(ranges) != len(strng.split()):
-        return set(), False
+        return list(), False
     for rng in ranges:
         try:
             start, end = rng.split('..')
             singles += [i for i in range(int(start), int(end) + 1)]
         except ValueError:
-            return set(), False
-    return set(singles), True
+            return list(), False
+    return singles, True
