@@ -244,12 +244,12 @@ class _StructureDataBaseViewer(ipw.VBox):
     @observe('selection')
     def _observe_selection(self, _=None):
         self.highlight_atoms(self.selection)
-        self._selected_atoms.value = list_to_string_range(self.selection)
+        self._selected_atoms.value = list_to_string_range(self.selection, shift=1)
 
     def apply_selection(self, _=None):
         """Apply selection specified in the text field."""
         selection_string = self._selected_atoms.value
-        expanded_selection, syntax_ok = string_range_to_list(self._selected_atoms.value)
+        expanded_selection, syntax_ok = string_range_to_list(self._selected_atoms.value, shift=-1)
         self.wrong_syntax.layout.visibility = 'hidden' if syntax_ok else 'visible'
         self.selection = expanded_selection
         self._selected_atoms.value = selection_string  # Keep the old string for further editing.
