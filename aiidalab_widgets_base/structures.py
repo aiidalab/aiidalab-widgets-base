@@ -567,12 +567,12 @@ class BasicStructureEditor(ipw.VBox):
         btn_add = ipw.Button(description='Add to selected', layout={'width': 'initial'})
         btn_add.on_click(self.add)
         self.bond_length = ipw.FloatText(description="Bond lenght.", value=1.0, layout={'width': '140px'})
-        self.use_covalent_radius = ipw.Checkbox(
-            value=False,
+        use_covalent_radius = ipw.Checkbox(
+            value=True,
             description='Use covalent radius',
             style={'description_width': 'initial'},
         )
-        self.use_covalent_radius.observe(self._observe_use_cov_radius, names='value')
+        link((use_covalent_radius, 'value'), (self.bond_length, 'disabled'))
 
         # Modify atom.
         btn_modify = ipw.Button(description='Modify selected', button_style='warning', layout={'width': 'initial'})
@@ -582,11 +582,16 @@ class BasicStructureEditor(ipw.VBox):
         btn_remove = ipw.Button(description='Remove selected', button_style='danger', layout={'width': 'initial'})
         btn_remove.on_click(self.remove)
 
+        # Automatically clear selection after point definition
+        self.autoclear_selection = ipw.Checkbox(description='Auto Clear selection',
+                                                value=True,
+                                                style={'description_width': 'initial'})
+
         super().__init__(children=[
             ipw.HTML("<b>Action vector and point:</b>", layout={'margin': '20px 0px 10px 0px'}),
             ipw.HBox([self.axis_p1, btn_def_atom1, self.axis_p2, btn_def_atom2, btn_get_from_camera],
                      layout={'margin': '0px 0px 0px 20px'}),
-            ipw.HBox([self.point, btn_def_pnt], layout={'margin': '0px 0px 0px 20px'}),
+            ipw.HBox([self.point, btn_def_pnt, self.autoclear_selection], layout={'margin': '0px 0px 0px 20px'}),
             ipw.HTML("<b>Move atom(s):</b>", layout={'margin': '20px 0px 10px 0px'}),
             ipw.HBox([self.displacement, btn_move_dr, self.dxyz, btn_move_dxyz], layout={'margin': '0px 0px 0px 20px'}),
             ipw.HBox([self.phi, btn_rotate], layout={'margin': '0px 0px 0px 20px'}),
@@ -596,7 +601,7 @@ class BasicStructureEditor(ipw.VBox):
                 btn_modify,
                 btn_add,
                 self.bond_length,
-                self.use_covalent_radius,
+                use_covalent_radius,
             ],
                      layout={'margin': '0px 0px 0px 20px'}),
             ipw.HBox([btn_remove], layout={'margin': '0px 0px 0px 20px'}),
@@ -610,12 +615,6 @@ class BasicStructureEditor(ipw.VBox):
             return
         link((manager, 'structure'), (self, 'structure'))
         link((self, 'selection'), (manager.viewer, 'selection'))
-
-    def _observe_use_cov_radius(self, _=None):
-        if self.use_covalent_radius.value:
-            self.bond_length.disabled = True
-        else:
-            self.bond_length.disabled = False
 
     def str2vec(self, string):
         return np.array(list(map(float, string.split())))
@@ -639,13 +638,19 @@ class BasicStructureEditor(ipw.VBox):
 
     def def_point(self, _=None):
         self.point.value = self.vec2str(self.sel2com())
+        if self.autoclear_selection.value:
+            self.selection = set()
 
     def def_axis_p1(self, _=None):
         self.axis_p1.value = self.vec2str(self.sel2com())
+        if self.autoclear_selection.value:
+            self.selection = set()
 
     def def_axis_p2(self, _=None):
         com = self.structure[self.selection].get_center_of_mass() if self.selection else [0, 0, 1]
         self.axis_p2.value = self.vec2str(com)
+        if self.autoclear_selection.value:
+            self.selection = set()
 
     def def_perpendicular_to_screen(self, _=None):
         cmr = self.manager.viewer._viewer._camera_orientation  # pylint: disable=protected-access
@@ -656,6 +661,7 @@ class BasicStructureEditor(ipw.VBox):
     def translate_dr(self, _=None):
         """Translate by dr along the selected vector."""
         atoms = self.structure.copy()
+
         selection = self.selection
 
         atoms.positions[self.selection] += np.array(self.action_vector * self.displacement.value)
@@ -726,7 +732,7 @@ class BasicStructureEditor(ipw.VBox):
             position = self.structure.positions[idx].copy()
             lgnd = initial_ligand.copy()
 
-            if self.use_covalent_radius.value:
+            if self.bond_length.disabled:
                 lgnd.translate(position + self.action_vector * (SYMBOL_RADIUS[self.structure.symbols[idx]] + rad))
             else:
                 lgnd.translate(position + self.action_vector * self.bond_length.value)
