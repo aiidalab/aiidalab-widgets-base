@@ -52,6 +52,14 @@ class StructureManagerWidget(ipw.VBox):
                 Note: If your workflows require a specific node class, better fix it here.
         """
 
+        # History of modifications
+        self.history = []
+
+        # Undo
+        btn_undo = ipw.Button(description='Undo', button_style='success')
+        btn_undo.on_click(self.undo)
+        self.structure_set_by_undo = False
+
         # Make sure the list is not empty
         if not importers:
             raise ValueError("The parameter importers should contain a list (or tuple) of tuples "
@@ -91,17 +99,19 @@ class StructureManagerWidget(ipw.VBox):
                 link((self, 'structure'), (importer, 'structure'))
 
         # Displaying structure editors
+        structure_editors_tab = None
+
         if editors and len(editors) == 1:
             structure_editors_tab = editors[0][1]
             structure_editors_tab.manager = self
+            structure_editors_tab = ipw.VBox([btn_undo, structure_editors_tab])
         elif editors:
             structure_editors_tab = ipw.Tab()
             structure_editors_tab.children = [i[1] for i in editors]
             for i, (label, editor) in enumerate(editors):
                 structure_editors_tab.set_title(i, label)
                 editor.manager = self
-        else:
-            structure_editors_tab = None
+            structure_editors_tab = ipw.VBox([btn_undo, structure_editors_tab])
 
         # Store button, store class selector, description.
         store_and_description = [self.btn_store] if storable else []
@@ -115,17 +125,17 @@ class StructureManagerWidget(ipw.VBox):
                                                                             list(self.SUPPORTED_DATA_FORMATS.keys())))
         self.output = ipw.HTML('')
 
-        store_and_description = ipw.HBox(store_and_description + [self.structure_label, self.structure_description])
-
-        children = [self._structure_sources_tab, self.viewer, store_and_description]
+        children = [
+            self._structure_sources_tab, self.viewer,
+            ipw.HBox(store_and_description + [self.structure_label, self.structure_description])
+        ]
         if structure_editors_tab:
             accordion = ipw.Accordion([structure_editors_tab])
             accordion.selected_index = None
             accordion.set_title(0, 'Edit Structure')
             children += [accordion]
 
-        children += [self.output]
-        super().__init__(children=children, **kwargs)
+        super().__init__(children=children + [self.output], **kwargs)
 
     def _on_click_store(self, change):  # pylint: disable=unused-argument
         self.store_structure()
@@ -142,6 +152,17 @@ class StructureManagerWidget(ipw.VBox):
         self.structure_node.description = self.structure_description.value
         self.structure_node.store()
         self.output.value = "Stored in AiiDA [{}]".format(self.structure_node)
+
+    def undo(self, _):
+        """Undo modifications."""
+        self.structure_set_by_undo = True
+        if self.history:
+            self.history = self.history[:-1]
+            if self.history:
+                self.structure = self.history[-1]
+            else:
+                self.structure = None
+        self.structure_set_by_undo = False
 
     @staticmethod
     @default('node_class')
@@ -175,6 +196,8 @@ class StructureManagerWidget(ipw.VBox):
         This function enables/disables `btn_store` widget if structure is provided/set to None.
         Also, the function sets `structure_node` trait to the selected node type.
         """
+        if not self.structure_set_by_undo:
+            self.history.append(self.structure)
 
         # If structure trait was set to None, structure_node should become None as well.
         if self.structure is None:
