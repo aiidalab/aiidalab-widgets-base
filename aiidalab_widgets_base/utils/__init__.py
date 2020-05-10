@@ -61,6 +61,7 @@ def list_to_string_range(lst, shift=1):
         for t in find_ranges(sorted(lst))
     ])
 
+
 def string_range_to_list(strng, shift=-1):
     """Converts a string like '1 3..5' into a list like [0, 2, 3, 4].
 
