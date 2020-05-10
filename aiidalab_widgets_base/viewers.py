@@ -83,12 +83,12 @@ class _StructureDataBaseViewer(ipw.VBox):
     :param configure_view: If True, add configuration tabs
     :type configure_view: bool"""
     selection = List(Int)
+    supercell = List(Int)
     DEFAULT_SELECTION_OPACITY = 0.2
     DEFAULT_SELECTION_RADIUS = 6
     DEFAULT_SELECTION_COLOR = 'green'
 
     def __init__(self, configure_view=True, **kwargs):
-
         # Defining viewer box.
 
         # 1. Nglviwer
@@ -114,7 +114,24 @@ class _StructureDataBaseViewer(ipw.VBox):
         camera_type.observe(change_camera, names="value")
         view_box = ipw.VBox([self._viewer, camera_type])
 
-        # Defining selection tab.
+        # Constructing configuration box
+        if configure_view:
+            configuration_box = ipw.Tab(layout=ipw.Layout(flex='1 1 auto', width='auto'))
+            configuration_box.children = [self._selection_tab(), self._appearance_tab(), self._download_tab()]
+            for i, title in enumerate(["Selection", "Appearance", "Download"]):
+                configuration_box.set_title(i, title)
+            children = [ipw.HBox([view_box, configuration_box])]
+            view_box.layout = {'width': "60%"}
+        else:
+            children = [view_box]
+
+        if 'children' in kwargs:
+            children += kwargs.pop('children')
+
+        super().__init__(children, **kwargs)
+
+    def _selection_tab(self):
+        """Defining the selection tab."""
 
         # 1. Selected atoms.
         self._selected_atoms = ipw.Text(description='Selected atoms:', value='', style={'description_width': 'initial'})
@@ -136,23 +153,26 @@ class _StructureDataBaseViewer(ipw.VBox):
         apply_selection = ipw.Button(description="Apply selection")
         apply_selection.on_click(self.apply_selection)
 
-        selection_tab = ipw.VBox([
+        return ipw.VBox([
             ipw.HBox([self._selected_atoms, self.wrong_syntax]),
             ipw.HBox([copy_to_clipboard, clear_selection, apply_selection])
         ])
 
-        # Defining appearance tab.
+    def _appearance_tab(self):
+        """Defining the appearance tab."""
 
         # 1. Supercell
-        self.supercell_x = ipw.BoundedIntText(value=1, min=1, layout={"width": "30px"})
-        self.supercell_y = ipw.BoundedIntText(value=1, min=1, layout={"width": "30px"})
-        self.supercell_z = ipw.BoundedIntText(value=1, min=1, layout={"width": "30px"})
-        supercell_selector = ipw.HBox([
-            ipw.HTML(description="Super cell:", layout={"width": "initial"}),
-            self.supercell_x,
-            self.supercell_y,
-            self.supercell_z,
-        ])
+        def change_supercell(_=None):
+            self.supercell = [_supercell[0].value, _supercell[1].value, _supercell[2].value]
+
+        _supercell = [
+            ipw.BoundedIntText(value=1, min=1, layout={"width": "30px"}),
+            ipw.BoundedIntText(value=1, min=1, layout={"width": "30px"}),
+            ipw.BoundedIntText(value=1, min=1, layout={"width": "30px"}),
+        ]
+        for elem in _supercell:
+            elem.observe(change_supercell, names='value')
+        supercell_selector = ipw.HBox([ipw.HTML(description="Super cell:")] + _supercell)
 
         # 2. Choose background color.
         background_color = ipw.ColorPicker(description="Background")
@@ -163,9 +183,10 @@ class _StructureDataBaseViewer(ipw.VBox):
         center_button = ipw.Button(description="Center")
         center_button.on_click(lambda c: self._viewer.center())
 
-        appearance_tab = ipw.VBox([supercell_selector, background_color, center_button])
+        return ipw.VBox([supercell_selector, background_color, center_button])
 
-        # Defining download tab.
+    def _download_tab(self):
+        """Defining the download tab."""
 
         # 1. Choose download file format.
         self.file_format = ipw.Dropdown(options=['xyz', 'cif'], layout={"width": "200px"}, description="File format:")
@@ -182,25 +203,9 @@ class _StructureDataBaseViewer(ipw.VBox):
         self.screenshot_btn.on_click(lambda _: self._viewer.download_image())
         self.screenshot_box = ipw.VBox(children=[ipw.Label("Create a screenshot:"), self.screenshot_btn])
 
-        download_tab = ipw.VBox([self.download_box, self.screenshot_box])
+        return ipw.VBox([self.download_box, self.screenshot_box])
 
-        # Constructing configuration box
-        if configure_view:
-            configuration_box = ipw.Tab(layout=ipw.Layout(flex='1 1 auto', width='auto'))
-            configuration_box.children = [selection_tab, appearance_tab, download_tab]
-            for i, title in enumerate(["Selection", "Appearance", "Download"]):
-                configuration_box.set_title(i, title)
-            children = [ipw.HBox([view_box, configuration_box])]
-            view_box.layout = {'width': "60%"}
-        else:
-            children = [view_box]
-
-        if 'children' in kwargs:
-            children += kwargs.pop('children')
-
-        super().__init__(children, **kwargs)
-
-    def _on_atom_click(self, change=None):  # pylint:disable=unused-argument
+    def _on_atom_click(self, _=None):
         """Update selection when clicked on atom."""
         if 'atom1' not in self._viewer.picked.keys():
             return  # did not click on atom
@@ -232,6 +237,10 @@ class _StructureDataBaseViewer(ipw.VBox):
             color=color,
             aspectRatio=size,
             opacity=opacity)
+
+    @default('supercell')
+    def _default_supercell(self):
+        return [1, 1, 1]
 
     @default('selection')
     def _default_selection(self):
@@ -304,20 +313,12 @@ class StructureDataViewer(_StructureDataBaseViewer):
     def __init__(self, structure=None, **kwargs):
         super().__init__(**kwargs)
         self.structure = structure
+        #self.supercell.observe(self.repeat, names='value')
 
-        self.supercell_x.observe(self.repeat, names='value')
-        self.supercell_y.observe(self.repeat, names='value')
-        self.supercell_z.observe(self.repeat, names='value')
-
-    def repeat(self, _):
+    @observe('supercell')
+    def repeat(self, _=None):
         if self.structure is not None:
-            self.set_trait(
-                'displayed_structure',
-                self.structure.repeat([
-                    self.supercell_x.value,
-                    self.supercell_y.value,
-                    self.supercell_z.value,
-                ]))
+            self.set_trait('displayed_structure', self.structure.repeat(self.supercell))
 
     @validate('structure')
     def _valid_structure(self, change):  # pylint: disable=no-self-use
@@ -339,9 +340,7 @@ class StructureDataViewer(_StructureDataBaseViewer):
         """Update displayed_structure trait after the structure trait has been modified."""
         # Remove the current structure(s) from the viewer.
         if change['new'] is not None:
-            self.set_trait(
-                'displayed_structure',
-                change['new'].repeat([self.supercell_x.value, self.supercell_y.value, self.supercell_z.value]))
+            self.set_trait('displayed_structure', change['new'].repeat(self.supercell))
         else:
             self.set_trait('displayed_structure', None)
 
