@@ -38,7 +38,7 @@ class StructureManagerWidget(ipw.VBox):
 
     SUPPORTED_DATA_FORMATS = {'CifData': 'cif', 'StructureData': 'structure'}
 
-    def __init__(self, importers, editors=None, storable=True, node_class=None, **kwargs):
+    def __init__(self, importers, viewer=None, editors=None, storable=True, node_class=None, **kwargs):
         """
         Arguments:
             importers(list): list of tuples each containing the displayed name of importer and the
@@ -64,7 +64,10 @@ class StructureManagerWidget(ipw.VBox):
         self._inserted_structure = None
 
         # Structure viewer.
-        self.viewer = StructureDataViewer(downloadable=False)
+        if viewer:
+            self.viewer = viewer
+        else:
+            self.viewer = StructureDataViewer(downloadable=False)
         link((self, 'structure'), (self.viewer, 'structure'))
 
         # Store button.
