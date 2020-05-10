@@ -3,7 +3,7 @@
 
 import base64
 import warnings
-
+import numpy as np
 import ipywidgets as ipw
 from IPython.display import display
 import nglview
@@ -82,6 +82,7 @@ class _StructureDataBaseViewer(ipw.VBox):
 
     :param configure_view: If True, add configuration tabs
     :type configure_view: bool"""
+
     selection = List(Int)
     supercell = List(Int)
     DEFAULT_SELECTION_OPACITY = 0.2
@@ -153,9 +154,12 @@ class _StructureDataBaseViewer(ipw.VBox):
         apply_selection = ipw.Button(description="Apply selection")
         apply_selection.on_click(self.apply_selection)
 
+        self.selection_info = ipw.HTML()
+
         return ipw.VBox([
             ipw.HBox([self._selected_atoms, self.wrong_syntax]),
-            ipw.HBox([copy_to_clipboard, clear_selection, apply_selection])
+            ipw.HBox([copy_to_clipboard, clear_selection, apply_selection]),
+            self.selection_info,
         ])
 
     def _appearance_tab(self):
@@ -356,6 +360,55 @@ class StructureDataViewer(_StructureDataBaseViewer):
                 self._viewer.clear()
                 self._viewer.add_ball_and_stick(aspectRatio=4)  # pylint: disable=no-member
                 self._viewer.add_unitcell()  # pylint: disable=no-member
+
+    def create_selection_info(self):
+        """Create information to be displayed with selected atoms"""
+
+        if not self.selection:
+            return ''
+
+        def print_pos(pos):
+            return " ".join([str(i) for i in pos.round(2)])
+
+        def add_info(indx, atom):
+            return "Id: {}; Symbol: {}; Coordinates: ({})<br>".format(indx + 1, atom.symbol, print_pos(atom.position))
+
+        # Find geometric center.
+        geom_center = print_pos(np.average(self.structure[self.selection].get_positions(), axis=0))
+
+        # Report coordinates.
+        if len(self.selection) == 1:
+            return add_info(self.selection[0], self.structure[self.selection[0]])
+
+        # Report coordinates, distance and center.
+        if len(self.selection) == 2:
+            info = ""
+            info += add_info(self.selection[0], self.structure[self.selection[0]])
+            info += add_info(self.selection[1], self.structure[self.selection[1]])
+            info += "Distance: {}<br>Geometric center: ({})".format(
+                self.structure.get_distance(*self.selection).round(2), geom_center)
+            return info
+
+        # Report angle geometric center and normal.
+        if len(self.selection) == 3:
+            angle = self.structure.get_angle(*self.selection).round(2)
+            normal = np.cross(*self.structure.get_distances(
+                self.selection[1], [self.selection[0], self.selection[2]], mic=False, vector=True))
+            normal = normal / np.linalg.norm(normal)
+            return "{} atoms selected<br>Geometric center: ({})<br>Angle: {}<br>Normal: ({})".format(
+                len(self.selection), geom_center, angle, print_pos(normal))
+
+        # Report  dihedral angle and geometric center.
+        if len(self.selection) == 4:
+            dihedral = self.structure.get_dihedral(self.selection) * 180 / np.pi
+            return "{} atoms selected<br>Geometric center: ({})<br>Dihedral angle: {}".format(
+                len(self.selection), geom_center, dihedral.round(2))
+
+        return "{} atoms selected<br>Geometric center: ({})".format(len(self.selection), geom_center)
+
+    @observe('selection')
+    def _observe_selection_2(self, _=None):
+        self.selection_info.value = self.create_selection_info()
 
 
 class FolderDataViewer(ipw.VBox):
