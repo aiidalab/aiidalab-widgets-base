@@ -82,6 +82,7 @@ class _StructureDataBaseViewer(ipw.VBox):
 
     :param configure_view: If True, add configuration tabs
     :type configure_view: bool"""
+
     selection = List(Int)
     supercell = List(Int)
     DEFAULT_SELECTION_OPACITY = 0.2
@@ -153,12 +154,12 @@ class _StructureDataBaseViewer(ipw.VBox):
         apply_selection = ipw.Button(description="Apply selection")
         apply_selection.on_click(self.apply_selection)
 
-        self.selection_info = ipw.HTML()
+        self.selection_info_html = ipw.HTML()
 
         return ipw.VBox([
             ipw.HBox([self._selected_atoms, self.wrong_syntax]),
             ipw.HBox([copy_to_clipboard, clear_selection, apply_selection]),
-            self.selection_info,
+            self.selection_info_html,
         ])
 
     def _appearance_tab(self):
@@ -257,7 +258,7 @@ class _StructureDataBaseViewer(ipw.VBox):
     def _observe_selection(self, _=None):
         self.highlight_atoms(self.selection)
         self._selected_atoms.value = list_to_string_range(self.selection, shift=1)
-        self.create_selection_info()
+        #self.create_selection_info()
 
     def apply_selection(self, _=None):
         """Apply selection specified in the text field."""
@@ -362,76 +363,111 @@ class StructureDataViewer(_StructureDataBaseViewer):
                 self._viewer.add_unitcell()  # pylint: disable=no-member
 
     def dihedral(self, xyz):
-        vec = xyz[:-1] - xyz[1:]
-        vec[0] *= -1
-        v = np.array([v - (v.dot(vec[1]) / vec[1].dot(vec[1])) * vec[1] for v in [vec[0], vec[2]]])
-        v /= np.sqrt(np.einsum('...i,...i', v, v)).reshape(-1, 1)
-        vec1 = vec[1] / np.linalg.norm(vec[1])
-        x = np.dot(v[0], v[1])
-        m = np.cross(v[0], vec1)
-        y = np.dot(m, v[1])
-        return np.degrees(np.arctan2(y, x))
+        """compute dihedral angle between four points"""
+        vec3 = xyz[:-1] - xyz[1:]
+        vec3[0] *= -1
+        vec2 = np.array([vec1 - (vec1.dot(vec3[1]) / vec3[1].dot(vec3[1])) * vec3[1] for vec1 in [vec3[0], vec3[2]]])
+        vec2 /= np.sqrt(np.einsum('...i,...i', vec2, vec2)).reshape(-1, 1)
+        vec1 = vec3[1] / np.linalg.norm(vec3[1])
+        dot1 = np.dot(vec2[0], vec2[1])
+        cross = np.cross(vec2[0], vec1)
+        dot2 = np.dot(cross, vec2[1])
+        ang = np.degrees(np.arctan2(dot2, dot1))
+        if np.isnan(ang):
+            return 0
+        if ang < 0:
+            ang = ang + 360
+        return ang
+
+    def angle_and_normal(self, xyz):
+        """compute angle and normal bewteen three points"""
+        v01 = xyz[0] - xyz[1]
+        v01 = v01 / np.linalg.norm(v01)
+        v21 = xyz[2] - xyz[1]
+        v21 = v21 / np.linalg.norm(v21)
+        ang = np.degrees(np.arccos(np.dot(v01, v21)))
+        if np.linalg.norm(np.cross(v21, v01)) > 0.0:
+            normal = np.cross(v21, v01) / np.linalg.norm(np.cross(v21, v01))
+        else:
+            normal = np.array([0, 0, 0])
+        return ang, normal
 
     def create_selection_info(self):
+        """Create information to be displayed with selected atoms"""
         if not self.selection:
-            self.selection_info.value = ''
-            return
-        self.selection_info.value = ''
+            info = ''
+            return info
+        info = ''
+
         if len(self.selection) == 1:  ## report coordinates
             symbols = self.displayed_structure[self.selection].get_chemical_symbols()
-            self.selection_info.value += 'id: ' + str(self.selection[0] + 1)
             xyz = self.displayed_structure[self.selection].get_positions()
-            self.selection_info.value += '  x: ' + str(round(xyz[0][0], 2))
-            self.selection_info.value += '  y: ' + str(round(xyz[0][1], 2))
-            self.selection_info.value += '  z: ' + str(round(xyz[0][2], 2))
+            com = np.average(xyz, axis=0)
+            info += """Id: {id}  {C}  Coord.:({x} , {y} , {z})""".format(id=self.selection[0] + 1,
+                                                                         C=symbols[0],
+                                                                         x=round(xyz[0][0], 2),
+                                                                         y=round(xyz[0][1], 2),
+                                                                         z=round(xyz[0][2], 2))
+
         elif len(self.selection) == 2:  ## report coordinates distance and center
             count = 0
             symbols = self.displayed_structure[self.selection].get_chemical_symbols()
             xyz = self.displayed_structure[self.selection].get_positions()
-            for i in self.selection:
-                self.selection_info.value += 'id: ' + str(i)
-                self.selection_info.value += ' ' + symbols[count]
-                self.selection_info.value += '  x: ' + str(round(xyz[count][0], 2))
-                self.selection_info.value += '  y: ' + str(round(xyz[count][1], 2))
-                self.selection_info.value += '  z: ' + str(round(xyz[count][2], 2))
-                self.selection_info.value += '<br>'
-                count += 1
-            dist = np.linalg.norm(xyz[0] - xyz[1])
             com = np.average(xyz, axis=0)
-            self.selection_info.value += 'distance: ' + str(round(dist, 2)) + '<br>'
-            self.selection_info.value += 'Geometric center: ' + str(round(com[0], 2)) + ' ' + str(round(
-                com[1], 2)) + ' ' + str(round(com[2], 2))
+            dist = np.linalg.norm(xyz[0] - xyz[1])
+            for i in self.selection:
+                info += """Id: {id}  {C}  Coord.:({x} , {y} , {z})<br>""".format(id=i + 1,
+                                                                                 C=symbols[count],
+                                                                                 x=round(xyz[count][0], 2),
+                                                                                 y=round(xyz[count][1], 2),
+                                                                                 z=round(xyz[count][2], 2))
+                count += 1
+
+            info += """Distance: {d} <br> Geometric center: ({xc} , {yc} , {zc})""".format(d=round(dist, 2),
+                                                                                           xc=round(com[0], 2),
+                                                                                           yc=round(com[1], 2),
+                                                                                           zc=round(com[2], 2))
 
         elif len(self.selection) == 3:  ## report  angle, normal, and center
+            symbols = self.displayed_structure[self.selection].get_chemical_symbols()
             xyz = self.displayed_structure[self.selection].get_positions()
-            self.selection_info.value += str(len(self.selection)) + ' atoms selected, '
             com = np.average(xyz, axis=0)
-            self.selection_info.value += 'Geometric center: ' + str(round(com[0], 2)) + ' ' + str(round(
-                com[1], 2)) + ' ' + str(round(com[2], 2))
-            v2 = xyz[2] - xyz[1]
-            v1 = xyz[0] - xyz[1]
-            cosine_angle = np.dot(v1, v2) / (np.linalg.norm(v1) * np.linalg.norm(v2))
-            angle = np.arccos(cosine_angle)
-            if np.linalg.norm(np.cross(v2, v1)) > 0.0:
-                normal = np.cross(v2, v1) / np.linalg.norm(np.cross(v2, v1))
-            else:
-                normal = np.array([0, 0, 0])
-            self.selection_info.value += """<br>Angle: {angle} <br>Normal: ({x}, {y}, {z})""".format(
-                angle=round(np.degrees(angle), 2), x=round(normal[0], 2), y=round(normal[1], 2), z=round(normal[2], 2))
+            angle, normal = self.angle_and_normal(xyz)
+            info += """ {n}  atoms selected <br>
+            Geometric center: ({xc} , {yc} , {zc}) <br> Angle: {angle} <br>Normal: ({x}, {y}, {z})""".format(
+                n=len(self.selection),
+                xc=round(com[0], 2),
+                yc=round(com[1], 2),
+                zc=round(com[2], 2),
+                angle=round(angle, 2),
+                x=round(normal[0], 2),
+                y=round(normal[1], 2),
+                z=round(normal[2], 2))
 
         elif len(self.selection) == 4:  ## report  angle,  and center
-            xyz = self.structure[self.selection].get_positions()
-            self.selection_info.value += str(len(self.selection)) + ' atoms selected, '
+            symbols = self.displayed_structure[self.selection].get_chemical_symbols()
+            xyz = self.displayed_structure[self.selection].get_positions()
             com = np.average(xyz, axis=0)
-            self.selection_info.value += 'Geometric center: ' + str(round(com[0], 2)) + ' ' + str(round(
-                com[1], 2)) + ' ' + str(round(com[2], 2))
-            self.selection_info.value += '<br>' + '  dihedral: ' + ' ' + str(round(self.dihedral(xyz), 2))
+            dihedral = self.dihedral(xyz)
+            info += """ {n}  atoms selected <br>
+            Geometric center: ({xc} , {yc} , {zc}) <br> Dihedral: {phi}""".format(n=len(self.selection),
+                                                                                  xc=round(com[0], 2),
+                                                                                  yc=round(com[1], 2),
+                                                                                  zc=round(com[2], 2),
+                                                                                  phi=round(dihedral, 2))
+
         else:
             xyz = self.structure[self.selection].get_positions()
-            self.selection_info.value += str(len(self.selection)) + ' atoms selected, '
             com = np.average(xyz, axis=0)
-            self.selection_info.value += 'Geometric center: ' + str(round(com[0], 2)) + ' ' + str(round(
-                com[1], 2)) + ' ' + str(round(com[2], 2))
+            info += """ {n}  atoms selected <br> Geometric center: ({xc} , {yc} , {zc})""".format(n=len(self.selection),
+                                                                                                  xc=round(com[0], 2),
+                                                                                                  yc=round(com[1], 2),
+                                                                                                  zc=round(com[2], 2))
+        return info
+
+    @observe('selection')
+    def _observe_selection_2(self, _=None):
+        self.selection_info_html.value = self.create_selection_info()
 
 
 class FolderDataViewer(ipw.VBox):
