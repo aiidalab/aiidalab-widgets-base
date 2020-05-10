@@ -583,7 +583,7 @@ class BasicStructureEditor(ipw.VBox):
         btn_remove.on_click(self.remove)
 
         # Automatically clear selection after point definition
-        self.autoclear_selection = ipw.Checkbox(description='Auto Clear selection',
+        self.autoclear_selection = ipw.Checkbox(description='Clear selection after pressing "From seletion"',
                                                 value=True,
                                                 style={'description_width': 'initial'})
 
