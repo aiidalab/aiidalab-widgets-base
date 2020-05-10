@@ -363,59 +363,48 @@ class StructureDataViewer(_StructureDataBaseViewer):
 
     def create_selection_info(self):
         """Create information to be displayed with selected atoms"""
+
         if not self.selection:
             return ''
 
-        # Report coordinates
-        if len(self.selection) == 1:
-            atom = self.structure[self.selection[0]]
-            coords = ", ".join([str(i) for i in atom.position.round(2)])
-            return "Id: {}   Symbol: {}   Coordinates: ({})".format(self.selection[0] + 1, atom.symbol, coords)
+        def print_pos(pos):
+            return " ".join([str(i) for i in pos.round(2)])
 
-        ## Report coordinates, distance and center
+        def add_info(indx, atom):
+            return "Id: {}; Symbol: {}; Coordinates: ({})<br>".format(indx + 1, atom.symbol, print_pos(atom.position))
+
+        # Find geometric center.
+        geom_center = print_pos(np.average(self.structure[self.selection].get_positions(), axis=0))
+
+        # Report coordinates.
+        if len(self.selection) == 1:
+            return add_info(self.selection[0], self.structure[self.selection[0]])
+
+        # Report coordinates, distance and center.
         if len(self.selection) == 2:
             info = ""
-            count = 0
-            xyz = self.displayed_structure[self.selection].get_positions()
-            com = np.average(xyz, axis=0)
-            com = ", ".join([str(i) for i in com.round(2)])
-            dist = self.structure.get_distance(*self.selection).round(2)
-            for i in self.selection:
-                atom = self.structure[i]
-                coords = ", ".join([str(i) for i in atom.position.round(2)])
-                info += "Id: {}   Symbol: {}   Coordinates: ({})<br>".format(self.selection[count] + 1, atom.symbol,
-                                                                             coords)
-                count += 1
-
-            info += "Distance: {}<br>Geometric center: ({})".format(dist, com)
+            info += add_info(self.selection[0], self.structure[self.selection[0]])
+            info += add_info(self.selection[1], self.structure[self.selection[1]])
+            info += "Distance: {}<br>Geometric center: ({})".format(
+                self.structure.get_distance(*self.selection).round(2), geom_center)
             return info
 
-        # Report angle geometric center and normal
-        if len(self.selection) == 3:  ## report  angle, normal, and center
-            xyz = self.structure[self.selection].get_positions()
-            com = np.average(xyz, axis=0)
-            com = ", ".join([str(i) for i in com.round(2)])
+        # Report angle geometric center and normal.
+        if len(self.selection) == 3:
             angle = self.structure.get_angle(*self.selection).round(2)
             normal = np.cross(*self.structure.get_distances(
                 self.selection[1], [self.selection[0], self.selection[2]], mic=False, vector=True))
             normal = normal / np.linalg.norm(normal)
-            normal = ", ".join([str(i) for i in normal.round(2)])
             return "{} atoms selected<br>Geometric center: ({})<br>Angle: {}<br>Normal: ({})".format(
-                len(self.selection), com, angle, normal)
+                len(self.selection), geom_center, angle, print_pos(normal))
 
-        # Report  dihedral angle  and geometric center
+        # Report  dihedral angle and geometric center.
         if len(self.selection) == 4:
-            xyz = self.displayed_structure[self.selection].get_positions()
-            com = np.average(xyz, axis=0)
-            com = ", ".join([str(i) for i in com.round(2)])
             dihedral = self.structure.get_dihedral(self.selection) * 180 / np.pi
             return "{} atoms selected<br>Geometric center: ({})<br>Dihedral angle: {}".format(
-                len(self.selection), com, dihedral.round(2))
+                len(self.selection), geom_center, dihedral.round(2))
 
-        xyz = self.structure[self.selection].get_positions()
-        com = np.average(xyz, axis=0)
-        com = ", ".join([str(i) for i in com.round(2)])
-        return "{} atoms selected<br>Geometric center: ({})".format(len(self.selection), com)
+        return "{} atoms selected<br>Geometric center: ({})".format(len(self.selection), geom_center)
 
     @observe('selection')
     def _observe_selection_2(self, _=None):
