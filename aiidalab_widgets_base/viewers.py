@@ -89,8 +89,6 @@ class _StructureDataBaseViewer(ipw.VBox):
     DEFAULT_SELECTION_COLOR = 'green'
 
     def __init__(self, configure_view=True, **kwargs):
-        # pylint: disable=too-many-locals
-
         # Defining viewer box.
 
         # 1. Nglviwer
