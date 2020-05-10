@@ -55,63 +55,29 @@ class StructureManagerWidget(ipw.VBox):
         # History of modifications
         self.history = []
 
-        # Undo
+        # Undo functionality.
         btn_undo = ipw.Button(description='Undo', button_style='success')
         btn_undo.on_click(self.undo)
         self.structure_set_by_undo = False
 
-        # Make sure the list is not empty
-        if not importers:
-            raise ValueError("The parameter importers should contain a list (or tuple) of tuples "
-                             "(\"importer name\", importer), got a falsy object.")
-
-        # Store button.
-        self.btn_store = ipw.Button(description='Store in AiiDA', disabled=True)
-        self.btn_store.on_click(self._on_click_store)
-
-        # Setting traits' initial values
+        # To keep track of last inserted structure object
         self._inserted_structure = None
 
         # Structure viewer.
         self.viewer = StructureDataViewer(downloadable=False)
         link((self, 'structure'), (self.viewer, 'structure'))
 
+        # Store button.
+        self.btn_store = ipw.Button(description='Store in AiiDA', disabled=True)
+        self.btn_store.on_click(self._on_click_store)
+
         # Store format selector.
         data_format = ipw.RadioButtons(options=self.SUPPORTED_DATA_FORMATS, description='Data type:')
         link((data_format, 'label'), (self, 'node_class'))
 
-        # Description that is stored along with the new structure.
+        # Label and description that are stored along with the new structure.
         self.structure_label = ipw.Text(description='Label')
         self.structure_description = ipw.Text(description='Description')
-
-        # Displaying structure importers.
-        if len(importers) == 1:
-            # If there is only one importer - no need to make tabs.
-            self._structure_sources_tab = importers[0][1]
-            # Assigning a function which will be called when importer provides a structure.
-            link((self, 'structure'), (importers[0][1], 'structure'))
-        else:
-            self._structure_sources_tab = ipw.Tab()  # Tabs.
-            self._structure_sources_tab.children = [i[1] for i in importers]  # One importer per tab.
-            for i, (label, importer) in enumerate(importers):
-                # Labeling tabs.
-                self._structure_sources_tab.set_title(i, label)
-                link((self, 'structure'), (importer, 'structure'))
-
-        # Displaying structure editors
-        structure_editors_tab = None
-
-        if editors and len(editors) == 1:
-            structure_editors_tab = editors[0][1]
-            structure_editors_tab.manager = self
-            structure_editors_tab = ipw.VBox([btn_undo, structure_editors_tab])
-        elif editors:
-            structure_editors_tab = ipw.Tab()
-            structure_editors_tab.children = [i[1] for i in editors]
-            for i, (label, editor) in enumerate(editors):
-                structure_editors_tab.set_title(i, label)
-                editor.manager = self
-            structure_editors_tab = ipw.VBox([btn_undo, structure_editors_tab])
 
         # Store button, store class selector, description.
         store_and_description = [self.btn_store] if storable else []
@@ -126,16 +92,56 @@ class StructureManagerWidget(ipw.VBox):
         self.output = ipw.HTML('')
 
         children = [
-            self._structure_sources_tab, self.viewer,
+            self._structure_importers(importers), self.viewer,
             ipw.HBox(store_and_description + [self.structure_label, self.structure_description])
         ]
-        if structure_editors_tab:
-            accordion = ipw.Accordion([structure_editors_tab])
+
+        structure_editors = self._struture_editors(editors)
+        if structure_editors:
+            structure_editors = ipw.VBox([btn_undo, structure_editors])
+            accordion = ipw.Accordion([structure_editors])
             accordion.selected_index = None
             accordion.set_title(0, 'Edit Structure')
             children += [accordion]
 
         super().__init__(children=children + [self.output], **kwargs)
+
+    def _structure_importers(self, importers):
+        """Preparing structure importers."""
+        if not importers:
+            raise ValueError("The parameter importers should contain a list (or tuple) of tuples "
+                             "(\"importer name\", importer), got a falsy object.")
+
+        # If there is only one importer - no need to make tabs.
+        if len(importers) == 1:
+            # Assigning a function which will be called when importer provides a structure.
+            link((self, 'structure'), (importers[0][1], 'structure'))
+            return importers[0][1]
+
+        # Otherwise making one tab per importer.
+        sources_tab = ipw.Tab()
+        sources_tab.children = [i[1] for i in importers]  # One importer per tab.
+        for i, (label, importer) in enumerate(importers):
+            # Labeling tabs.
+            sources_tab.set_title(i, label)
+            link((self, 'structure'), (importer, 'structure'))
+        return sources_tab
+
+    def _struture_editors(self, editors):
+        """Preparing structure editors."""
+        if editors and len(editors) == 1:
+            editors[0][1].manager = self
+            return editors[0][1]
+
+        # If more than one editor was defined.
+        if editors:
+            editors_tab = ipw.Tab()
+            editors_tab.children = [i[1] for i in editors]
+            for i, (label, editor) in enumerate(editors):
+                editors_tab.set_title(i, label)
+                editor.manager = self
+            return editors_tab
+        return None
 
     def _on_click_store(self, change):  # pylint: disable=unused-argument
         self.store_structure()
@@ -197,7 +203,7 @@ class StructureManagerWidget(ipw.VBox):
         Also, the function sets `structure_node` trait to the selected node type.
         """
         if not self.structure_set_by_undo:
-            self.history.append(self.structure)
+            self.history.append(self._inserted_structure)
 
         # If structure trait was set to None, structure_node should become None as well.
         if self.structure is None:
