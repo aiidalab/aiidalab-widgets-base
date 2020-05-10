@@ -639,18 +639,18 @@ class BasicStructureEditor(ipw.VBox):
     def def_point(self, _=None):
         self.point.value = self.vec2str(self.sel2com())
         if self.autoclear_selection.value:
-            self.selection = set()
+            self.selection = list()
 
     def def_axis_p1(self, _=None):
         self.axis_p1.value = self.vec2str(self.sel2com())
         if self.autoclear_selection.value:
-            self.selection = set()
+            self.selection = list()
 
     def def_axis_p2(self, _=None):
         com = self.structure[self.selection].get_center_of_mass() if self.selection else [0, 0, 1]
         self.axis_p2.value = self.vec2str(com)
         if self.autoclear_selection.value:
-            self.selection = set()
+            self.selection = list()
 
     def def_perpendicular_to_screen(self, _=None):
         cmr = self.manager.viewer._viewer._camera_orientation  # pylint: disable=protected-access
