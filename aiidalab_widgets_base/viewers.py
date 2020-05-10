@@ -154,12 +154,12 @@ class _StructureDataBaseViewer(ipw.VBox):
         apply_selection = ipw.Button(description="Apply selection")
         apply_selection.on_click(self.apply_selection)
 
-        self.selection_info_html = ipw.HTML()
+        self.selection_info = ipw.HTML()
 
         return ipw.VBox([
             ipw.HBox([self._selected_atoms, self.wrong_syntax]),
             ipw.HBox([copy_to_clipboard, clear_selection, apply_selection]),
-            self.selection_info_html,
+            self.selection_info,
         ])
 
     def _appearance_tab(self):
@@ -408,7 +408,7 @@ class StructureDataViewer(_StructureDataBaseViewer):
 
     @observe('selection')
     def _observe_selection_2(self, _=None):
-        self.selection_info_html.value = self.create_selection_info()
+        self.selection_info.value = self.create_selection_info()
 
 
 class FolderDataViewer(ipw.VBox):
