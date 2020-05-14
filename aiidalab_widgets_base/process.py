@@ -133,6 +133,7 @@ class ProcessListWidget(VBox):
         self.process_state = ipw.SelectMultiple(options=process_states,
                                                 value=process_states,
                                                 description='Process State:',
+                                                style={'description_width':'initial'},
                                                 disabled=False)
         self.process_state.observe(self.query, 'value')
         pd.set_option('max_colwidth', 40)
