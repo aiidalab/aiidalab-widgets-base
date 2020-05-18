@@ -202,7 +202,8 @@ class ProcessFollowerWidget(ipw.VBox):
                     follower,
                 ]))
         self.update()
-        super(ProcessFollowerWidget, self).__init__(children=self.followers, **kwargs)
+        self.output = ipw.HTML()
+        super(ProcessFollowerWidget, self).__init__(children=[self.output] + self.followers, **kwargs)
 
     def update(self):
         for follower in self.followers:
@@ -220,7 +221,13 @@ class ProcessFollowerWidget(ipw.VBox):
             func(self.process)
 
     def follow(self, detach=False):
-        """Follow the process in blocking or non-blocking manner."""
+        """Follow the process in non-blocking manner."""
+        if self.process is None:
+            self.output.value = """<font color="red"> ProcessFollowerWidget: process
+            is set to 'None', nothing to follow. </font>"""
+            return
+        self.output.value = ''
+
         if detach:
             import threading
             update_state = threading.Thread(target=self._follow)
