@@ -11,6 +11,7 @@ from .databases import CodQueryWidget
 from .export import ExportButtonWidget
 from .process import ProgressBarWidget, ProcessFollowerWidget, ProcessInputsWidget, ProcessOutputsWidget
 from .process import ProcessCallStackWidget, RunningCalcJobOutputWidget, SubmitButtonWidget, ProcessReportWidget
+from .process import ProcessListWidget
 from .structures import StructureManagerWidget
 from .structures import StructureBrowserWidget, StructureExamplesWidget, StructureUploadWidget, SmilesWidget
 from .structures import BasicStructureEditor

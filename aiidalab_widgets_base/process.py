@@ -3,16 +3,18 @@
 import os
 from inspect import isclass
 from time import sleep
-
+import pandas as pd
 import ipywidgets as ipw
 from IPython.display import HTML, Javascript, clear_output, display
-from traitlets import Instance, observe
+from traitlets import Instance, link, observe
+from plumpy import ProcessState
 
 # AiiDA imports.
 from aiida.engine import submit, Process
-from aiida.orm import CalcFunctionNode, CalcJobNode, ProcessNode, WorkChainNode, WorkFunctionNode
+from aiida.orm import CalcFunctionNode, CalcJobNode, ProcessNode, WorkChainNode, WorkFunctionNode, load_node
 from aiida.cmdline.utils.common import get_calcjob_report, get_workchain_report, get_process_function_report
 from aiida.cmdline.utils.ascii_vis import format_call_graph
+from aiida.cmdline.utils.query.calculation import CalculationQueryBuilder
 
 # Local imports.
 from .viewers import viewer
@@ -439,3 +441,97 @@ class RunningCalcJobOutputWidget(ipw.VBox):
             else:
                 self.output.calculation = self.selection.value
         self.output.update()
+
+
+class ProcessListWidget(ipw.VBox):
+    """List of AiiDA processes."""
+
+    def __init__(self, path_to_root='../', **kwargs):
+        self.path_to_root = path_to_root
+        self.table = ipw.HTML()
+        self.past_days = ipw.IntText(
+            value=7,
+            description='Past days:',
+        )
+        self.past_days.observe(self.update, ['value', 'disabled'])
+        all_days = ipw.Checkbox(description="All days", value=False)
+        link((all_days, 'value'), (self.past_days, 'disabled'))
+        self.incoming_node = ipw.Text(description='Incoming node id:',
+                                      style={'description_width': 'initial'},
+                                      disabled=False)
+        self.outgoing_node = ipw.Text(description='Outgoing node id:',
+                                      style={'description_width': 'initial'},
+                                      disabled=False)
+
+        process_states = [state.value for state in ProcessState]
+        self.process_state = ipw.SelectMultiple(options=process_states,
+                                                value=process_states,
+                                                description='Process State:',
+                                                style={'description_width': 'initial'},
+                                                disabled=False)
+        self.process_state.observe(self.update, 'value')
+        pd.set_option('max_colwidth', 40)
+        self.output = ipw.HTML()
+        self.update()
+        super().__init__(children=[
+            ipw.HBox([
+                ipw.VBox([self.past_days, self.process_state]),
+                ipw.VBox([all_days, self.incoming_node, self.outgoing_node])
+            ]), self.output, self.table
+        ],
+                         **kwargs)
+
+    def update(self, _=None):
+        """Perform the query."""
+        # Here we are defining properties of 'df' class (specified while exporting pandas table into html).
+        # Since the exported object is nothing more than HTML table, all 'standard' HTML table settings
+        # can be applied to it as well.
+        # For more information on how to controle the table appearance please visit:
+        # https://css-tricks.com/complete-guide-table-element/
+        self.table.value = '''
+        <style>
+            .df { border: none; }
+            .df tbody tr:nth-child(odd) { background-color: #e5e7e9; }
+            .df tbody tr:nth-child(odd):hover { background-color:   #f5b7b1; }
+            .df tbody tr:nth-child(even):hover { background-color:  #f5b7b1; }
+            .df tbody td { min-width: 150px; text-align: center; border: none }
+            .df th { text-align: center; border: none;  border-bottom: 1px solid black;}
+        </style>
+        '''
+        builder = CalculationQueryBuilder()
+        filters = builder.get_filters(all_entries=False,
+                                      process_state=self.process_state.value,
+                                      process_label=None,
+                                      exit_status=None,
+                                      failed=None)
+        relationships = {}
+        if self.incoming_node.value:
+            relationships = {**relationships, **{'with_outgoing': load_node(int(self.incoming_node.value))}}
+
+        if self.outgoing_node.value:
+            relationships = {**relationships, **{'with_incoming': load_node(int(self.outgoing_node.value))}}
+
+        query_set = builder.get_query_set(
+            filters=filters,
+            past_days=None if self.past_days.disabled else self.past_days.value,
+            order_by={'ctime': 'desc'},
+            relationships=relationships,
+        )
+        projected = builder.get_projected(query_set,
+                                          projections=['pk', 'ctime', 'process_label', 'state', 'process_status'])
+        dataf = pd.DataFrame(projected[1:], columns=projected[0])
+        self.output.value = "{} processes shown".format(len(dataf))
+        dataf['PK'] = dataf['PK'].apply(
+            lambda x: """<a href={0}aiidalab-widgets-base/process.ipynb?id={1} target="_blank">{1}</a>""".format(
+                self.path_to_root, x))
+        self.table.value += dataf.to_html(classes='df', escape=False, index=False)
+
+    def _follow(self, update_interval=10):
+        while True:
+            self.update()
+            sleep(update_interval)
+
+    def start_autoupdate(self):
+        import threading
+        update_state = threading.Thread(target=self._follow)
+        update_state.start()
