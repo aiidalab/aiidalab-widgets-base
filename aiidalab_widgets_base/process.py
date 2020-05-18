@@ -11,12 +11,14 @@ from IPython.display import clear_output, display
 from traitlets import Instance, link
 from plumpy import ProcessState
 
-# AiiDA imports
+# AiiDA imports.
 from aiida.engine import submit, Process
 from aiida.orm import CalcFunctionNode, CalcJobNode, load_node, ProcessNode, WorkChainNode, WorkFunctionNode
 from aiida.cmdline.utils.query.calculation import CalculationQueryBuilder
 from aiida.cmdline.utils.common import get_calcjob_report, get_workchain_report, get_process_function_report
+from aiida.cmdline.utils.ascii_vis import format_call_graph
 
+# Local imports.
 from .viewers import viewer
 
 
@@ -48,7 +50,8 @@ class SubmitButtonWidget(VBox):
                  input_dictionary_function,
                  description="Submit",
                  disable_after_submit=True,
-                 append_output=False):
+                 append_output=False,
+                 **kwargs):
         """Submit Button widget.
 
         process_class (Process): Process class to submit.
@@ -61,7 +64,7 @@ class SubmitButtonWidget(VBox):
 
         append_output (bool): Whether to clear widget output for each subsequent submission.
         """
-
+        self.path_to_root = kwargs['path_to_root'] if 'path_to_root' in kwargs else '../'
         if isclass(process_class) and issubclass(process_class, Process):
             self._process_class = process_class
         else:
@@ -109,9 +112,13 @@ class SubmitButtonWidget(VBox):
             self.process = submit(self._process_class, **input_dict)
 
             if self.append_output:
-                self.submit_out.value += "Submitted process {}<br>".format(self.process)
+                self.submit_out.value += """Submitted process {0}. Click
+                <a href={1}aiidalab-widgets-base/process.ipynb?id={2} target="_blank">here</a>
+                to follow.<br>""".format(self.process, self.path_to_root, self.process.pk)
             else:
-                self.submit_out.value = "Submitted process {}".format(self.process)
+                self.submit_out.value = """Submitted process {0}. Click
+                <a href={1}aiidalab-widgets-base/process.ipynb?id={2} target="_blank">here</a>
+                to follow.""".format(self.process, self.path_to_root, self.process.pk)
 
             for func in self._run_after_submitted:
                 func(self.process)
@@ -215,12 +222,69 @@ class ProcessListWidget(VBox):
         update_state.start()
 
 
-class ProcessFollowerWidget(VBox):
+class ProcessInputsWidget(ipw.VBox):
+    """Widget to select and show process inputs."""
+
+    def __init__(self, process=None, **kwargs):
+        self.process = process
+        self.output = ipw.Output()
+        self.info = ipw.HTML()
+        inputs_list = [(l.title(), l) for l in self.process.inputs] if self.process else []
+        inputs = ipw.Dropdown(
+            options=[('Select input', '')] + inputs_list,
+            description='Select input:',
+            style={'description_width': 'initial'},
+            disabled=False,
+        )
+        inputs.observe(self.view_input, names=['value'])
+        super().__init__(children=[ipw.HBox([inputs, self.info]), self.output], **kwargs)
+
+    def view_input(self, change=None):
+        """Show selected input."""
+        with self.output:
+            self.info.value = ''
+            clear_output()
+            if change['new']:
+                selected_input = self.process.inputs[change['new']]
+                self.info.value = "PK: {}".format(selected_input.id)
+                display(viewer(selected_input))
+
+
+class ProcessOutputsWidget(ipw.VBox):
+    """Widget to select and show process outputs."""
+
+    def __init__(self, process=None, **kwargs):
+        self.process = process
+        self.output = ipw.Output()
+        self.info = ipw.HTML()
+        outputs_list = [(l.title(), l) for l in self.process.outputs] if self.process else []
+        outputs = ipw.Dropdown(
+            options=[('Select output', '')] + outputs_list,
+            label='Select output',
+            description='Select outputs:',
+            style={'description_width': 'initial'},
+            disabled=False,
+        )
+        outputs.observe(self.view_output, names=['value'])
+        super().__init__(children=[ipw.HBox([outputs, self.info]), self.output], **kwargs)
+
+    def view_output(self, change=None):
+        """Show selected output."""
+        with self.output:
+            self.info.value = ''
+            clear_output()
+            if change['new']:
+                selected_output = self.process.outputs[change['new']]
+                self.info.value = "PK: {}".format(selected_output.id)
+                display(viewer(selected_output))
+
+
+class ProcessFollowerWidget(ipw.VBox):
     """A Widget that follows a process until finished."""
 
-    def __init__(self, process, followers=None, update_interval=0.1, **kwargs):
+    def __init__(self, process=None, followers=None, update_interval=0.1, path_to_root='../', **kwargs):
         """Initiate all the followers."""
-        if not isinstance(process, ProcessNode):
+        if not isinstance(process, (ProcessNode, type(None))):
             raise TypeError("Expecting an object of type {}, got {}".format(ProcessNode, type(process)))
         self.process = process
         self._run_after_completed = []
@@ -228,13 +292,18 @@ class ProcessFollowerWidget(VBox):
         self.followers = []
         if followers is not None:
             for follower in followers:
-                self.followers.append(follower(process=process))
+                follower.process = process
+                follower.path_to_root = path_to_root
+                self.followers.append(ipw.VBox([
+                    ipw.HTML("<h2><b>{}</b></h2>".format(follower.title)),
+                    follower,
+                ]))
         self.update()
         super(ProcessFollowerWidget, self).__init__(children=self.followers, **kwargs)
 
     def update(self):
         for follower in self.followers:
-            follower.update()
+            follower.children[1].update()
 
     def _follow(self):
         """The loop that will update all the followers untill the process is running."""
@@ -264,8 +333,9 @@ class ProcessFollowerWidget(VBox):
 class ProcessReportWidget(ipw.HTML):
     """Widget that shows process report."""
 
-    def __init__(self, process, **kwargs):
+    def __init__(self, title="Process Report", process=None, **kwargs):
         self.process = process
+        self.title = title
         self.max_depth = None
         self.indent_size = 2
         self.levelname = 'REPORT'
@@ -274,6 +344,8 @@ class ProcessReportWidget(ipw.HTML):
 
     def update(self):
         """Update report that is shown."""
+        if self.process is None:
+            return
         if isinstance(self.process, CalcJobNode):
             string = get_calcjob_report(self.process)
         elif isinstance(self.process, WorkChainNode):
@@ -285,68 +357,50 @@ class ProcessReportWidget(ipw.HTML):
         self.value = string.replace('\n', '<br/>')
 
 
-class ProcessInputsWidget(ipw.VBox):
-    """Widget to select and show process inputs."""
+class ProcessCallStackWidget(ipw.HTML):
+    """Widget that shows process call stack."""
 
-    def __init__(self, process, **kwargs):
+    def __init__(self, process=None, title="Process Call Stack", path_to_root='../', **kwargs):
         self.process = process
-        self.output = ipw.Output()
-        self.info = ipw.HTML()
-        inputs = ipw.Dropdown(
-            options=[('Select input', '')] + [(l.title(), l) for l in self.process.inputs],
-            description='Select input:',
-            style={'description_width': 'initial'},
-            disabled=False,
-        )
-        inputs.observe(self.view_input, names=['value'])
-        super().__init__(children=[ipw.HBox([inputs, self.info]), self.output], **kwargs)
+        self.title = title
+        self.path_to_root = path_to_root
+        self.update()
+        super().__init__(**kwargs)
 
-    def view_input(self, change=None):
-        """Show selected input."""
-        with self.output:
-            self.info.value = ''
-            clear_output()
-            if change['new']:
-                selected_input = self.process.inputs[change['new']]
-                self.info.value = "PK: {}".format(selected_input.id)
-                display(viewer(selected_input))
+    def update(self):
+        """Update the call stack that is shown."""
+        if self.process is None:
+            return
+        string = format_call_graph(self.process, info_fn=self.calc_info)
+        self.value = string.replace('\n', '<br/>').replace(' ', '&nbsp;').replace('#space#', ' ')
 
+    def calc_info(self, node):
+        """Return a string with the summary of the state of a CalculationNode."""
 
-class ProcessOutputsWidget(ipw.VBox):
-    """Widget to select and show process outputs."""
+        if not isinstance(node, ProcessNode):
+            raise TypeError('Unknown type: {}'.format(type(node)))
 
-    def __init__(self, process, **kwargs):
-        self.process = process
-        self.output = ipw.Output()
-        self.info = ipw.HTML()
+        process_state = node.process_state.value.capitalize()
+        pk = """<a#space#href={0}aiidalab-widgets-base/process.ipynb?id={1}#space#target="_blank">{1}</a>""".format(
+            self.path_to_root, node.pk)
 
-        outputs = ipw.Dropdown(
-            options=[('Select output', '')] + [(l.title(), l) for l in self.process.outputs],
-            label='Select output',
-            description='Select outputs:',
-            style={'description_width': 'initial'},
-            disabled=False,
-        )
-        outputs.observe(self.view_output, names=['value'])
-        super().__init__(children=[ipw.HBox([outputs, self.info]), self.output], **kwargs)
+        if node.exit_status is not None:
+            string = '{}<{}> {} [{}]'.format(node.process_label, pk, process_state, node.exit_status)
+        else:
+            string = '{}<{}> {}'.format(node.process_label, pk, process_state)
 
-    def view_output(self, change=None):
-        """Show selected output."""
-        with self.output:
-            self.info.value = ''
-            clear_output()
-            if change['new']:
-                selected_output = self.process.outputs[change['new']]
-                self.info.value = "PK: {}".format(selected_output.id)
-                display(viewer(selected_output))
+        if isinstance(node, WorkChainNode) and node.stepper_state_info:
+            string += ' [{}]'.format(node.stepper_state_info)
+        return string
 
 
 class ProgressBarWidget(VBox):
     """A bar showing the proggress of a process."""
 
-    def __init__(self, process, **kwargs):
+    def __init__(self, process=None, title="Progress Bar", **kwargs):
 
         self.process = process
+        self.title = title
         self.correspondance = {
             "created": 0,
             "running": 1,
@@ -370,6 +424,8 @@ class ProgressBarWidget(VBox):
 
     def update(self):
         """Update the bar."""
+        if self.process is None:
+            return
         self.bar.value = self.correspondance[self.current_state]
         if self.current_state == 'finished':
             self.bar.bar_style = 'success'
@@ -387,8 +443,9 @@ class ProgressBarWidget(VBox):
 class RunningCalcJobOutputWidget(Textarea):
     """Output of a currently running calculation or one of work chain's running child."""
 
-    def __init__(self, process, **kwargs):
-        self.main_process = process
+    def __init__(self, process=None, title="Running Job Output", **kwargs):
+        self.process = process
+        self.title = title
         default_params = {
             "value": "",
             "placeholder": "Calculation output will appear here",
@@ -409,7 +466,9 @@ class RunningCalcJobOutputWidget(Textarea):
 
     def update(self):
         """Update the displayed output."""
-        calcs = get_running_calcs(self.main_process)
+        if self.process is None:
+            return
+        calcs = get_running_calcs(self.process)
         if calcs:
             for calc in calcs:
                 if calc.id == self.previous_calc_id:
