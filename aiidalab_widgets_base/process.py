@@ -31,7 +31,7 @@ def get_running_calcs(process):
     if issubclass(type(process), WorkChainNode) and not process.is_sealed:
         calcs = []
         for out_link in process.get_outgoing():
-            if issubclass(type(out_link.node), ProcessNode) and not out_link.node.is_sealed:
+            if isinstance(out_link.node, ProcessNode) and not out_link.node.is_sealed:
                 calcs += get_running_calcs(out_link.node)
         return calcs
     # if it is neither calculation, nor work chain - returninng None
@@ -61,7 +61,7 @@ class SubmitButtonWidget(VBox):
 
         append_output (bool): Whether to clear widget output for each subsequent submission.
         """
-        self.path_to_root = kwargs['path_to_root'] if 'path_to_root' in kwargs else '../'
+        self.path_to_root = kwargs.get('path_to_root', '../')
         if isclass(process_class) and issubclass(process_class, Process):
             self._process_class = process_class
         else:
@@ -187,7 +187,7 @@ class ProcessFollowerWidget(ipw.VBox):
 
     def __init__(self, process=None, followers=None, update_interval=0.1, path_to_root='../', **kwargs):
         """Initiate all the followers."""
-        if not isinstance(process, (ProcessNode, type(None))):
+        if not (process is None or isinstance(process, ProcessNode):
             raise TypeError("Expecting an object of type {}, got {}".format(ProcessNode, type(process)))
         self.process = process
         self._run_after_completed = []
@@ -256,6 +256,7 @@ class ProcessReportWidget(ipw.HTML):
         """Update report that is shown."""
         if self.process is None:
             return
+
         if isinstance(self.process, CalcJobNode):
             string = get_calcjob_report(self.process)
         elif isinstance(self.process, WorkChainNode):
