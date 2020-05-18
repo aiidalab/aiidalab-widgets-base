@@ -187,7 +187,7 @@ class ProcessFollowerWidget(ipw.VBox):
 
     def __init__(self, process=None, followers=None, update_interval=0.1, path_to_root='../', **kwargs):
         """Initiate all the followers."""
-        if not (process is None or isinstance(process, ProcessNode):
+        if not (process is None or isinstance(process, ProcessNode)):
             raise TypeError("Expecting an object of type {}, got {}".format(ProcessNode, type(process)))
         self.process = process
         self._run_after_completed = []
