@@ -10,8 +10,8 @@ from .computers import ComputerDropdown  # noqa
 from .databases import CodQueryWidget  # noqa
 #from .editors import editor  # noqa
 from .export import ExportButtonWidget  # noqa
-from .process import ProcessFollowerWidget, ProgressBarWidget, ProcessListWidget  # noqa
-from .process import RunningCalcJobOutputWidget, SubmitButtonWidget  # noqa
+from .process import ProgressBarWidget, ProcessFollowerWidget, ProcessInputsWidget, ProcessListWidget, ProcessOutputsWidget  # noqa
+from .process import RunningCalcJobOutputWidget, SubmitButtonWidget, ProcessReportWidget  # noqa
 from .structures import StructureManagerWidget  # noqa
 from .structures import StructureBrowserWidget, StructureExamplesWidget, StructureUploadWidget, SmilesWidget  # noqa
 from .structures import BasicStructureEditor  # noqa

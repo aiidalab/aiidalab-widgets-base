@@ -2,17 +2,22 @@
 
 import os
 from inspect import isclass
+from time import sleep
 
 import pandas as pd
 import ipywidgets as ipw
 from ipywidgets import Button, HTML, IntProgress, Layout, Textarea, VBox
+from IPython.display import clear_output, display
 from traitlets import Instance, link
 from plumpy import ProcessState
 
 # AiiDA imports
 from aiida.engine import submit, Process
-from aiida.orm import CalcJobNode, ProcessNode, WorkChainNode
+from aiida.orm import CalcFunctionNode, CalcJobNode, load_node, ProcessNode, WorkChainNode, WorkFunctionNode
 from aiida.cmdline.utils.query.calculation import CalculationQueryBuilder
+from aiida.cmdline.utils.common import get_calcjob_report, get_workchain_report, get_process_function_report
+
+from .viewers import viewer
 
 
 def get_running_calcs(process):
@@ -126,21 +131,35 @@ class ProcessListWidget(VBox):
             value=7,
             description='Past days:',
         )
-        self.past_days.observe(self.query, ['value', 'disabled'])
+        self.past_days.observe(self.update, ['value', 'disabled'])
         all_days = ipw.Checkbox(description="All days", value=False)
         link((all_days, 'value'), (self.past_days, 'disabled'))
+        self.incoming_node = ipw.Text(description='Incoming node id:',
+                                      style={'description_width': 'initial'},
+                                      disabled=False)
+        self.outgoing_node = ipw.Text(description='Outgoing node id:',
+                                      style={'description_width': 'initial'},
+                                      disabled=False)
+
         process_states = [state.value for state in ProcessState]
         self.process_state = ipw.SelectMultiple(options=process_states,
                                                 value=process_states,
                                                 description='Process State:',
-                                                style={'description_width':'initial'},
+                                                style={'description_width': 'initial'},
                                                 disabled=False)
-        self.process_state.observe(self.query, 'value')
+        self.process_state.observe(self.update, 'value')
         pd.set_option('max_colwidth', 40)
-        self.query()
-        super().__init__(children=[ipw.HBox([self.past_days, all_days]), self.process_state, self.table], **kwargs)
+        self.output = ipw.HTML()
+        self.update()
+        super().__init__(children=[
+            ipw.HBox([
+                ipw.VBox([self.past_days, self.process_state]),
+                ipw.VBox([all_days, self.incoming_node, self.outgoing_node])
+            ]), self.output, self.table
+        ],
+                         **kwargs)
 
-    def query(self, _=None):
+    def update(self, _=None):
         """Perform the query."""
         # Here we are defining properties of 'df' class (specified while exporting pandas table into html).
         # Since the exported object is nothing more than HTML table, all 'standard' HTML table settings
@@ -163,18 +182,37 @@ class ProcessListWidget(VBox):
                                       process_label=None,
                                       exit_status=None,
                                       failed=None)
+        relationships = {}
+        if self.incoming_node.value:
+            relationships = {**relationships, **{'with_outgoing': load_node(int(self.incoming_node.value))}}
+
+        if self.outgoing_node.value:
+            relationships = {**relationships, **{'with_incoming': load_node(int(self.outgoing_node.value))}}
+
         query_set = builder.get_query_set(
             filters=filters,
             past_days=None if self.past_days.disabled else self.past_days.value,
             order_by={'ctime': 'desc'},
+            relationships=relationships,
         )
         projected = builder.get_projected(query_set,
                                           projections=['pk', 'ctime', 'process_label', 'state', 'process_status'])
         dataf = pd.DataFrame(projected[1:], columns=projected[0])
+        self.output.value = "{} processes shown".format(len(dataf))
         dataf['PK'] = dataf['PK'].apply(
             lambda x: """<a href={0}aiidalab-widgets-base/process.ipynb?id={1} target="_blank">{1}</a>""".format(
                 self.path_to_root, x))
         self.table.value += dataf.to_html(classes='df', escape=False, index=False)
+
+    def _follow(self, update_interval=10):
+        while True:
+            self.update()
+            sleep(update_interval)
+
+    def start_autoupdate(self):
+        import threading
+        update_state = threading.Thread(target=self._follow)
+        update_state.start()
 
 
 class ProcessFollowerWidget(VBox):
@@ -200,7 +238,6 @@ class ProcessFollowerWidget(VBox):
 
     def _follow(self):
         """The loop that will update all the followers untill the process is running."""
-        from time import sleep
         while not self.process.is_sealed:
             self.update()
             sleep(self.update_interval)
@@ -222,6 +259,86 @@ class ProcessFollowerWidget(VBox):
     def on_completed(self, function):
         """Run functions after a process has been completed."""
         self._run_after_completed.append(function)
+
+
+class ProcessReportWidget(ipw.HTML):
+    """Widget that shows process report."""
+
+    def __init__(self, process, **kwargs):
+        self.process = process
+        self.max_depth = None
+        self.indent_size = 2
+        self.levelname = 'REPORT'
+        self.update()
+        super().__init__(**kwargs)
+
+    def update(self):
+        """Update report that is shown."""
+        if isinstance(self.process, CalcJobNode):
+            string = get_calcjob_report(self.process)
+        elif isinstance(self.process, WorkChainNode):
+            string = get_workchain_report(self.process, self.levelname, self.indent_size, self.max_depth)
+        elif isinstance(self.process, (CalcFunctionNode, WorkFunctionNode)):
+            string = get_process_function_report(self.process)
+        else:
+            string = 'Nothing to show for node type {}'.format(self.process.__class__)
+        self.value = string.replace('\n', '<br/>')
+
+
+class ProcessInputsWidget(ipw.VBox):
+    """Widget to select and show process inputs."""
+
+    def __init__(self, process, **kwargs):
+        self.process = process
+        self.output = ipw.Output()
+        self.info = ipw.HTML()
+        inputs = ipw.Dropdown(
+            options=[('Select input', '')] + [(l.title(), l) for l in self.process.inputs],
+            description='Select input:',
+            style={'description_width': 'initial'},
+            disabled=False,
+        )
+        inputs.observe(self.view_input, names=['value'])
+        super().__init__(children=[ipw.HBox([inputs, self.info]), self.output], **kwargs)
+
+    def view_input(self, change=None):
+        """Show selected input."""
+        with self.output:
+            self.info.value = ''
+            clear_output()
+            if change['new']:
+                selected_input = self.process.inputs[change['new']]
+                self.info.value = "PK: {}".format(selected_input.id)
+                display(viewer(selected_input))
+
+
+class ProcessOutputsWidget(ipw.VBox):
+    """Widget to select and show process outputs."""
+
+    def __init__(self, process, **kwargs):
+        self.process = process
+        self.output = ipw.Output()
+        self.info = ipw.HTML()
+
+        outputs = ipw.Dropdown(
+            options=[('Select output', '')] + [(l.title(), l) for l in self.process.outputs],
+            label='Select output',
+            description='Select outputs:',
+            style={'description_width': 'initial'},
+            disabled=False,
+        )
+        outputs.observe(self.view_output, names=['value'])
+        super().__init__(children=[ipw.HBox([outputs, self.info]), self.output], **kwargs)
+
+    def view_output(self, change=None):
+        """Show selected output."""
+        with self.output:
+            self.info.value = ''
+            clear_output()
+            if change['new']:
+                selected_output = self.process.outputs[change['new']]
+                self.info.value = "PK: {}".format(selected_output.id)
+                display(viewer(selected_output))
 
 
 class ProgressBarWidget(VBox):
