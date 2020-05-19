@@ -5,9 +5,9 @@ from inspect import isclass
 from time import sleep
 
 import ipywidgets as ipw
-from ipywidgets import Button, HTML, IntProgress, Layout, Textarea, VBox
-from IPython.display import clear_output, display
-from traitlets import Instance
+from ipywidgets import Button, IntProgress, Layout, VBox
+from IPython.display import HTML, Javascript, clear_output, display
+from traitlets import Instance, observe
 
 # AiiDA imports.
 from aiida.engine import submit, Process
@@ -20,20 +20,18 @@ from .viewers import viewer
 
 
 def get_running_calcs(process):
-    """Takes a process and returns a list of running calculations. The running calculations
-    can be either the process itself or its running children."""
+    """Takes a process and yeilds running children calculations."""
 
     # If a process is a running calculation - returning it
     if issubclass(type(process), CalcJobNode) and not process.is_sealed:
-        return [process]
+        yield process
 
     # If the process is a running work chain - returning its children
     if issubclass(type(process), WorkChainNode) and not process.is_sealed:
-        calcs = []
         for out_link in process.get_outgoing():
             if isinstance(out_link.node, ProcessNode) and not out_link.node.is_sealed:
-                calcs += get_running_calcs(out_link.node)
-        return calcs
+                yield from get_running_calcs(out_link.node)
+
     # if it is neither calculation, nor work chain - returninng None
     return []
 
@@ -79,7 +77,7 @@ class SubmitButtonWidget(VBox):
 
         self.btn_submit = Button(description=description, disabled=False)
         self.btn_submit.on_click(self.on_btn_submit_press)
-        self.submit_out = HTML('')
+        self.submit_out = ipw.HTML('')
         children = [
             self.btn_submit,
             self.submit_out,
@@ -329,7 +327,7 @@ class ProgressBarWidget(VBox):
             bar_style='warning',  # 'success', 'info', 'warning', 'danger' or ''
             orientation='horizontal',
             layout=Layout(width="800px"))
-        self.state = HTML(description="Calculation state:", value='Created', style={'description_width': 'initial'})
+        self.state = ipw.HTML(description="Calculation state:", value='Created', style={'description_width': 'initial'})
         children = [self.bar, self.state]
         super(ProgressBarWidget, self).__init__(children=children, **kwargs)
 
@@ -351,12 +349,11 @@ class ProgressBarWidget(VBox):
         return self.process.process_state.value
 
 
-class RunningCalcJobOutputWidget(Textarea):
-    """Output of a currently running calculation or one of work chain's running child."""
+class CalcJobOutputWidget(ipw.Textarea):
+    """Output of a calculation."""
+    calculation = Instance(CalcJobNode, allow_none=True)
 
-    def __init__(self, process=None, title="Running Job Output", **kwargs):
-        self.process = process
-        self.title = title
+    def __init__(self, **kwargs):
         default_params = {
             "value": "",
             "placeholder": "Calculation output will appear here",
@@ -371,26 +368,74 @@ class RunningCalcJobOutputWidget(Textarea):
             }
         }
         default_params.update(kwargs)
-        self.previous_calc_id = 0
         self.output = []
-        super(RunningCalcJobOutputWidget, self).__init__(**default_params)
+
+        # Hack to make font monospace. As far as I am aware, currently there are no better ways.
+        display(HTML("<style>textarea, input { font-family: monospace; }</style>"))
+
+        super().__init__(**default_params)
+
+    @observe('calculation')
+    def _change_calculation(self, _=None):
+        """Reset things if the observed calculation has changed."""
+        self.output = []
+        self.value = ''
+
+    def update(self):
+        """Update the displayed output."""
+        if self.calculation is None:
+            return
+
+        output_file_path = None
+        if 'remote_folder' in self.calculation.outputs:
+            output_file_path = os.path.join(self.calculation.outputs.remote_folder.get_remote_path(),
+                                            self.calculation.attributes['output_filename'])
+        if output_file_path and os.path.exists(output_file_path):
+            with open(output_file_path) as fobj:
+                difference = fobj.readlines()[len(self.output):-1]  # Only adding the difference
+                self.output += difference
+                self.value += ''.join(difference)
+
+        # Auto scroll down. Doesn't work in detached mode.
+        # Also a hack as it is applied to all the textareas
+        display(
+            Javascript("""
+            $('textarea').each(function(){
+                // get the id
+                var id_value = $(this).attr('id');
+
+                if (typeof id_value !== 'undefined') {
+                    // the variable is defined
+                    var textarea = document.getElementById(id_value);
+                    textarea.scrollTop = textarea.scrollHeight;
+                }   
+            });"""))
+
+
+class RunningCalcJobOutputWidget(ipw.VBox):
+    """Show an output of selected running child calculation."""
+
+    def __init__(self, process=None, title="Running Job Output", **kwargs):
+        self.process = process
+        self.title = title
+        self.selection = ipw.Dropdown(description="Select calculation:",
+                                      options={p.id: p for p in get_running_calcs(self.process)},
+                                      style={'description_width': 'initial'})
+        self.output = CalcJobOutputWidget()
+        self.update()
+        super().__init__(children=[self.selection, self.output], **kwargs)
 
     def update(self):
         """Update the displayed output."""
         if self.process is None:
             return
-        calcs = get_running_calcs(self.process)
-        if calcs:
-            for calc in calcs:
-                if calc.id == self.previous_calc_id:
-                    break
+        with self.hold_trait_notifications():
+            old_label = self.selection.label
+            self.selection.options = {str(p.id): p for p in get_running_calcs(self.process)}
+            # If the selection remains the same.
+            if old_label in self.selection.options:
+                self.label = old_label  # After changing options trait, the label and value traits might change as well.
+            # If selection has changed
             else:
-                self.output = []
-                self.previous_calc_id = calc.id
-                self.value = ''
-            if 'remote_folder' in calc.outputs:
-                f_path = os.path.join(calc.outputs.remote_folder.get_remote_path(), calc.attributes['output_filename'])
-                if os.path.exists(f_path):
-                    with open(f_path) as fobj:
-                        self.output += fobj.readlines()[len(self.output):-1]
-                        self.value = ''.join(self.output)
+                self.output.calculation = self.selection.value
+        self.output.update()
