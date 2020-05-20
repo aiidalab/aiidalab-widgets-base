@@ -379,7 +379,13 @@ class CalcJobOutputWidget(ipw.Textarea):
         self.value = ''
 
     def update(self):
-        """Update the displayed output."""
+        """Update the displayed output and scroll to its end.
+
+        NOTE: when this widgets is called by ProcessFollowerWidget in non-blocking manner
+        the auto-scrolling won't work. There used to be a function for the Textarea widget,
+        but it didn't work properly and got removed. For more information please visit:
+        https://github.com/jupyter-widgets/ipywidgets/issues/1815"""
+
         if self.calculation is None:
             return
 
