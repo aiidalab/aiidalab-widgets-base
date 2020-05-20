@@ -208,7 +208,7 @@ class ProcessFollowerWidget(ipw.VBox):
             follower.children[1].update()
 
     def _follow(self):
-        """The loop that will update all the followers untill the process is running."""
+        """Periodically update all followers while the process is running."""
         while not self.process.is_sealed:
             self.update()
             sleep(self.update_interval)
