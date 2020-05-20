@@ -32,9 +32,6 @@ def get_running_calcs(process):
             if isinstance(out_link.node, ProcessNode) and not out_link.node.is_sealed:
                 yield from get_running_calcs(out_link.node)
 
-    # if it is neither calculation, nor work chain - returninng None
-    return []
-
 
 class SubmitButtonWidget(VBox):
     """Submit button class that creates submit button jupyter widget."""
@@ -137,11 +134,11 @@ class ProcessInputsWidget(ipw.VBox):
             style={'description_width': 'initial'},
             disabled=False,
         )
-        inputs.observe(self.view_input, names=['value'])
+        inputs.observe(self.show_selected_input, names=['value'])
         super().__init__(children=[ipw.HBox([inputs, self.info]), self.output], **kwargs)
 
-    def view_input(self, change=None):
-        """Show selected input."""
+    def show_selected_input(self, change=None):
+        """Function that displays process inputs selected in the `inputs` Dropdown widget."""
         with self.output:
             self.info.value = ''
             clear_output()
@@ -166,11 +163,11 @@ class ProcessOutputsWidget(ipw.VBox):
             style={'description_width': 'initial'},
             disabled=False,
         )
-        outputs.observe(self.view_output, names=['value'])
+        outputs.observe(self.show_selected_output, names=['value'])
         super().__init__(children=[ipw.HBox([outputs, self.info]), self.output], **kwargs)
 
-    def view_output(self, change=None):
-        """Show selected output."""
+    def show_selected_output(self, change=None):
+        """Function that displays process output selected in the `outputs` Dropdown widget."""
         with self.output:
             self.info.value = ''
             clear_output()
@@ -219,7 +216,7 @@ class ProcessFollowerWidget(ipw.VBox):
             func(self.process)
 
     def follow(self, detach=False):
-        """Follow the process in non-blocking manner."""
+        """Initiate following the process with or without blocking."""
         if self.process is None:
             self.output.value = """<font color="red"> ProcessFollowerWidget: process
             is set to 'None', nothing to follow. </font>"""
