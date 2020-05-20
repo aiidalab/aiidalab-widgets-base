@@ -55,6 +55,7 @@ class SubmitButtonWidget(ipw.VBox):
 
         append_output (bool): Whether to clear widget output for each subsequent submission.
         """
+
         self.path_to_root = kwargs.get('path_to_root', '../')
         if isclass(process_class) and issubclass(process_class, Process):
             self._process_class = process_class
@@ -74,14 +75,9 @@ class SubmitButtonWidget(ipw.VBox):
         self.btn_submit = ipw.Button(description=description, disabled=False)
         self.btn_submit.on_click(self.on_btn_submit_press)
         self.submit_out = ipw.HTML('')
-        children = [
-            self.btn_submit,
-            self.submit_out,
-        ]
-
         self._run_after_submitted = []
 
-        super().__init__(children=children)
+        super().__init__(children=[self.btn_submit, self.submit_out])
 
     def on_click(self, function):
         self.btn_submit.on_click(function)
@@ -210,7 +206,7 @@ class ProcessFollowerWidget(ipw.VBox):
         while not self.process.is_sealed:
             self.update()
             sleep(self.update_interval)
-        self.update()  # update the state for the last time to be 100% sure
+        self.update()  # Update the state for the last time to be 100% sure.
 
         # Call functions to be run after the process is completed.
         for func in self._run_after_completed:
@@ -317,7 +313,7 @@ class ProgressBarWidget(ipw.VBox):
             "excepted": 2,
             "finished": 2,
         }
-        self.bar = ipw.IntProgress(  # pylint: disable=blacklisted-name
+        self.progress_bar = ipw.IntProgress(
             value=0,
             min=0,
             max=2,
@@ -327,20 +323,19 @@ class ProgressBarWidget(ipw.VBox):
             orientation='horizontal',
             layout={'width': '800px'})
         self.state = ipw.HTML(description="Calculation state:", value='Created', style={'description_width': 'initial'})
-        children = [self.bar, self.state]
-        super().__init__(children=children, **kwargs)
+        super().__init__(children=[self.progress_bar, self.state], **kwargs)
 
     def update(self):
         """Update the bar."""
         if self.process is None:
             return
-        self.bar.value = self.correspondance[self.current_state]
+        self.progress_bar.value = self.correspondance[self.current_state]
         if self.current_state == 'finished':
-            self.bar.bar_style = 'success'
+            self.progress_bar.bar_style = 'success'
         elif self.current_state in ["killed", "excepted"]:
-            self.bar.bar_style = 'danger'
+            self.progress_bar.bar_style = 'danger'
         else:
-            self.bar.bar_style = 'info'
+            self.progress_bar.bar_style = 'info'
         self.state.value = self.current_state.capitalize()
 
     @property
