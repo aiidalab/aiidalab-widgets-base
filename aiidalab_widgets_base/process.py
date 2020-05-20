@@ -5,7 +5,6 @@ from inspect import isclass
 from time import sleep
 
 import ipywidgets as ipw
-from ipywidgets import Button, IntProgress, Layout, VBox
 from IPython.display import HTML, Javascript, clear_output, display
 from traitlets import Instance, observe
 
@@ -33,7 +32,7 @@ def get_running_calcs(process):
                 yield from get_running_calcs(out_link.node)
 
 
-class SubmitButtonWidget(VBox):
+class SubmitButtonWidget(ipw.VBox):
     """Submit button class that creates submit button jupyter widget."""
     process = Instance(ProcessNode, allow_none=True)
 
@@ -72,7 +71,7 @@ class SubmitButtonWidget(VBox):
         self.disable_after_submit = disable_after_submit
         self.append_output = append_output
 
-        self.btn_submit = Button(description=description, disabled=False)
+        self.btn_submit = ipw.Button(description=description, disabled=False)
         self.btn_submit.on_click(self.on_btn_submit_press)
         self.submit_out = ipw.HTML('')
         children = [
@@ -302,11 +301,12 @@ class ProcessCallStackWidget(ipw.HTML):
         return string
 
 
-class ProgressBarWidget(VBox):
+class ProgressBarWidget(ipw.VBox):
     """A bar showing the proggress of a process."""
     process = Instance(ProcessNode, allow_none=True)
 
     def __init__(self, title="Progress Bar", **kwargs):
+        """Initialize ProgressBarWidget."""
 
         self.title = title
         self.correspondance = {
@@ -317,7 +317,7 @@ class ProgressBarWidget(VBox):
             "excepted": 2,
             "finished": 2,
         }
-        self.bar = IntProgress(  # pylint: disable=blacklisted-name
+        self.bar = ipw.IntProgress(  # pylint: disable=blacklisted-name
             value=0,
             min=0,
             max=2,
@@ -325,7 +325,7 @@ class ProgressBarWidget(VBox):
             description='Progress:',
             bar_style='warning',  # 'success', 'info', 'warning', 'danger' or ''
             orientation='horizontal',
-            layout=Layout(width="800px"))
+            layout={'width': '800px'})
         self.state = ipw.HTML(description="Calculation state:", value='Created', style={'description_width': 'initial'})
         children = [self.bar, self.state]
         super().__init__(children=children, **kwargs)
