@@ -123,6 +123,8 @@ class SubmitButtonWidget(VBox):
 class ProcessInputsWidget(ipw.VBox):
     """Widget to select and show process inputs."""
 
+    process = Instance(ProcessNode, allow_none=True)
+
     def __init__(self, process=None, **kwargs):
         self.process = process
         self.output = ipw.Output()
@@ -150,6 +152,7 @@ class ProcessInputsWidget(ipw.VBox):
 
 class ProcessOutputsWidget(ipw.VBox):
     """Widget to select and show process outputs."""
+    process = Instance(ProcessNode, allow_none=True)
 
     def __init__(self, process=None, **kwargs):
         self.process = process
@@ -179,18 +182,17 @@ class ProcessOutputsWidget(ipw.VBox):
 
 class ProcessFollowerWidget(ipw.VBox):
     """A Widget that follows a process until finished."""
+    process = Instance(ProcessNode, allow_none=True)
 
     def __init__(self, process=None, followers=None, update_interval=0.1, path_to_root='../', **kwargs):
         """Initiate all the followers."""
-        if not (process is None or isinstance(process, ProcessNode)):
-            raise TypeError("Expecting an object of type {}, got {}".format(ProcessNode, type(process)))
         self.process = process
         self._run_after_completed = []
         self.update_interval = update_interval
         self.followers = []
         if followers is not None:
             for follower in followers:
-                follower.process = process
+                follower.process = self.process
                 follower.path_to_root = path_to_root
                 self.followers.append(ipw.VBox([
                     ipw.HTML("<h2><b>{}</b></h2>".format(follower.title)),
@@ -237,9 +239,9 @@ class ProcessFollowerWidget(ipw.VBox):
 
 class ProcessReportWidget(ipw.HTML):
     """Widget that shows process report."""
+    process = Instance(ProcessNode, allow_none=True)
 
-    def __init__(self, title="Process Report", process=None, **kwargs):
-        self.process = process
+    def __init__(self, title="Process Report", **kwargs):
         self.title = title
         self.max_depth = None
         self.indent_size = 2
@@ -265,9 +267,9 @@ class ProcessReportWidget(ipw.HTML):
 
 class ProcessCallStackWidget(ipw.HTML):
     """Widget that shows process call stack."""
+    process = Instance(ProcessNode, allow_none=True)
 
-    def __init__(self, process=None, title="Process Call Stack", path_to_root='../', **kwargs):
-        self.process = process
+    def __init__(self, title="Process Call Stack", path_to_root='../', **kwargs):
         self.title = title
         self.path_to_root = path_to_root
         self.update()
@@ -302,10 +304,10 @@ class ProcessCallStackWidget(ipw.HTML):
 
 class ProgressBarWidget(VBox):
     """A bar showing the proggress of a process."""
+    process = Instance(ProcessNode, allow_none=True)
 
-    def __init__(self, process=None, title="Progress Bar", **kwargs):
+    def __init__(self, title="Progress Bar", **kwargs):
 
-        self.process = process
         self.title = title
         self.correspondance = {
             "created": 0,
@@ -417,9 +419,9 @@ class CalcJobOutputWidget(ipw.Textarea):
 
 class RunningCalcJobOutputWidget(ipw.VBox):
     """Show an output of selected running child calculation."""
+    process = Instance(ProcessNode, allow_none=True)
 
-    def __init__(self, process=None, title="Running Job Output", **kwargs):
-        self.process = process
+    def __init__(self, title="Running Job Output", **kwargs):
         self.title = title
         self.selection = ipw.Dropdown(description="Select calculation:",
                                       options={p.id: p for p in get_running_calcs(self.process)},
