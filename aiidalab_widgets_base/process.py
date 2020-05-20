@@ -82,7 +82,7 @@ class SubmitButtonWidget(VBox):
 
         self._run_after_submitted = []
 
-        super(SubmitButtonWidget, self).__init__(children=children)
+        super().__init__(children=children)
 
     def on_click(self, function):
         self.btn_submit.on_click(function)
@@ -200,7 +200,7 @@ class ProcessFollowerWidget(ipw.VBox):
                 ]))
         self.update()
         self.output = ipw.HTML()
-        super(ProcessFollowerWidget, self).__init__(children=[self.output] + self.followers, **kwargs)
+        super().__init__(children=[self.output] + self.followers, **kwargs)
 
     def update(self):
         for follower in self.followers:
@@ -328,7 +328,7 @@ class ProgressBarWidget(VBox):
             layout=Layout(width="800px"))
         self.state = ipw.HTML(description="Calculation state:", value='Created', style={'description_width': 'initial'})
         children = [self.bar, self.state]
-        super(ProgressBarWidget, self).__init__(children=children, **kwargs)
+        super().__init__(children=children, **kwargs)
 
     def update(self):
         """Update the bar."""
