@@ -6,13 +6,14 @@ import datetime
 from collections import OrderedDict
 import numpy as np
 import ipywidgets as ipw
-from traitlets import Instance, Int, List, Unicode, Union, link, default, observe, validate
+from traitlets import Instance, Int, List, Unicode, Union, dlink, link, default, observe
 
 # ASE imports
 from ase import Atom, Atoms
 from ase.data import chemical_symbols, covalent_radii
 
 # AiiDA and AiiDA lab imports
+from aiida.engine import calcfunction
 from aiida.orm import CalcFunctionNode, CalcJobNode, Data, QueryBuilder, Node, WorkChainNode, CifData
 from aiida.plugins import DataFactory
 from .utils import get_ase_from_file
@@ -31,6 +32,7 @@ class StructureManagerWidget(ipw.VBox):
         node_class(str): trait that contains structure_node type (as string).
     '''
 
+    input_structure = Union([Instance(Atoms), Instance(Data)], allow_none=True)
     structure = Union([Instance(Atoms), Instance(Data)], allow_none=True)
     structure_node = Instance(Data, allow_none=True, read_only=True)
     node_class = Unicode()
@@ -67,19 +69,19 @@ class StructureManagerWidget(ipw.VBox):
             self.viewer = viewer
         else:
             self.viewer = StructureDataViewer(downloadable=False)
-        link((self, 'structure'), (self.viewer, 'structure'))
+        dlink((self, 'structure'), (self.viewer, 'structure'))
 
         # Store button.
         self.btn_store = ipw.Button(description='Store in AiiDA', disabled=True)
-        self.btn_store.on_click(self._on_click_store)
-
-        # Store format selector.
-        data_format = ipw.RadioButtons(options=self.SUPPORTED_DATA_FORMATS, description='Data type:')
-        link((data_format, 'label'), (self, 'node_class'))
+        self.btn_store.on_click(self.store_structure)
 
         # Label and description that are stored along with the new structure.
         self.structure_label = ipw.Text(description='Label')
         self.structure_description = ipw.Text(description='Description')
+
+        # Store format selector.
+        data_format = ipw.RadioButtons(options=self.SUPPORTED_DATA_FORMATS, description='Data type:')
+        link((data_format, 'label'), (self, 'node_class'))
 
         # Store button, store class selector, description.
         store_and_description = [self.btn_store] if storable else []
@@ -111,44 +113,41 @@ class StructureManagerWidget(ipw.VBox):
     def _structure_importers(self, importers):
         """Preparing structure importers."""
         if not importers:
-            raise ValueError("The parameter importers should contain a list (or tuple) of tuples "
-                             "(\"importer name\", importer), got a falsy object.")
+            raise ValueError("The parameter importers should contain a list (or tuple) of "
+                             "importers, got a falsy object.")
 
         # If there is only one importer - no need to make tabs.
         if len(importers) == 1:
             # Assigning a function which will be called when importer provides a structure.
-            link((self, 'structure'), (importers[0][1], 'structure'))
-            return importers[0][1]
+            importers[0].manager = self
+            return importers[0]
 
         # Otherwise making one tab per importer.
-        sources_tab = ipw.Tab()
-        sources_tab.children = [i[1] for i in importers]  # One importer per tab.
-        for i, (label, importer) in enumerate(importers):
+        importers_tab = ipw.Tab()
+        importers_tab.children = [i for i in importers]  # One importer per tab.
+        for i, importer in enumerate(importers):
             # Labeling tabs.
-            sources_tab.set_title(i, label)
-            link((self, 'structure'), (importer, 'structure'))
-        return sources_tab
+            importers_tab.set_title(i, importer.title)
+            importer.manager = self
+        return importers_tab
 
     def _struture_editors(self, editors):
         """Preparing structure editors."""
         if editors and len(editors) == 1:
-            editors[0][1].manager = self
-            return editors[0][1]
+            editors[0].manager = self
+            return editors[0]
 
         # If more than one editor was defined.
         if editors:
             editors_tab = ipw.Tab()
-            editors_tab.children = [i[1] for i in editors]
-            for i, (label, editor) in enumerate(editors):
-                editors_tab.set_title(i, label)
+            editors_tab.children = [i for i in editors]
+            for i, editor in enumerate(editors):
+                editors_tab.set_title(i, editor.title)
                 editor.manager = self
             return editors_tab
         return None
 
-    def _on_click_store(self, change):  # pylint: disable=unused-argument
-        self.store_structure()
-
-    def store_structure(self):
+    def store_structure(self, _=None):
         """Stores the structure in AiiDA database."""
 
         if self.structure_node is None:
@@ -156,10 +155,24 @@ class StructureManagerWidget(ipw.VBox):
         if self.structure_node.is_stored:
             self.output.value = "Already stored in AiiDA [{}], skipping...".format(self.structure_node)
             return
+        self.btn_store.disabled = True
         self.structure_node.label = self.structure_label.value
+        self.structure_label.disabled = True
         self.structure_node.description = self.structure_description.value
-        self.structure_node.store()
-        self.output.value = "Stored in AiiDA [{}]".format(self.structure_node)
+        self.structure_description.disabled = True
+
+        if isinstance(self.input_structure, Data) and self.input_structure.is_stored:
+
+            # Make a link between self.input_structure and self.structure_node
+            @calcfunction
+            def user_modifications(source_structure):  # pylint: disable=unused-argument
+                return self.structure_node
+
+            structure_node = user_modifications(self.input_structure)
+
+        else:
+            structure_node = self.structure_node.store()
+        self.output.value = "Stored in AiiDA [{}]".format(structure_node)
 
     def undo(self, _):
         """Undo modifications."""
@@ -169,7 +182,7 @@ class StructureManagerWidget(ipw.VBox):
             if self.history:
                 self.structure = self.history[-1]
             else:
-                self.structure = None
+                self.input_structure = None
         self.structure_set_by_undo = False
 
     @staticmethod
@@ -179,33 +192,71 @@ class StructureManagerWidget(ipw.VBox):
 
     @observe('node_class')
     def _change_structure_node(self, _=None):
-        self._structure_changed()
+        self.set_structure_node()
 
-    @validate('structure')
-    def _valid_structure(self, change):
+    def set_structure_node(self):
+        """Set structure_node trait using the currently provided info."""
+        StructureNode = DataFactory(self.SUPPORTED_DATA_FORMATS[self.node_class])  # pylint: disable=invalid-name
+        structure_node = None
+        if len(self.history) > 1:
+            # There are some modifications, so converting from ASE.
+            structure_node = StructureNode(ase=self.structure)
+        else:
+            # If the input_structure trait is set to Atoms object, structure node must be created from it.
+            if isinstance(self.input_structure, Atoms):
+                structure_node = StructureNode(ase=self.input_structure)
+
+            # If the input_structure trait is set to AiiDA node, check what type
+            elif isinstance(self.input_structure, Data):
+
+                # Transform the structure to the StructureNode if needed.
+                if isinstance(self.input_structure, StructureNode):
+                    structure_node = self.input_structure
+                else:
+                    # self.structure was already converted to the ASE Atoms object.
+                    structure_node = StructureNode(ase=self.structure)
+        self.set_trait('structure_node', structure_node)
+
+        if structure_node:
+            if structure_node.is_stored:
+                self.btn_store.disabled = True
+                self.structure_label.value = self.structure_node.label
+                self.structure_label.disabled = True
+                self.structure_description.value = self.structure_node.description
+                self.structure_description.disabled = True
+            else:
+                self.btn_store.disabled = False
+                self.structure_label.value = self.structure.get_chemical_formula()
+                self.structure_label.disabled = False
+                self.structure_description.value = ''
+                self.structure_description.disabled = False
+
+    @observe('input_structure')
+    def _observe_input_structure(self, change):
         """Returns ASE atoms object and sets structure_node trait."""
+        # If the `input_structure` trait is set to Atoms object, then the `structure` trait should be set to it as well.
+        self.history = []
 
-        self._inserted_structure = change['value']
+        if isinstance(change['new'], Atoms):
+            self.structure = change['new']
 
-        # If structure trait is set to Atoms object, structure node must be generated
-        if isinstance(self._inserted_structure, Atoms):
-            return self._inserted_structure
+        # If the `input_structure` trait is set to AiiDA node, then the `structure` trait should
+        # be converted to an ASE Atoms object.
+        elif isinstance(change['new'], Data):
+            self.structure = change['new'].get_ase()
 
-        # If structure trait is set to AiiDA node, converting it to ASE Atoms object
-        if isinstance(self._inserted_structure, Data):
-            return self._inserted_structure.get_ase()
-
-        return None
+        else:
+            self.structure = None
 
     @observe('structure')
-    def _structure_changed(self, _=None):
+    def _structure_changed(self, change=None):
         """Perform some operations that depend on the value of `structure` trait.
 
         This function enables/disables `btn_store` widget if structure is provided/set to None.
         Also, the function sets `structure_node` trait to the selected node type.
         """
         if not self.structure_set_by_undo:
-            self.history.append(self._inserted_structure)
+            self.history.append(change['new'])
 
         # If structure trait was set to None, structure_node should become None as well.
         if self.structure is None:
@@ -214,28 +265,7 @@ class StructureManagerWidget(ipw.VBox):
             return
 
         self.btn_store.disabled = False
-
-        # Chosing type for the structure node.
-        StructureNode = DataFactory(self.SUPPORTED_DATA_FORMATS[self.node_class])  # pylint: disable=invalid-name
-
-        # If structure trait is set to Atoms object, structure node must be created from it.
-        if isinstance(self._inserted_structure, Atoms):
-            structure_node = StructureNode(ase=self._inserted_structure)
-
-        # If structure trait is set to AiiDA node, converting it to ASE Atoms object
-        elif isinstance(self._inserted_structure, Data):
-
-            # Transform the structure to the StructureNode if needed.
-            if isinstance(self._inserted_structure, StructureNode):
-                structure_node = self._inserted_structure
-
-            else:
-                # self.structure was already converted to ASE Atoms object.
-                structure_node = StructureNode(ase=self.structure)
-
-        # Setting the structure_node trait.
-        self.set_trait('structure_node', structure_node)
-        self.structure_label.value = self.structure.get_chemical_formula()
+        self.set_structure_node()
 
     @default('structure_node')
     def _default_structure_node(self):
@@ -245,9 +275,10 @@ class StructureManagerWidget(ipw.VBox):
 class StructureUploadWidget(ipw.VBox):
     """Class that allows to upload structures from user's computer."""
     structure = Union([Instance(Atoms), Instance(Data)], allow_none=True)
+    manager = Instance(StructureManagerWidget, allow_none=True)
 
-    def __init__(self, description="Upload Structure"):
-
+    def __init__(self, title='', description="Upload Structure"):
+        self.title = title
         self.file_upload = ipw.FileUpload(description=description, multiple=False, layout={'width': 'initial'})
         supported_formats = ipw.HTML(
             """<a href="https://wiki.fysik.dtu.dk/ase/_modules/ase/io/formats.html" target="_blank">
@@ -255,6 +286,14 @@ class StructureUploadWidget(ipw.VBox):
         </a>""")
         self.file_upload.observe(self._on_file_upload, names='value')
         super().__init__(children=[self.file_upload, supported_formats])
+
+    @observe('manager')
+    def _change_manager(self, value):
+        """Set structure manager trait."""
+        manager = value['new']
+        if manager is None:
+            return
+        dlink((self, 'structure'), (manager, 'input_structure'))
 
     def _on_file_upload(self, change=None):
         """When file upload button is pressed."""
@@ -267,20 +306,26 @@ class StructureUploadWidget(ipw.VBox):
             self.file_upload.value.clear()
             break
 
-    @default('structure')
-    def _default_structure(self):
-        return None
-
 
 class StructureExamplesWidget(ipw.VBox):
     """Class to provide example structures for selection."""
+    manager = Instance(StructureManagerWidget, allow_none=True)
     structure = Instance(Atoms, allow_none=True)
 
-    def __init__(self, examples, **kwargs):
+    def __init__(self, examples, title='', **kwargs):
+        self.title = title
         self.on_structure_selection = lambda structure_ase, name: None
         self._select_structure = ipw.Dropdown(options=self.get_example_structures(examples))
         self._select_structure.observe(self._on_select_structure, names=['value'])
         super().__init__(children=[self._select_structure], **kwargs)
+
+    @observe('manager')
+    def _change_manager(self, value):
+        """Set structure manager trait."""
+        manager = value['new']
+        if manager is None:
+            return
+        dlink((self, 'structure'), (manager, 'input_structure'))
 
     @staticmethod
     def get_example_structures(examples):
@@ -301,9 +346,11 @@ class StructureExamplesWidget(ipw.VBox):
 
 class StructureBrowserWidget(ipw.VBox):
     """Class to query for structures stored in the AiiDA database."""
+    manager = Instance(StructureManagerWidget, allow_none=True)
     structure = Union([Instance(Atoms), Instance(Data)], allow_none=True)
 
-    def __init__(self):
+    def __init__(self, title=''):
+        self.title = title
 
         # Structure objects we want to query for.
         self.query_structure_type = (DataFactory('structure'), DataFactory('cif'))
@@ -357,6 +404,14 @@ class StructureBrowserWidget(ipw.VBox):
         self.results.observe(self._on_select_structure)
         self.search()
         super().__init__([box, h_line, self.results])
+
+    @observe('manager')
+    def _change_manager(self, value):
+        """Set structure manager trait."""
+        manager = value['new']
+        if manager is None:
+            return
+        dlink((self, 'structure'), (manager, 'input_structure'))
 
     def preprocess(self):
         """Search structures in AiiDA database and add formula extra to them."""
@@ -445,11 +500,13 @@ class StructureBrowserWidget(ipw.VBox):
 
 class SmilesWidget(ipw.VBox):
     """Conver SMILES into 3D structure."""
+    manager = Instance(StructureManagerWidget, allow_none=True)
     structure = Instance(Atoms, allow_none=True)
 
     SPINNER = """<i class="fa fa-spinner fa-pulse" style="color:red;" ></i>"""
 
-    def __init__(self):
+    def __init__(self, title=''):
+        self.title = title
         try:
             import openbabel  # pylint: disable=unused-import
         except ImportError:
@@ -463,6 +520,14 @@ class SmilesWidget(ipw.VBox):
         self.create_structure_btn.on_click(self._on_button_pressed)
         self.output = ipw.HTML("")
         super().__init__([self.smiles, self.create_structure_btn, self.output])
+
+    @observe('manager')
+    def _change_manager(self, value):
+        """Set structure manager trait."""
+        manager = value['new']
+        if manager is None:
+            return
+        dlink((self, 'structure'), (manager, 'input_structure'))
 
     @staticmethod
     def pymol_2_ase(pymol):
@@ -524,15 +589,16 @@ class SmilesWidget(ipw.VBox):
         return None
 
 
-class BasicStructureEditor(ipw.VBox):
+class BasicStructureEditor(ipw.VBox):  # pylint: disable=too-many-instance-attributes
     """Widget that allows for the basic structure editing."""
 
     manager = Instance(StructureManagerWidget, allow_none=True)
     structure = Instance(Atoms, allow_none=True)
     selection = List(Int)
 
-    def __init__(self):
+    def __init__(self, title=''):
 
+        self.title = title
         # Define action vector.
         self.axis_p1 = ipw.Text(description='Starting point', value='0 0 0', layout={'width': 'initial'})
         self.axis_p2 = ipw.Text(description='Ending point', value='0 0 1', layout={'width': 'initial'})

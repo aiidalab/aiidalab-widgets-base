@@ -1,6 +1,6 @@
 """Widgets that allow to query online databases."""
 import ipywidgets as ipw
-from traitlets import Instance, default
+from traitlets import Instance, default, dlink, observe
 from ase import Atoms
 
 from aiida.tools.dbimporters.plugins.cod import CodDbImporter
@@ -13,7 +13,7 @@ class CodQueryWidget(ipw.VBox):
 
     structure = Instance(Atoms, allow_none=True)
 
-    def __init__(self, **kwargs):
+    def __init__(self, title='', **kwargs):
         description = ipw.HTML("""<h3>Get crystal structures from
     <a href="http://www.crystallography.net">Crystallography Open Database</a></h3>
     <b>Queries by formula</b>
@@ -32,6 +32,7 @@ class CodQueryWidget(ipw.VBox):
     <br>
     For the queries by structure id, plese provide the database id number. Example: <i>1008786</i>
     """)
+        self.title = title
         layout = ipw.Layout(width="400px")
         style = {"description_width": "initial"}
         self.inp_elements = ipw.Text(description="",
@@ -57,6 +58,14 @@ class CodQueryWidget(ipw.VBox):
             ipw.HBox([self.drop_structure, self.link])
         ]
         super(CodQueryWidget, self).__init__(children=children, **kwargs)
+
+    @observe('manager')
+    def _change_manager(self, value):
+        """Set structure manager trait."""
+        manager = value['new']
+        if manager is None:
+            return
+        dlink((self, 'structure'), (manager, 'input_structure'))
 
     @staticmethod
     def _query(idn=None, formula=None):
