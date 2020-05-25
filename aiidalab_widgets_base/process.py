@@ -26,7 +26,7 @@ def get_running_calcs(process):
         yield process
 
     # If the process is a running work chain - returning its children
-    if issubclass(type(process), WorkChainNode) and not process.is_sealed:
+    elif issubclass(type(process), WorkChainNode) and not process.is_sealed:
         for out_link in process.get_outgoing():
             if isinstance(out_link.node, ProcessNode) and not out_link.node.is_sealed:
                 yield from get_running_calcs(out_link.node)
