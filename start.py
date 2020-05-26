@@ -7,6 +7,8 @@ TEMPLATE = """
   <th style="text-align:center">Basic data objects.</th>
   <th style="width:70px" rowspan=2></th>
   <th style="text-align:center">Codes and computers.</th>
+  <th style="width:70px" rowspan=2></th>
+  <th style="text-align:center">Processes.</th>
 <tr>
   <td valign="top"><ul>
     <li><a href="{appbase}/structures.ipynb" target="_blank">Dealing with one structure</a></li>
@@ -16,6 +18,9 @@ TEMPLATE = """
     <li><a href="{appbase}/setup_computer.ipynb" target="_blank">Setup computer</a></li>
     <li><a href="{appbase}/setup_code.ipynb" target="_blank">Setup code</a></li>
     <li><a href="{appbase}/codes_computers.ipynb" target="_blank">Dealing with codes and computers</a></li>
+  </ul></td>
+  <td valign="top"><ul>
+    <li><a href="{appbase}/process.ipynb" target="_blank">Follow a process</a></li>
   </ul></td>
 </tr>
 </table>
