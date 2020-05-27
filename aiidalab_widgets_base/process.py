@@ -1,4 +1,5 @@
 """Widgets to work with processes."""
+# pylint: disable=no-self-use
 
 import os
 from inspect import isclass
@@ -6,15 +7,15 @@ from time import sleep
 import pandas as pd
 import ipywidgets as ipw
 from IPython.display import HTML, Javascript, clear_output, display
-from traitlets import Instance, link, observe
-from plumpy import ProcessState
+from traitlets import Instance, Int, List, Unicode, Union, observe, validate
 
 # AiiDA imports.
 from aiida.engine import submit, Process
-from aiida.orm import CalcFunctionNode, CalcJobNode, ProcessNode, WorkChainNode, WorkFunctionNode, load_node
+from aiida.orm import CalcFunctionNode, CalcJobNode, Node, ProcessNode, WorkChainNode, WorkFunctionNode, load_node
 from aiida.cmdline.utils.common import get_calcjob_report, get_workchain_report, get_process_function_report
 from aiida.cmdline.utils.ascii_vis import format_call_graph
 from aiida.cmdline.utils.query.calculation import CalculationQueryBuilder
+from aiida.common.exceptions import MultipleObjectsError, NotExistent
 
 # Local imports.
 from .viewers import viewer
@@ -445,41 +446,21 @@ class RunningCalcJobOutputWidget(ipw.VBox):
 
 class ProcessListWidget(ipw.VBox):
     """List of AiiDA processes."""
+    past_days = Int(7)
+    incoming_node = Union([Int(), Unicode(), Instance(Node)], allow_none=True)
+    outgoing_node = Union([Int(), Unicode(), Instance(Node)], allow_none=True)
+    process_states = List()
+    process_label = Unicode(allow_none=True)
 
     def __init__(self, path_to_root='../', **kwargs):
         self.path_to_root = path_to_root
         self.table = ipw.HTML()
-        self.past_days = ipw.IntText(
-            value=7,
-            description='Past days:',
-        )
-        self.past_days.observe(self.update, ['value', 'disabled'])
-        all_days = ipw.Checkbox(description="All days", value=False)
-        link((all_days, 'value'), (self.past_days, 'disabled'))
-        self.incoming_node = ipw.Text(description='Incoming node id:',
-                                      style={'description_width': 'initial'},
-                                      disabled=False)
-        self.outgoing_node = ipw.Text(description='Outgoing node id:',
-                                      style={'description_width': 'initial'},
-                                      disabled=False)
-
-        process_states = [state.value for state in ProcessState]
-        self.process_state = ipw.SelectMultiple(options=process_states,
-                                                value=process_states,
-                                                description='Process State:',
-                                                style={'description_width': 'initial'},
-                                                disabled=False)
-        self.process_state.observe(self.update, 'value')
         pd.set_option('max_colwidth', 40)
         self.output = ipw.HTML()
+        update_button = ipw.Button(description="Update now")
+        update_button.on_click(self.update)
         self.update()
-        super().__init__(children=[
-            ipw.HBox([
-                ipw.VBox([self.past_days, self.process_state]),
-                ipw.VBox([all_days, self.incoming_node, self.outgoing_node])
-            ]), self.output, self.table
-        ],
-                         **kwargs)
+        super().__init__(children=[ipw.HBox([self.output, update_button]), self.table], **kwargs)
 
     def update(self, _=None):
         """Perform the query."""
@@ -500,38 +481,66 @@ class ProcessListWidget(ipw.VBox):
         '''
         builder = CalculationQueryBuilder()
         filters = builder.get_filters(all_entries=False,
-                                      process_state=self.process_state.value,
-                                      process_label=None,
+                                      process_state=self.process_states,
+                                      process_label=self.process_label,
                                       exit_status=None,
                                       failed=None)
         relationships = {}
-        if self.incoming_node.value:
-            relationships = {**relationships, **{'with_outgoing': load_node(int(self.incoming_node.value))}}
+        if self.incoming_node:
+            relationships = {**relationships, **{'with_outgoing': self.incoming_node}}
 
-        if self.outgoing_node.value:
-            relationships = {**relationships, **{'with_incoming': load_node(int(self.outgoing_node.value))}}
+        if self.outgoing_node:
+            relationships = {**relationships, **{'with_incoming': self.outgoing_node}}
 
         query_set = builder.get_query_set(
             filters=filters,
-            past_days=None if self.past_days.disabled else self.past_days.value,
+            past_days=None if self.past_days < 0 else self.past_days,
             order_by={'ctime': 'desc'},
             relationships=relationships,
         )
-        projected = builder.get_projected(query_set,
-                                          projections=['pk', 'ctime', 'process_label', 'state', 'process_status'])
+        projected = builder.get_projected(
+            query_set, projections=['pk', 'ctime', 'process_label', 'state', 'process_status', 'description'])
         dataf = pd.DataFrame(projected[1:], columns=projected[0])
         self.output.value = "{} processes shown".format(len(dataf))
+
+        # Add HTML links.
         dataf['PK'] = dataf['PK'].apply(
             lambda x: """<a href={0}aiidalab-widgets-base/process.ipynb?id={1} target="_blank">{1}</a>""".format(
                 self.path_to_root, x))
         self.table.value += dataf.to_html(classes='df', escape=False, index=False)
+
+    @validate('incoming_node')
+    def _validate_incoming_node(self, provided):
+        """Validate incoming node. The function load_node takes care of managin ids and uuids."""
+        if provided['value']:
+            try:
+                return load_node(provided['value'])
+            except (MultipleObjectsError, NotExistent):
+                return None
+        return None
+
+    @validate('outgoing_node')
+    def _validate_outgoing_node(self, provided):
+        """Validate outgoing node. The function load_node takes care of managin ids and uuids."""
+        if provided['value']:
+            try:
+                return load_node(provided['value'])
+            except (MultipleObjectsError, NotExistent):
+                return None
+        return None
+
+    @validate('process_label')
+    def _validate_process_label(self, provided):
+        if provided['value']:
+            return provided['value']
+        return None
 
     def _follow(self, update_interval=10):
         while True:
             self.update()
             sleep(update_interval)
 
-    def start_autoupdate(self):
+    def start_autoupdate(self, update_interval=10):
         import threading
-        update_state = threading.Thread(target=self._follow)
+        update_state = threading.Thread(target=self._follow, args=(update_interval,))
         update_state.start()
