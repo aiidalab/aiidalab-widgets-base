@@ -533,7 +533,7 @@ class ProcessListWidget(ipw.VBox):
 
     @validate('incoming_node')
     def _validate_incoming_node(self, provided):
-        """Validate incoming node. The function load_node takes care of managin ids and uuids."""
+        """Validate incoming node. The function load_node takes care of managing ids and uuids."""
         if provided['value']:
             try:
                 return load_node(provided['value'])
@@ -543,7 +543,7 @@ class ProcessListWidget(ipw.VBox):
 
     @validate('outgoing_node')
     def _validate_outgoing_node(self, provided):
-        """Validate outgoing node. The function load_node takes care of managin ids and uuids."""
+        """Validate outgoing node. The function load_node takes care of managing ids and uuids."""
         if provided['value']:
             try:
                 return load_node(provided['value'])
