@@ -445,7 +445,23 @@ class RunningCalcJobOutputWidget(ipw.VBox):
 
 
 class ProcessListWidget(ipw.VBox):
-    """List of AiiDA processes."""
+    """List of AiiDA processes.
+
+        past_days (int): Sumulations that were submitted in the last `past_days`.
+
+        incoming_node (int, str, Node): Trait that takes node id or uuid and returns the node that must
+        be among the input nodes of the process of interest.
+
+        outgoing_node (int, str, Node): Trait that takes node id or uuid and returns the node that must
+        be among the output nodes of the process of interest.
+
+        process_states (list): List of allowed process states.
+
+        process_label (str): Show process states of type `process_label`.
+
+        description_contains (str): string that should be present in the description of a process node.
+
+    """
     past_days = Int(7)
     incoming_node = Union([Int(), Unicode(), Instance(Node)], allow_none=True)
     outgoing_node = Union([Int(), Unicode(), Instance(Node)], allow_none=True)
