@@ -535,7 +535,7 @@ class ProcessListWidget(ipw.VBox):
             return provided['value']
         return None
 
-    def _follow(self, update_interval=10):
+    def _follow(self, update_interval):
         while True:
             self.update()
             sleep(update_interval)
