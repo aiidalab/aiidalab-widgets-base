@@ -451,6 +451,7 @@ class ProcessListWidget(ipw.VBox):
     outgoing_node = Union([Int(), Unicode(), Instance(Node)], allow_none=True)
     process_states = List()
     process_label = Unicode(allow_none=True)
+    description_contains = Unicode(allow_none=True)
 
     def __init__(self, path_to_root='../', **kwargs):
         self.path_to_root = path_to_root
@@ -501,6 +502,11 @@ class ProcessListWidget(ipw.VBox):
         projected = builder.get_projected(
             query_set, projections=['pk', 'ctime', 'process_label', 'state', 'process_status', 'description'])
         dataf = pd.DataFrame(projected[1:], columns=projected[0])
+
+        # Keep only process that contain the requested string in the description.
+        if self.description_contains:
+            dataf = dataf[dataf.Description.str.contains(self.description_contains)]
+
         self.output.value = "{} processes shown".format(len(dataf))
 
         # Add HTML links.
