@@ -20,6 +20,7 @@ TEMPLATE = """
     <li><a href="{appbase}/codes_computers.ipynb" target="_blank">Dealing with codes and computers</a></li>
   </ul></td>
   <td valign="top"><ul>
+    <li><a href="{appbase}/process_list.ipynb" target="_blank">Process list</a></li>
     <li><a href="{appbase}/process.ipynb" target="_blank">Follow a process</a></li>
   </ul></td>
 </tr>

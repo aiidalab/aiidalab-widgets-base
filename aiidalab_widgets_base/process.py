@@ -1,18 +1,21 @@
 """Widgets to work with processes."""
+# pylint: disable=no-self-use
 
 import os
 from inspect import isclass
 from time import sleep
-
+import pandas as pd
 import ipywidgets as ipw
 from IPython.display import HTML, Javascript, clear_output, display
-from traitlets import Instance, observe
+from traitlets import Instance, Int, List, Unicode, Union, observe, validate
 
 # AiiDA imports.
 from aiida.engine import submit, Process
-from aiida.orm import CalcFunctionNode, CalcJobNode, ProcessNode, WorkChainNode, WorkFunctionNode
+from aiida.orm import CalcFunctionNode, CalcJobNode, Node, ProcessNode, WorkChainNode, WorkFunctionNode, load_node
 from aiida.cmdline.utils.common import get_calcjob_report, get_workchain_report, get_process_function_report
 from aiida.cmdline.utils.ascii_vis import format_call_graph
+from aiida.cmdline.utils.query.calculation import CalculationQueryBuilder
+from aiida.common.exceptions import MultipleObjectsError, NotExistent
 
 # Local imports.
 from .viewers import viewer
@@ -439,3 +442,127 @@ class RunningCalcJobOutputWidget(ipw.VBox):
             else:
                 self.output.calculation = self.selection.value
         self.output.update()
+
+
+class ProcessListWidget(ipw.VBox):
+    """List of AiiDA processes.
+
+        past_days (int): Sumulations that were submitted in the last `past_days`.
+
+        incoming_node (int, str, Node): Trait that takes node id or uuid and returns the node that must
+        be among the input nodes of the process of interest.
+
+        outgoing_node (int, str, Node): Trait that takes node id or uuid and returns the node that must
+        be among the output nodes of the process of interest.
+
+        process_states (list): List of allowed process states.
+
+        process_label (str): Show process states of type `process_label`.
+
+        description_contains (str): string that should be present in the description of a process node.
+
+    """
+    past_days = Int(7)
+    incoming_node = Union([Int(), Unicode(), Instance(Node)], allow_none=True)
+    outgoing_node = Union([Int(), Unicode(), Instance(Node)], allow_none=True)
+    process_states = List()
+    process_label = Unicode(allow_none=True)
+    description_contains = Unicode(allow_none=True)
+
+    def __init__(self, path_to_root='../', **kwargs):
+        self.path_to_root = path_to_root
+        self.table = ipw.HTML()
+        pd.set_option('max_colwidth', 40)
+        self.output = ipw.HTML()
+        update_button = ipw.Button(description="Update now")
+        update_button.on_click(self.update)
+        self.update()
+        super().__init__(children=[ipw.HBox([self.output, update_button]), self.table], **kwargs)
+
+    def update(self, _=None):
+        """Perform the query."""
+        # Here we are defining properties of 'df' class (specified while exporting pandas table into html).
+        # Since the exported object is nothing more than HTML table, all 'standard' HTML table settings
+        # can be applied to it as well.
+        # For more information on how to controle the table appearance please visit:
+        # https://css-tricks.com/complete-guide-table-element/
+        self.table.value = '''
+        <style>
+            .df { border: none; }
+            .df tbody tr:nth-child(odd) { background-color: #e5e7e9; }
+            .df tbody tr:nth-child(odd):hover { background-color:   #f5b7b1; }
+            .df tbody tr:nth-child(even):hover { background-color:  #f5b7b1; }
+            .df tbody td { min-width: 150px; text-align: center; border: none }
+            .df th { text-align: center; border: none;  border-bottom: 1px solid black;}
+        </style>
+        '''
+        builder = CalculationQueryBuilder()
+        filters = builder.get_filters(all_entries=False,
+                                      process_state=self.process_states,
+                                      process_label=self.process_label,
+                                      exit_status=None,
+                                      failed=None)
+        relationships = {}
+        if self.incoming_node:
+            relationships = {**relationships, **{'with_outgoing': self.incoming_node}}
+
+        if self.outgoing_node:
+            relationships = {**relationships, **{'with_incoming': self.outgoing_node}}
+
+        query_set = builder.get_query_set(
+            filters=filters,
+            past_days=None if self.past_days < 0 else self.past_days,
+            order_by={'ctime': 'desc'},
+            relationships=relationships,
+        )
+        projected = builder.get_projected(
+            query_set, projections=['pk', 'ctime', 'process_label', 'state', 'process_status', 'description'])
+        dataf = pd.DataFrame(projected[1:], columns=projected[0])
+
+        # Keep only process that contain the requested string in the description.
+        if self.description_contains:
+            dataf = dataf[dataf.Description.str.contains(self.description_contains)]
+
+        self.output.value = "{} processes shown".format(len(dataf))
+
+        # Add HTML links.
+        dataf['PK'] = dataf['PK'].apply(
+            lambda x: """<a href={0}aiidalab-widgets-base/process.ipynb?id={1} target="_blank">{1}</a>""".format(
+                self.path_to_root, x))
+        self.table.value += dataf.to_html(classes='df', escape=False, index=False)
+
+    @validate('incoming_node')
+    def _validate_incoming_node(self, provided):
+        """Validate incoming node. The function load_node takes care of managing ids and uuids."""
+        if provided['value']:
+            try:
+                return load_node(provided['value'])
+            except (MultipleObjectsError, NotExistent):
+                return None
+        return None
+
+    @validate('outgoing_node')
+    def _validate_outgoing_node(self, provided):
+        """Validate outgoing node. The function load_node takes care of managing ids and uuids."""
+        if provided['value']:
+            try:
+                return load_node(provided['value'])
+            except (MultipleObjectsError, NotExistent):
+                return None
+        return None
+
+    @validate('process_label')
+    def _validate_process_label(self, provided):
+        if provided['value']:
+            return provided['value']
+        return None
+
+    def _follow(self, update_interval):
+        while True:
+            self.update()
+            sleep(update_interval)
+
+    def start_autoupdate(self, update_interval=10):
+        import threading
+        update_state = threading.Thread(target=self._follow, args=(update_interval,))
+        update_state.start()
