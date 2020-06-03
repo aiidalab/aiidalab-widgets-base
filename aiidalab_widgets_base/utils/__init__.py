@@ -22,11 +22,11 @@ def predefine_settings(obj, **kwargs):
             raise AttributeError("'{}' object has no attirubte '{}'".format(obj, key))
 
 
-def get_ase_from_file(fname):
+def get_ase_from_file(fname, format=None):  # pylint: disable=redefined-builtin
     """Get ASE structure object."""
     from ase.io import read
     try:
-        traj = read(fname, index=":")
+        traj = read(fname, format=format, index=":")
     except Exception as exc:  # pylint: disable=broad-except
         if exc.args:
             print((' '.join([str(c) for c in exc.args])))
