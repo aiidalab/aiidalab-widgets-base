@@ -248,7 +248,7 @@ class StructureUploadWidget(ipw.VBox):
 
     def __init__(self, description="Upload Structure"):
 
-        self.file_upload = ipw.FileUpload(description=description, multiple=True, layout={'width': 'initial'})
+        self.file_upload = ipw.FileUpload(description=description, multiple=False, layout={'width': 'initial'})
         supported_formats = ipw.HTML(
             """<a href="https://wiki.fysik.dtu.dk/ase/_modules/ase/io/formats.html" target="_blank">
         Supported structure formats
