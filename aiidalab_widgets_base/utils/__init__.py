@@ -22,11 +22,11 @@ def predefine_settings(obj, **kwargs):
             raise AttributeError("'{}' object has no attirubte '{}'".format(obj, key))
 
 
-def get_ase_from_file(fname):
+def get_ase_from_file(fname, format=None):  # pylint: disable=redefined-builtin
     """Get ASE structure object."""
     from ase.io import read
     try:
-        traj = read(fname, index=":")
+        traj = read(fname, format=format, index=":")
     except Exception as exc:  # pylint: disable=broad-except
         if exc.args:
             print((' '.join([str(c) for c in exc.args])))
@@ -52,22 +52,29 @@ def find_ranges(iterable):
             yield group[0], group[-1]
 
 
-def set_to_string_range(selection):
-    """Convert a set like {1, 3, 4, 5} into a string like '1 3..5'."""
-    return " ".join(
-        [str(t) if isinstance(t, int) else "{}..{}".format(t[0], t[1]) for t in find_ranges(sorted(selection))])
+def list_to_string_range(lst, shift=1):
+    """Converts a list like [0, 2, 3, 4] into a string like '1 3..5'.
+
+    Shift used when e.g. for a user interface numbering starts from 1 not from 0"""
+    return " ".join([
+        str(t + shift) if isinstance(t, int) else "{}..{}".format(t[0] + shift, t[1] + shift)
+        for t in find_ranges(sorted(lst))
+    ])
 
 
-def string_range_to_set(strng):
-    """Convert a string like '1 3..5' into a set like {1, 3, 4, 5}."""
-    singles = [int(s) for s in strng.split() if s.isdigit()]
+def string_range_to_list(strng, shift=-1):
+    """Converts a string like '1 3..5' into a list like [0, 2, 3, 4].
+
+    Shift used when e.g. for a user interface numbering starts from 1 not from 0"""
+
+    singles = [int(s) + shift for s in strng.split() if s.isdigit()]
     ranges = [r for r in strng.split() if '..' in r]
     if len(singles) + len(ranges) != len(strng.split()):
-        return set(), False
+        return list(), False
     for rng in ranges:
         try:
             start, end = rng.split('..')
-            singles += [i for i in range(int(start), int(end) + 1)]
+            singles += [i + shift for i in range(int(start), int(end) + 1)]
         except ValueError:
-            return set(), False
-    return set(singles), True
+            return list(), False
+    return singles, True

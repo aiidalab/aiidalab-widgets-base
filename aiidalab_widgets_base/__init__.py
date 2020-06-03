@@ -1,20 +1,21 @@
 """Reusable widgets for AiiDA lab applications."""
-# pylint: disable=unused-import
+# pylint: disable=unused-import,wrong-import-position
 from aiida import load_profile
 load_profile()
 
-from .codes import CodeDropdown, AiiDACodeSetup, valid_aiidacode_args  # noqa
-from .computers import SshComputerSetup, valid_sshcomputer_args  # noqa
-from .computers import AiidaComputerSetup, valid_aiidacomputer_args  # noqa
-from .computers import ComputerDropdown  # noqa
-from .databases import CodQueryWidget  # noqa
-#from .editors import editor  # noqa
-from .export import ExportButtonWidget  # noqa
-from .process import ProcessFollowerWidget, ProgressBarWidget, RunningCalcJobOutputWidget, SubmitButtonWidget  # noqa
-from .structures import StructureManagerWidget  # noqa
-from .structures import StructureBrowserWidget, StructureExamplesWidget, StructureUploadWidget, SmilesWidget  # noqa
-from .structures import BasicStructureEditor  # noqa
-from .structures_multi import MultiStructureUploadWidget  # noqa
-from .viewers import viewer  # noqa
+from .codes import CodeDropdown, AiiDACodeSetup, valid_aiidacode_args
+from .computers import SshComputerSetup, valid_sshcomputer_args
+from .computers import AiidaComputerSetup, valid_aiidacomputer_args
+from .computers import ComputerDropdown
+from .databases import CodQueryWidget
+from .export import ExportButtonWidget
+from .process import ProgressBarWidget, ProcessFollowerWidget, ProcessInputsWidget, ProcessOutputsWidget
+from .process import ProcessCallStackWidget, RunningCalcJobOutputWidget, SubmitButtonWidget, ProcessReportWidget
+from .process import ProcessListWidget
+from .structures import StructureManagerWidget
+from .structures import StructureBrowserWidget, StructureExamplesWidget, StructureUploadWidget, SmilesWidget
+from .structures import BasicStructureEditor
+from .structures_multi import MultiStructureUploadWidget
+from .viewers import viewer
 
-__version__ = "1.0.0b5"
+__version__ = "1.0.0b6"

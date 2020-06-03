@@ -1,20 +1,19 @@
 """Module to provide functionality to import structures."""
 # pylint: disable=no-self-use
 
-import os
-import tempfile
+import io
 import datetime
 from collections import OrderedDict
 import numpy as np
 import ipywidgets as ipw
-from traitlets import Instance, Int, Set, Unicode, Union, link, default, observe, validate
+from traitlets import Instance, Int, List, Unicode, Union, link, default, observe, validate
 
 # ASE imports
 from ase import Atom, Atoms
 from ase.data import chemical_symbols, covalent_radii
 
 # AiiDA and AiiDA lab imports
-from aiida.orm import CalcFunctionNode, CalcJobNode, Data, QueryBuilder, Node, WorkChainNode
+from aiida.orm import CalcFunctionNode, CalcJobNode, Data, QueryBuilder, Node, WorkChainNode, CifData
 from aiida.plugins import DataFactory
 from .utils import get_ase_from_file
 from .viewers import StructureDataViewer
@@ -38,7 +37,7 @@ class StructureManagerWidget(ipw.VBox):
 
     SUPPORTED_DATA_FORMATS = {'CifData': 'cif', 'StructureData': 'structure'}
 
-    def __init__(self, importers, editors=None, storable=True, node_class=None, **kwargs):
+    def __init__(self, importers, viewer=None, editors=None, storable=True, node_class=None, **kwargs):
         """
         Arguments:
             importers(list): list of tuples each containing the displayed name of importer and the
@@ -52,56 +51,35 @@ class StructureManagerWidget(ipw.VBox):
                 Note: If your workflows require a specific node class, better fix it here.
         """
 
-        # Make sure the list is not empty
-        if not importers:
-            raise ValueError("The parameter importers should contain a list (or tuple) of tuples "
-                             "(\"importer name\", importer), got a falsy object.")
+        # History of modifications
+        self.history = []
+
+        # Undo functionality.
+        btn_undo = ipw.Button(description='Undo', button_style='success')
+        btn_undo.on_click(self.undo)
+        self.structure_set_by_undo = False
+
+        # To keep track of last inserted structure object
+        self._inserted_structure = None
+
+        # Structure viewer.
+        if viewer:
+            self.viewer = viewer
+        else:
+            self.viewer = StructureDataViewer(downloadable=False)
+        link((self, 'structure'), (self.viewer, 'structure'))
 
         # Store button.
         self.btn_store = ipw.Button(description='Store in AiiDA', disabled=True)
         self.btn_store.on_click(self._on_click_store)
 
-        # Setting traits' initial values
-        self._inserted_structure = None
-
-        # Structure viewer.
-        self.viewer = StructureDataViewer(downloadable=False)
-        link((self, 'structure'), (self.viewer, 'structure'))
-
         # Store format selector.
         data_format = ipw.RadioButtons(options=self.SUPPORTED_DATA_FORMATS, description='Data type:')
         link((data_format, 'label'), (self, 'node_class'))
 
-        # Description that is stored along with the new structure.
+        # Label and description that are stored along with the new structure.
         self.structure_label = ipw.Text(description='Label')
         self.structure_description = ipw.Text(description='Description')
-
-        # Displaying structure importers.
-        if len(importers) == 1:
-            # If there is only one importer - no need to make tabs.
-            self._structure_sources_tab = importers[0][1]
-            # Assigning a function which will be called when importer provides a structure.
-            link((self, 'structure'), (importers[0][1], 'structure'))
-        else:
-            self._structure_sources_tab = ipw.Tab()  # Tabs.
-            self._structure_sources_tab.children = [i[1] for i in importers]  # One importer per tab.
-            for i, (label, importer) in enumerate(importers):
-                # Labeling tabs.
-                self._structure_sources_tab.set_title(i, label)
-                link((self, 'structure'), (importer, 'structure'))
-
-        # Displaying structure editors
-        if editors and len(editors) == 1:
-            structure_editors_tab = editors[0][1]
-            structure_editors_tab.manager = self
-        elif editors:
-            structure_editors_tab = ipw.Tab()
-            structure_editors_tab.children = [i[1] for i in editors]
-            for i, (label, editor) in enumerate(editors):
-                structure_editors_tab.set_title(i, label)
-                editor.manager = self
-        else:
-            structure_editors_tab = None
 
         # Store button, store class selector, description.
         store_and_description = [self.btn_store] if storable else []
@@ -115,17 +93,57 @@ class StructureManagerWidget(ipw.VBox):
                                                                             list(self.SUPPORTED_DATA_FORMATS.keys())))
         self.output = ipw.HTML('')
 
-        store_and_description = ipw.HBox(store_and_description + [self.structure_label, self.structure_description])
+        children = [
+            self._structure_importers(importers), self.viewer,
+            ipw.HBox(store_and_description + [self.structure_label, self.structure_description])
+        ]
 
-        children = [self._structure_sources_tab, self.viewer, store_and_description]
-        if structure_editors_tab:
-            accordion = ipw.Accordion([structure_editors_tab])
+        structure_editors = self._struture_editors(editors)
+        if structure_editors:
+            structure_editors = ipw.VBox([btn_undo, structure_editors])
+            accordion = ipw.Accordion([structure_editors])
             accordion.selected_index = None
             accordion.set_title(0, 'Edit Structure')
             children += [accordion]
 
-        children += [self.output]
-        super().__init__(children=children, **kwargs)
+        super().__init__(children=children + [self.output], **kwargs)
+
+    def _structure_importers(self, importers):
+        """Preparing structure importers."""
+        if not importers:
+            raise ValueError("The parameter importers should contain a list (or tuple) of tuples "
+                             "(\"importer name\", importer), got a falsy object.")
+
+        # If there is only one importer - no need to make tabs.
+        if len(importers) == 1:
+            # Assigning a function which will be called when importer provides a structure.
+            link((self, 'structure'), (importers[0][1], 'structure'))
+            return importers[0][1]
+
+        # Otherwise making one tab per importer.
+        sources_tab = ipw.Tab()
+        sources_tab.children = [i[1] for i in importers]  # One importer per tab.
+        for i, (label, importer) in enumerate(importers):
+            # Labeling tabs.
+            sources_tab.set_title(i, label)
+            link((self, 'structure'), (importer, 'structure'))
+        return sources_tab
+
+    def _struture_editors(self, editors):
+        """Preparing structure editors."""
+        if editors and len(editors) == 1:
+            editors[0][1].manager = self
+            return editors[0][1]
+
+        # If more than one editor was defined.
+        if editors:
+            editors_tab = ipw.Tab()
+            editors_tab.children = [i[1] for i in editors]
+            for i, (label, editor) in enumerate(editors):
+                editors_tab.set_title(i, label)
+                editor.manager = self
+            return editors_tab
+        return None
 
     def _on_click_store(self, change):  # pylint: disable=unused-argument
         self.store_structure()
@@ -142,6 +160,17 @@ class StructureManagerWidget(ipw.VBox):
         self.structure_node.description = self.structure_description.value
         self.structure_node.store()
         self.output.value = "Stored in AiiDA [{}]".format(self.structure_node)
+
+    def undo(self, _):
+        """Undo modifications."""
+        self.structure_set_by_undo = True
+        if self.history:
+            self.history = self.history[:-1]
+            if self.history:
+                self.structure = self.history[-1]
+            else:
+                self.structure = None
+        self.structure_set_by_undo = False
 
     @staticmethod
     @default('node_class')
@@ -175,6 +204,8 @@ class StructureManagerWidget(ipw.VBox):
         This function enables/disables `btn_store` widget if structure is provided/set to None.
         Also, the function sets `structure_node` trait to the selected node type.
         """
+        if not self.structure_set_by_undo:
+            self.history.append(self._inserted_structure)
 
         # If structure trait was set to None, structure_node should become None as well.
         if self.structure is None:
@@ -213,26 +244,29 @@ class StructureManagerWidget(ipw.VBox):
 
 class StructureUploadWidget(ipw.VBox):
     """Class that allows to upload structures from user's computer."""
-    structure = Instance(Atoms, allow_none=True)
+    structure = Union([Instance(Atoms), Instance(Data)], allow_none=True)
 
-    def __init__(self, text="Upload Structure"):
-        from fileupload import FileUploadWidget
+    def __init__(self, description="Upload Structure"):
 
-        self.file_path = None
-        self.file_upload = FileUploadWidget(text)
+        self.file_upload = ipw.FileUpload(description=description, multiple=False, layout={'width': 'initial'})
         supported_formats = ipw.HTML(
             """<a href="https://wiki.fysik.dtu.dk/ase/_modules/ase/io/formats.html" target="_blank">
         Supported structure formats
         </a>""")
-        self.file_upload.observe(self._on_file_upload, names='data')
+        self.file_upload.observe(self._on_file_upload, names='value')
         super().__init__(children=[self.file_upload, supported_formats])
 
-    def _on_file_upload(self, change):  # pylint: disable=unused-argument
+    def _on_file_upload(self, change=None):
         """When file upload button is pressed."""
-        self.file_path = os.path.join(tempfile.mkdtemp(), self.file_upload.filename)
-        with open(self.file_path, 'w') as fobj:
-            fobj.write(self.file_upload.data.decode("utf-8"))
-        self.structure = get_ase_from_file(self.file_path)
+        for fname, item in change['new'].items():
+            fobj = io.BytesIO(item['content'])
+            frmt = fname.split('.')[-1]
+            if frmt == 'cif':
+                self.structure = CifData(file=fobj)
+            else:
+                self.structure = get_ase_from_file(fobj, format=frmt)
+            self.file_upload.value.clear()
+            break
 
     @default('structure')
     def _default_structure(self):
@@ -496,7 +530,7 @@ class BasicStructureEditor(ipw.VBox):
 
     manager = Instance(StructureManagerWidget, allow_none=True)
     structure = Instance(Atoms, allow_none=True)
-    selection = Set(Int)
+    selection = List(Int)
 
     def __init__(self):
 
@@ -567,12 +601,12 @@ class BasicStructureEditor(ipw.VBox):
         btn_add = ipw.Button(description='Add to selected', layout={'width': 'initial'})
         btn_add.on_click(self.add)
         self.bond_length = ipw.FloatText(description="Bond lenght.", value=1.0, layout={'width': '140px'})
-        self.use_covalent_radius = ipw.Checkbox(
-            value=False,
+        use_covalent_radius = ipw.Checkbox(
+            value=True,
             description='Use covalent radius',
             style={'description_width': 'initial'},
         )
-        self.use_covalent_radius.observe(self._observe_use_cov_radius, names='value')
+        link((use_covalent_radius, 'value'), (self.bond_length, 'disabled'))
 
         # Modify atom.
         btn_modify = ipw.Button(description='Modify selected', button_style='warning', layout={'width': 'initial'})
@@ -582,11 +616,16 @@ class BasicStructureEditor(ipw.VBox):
         btn_remove = ipw.Button(description='Remove selected', button_style='danger', layout={'width': 'initial'})
         btn_remove.on_click(self.remove)
 
+        # Automatically clear selection after point definition
+        self.autoclear_selection = ipw.Checkbox(description='Clear selection after pressing "From seletion"',
+                                                value=True,
+                                                style={'description_width': 'initial'})
+
         super().__init__(children=[
             ipw.HTML("<b>Action vector and point:</b>", layout={'margin': '20px 0px 10px 0px'}),
             ipw.HBox([self.axis_p1, btn_def_atom1, self.axis_p2, btn_def_atom2, btn_get_from_camera],
                      layout={'margin': '0px 0px 0px 20px'}),
-            ipw.HBox([self.point, btn_def_pnt], layout={'margin': '0px 0px 0px 20px'}),
+            ipw.HBox([self.point, btn_def_pnt, self.autoclear_selection], layout={'margin': '0px 0px 0px 20px'}),
             ipw.HTML("<b>Move atom(s):</b>", layout={'margin': '20px 0px 10px 0px'}),
             ipw.HBox([self.displacement, btn_move_dr, self.dxyz, btn_move_dxyz], layout={'margin': '0px 0px 0px 20px'}),
             ipw.HBox([self.phi, btn_rotate], layout={'margin': '0px 0px 0px 20px'}),
@@ -596,7 +635,7 @@ class BasicStructureEditor(ipw.VBox):
                 btn_modify,
                 btn_add,
                 self.bond_length,
-                self.use_covalent_radius,
+                use_covalent_radius,
             ],
                      layout={'margin': '0px 0px 0px 20px'}),
             ipw.HBox([btn_remove], layout={'margin': '0px 0px 0px 20px'}),
@@ -611,12 +650,6 @@ class BasicStructureEditor(ipw.VBox):
         link((manager, 'structure'), (self, 'structure'))
         link((self, 'selection'), (manager.viewer, 'selection'))
 
-    def _observe_use_cov_radius(self, _=None):
-        if self.use_covalent_radius.value:
-            self.bond_length.disabled = True
-        else:
-            self.bond_length.disabled = False
-
     def str2vec(self, string):
         return np.array(list(map(float, string.split())))
 
@@ -625,9 +658,8 @@ class BasicStructureEditor(ipw.VBox):
 
     def sel2com(self):
         """Get center of mass of the selection."""
-        selection = list(self.selection)
-        if selection:
-            com = self.structure[selection].get_center_of_mass()
+        if self.selection:
+            com = self.structure[self.selection].get_center_of_mass()
         else:
             com = [0, 0, 0]
 
@@ -640,13 +672,19 @@ class BasicStructureEditor(ipw.VBox):
 
     def def_point(self, _=None):
         self.point.value = self.vec2str(self.sel2com())
+        if self.autoclear_selection.value:
+            self.selection = list()
 
     def def_axis_p1(self, _=None):
         self.axis_p1.value = self.vec2str(self.sel2com())
+        if self.autoclear_selection.value:
+            self.selection = list()
 
     def def_axis_p2(self, _=None):
-        com = self.structure[list(self.selection)].get_center_of_mass() if self.selection else [0, 0, 1]
+        com = self.structure[self.selection].get_center_of_mass() if self.selection else [0, 0, 1]
         self.axis_p2.value = self.vec2str(com)
+        if self.autoclear_selection.value:
+            self.selection = list()
 
     def def_perpendicular_to_screen(self, _=None):
         cmr = self.manager.viewer._viewer._camera_orientation  # pylint: disable=protected-access
@@ -657,9 +695,10 @@ class BasicStructureEditor(ipw.VBox):
     def translate_dr(self, _=None):
         """Translate by dr along the selected vector."""
         atoms = self.structure.copy()
+
         selection = self.selection
 
-        atoms.positions[list(self.selection)] += np.array(self.action_vector * self.displacement.value)
+        atoms.positions[self.selection] += np.array(self.action_vector * self.displacement.value)
 
         self.structure = atoms
         self.selection = selection
@@ -670,7 +709,7 @@ class BasicStructureEditor(ipw.VBox):
         atoms = self.structure.copy()
 
         # The action.
-        atoms.positions[list(self.selection)] += np.array(self.str2vec(self.dxyz.value))
+        atoms.positions[self.selection] += np.array(self.str2vec(self.dxyz.value))
 
         self.structure = atoms
         self.selection = selection
@@ -682,7 +721,7 @@ class BasicStructureEditor(ipw.VBox):
         atoms = self.structure.copy()
 
         # The action.
-        rotated_subset = atoms[list(self.selection)]
+        rotated_subset = atoms[self.selection]
         vec = self.str2vec(self.vec2str(self.action_vector))
         center = self.str2vec(self.point.value)
         rotated_subset.rotate(self.phi.value, v=vec, center=center, rotate_cell=False)
@@ -727,7 +766,7 @@ class BasicStructureEditor(ipw.VBox):
             position = self.structure.positions[idx].copy()
             lgnd = initial_ligand.copy()
 
-            if self.use_covalent_radius.value:
+            if self.bond_length.disabled:
                 lgnd.translate(position + self.action_vector * (SYMBOL_RADIUS[self.structure.symbols[idx]] + rad))
             else:
                 lgnd.translate(position + self.action_vector * self.bond_length.value)
@@ -740,5 +779,5 @@ class BasicStructureEditor(ipw.VBox):
     def remove(self, _):
         """Remove selected atoms."""
         atoms = self.structure.copy()
-        del [atoms[list(self.selection)]]
+        del [atoms[self.selection]]
         self.structure = atoms

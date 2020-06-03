@@ -3,16 +3,16 @@
 
 import base64
 import warnings
-
+import numpy as np
 import ipywidgets as ipw
 from IPython.display import display
 import nglview
 from ase import Atoms
 
-from traitlets import Instance, Int, Set, Union, default, link, observe, validate
+from traitlets import Instance, Int, List, Union, default, link, observe, validate
 from aiida.orm import Node
 
-from .utils import string_range_to_set, set_to_string_range
+from .utils import string_range_to_list, list_to_string_range
 from .misc import CopyToClipboardButton
 
 
@@ -82,13 +82,14 @@ class _StructureDataBaseViewer(ipw.VBox):
 
     :param configure_view: If True, add configuration tabs
     :type configure_view: bool"""
-    selection = Set(Int)
+
+    selection = List(Int)
+    supercell = List(Int)
     DEFAULT_SELECTION_OPACITY = 0.2
     DEFAULT_SELECTION_RADIUS = 6
     DEFAULT_SELECTION_COLOR = 'green'
 
     def __init__(self, configure_view=True, **kwargs):
-
         # Defining viewer box.
 
         # 1. Nglviwer
@@ -114,7 +115,24 @@ class _StructureDataBaseViewer(ipw.VBox):
         camera_type.observe(change_camera, names="value")
         view_box = ipw.VBox([self._viewer, camera_type])
 
-        # Defining selection tab.
+        # Constructing configuration box
+        if configure_view:
+            configuration_box = ipw.Tab(layout=ipw.Layout(flex='1 1 auto', width='auto'))
+            configuration_box.children = [self._selection_tab(), self._appearance_tab(), self._download_tab()]
+            for i, title in enumerate(["Selection", "Appearance", "Download"]):
+                configuration_box.set_title(i, title)
+            children = [ipw.HBox([view_box, configuration_box])]
+            view_box.layout = {'width': "60%"}
+        else:
+            children = [view_box]
+
+        if 'children' in kwargs:
+            children += kwargs.pop('children')
+
+        super().__init__(children, **kwargs)
+
+    def _selection_tab(self):
+        """Defining the selection tab."""
 
         # 1. Selected atoms.
         self._selected_atoms = ipw.Text(description='Selected atoms:', value='', style={'description_width': 'initial'})
@@ -130,29 +148,35 @@ class _StructureDataBaseViewer(ipw.VBox):
 
         # 4. Button to clear selection.
         clear_selection = ipw.Button(description="Clear selection")
-        clear_selection.on_click(lambda _: self.set_trait('selection', set()))  # lambda cannot contain assignments
+        clear_selection.on_click(lambda _: self.set_trait('selection', list()))  # lambda cannot contain assignments
 
         # 5. Button to apply selection
         apply_selection = ipw.Button(description="Apply selection")
         apply_selection.on_click(self.apply_selection)
 
-        selection_tab = ipw.VBox([
+        self.selection_info = ipw.HTML()
+
+        return ipw.VBox([
             ipw.HBox([self._selected_atoms, self.wrong_syntax]),
-            ipw.HBox([copy_to_clipboard, clear_selection, apply_selection])
+            ipw.HBox([copy_to_clipboard, clear_selection, apply_selection]),
+            self.selection_info,
         ])
 
-        # Defining appearance tab.
+    def _appearance_tab(self):
+        """Defining the appearance tab."""
 
         # 1. Supercell
-        self.supercell_x = ipw.BoundedIntText(value=1, min=1, layout={"width": "30px"})
-        self.supercell_y = ipw.BoundedIntText(value=1, min=1, layout={"width": "30px"})
-        self.supercell_z = ipw.BoundedIntText(value=1, min=1, layout={"width": "30px"})
-        supercell_selector = ipw.HBox([
-            ipw.HTML(description="Super cell:", layout={"width": "initial"}),
-            self.supercell_x,
-            self.supercell_y,
-            self.supercell_z,
-        ])
+        def change_supercell(_=None):
+            self.supercell = [_supercell[0].value, _supercell[1].value, _supercell[2].value]
+
+        _supercell = [
+            ipw.BoundedIntText(value=1, min=1, layout={"width": "30px"}),
+            ipw.BoundedIntText(value=1, min=1, layout={"width": "30px"}),
+            ipw.BoundedIntText(value=1, min=1, layout={"width": "30px"}),
+        ]
+        for elem in _supercell:
+            elem.observe(change_supercell, names='value')
+        supercell_selector = ipw.HBox([ipw.HTML(description="Super cell:")] + _supercell)
 
         # 2. Choose background color.
         background_color = ipw.ColorPicker(description="Background")
@@ -163,9 +187,10 @@ class _StructureDataBaseViewer(ipw.VBox):
         center_button = ipw.Button(description="Center")
         center_button.on_click(lambda c: self._viewer.center())
 
-        appearance_tab = ipw.VBox([supercell_selector, background_color, center_button])
+        return ipw.VBox([supercell_selector, background_color, center_button])
 
-        # Defining download tab.
+    def _download_tab(self):
+        """Defining the download tab."""
 
         # 1. Choose download file format.
         self.file_format = ipw.Dropdown(options=['xyz', 'cif'], layout={"width": "200px"}, description="File format:")
@@ -182,39 +207,24 @@ class _StructureDataBaseViewer(ipw.VBox):
         self.screenshot_btn.on_click(lambda _: self._viewer.download_image())
         self.screenshot_box = ipw.VBox(children=[ipw.Label("Create a screenshot:"), self.screenshot_btn])
 
-        download_tab = ipw.VBox([self.download_box, self.screenshot_box])
+        return ipw.VBox([self.download_box, self.screenshot_box])
 
-        # Constructing configuration box
-        if configure_view:
-            configuration_box = ipw.Tab(layout=ipw.Layout(flex='1 1 auto', width='auto'))
-            configuration_box.children = [selection_tab, appearance_tab, download_tab]
-            for i, title in enumerate(["Selection", "Appearance", "Download"]):
-                configuration_box.set_title(i, title)
-            children = [ipw.HBox([view_box, configuration_box])]
-            view_box.layout = {'width': "60%"}
-        else:
-            children = [view_box]
-
-        if 'children' in kwargs:
-            children += kwargs.pop('children')
-
-        super().__init__(children, **kwargs)
-
-    def _on_atom_click(self, change=None):  # pylint:disable=unused-argument
+    def _on_atom_click(self, _=None):
         """Update selection when clicked on atom."""
         if 'atom1' not in self._viewer.picked.keys():
             return  # did not click on atom
         index = self._viewer.picked['atom1']['index']
+        selection = self.selection.copy()
 
-        if not self.selection:
-            self.selection = {index}
-            return
+        if selection:
+            if index not in selection:
+                selection.append(index)
+            else:
+                selection.remove(index)
+        else:
+            selection = [index]
 
-        if index not in self.selection:
-            self.selection = self.selection.union({index})
-            return
-
-        self.selection = self.selection.difference({index})
+        self.selection = selection
 
     def highlight_atoms(self,
                         vis_list,
@@ -232,23 +242,27 @@ class _StructureDataBaseViewer(ipw.VBox):
             aspectRatio=size,
             opacity=opacity)
 
+    @default('supercell')
+    def _default_supercell(self):
+        return [1, 1, 1]
+
     @default('selection')
     def _default_selection(self):
-        return set()
+        return list()
 
     @validate('selection')
     def _validate_selection(self, provided):
-        return set(provided['value'])
+        return list(provided['value'])
 
     @observe('selection')
     def _observe_selection(self, _=None):
         self.highlight_atoms(self.selection)
-        self._selected_atoms.value = set_to_string_range(self.selection)
+        self._selected_atoms.value = list_to_string_range(self.selection, shift=1)
 
     def apply_selection(self, _=None):
         """Apply selection specified in the text field."""
         selection_string = self._selected_atoms.value
-        expanded_selection, syntax_ok = string_range_to_set(self._selected_atoms.value)
+        expanded_selection, syntax_ok = string_range_to_list(self._selected_atoms.value, shift=-1)
         self.wrong_syntax.layout.visibility = 'hidden' if syntax_ok else 'visible'
         self.selection = expanded_selection
         self._selected_atoms.value = selection_string  # Keep the old string for further editing.
@@ -303,20 +317,12 @@ class StructureDataViewer(_StructureDataBaseViewer):
     def __init__(self, structure=None, **kwargs):
         super().__init__(**kwargs)
         self.structure = structure
+        #self.supercell.observe(self.repeat, names='value')
 
-        self.supercell_x.observe(self.repeat, names='value')
-        self.supercell_y.observe(self.repeat, names='value')
-        self.supercell_z.observe(self.repeat, names='value')
-
-    def repeat(self, _):
+    @observe('supercell')
+    def repeat(self, _=None):
         if self.structure is not None:
-            self.set_trait(
-                'displayed_structure',
-                self.structure.repeat([
-                    self.supercell_x.value,
-                    self.supercell_y.value,
-                    self.supercell_z.value,
-                ]))
+            self.set_trait('displayed_structure', self.structure.repeat(self.supercell))
 
     @validate('structure')
     def _valid_structure(self, change):  # pylint: disable=no-self-use
@@ -338,9 +344,7 @@ class StructureDataViewer(_StructureDataBaseViewer):
         """Update displayed_structure trait after the structure trait has been modified."""
         # Remove the current structure(s) from the viewer.
         if change['new'] is not None:
-            self.set_trait(
-                'displayed_structure',
-                change['new'].repeat([self.supercell_x.value, self.supercell_y.value, self.supercell_z.value]))
+            self.set_trait('displayed_structure', change['new'].repeat(self.supercell))
         else:
             self.set_trait('displayed_structure', None)
 
@@ -350,12 +354,61 @@ class StructureDataViewer(_StructureDataBaseViewer):
         with self.hold_trait_notifications():
             for comp_id in self._viewer._ngl_component_ids:  # pylint: disable=protected-access
                 self._viewer.remove_component(comp_id)
-            self.selection = set()
+            self.selection = list()
             if change['new'] is not None:
                 self._viewer.add_component(nglview.ASEStructure(change['new']))
                 self._viewer.clear()
                 self._viewer.add_ball_and_stick(aspectRatio=4)  # pylint: disable=no-member
                 self._viewer.add_unitcell()  # pylint: disable=no-member
+
+    def create_selection_info(self):
+        """Create information to be displayed with selected atoms"""
+
+        if not self.selection:
+            return ''
+
+        def print_pos(pos):
+            return " ".join([str(i) for i in pos.round(2)])
+
+        def add_info(indx, atom):
+            return "Id: {}; Symbol: {}; Coordinates: ({})<br>".format(indx + 1, atom.symbol, print_pos(atom.position))
+
+        # Find geometric center.
+        geom_center = print_pos(np.average(self.structure[self.selection].get_positions(), axis=0))
+
+        # Report coordinates.
+        if len(self.selection) == 1:
+            return add_info(self.selection[0], self.structure[self.selection[0]])
+
+        # Report coordinates, distance and center.
+        if len(self.selection) == 2:
+            info = ""
+            info += add_info(self.selection[0], self.structure[self.selection[0]])
+            info += add_info(self.selection[1], self.structure[self.selection[1]])
+            info += "Distance: {}<br>Geometric center: ({})".format(
+                self.structure.get_distance(*self.selection).round(2), geom_center)
+            return info
+
+        # Report angle geometric center and normal.
+        if len(self.selection) == 3:
+            angle = self.structure.get_angle(*self.selection).round(2)
+            normal = np.cross(*self.structure.get_distances(
+                self.selection[1], [self.selection[0], self.selection[2]], mic=False, vector=True))
+            normal = normal / np.linalg.norm(normal)
+            return "{} atoms selected<br>Geometric center: ({})<br>Angle: {}<br>Normal: ({})".format(
+                len(self.selection), geom_center, angle, print_pos(normal))
+
+        # Report  dihedral angle and geometric center.
+        if len(self.selection) == 4:
+            dihedral = self.structure.get_dihedral(self.selection) * 180 / np.pi
+            return "{} atoms selected<br>Geometric center: ({})<br>Dihedral angle: {}".format(
+                len(self.selection), geom_center, dihedral.round(2))
+
+        return "{} atoms selected<br>Geometric center: ({})".format(len(self.selection), geom_center)
+
+    @observe('selection')
+    def _observe_selection_2(self, _=None):
+        self.selection_info.value = self.create_selection_info()
 
 
 class FolderDataViewer(ipw.VBox):
