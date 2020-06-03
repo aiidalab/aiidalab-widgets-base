@@ -1,8 +1,7 @@
 """Module to provide functionality to import structures."""
 # pylint: disable=no-self-use
 
-import os
-import tempfile
+import io
 import datetime
 from collections import OrderedDict
 import numpy as np
@@ -14,7 +13,7 @@ from ase import Atom, Atoms
 from ase.data import chemical_symbols, covalent_radii
 
 # AiiDA and AiiDA lab imports
-from aiida.orm import CalcFunctionNode, CalcJobNode, Data, QueryBuilder, Node, WorkChainNode
+from aiida.orm import CalcFunctionNode, CalcJobNode, Data, QueryBuilder, Node, WorkChainNode, CifData
 from aiida.plugins import DataFactory
 from .utils import get_ase_from_file
 from .viewers import StructureDataViewer
@@ -245,26 +244,29 @@ class StructureManagerWidget(ipw.VBox):
 
 class StructureUploadWidget(ipw.VBox):
     """Class that allows to upload structures from user's computer."""
-    structure = Instance(Atoms, allow_none=True)
+    structure = Union([Instance(Atoms), Instance(Data)], allow_none=True)
 
-    def __init__(self, text="Upload Structure"):
-        from fileupload import FileUploadWidget
+    def __init__(self, description="Upload Structure"):
 
-        self.file_path = None
-        self.file_upload = FileUploadWidget(text)
+        self.file_upload = ipw.FileUpload(description=description, multiple=False, layout={'width': 'initial'})
         supported_formats = ipw.HTML(
             """<a href="https://wiki.fysik.dtu.dk/ase/_modules/ase/io/formats.html" target="_blank">
         Supported structure formats
         </a>""")
-        self.file_upload.observe(self._on_file_upload, names='data')
+        self.file_upload.observe(self._on_file_upload, names='value')
         super().__init__(children=[self.file_upload, supported_formats])
 
-    def _on_file_upload(self, change):  # pylint: disable=unused-argument
+    def _on_file_upload(self, change=None):
         """When file upload button is pressed."""
-        self.file_path = os.path.join(tempfile.mkdtemp(), self.file_upload.filename)
-        with open(self.file_path, 'w') as fobj:
-            fobj.write(self.file_upload.data.decode("utf-8"))
-        self.structure = get_ase_from_file(self.file_path)
+        for fname, item in change['new'].items():
+            fobj = io.BytesIO(item['content'])
+            frmt = fname.split('.')[-1]
+            if frmt == 'cif':
+                self.structure = CifData(file=fobj)
+            else:
+                self.structure = get_ase_from_file(fobj, format=frmt)
+            self.file_upload.value.clear()
+            break
 
     @default('structure')
     def _default_structure(self):
