@@ -666,31 +666,31 @@ class BasicStructureEditor(ipw.VBox):
 
     @property
     def action_vector(self):
-        """define action vector"""
+        """Define the action vector."""
         normal = self.str2vec(self.axis_p2.value) - self.str2vec(self.axis_p1.value)
         return normal / np.linalg.norm(normal)
 
     def def_point(self, _=None):
-        """define action point"""
+        """Define the action point."""
         self.point.value = self.vec2str(self.sel2com())
         if self.autoclear_selection.value:
             self.selection = list()
 
     def def_axis_p1(self, _=None):
-        """define first point of axis"""
+        """Define the first point of axis."""
         self.axis_p1.value = self.vec2str(self.sel2com())
         if self.autoclear_selection.value:
             self.selection = list()
 
     def def_axis_p2(self, _=None):
-        """define second point of axis"""
+        """Define the second point of axis."""
         com = np.average(self.structure[self.selection].get_positions(), axis=0) if self.selection else [0, 0, 1]
         self.axis_p2.value = self.vec2str(com)
         if self.autoclear_selection.value:
             self.selection = list()
 
     def def_perpendicular_to_screen(self, _=None):
-        """define vector perpendicular to screen"""
+        """Define a normalized vector perpendicular to the screen."""
         cmr = self.manager.viewer._viewer._camera_orientation  # pylint: disable=protected-access
         if cmr:
             self.axis_p1.value = "0 0 0"
