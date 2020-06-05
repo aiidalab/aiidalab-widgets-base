@@ -569,6 +569,7 @@ class BasicStructureEditor(ipw.VBox):
                                  'width': 'initial',
                                  'margin': '0px 0px 0px 20px'
                              })
+
         # Rotate atoms.
         btn_rotate = ipw.Button(description='Rotate', layout={'width': '10%'})
         btn_rotate.on_click(self.rotate)
@@ -659,7 +660,7 @@ class BasicStructureEditor(ipw.VBox):
     def sel2com(self):
         """Get center of mass of the selection."""
         if self.selection:
-            com = self.structure[self.selection].get_center_of_mass()
+            com = np.average(self.structure[self.selection].get_positions(), axis=0)
         else:
             com = [0, 0, 0]
 
@@ -667,30 +668,36 @@ class BasicStructureEditor(ipw.VBox):
 
     @property
     def action_vector(self):
+        """Define the action vector."""
         normal = self.str2vec(self.axis_p2.value) - self.str2vec(self.axis_p1.value)
         return normal / np.linalg.norm(normal)
 
     def def_point(self, _=None):
+        """Define the action point."""
         self.point.value = self.vec2str(self.sel2com())
         if self.autoclear_selection.value:
             self.selection = list()
 
     def def_axis_p1(self, _=None):
+        """Define the first point of axis."""
         self.axis_p1.value = self.vec2str(self.sel2com())
         if self.autoclear_selection.value:
             self.selection = list()
 
     def def_axis_p2(self, _=None):
-        com = self.structure[self.selection].get_center_of_mass() if self.selection else [0, 0, 1]
+        """Define the second point of axis."""
+        com = np.average(self.structure[self.selection].get_positions(), axis=0) if self.selection else [0, 0, 1]
         self.axis_p2.value = self.vec2str(com)
         if self.autoclear_selection.value:
             self.selection = list()
 
     def def_perpendicular_to_screen(self, _=None):
+        """Define a normalized vector perpendicular to the screen."""
         cmr = self.manager.viewer._viewer._camera_orientation  # pylint: disable=protected-access
         if cmr:
             self.axis_p1.value = "0 0 0"
-            self.axis_p2.value = self.vec2str([-cmr[2], -cmr[6], -cmr[10]])
+            versor = np.array([-cmr[2], -cmr[6], -cmr[10]]) / np.linalg.norm([-cmr[2], -cmr[6], -cmr[10]])
+            self.axis_p2.value = self.vec2str(versor.tolist())
 
     def translate_dr(self, _=None):
         """Translate by dr along the selected vector."""
