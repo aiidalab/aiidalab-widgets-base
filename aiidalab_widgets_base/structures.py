@@ -558,7 +558,7 @@ class BasicStructureEditor(ipw.VBox):
                                           style={'description_width': 'initial'},
                                           layout={'width': 'initial'})
 
-        btn_move_dxyz = ipw.Button(description=r'Move by XYZ ', layout={'width': 'initial'})
+        btn_move_dxyz = ipw.Button(description='Move by XYZ', layout={'width': 'initial'})
         btn_move_dxyz.on_click(self.translate_dxdydz)
         btn_move_to_xyz = ipw.Button(description='Move to XYZ', layout={'width': 'initial'})
         btn_move_to_xyz.on_click(self.translate_to_xyz)
