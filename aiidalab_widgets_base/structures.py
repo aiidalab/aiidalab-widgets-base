@@ -554,15 +554,17 @@ class BasicStructureEditor(ipw.VBox):
         # Move atoms.
         btn_move_dr = ipw.Button(description='Move', layout={'width': 'initial'})
         btn_move_dr.on_click(self.translate_dr)
-        self.displacement = ipw.FloatText(description='Move along the action vector',
+        self.displacement = ipw.FloatText(description=r'Move along action vector by $\Delta=$ ',
                                           value=1,
                                           step=0.1,
                                           style={'description_width': 'initial'},
                                           layout={'width': 'initial'})
 
-        btn_move_dxyz = ipw.Button(description='Move', layout={'width': 'initial'})
+        btn_move_dxyz = ipw.Button(description='Move by XYZ', layout={'width': 'initial'})
         btn_move_dxyz.on_click(self.translate_dxdydz)
-        self.dxyz = ipw.Text(description='Move along (XYZ)',
+        btn_move_to_xyz = ipw.Button(description='Move to XYZ', layout={'width': 'initial'})
+        btn_move_to_xyz.on_click(self.translate_to_xyz)
+        self.dxyz = ipw.Text(description='XYZ move:',
                              value='0 0 0',
                              style={'description_width': 'initial'},
                              layout={
@@ -628,7 +630,8 @@ class BasicStructureEditor(ipw.VBox):
                      layout={'margin': '0px 0px 0px 20px'}),
             ipw.HBox([self.point, btn_def_pnt, self.autoclear_selection], layout={'margin': '0px 0px 0px 20px'}),
             ipw.HTML("<b>Move atom(s):</b>", layout={'margin': '20px 0px 10px 0px'}),
-            ipw.HBox([self.displacement, btn_move_dr, self.dxyz, btn_move_dxyz], layout={'margin': '0px 0px 0px 20px'}),
+            ipw.HBox([self.displacement, btn_move_dr, self.dxyz, btn_move_dxyz, btn_move_to_xyz],
+                     layout={'margin': '0px 0px 0px 20px'}),
             ipw.HBox([self.phi, btn_rotate], layout={'margin': '0px 0px 0px 20px'}),
             ipw.HTML("<b>Modify atom(s):</v>", layout={'margin': '20px 0px 10px 0px'}),
             ipw.HBox([self.element, self.ligand], layout={'margin': '0px 0px 0px 20px'}),
@@ -711,12 +714,24 @@ class BasicStructureEditor(ipw.VBox):
         self.selection = selection
 
     def translate_dxdydz(self, _=None):
-        """Translate along the selected vector."""
+        """Translate by the selected XYZ delta."""
         selection = self.selection
         atoms = self.structure.copy()
 
         # The action.
         atoms.positions[self.selection] += np.array(self.str2vec(self.dxyz.value))
+
+        self.structure = atoms
+        self.selection = selection
+
+    def translate_to_xyz(self, _=None):
+        """Translate to the selected XYZ position."""
+        selection = self.selection
+        atoms = self.structure.copy()
+
+        # The action.
+        geo_center = np.average(self.structure[self.selection].get_positions(), axis=0)
+        atoms.positions[self.selection] += self.str2vec(self.dxyz.value) - geo_center
 
         self.structure = atoms
         self.selection = selection
