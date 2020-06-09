@@ -558,11 +558,11 @@ class BasicStructureEditor(ipw.VBox):
                                           style={'description_width': 'initial'},
                                           layout={'width': 'initial'})
 
-        btn_move_dxyz = ipw.Button(description='Move', layout={'width': 'initial'})
+        btn_move_dxyz = ipw.Button(description='Move along', layout={'width': 'initial'})
         btn_move_dxyz.on_click(self.translate_dxdydz)
         btn_move_to_xyz = ipw.Button(description='Move to', layout={'width': 'initial'})
         btn_move_to_xyz.on_click(self.translate_to_xyz)
-        self.dxyz = ipw.Text(description='Move along (XYZ)',
+        self.dxyz = ipw.Text(description='XYZ move',
                              value='0 0 0',
                              style={'description_width': 'initial'},
                              layout={
@@ -722,8 +722,7 @@ class BasicStructureEditor(ipw.VBox):
 
         # The action.
         geo_center = np.average(self.structure[self.selection].get_positions(), axis=0)
-
-        atoms.positions[self.selection] += np.array(self.str2vec(self.dxyz.value) - geo_center)
+        atoms.positions[self.selection] += self.str2vec(self.dxyz.value) - geo_center
 
         self.structure = atoms
         self.selection = selection
