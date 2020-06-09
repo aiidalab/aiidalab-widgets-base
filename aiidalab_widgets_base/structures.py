@@ -552,17 +552,17 @@ class BasicStructureEditor(ipw.VBox):
         # Move atoms.
         btn_move_dr = ipw.Button(description='Move', layout={'width': 'initial'})
         btn_move_dr.on_click(self.translate_dr)
-        self.displacement = ipw.FloatText(description='Move along the action vector',
+        self.displacement = ipw.FloatText(description=r'Move along action vector by $\Delta=$ ',
                                           value=1,
                                           step=0.1,
                                           style={'description_width': 'initial'},
                                           layout={'width': 'initial'})
 
-        btn_move_dxyz = ipw.Button(description='Move along', layout={'width': 'initial'})
+        btn_move_dxyz = ipw.Button(description=r'Move by XYZ ', layout={'width': 'initial'})
         btn_move_dxyz.on_click(self.translate_dxdydz)
-        btn_move_to_xyz = ipw.Button(description='Move to', layout={'width': 'initial'})
+        btn_move_to_xyz = ipw.Button(description='Move to XYZ', layout={'width': 'initial'})
         btn_move_to_xyz.on_click(self.translate_to_xyz)
-        self.dxyz = ipw.Text(description='XYZ move',
+        self.dxyz = ipw.Text(description='XYZ move:',
                              value='0 0 0',
                              style={'description_width': 'initial'},
                              layout={
@@ -705,7 +705,7 @@ class BasicStructureEditor(ipw.VBox):
         self.selection = selection
 
     def translate_dxdydz(self, _=None):
-        """Translate along the selected vector."""
+        """Translate by the selected XYZ delta."""
         selection = self.selection
         atoms = self.structure.copy()
 
@@ -716,7 +716,7 @@ class BasicStructureEditor(ipw.VBox):
         self.selection = selection
 
     def translate_to_xyz(self, _=None):
-        """Translate along the selected vector."""
+        """Translate to the selected XYZ position."""
         selection = self.selection
         atoms = self.structure.copy()
 
