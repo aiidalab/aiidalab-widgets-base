@@ -119,7 +119,7 @@ class StructureManagerWidget(ipw.VBox):
         # If there is only one importer - no need to make tabs.
         if len(importers) == 1:
             # Assigning a function which will be called when importer provides a structure.
-            importers[0].manager = self
+            importers[0].connect_to_manager(self)
             return importers[0]
 
         # Otherwise making one tab per importer.
@@ -128,13 +128,13 @@ class StructureManagerWidget(ipw.VBox):
         for i, importer in enumerate(importers):
             # Labeling tabs.
             importers_tab.set_title(i, importer.title)
-            importer.manager = self
+            importer.connect_to_manager(self)
         return importers_tab
 
     def _struture_editors(self, editors):
         """Preparing structure editors."""
         if editors and len(editors) == 1:
-            editors[0].manager = self
+            editors[0].connect_to_manager(self)
             return editors[0]
 
         # If more than one editor was defined.
@@ -143,7 +143,7 @@ class StructureManagerWidget(ipw.VBox):
             editors_tab.children = [i for i in editors]
             for i, editor in enumerate(editors):
                 editors_tab.set_title(i, editor.title)
-                editor.manager = self
+                editor.connect_to_manager(self)
             return editors_tab
         return None
 
@@ -275,7 +275,6 @@ class StructureManagerWidget(ipw.VBox):
 class StructureUploadWidget(ipw.VBox):
     """Class that allows to upload structures from user's computer."""
     structure = Union([Instance(Atoms), Instance(Data)], allow_none=True)
-    manager = Instance(StructureManagerWidget, allow_none=True)
 
     def __init__(self, title='', description="Upload Structure"):
         self.title = title
@@ -287,12 +286,8 @@ class StructureUploadWidget(ipw.VBox):
         self.file_upload.observe(self._on_file_upload, names='value')
         super().__init__(children=[self.file_upload, supported_formats])
 
-    @observe('manager')
-    def _change_manager(self, value):
-        """Set structure manager trait."""
-        manager = value['new']
-        if manager is None:
-            return
+    def connect_to_manager(self, manager):
+        """Link structure trait."""
         dlink((self, 'structure'), (manager, 'input_structure'))
 
     def _on_file_upload(self, change=None):
@@ -309,7 +304,6 @@ class StructureUploadWidget(ipw.VBox):
 
 class StructureExamplesWidget(ipw.VBox):
     """Class to provide example structures for selection."""
-    manager = Instance(StructureManagerWidget, allow_none=True)
     structure = Instance(Atoms, allow_none=True)
 
     def __init__(self, examples, title='', **kwargs):
@@ -319,12 +313,8 @@ class StructureExamplesWidget(ipw.VBox):
         self._select_structure.observe(self._on_select_structure, names=['value'])
         super().__init__(children=[self._select_structure], **kwargs)
 
-    @observe('manager')
-    def _change_manager(self, value):
-        """Set structure manager trait."""
-        manager = value['new']
-        if manager is None:
-            return
+    def connect_to_manager(self, manager):
+        """Link structure trait."""
         dlink((self, 'structure'), (manager, 'input_structure'))
 
     @staticmethod
@@ -346,7 +336,6 @@ class StructureExamplesWidget(ipw.VBox):
 
 class StructureBrowserWidget(ipw.VBox):
     """Class to query for structures stored in the AiiDA database."""
-    manager = Instance(StructureManagerWidget, allow_none=True)
     structure = Union([Instance(Atoms), Instance(Data)], allow_none=True)
 
     def __init__(self, title=''):
@@ -405,12 +394,8 @@ class StructureBrowserWidget(ipw.VBox):
         self.search()
         super().__init__([box, h_line, self.results])
 
-    @observe('manager')
-    def _change_manager(self, value):
-        """Set structure manager trait."""
-        manager = value['new']
-        if manager is None:
-            return
+    def connect_to_manager(self, manager):
+        """Link structure trait."""
         dlink((self, 'structure'), (manager, 'input_structure'))
 
     def preprocess(self):
@@ -493,14 +478,9 @@ class StructureBrowserWidget(ipw.VBox):
     def _on_select_structure(self, _=None):
         self.structure = self.results.value or None
 
-    @default('structure')
-    def _default_structure(self):
-        return None
-
 
 class SmilesWidget(ipw.VBox):
     """Conver SMILES into 3D structure."""
-    manager = Instance(StructureManagerWidget, allow_none=True)
     structure = Instance(Atoms, allow_none=True)
 
     SPINNER = """<i class="fa fa-spinner fa-pulse" style="color:red;" ></i>"""
@@ -521,12 +501,8 @@ class SmilesWidget(ipw.VBox):
         self.output = ipw.HTML("")
         super().__init__([self.smiles, self.create_structure_btn, self.output])
 
-    @observe('manager')
-    def _change_manager(self, value):
-        """Set structure manager trait."""
-        manager = value['new']
-        if manager is None:
-            return
+    def connect_to_manager(self, manager):
+        """Link structure trait."""
         dlink((self, 'structure'), (manager, 'input_structure'))
 
     @staticmethod
@@ -592,9 +568,9 @@ class SmilesWidget(ipw.VBox):
 class BasicStructureEditor(ipw.VBox):  # pylint: disable=too-many-instance-attributes
     """Widget that allows for the basic structure editing."""
 
-    manager = Instance(StructureManagerWidget, allow_none=True)
     structure = Instance(Atoms, allow_none=True)
     selection = List(Int)
+    _camera_orientation = List()
 
     def __init__(self, title=''):
 
@@ -710,14 +686,11 @@ class BasicStructureEditor(ipw.VBox):  # pylint: disable=too-many-instance-attri
             ipw.HBox([btn_remove], layout={'margin': '0px 0px 0px 20px'}),
         ])
 
-    @observe('manager')
-    def _change_manager(self, value):
-        """Set structure manager trait."""
-        manager = value['new']
-        if manager is None:
-            return
-        link((manager, 'structure'), (self, 'structure'))
+    def connect_to_manager(self, manager):
+        """Link structure and selection traits."""
+        link((self, 'structure'), (manager, 'structure'))
         link((self, 'selection'), (manager.viewer, 'selection'))
+        dlink((manager.viewer._viewer, '_camera_orientation'), (self, '_camera_orientation'))  # pylint: disable=protected-access
 
     def str2vec(self, string):
         return np.array(list(map(float, string.split())))
@@ -761,7 +734,7 @@ class BasicStructureEditor(ipw.VBox):  # pylint: disable=too-many-instance-attri
 
     def def_perpendicular_to_screen(self, _=None):
         """Define a normalized vector perpendicular to the screen."""
-        cmr = self.manager.viewer._viewer._camera_orientation  # pylint: disable=protected-access
+        cmr = self._camera_orientation
         if cmr:
             self.axis_p1.value = "0 0 0"
             versor = np.array([-cmr[2], -cmr[6], -cmr[10]]) / np.linalg.norm([-cmr[2], -cmr[6], -cmr[10]])

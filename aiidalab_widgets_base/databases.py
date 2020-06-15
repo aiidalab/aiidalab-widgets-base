@@ -1,6 +1,6 @@
 """Widgets that allow to query online databases."""
 import ipywidgets as ipw
-from traitlets import Instance, default, dlink, observe
+from traitlets import Instance, default, dlink
 from ase import Atoms
 
 from aiida.tools.dbimporters.plugins.cod import CodDbImporter
@@ -59,12 +59,8 @@ class CodQueryWidget(ipw.VBox):
         ]
         super(CodQueryWidget, self).__init__(children=children, **kwargs)
 
-    @observe('manager')
-    def _change_manager(self, value):
-        """Set structure manager trait."""
-        manager = value['new']
-        if manager is None:
-            return
+    def connect_to_manager(self, manager):
+        """Link structure trait."""
         dlink((self, 'structure'), (manager, 'input_structure'))
 
     @staticmethod
