@@ -192,44 +192,60 @@ class StructureManagerWidget(ipw.VBox):
 
     @observe('node_class')
     def _change_structure_node(self, _=None):
-        self.set_structure_node()
+        with self.hold_trait_notifications():
+            self._sync_structure_node()
 
-    def set_structure_node(self):
-        """Set structure_node trait using the currently provided info."""
-        StructureNode = DataFactory(self.SUPPORTED_DATA_FORMATS[self.node_class])  # pylint: disable=invalid-name
-        structure_node = None
+    def _sync_structure_node(self):
+        """Synchronize the structure_node trait using the currently provided info."""
         if len(self.history) > 1:
             # There are some modifications, so converting from ASE.
-            structure_node = StructureNode(ase=self.structure)
+            structure_node = self._convert_to_structure_node(self.structure)
         else:
-            # If the input_structure trait is set to Atoms object, structure node must be created from it.
-            if isinstance(self.input_structure, Atoms):
-                structure_node = StructureNode(ase=self.input_structure)
-
-            # If the input_structure trait is set to AiiDA node, check what type
-            elif isinstance(self.input_structure, Data):
-
-                # Transform the structure to the StructureNode if needed.
-                if isinstance(self.input_structure, StructureNode):
-                    structure_node = self.input_structure
-                else:
-                    # self.structure was already converted to the ASE Atoms object.
-                    structure_node = StructureNode(ase=self.structure)
+            structure_node = self._convert_to_structure_node(self.input_structure)
         self.set_trait('structure_node', structure_node)
 
-        if structure_node:
-            if structure_node.is_stored:
-                self.btn_store.disabled = True
-                self.structure_label.value = self.structure_node.label
-                self.structure_label.disabled = True
-                self.structure_description.value = self.structure_node.description
-                self.structure_description.disabled = True
-            else:
-                self.btn_store.disabled = False
-                self.structure_label.value = self.structure.get_chemical_formula()
-                self.structure_label.disabled = False
-                self.structure_description.value = ''
-                self.structure_description.disabled = False
+    def _convert_to_structure_node(self, structure):
+        """Convert structure of any type to the StructureNode object."""
+        if structure is None:
+            return None
+        StructureNode = DataFactory(self.SUPPORTED_DATA_FORMATS[self.node_class])  # pylint: disable=invalid-name
+
+        # If the input_structure trait is set to Atoms object, structure node must be created from it.
+        if isinstance(structure, Atoms):
+            return StructureNode(ase=structure)
+
+        # If the input_structure trait is set to AiiDA node, check what type
+        if isinstance(structure, Data):
+            # Transform the structure to the StructureNode if needed.
+            if isinstance(structure, StructureNode):
+                return structure
+
+        # Using self.structure, as it was already converted to the ASE Atoms object.
+        return StructureNode(ase=self.structure)
+
+    @observe('structure_node')
+    def _observe_structure_node(self, change):
+        """Modify structure label and description when a new structure is provided."""
+        struct = change['new']
+        if struct is None:
+            self.btn_store.disabled = True
+            self.structure_label.value = ''
+            self.structure_label.disabled = True
+            self.structure_description.value = ''
+            self.structure_description.disabled = True
+            return
+        if struct.is_stored:
+            self.btn_store.disabled = True
+            self.structure_label.value = struct.label
+            self.structure_label.disabled = True
+            self.structure_description.value = struct.description
+            self.structure_description.disabled = True
+        else:
+            self.btn_store.disabled = False
+            self.structure_label.value = self.structure.get_chemical_formula()
+            self.structure_label.disabled = False
+            self.structure_description.value = ''
+            self.structure_description.disabled = False
 
     @observe('input_structure')
     def _observe_input_structure(self, change):
@@ -265,11 +281,8 @@ class StructureManagerWidget(ipw.VBox):
             return
 
         self.btn_store.disabled = False
-        self.set_structure_node()
-
-    @default('structure_node')
-    def _default_structure_node(self):
-        return None
+        with self.hold_trait_notifications():
+            self._sync_structure_node()
 
 
 class StructureUploadWidget(ipw.VBox):
