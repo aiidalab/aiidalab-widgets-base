@@ -259,12 +259,11 @@ class StructureUploadWidget(ipw.VBox):
     def _on_file_upload(self, change=None):
         """When file upload button is pressed."""
         for fname, item in change['new'].items():
-            fobj = io.BytesIO(item['content'])
             frmt = fname.split('.')[-1]
             if frmt == 'cif':
-                self.structure = CifData(file=fobj)
+                self.structure = CifData(file=io.BytesIO(item['content']))
             else:
-                self.structure = get_ase_from_file(fobj, format=frmt)
+                self.structure = get_ase_from_file(io.StringIO(item['content'].decode()), format=frmt)
             self.file_upload.value.clear()
             break
 
