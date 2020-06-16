@@ -119,7 +119,8 @@ class StructureManagerWidget(ipw.VBox):
         # If there is only one importer - no need to make tabs.
         if len(importers) == 1:
             # Assigning a function which will be called when importer provides a structure.
-            importers[0].connect_to_manager(self)
+            if importers[0].has_trait('structure'):
+                dlink((importers[0], 'structure'), (self, 'input_structure'))
             return importers[0]
 
         # Otherwise making one tab per importer.
@@ -128,13 +129,19 @@ class StructureManagerWidget(ipw.VBox):
         for i, importer in enumerate(importers):
             # Labeling tabs.
             importers_tab.set_title(i, importer.title)
-            importer.connect_to_manager(self)
+            if importer.has_trait('structure'):
+                dlink((importer, 'structure'), (self, 'input_structure'))
         return importers_tab
 
     def _struture_editors(self, editors):
         """Preparing structure editors."""
         if editors and len(editors) == 1:
-            editors[0].connect_to_manager(self)
+            if editors[0].has_trait('structure'):
+                link((editors[0], 'structure'), (self, 'structure'))
+            if editors[0].has_trait('selection'):
+                link((editors[0], 'selection'), (self.viewer, 'selection'))
+            if editors[0].has_trait('camera_orientation'):
+                dlink((self.viewer._viewer, '_camera_orientation'), (editors[0], 'camera_orientation'))  # pylint: disable=protected-access
             return editors[0]
 
         # If more than one editor was defined.
@@ -143,7 +150,12 @@ class StructureManagerWidget(ipw.VBox):
             editors_tab.children = [i for i in editors]
             for i, editor in enumerate(editors):
                 editors_tab.set_title(i, editor.title)
-                editor.connect_to_manager(self)
+                if editor.has_trait('structure'):
+                    link((editor, 'structure'), (self, 'structure'))
+                if editor.has_trait('selection'):
+                    link((editor, 'selection'), (self.viewer, 'selection'))
+                if editor.has_trait('camera_orientation'):
+                    dlink((self.viewer._viewer, '_camera_orientation'), (editor, 'camera_orientation'))  # pylint: disable=protected-access
             return editors_tab
         return None
 
@@ -299,10 +311,6 @@ class StructureUploadWidget(ipw.VBox):
         self.file_upload.observe(self._on_file_upload, names='value')
         super().__init__(children=[self.file_upload, supported_formats])
 
-    def connect_to_manager(self, manager):
-        """Link structure trait."""
-        dlink((self, 'structure'), (manager, 'input_structure'))
-
     def _on_file_upload(self, change=None):
         """When file upload button is pressed."""
         for fname, item in change['new'].items():
@@ -325,10 +333,6 @@ class StructureExamplesWidget(ipw.VBox):
         self._select_structure = ipw.Dropdown(options=self.get_example_structures(examples))
         self._select_structure.observe(self._on_select_structure, names=['value'])
         super().__init__(children=[self._select_structure], **kwargs)
-
-    def connect_to_manager(self, manager):
-        """Link structure trait."""
-        dlink((self, 'structure'), (manager, 'input_structure'))
 
     @staticmethod
     def get_example_structures(examples):
@@ -406,10 +410,6 @@ class StructureBrowserWidget(ipw.VBox):
         self.results.observe(self._on_select_structure)
         self.search()
         super().__init__([box, h_line, self.results])
-
-    def connect_to_manager(self, manager):
-        """Link structure trait."""
-        dlink((self, 'structure'), (manager, 'input_structure'))
 
     def preprocess(self):
         """Search structures in AiiDA database and add formula extra to them."""
@@ -514,10 +514,6 @@ class SmilesWidget(ipw.VBox):
         self.output = ipw.HTML("")
         super().__init__([self.smiles, self.create_structure_btn, self.output])
 
-    def connect_to_manager(self, manager):
-        """Link structure trait."""
-        dlink((self, 'structure'), (manager, 'input_structure'))
-
     @staticmethod
     def pymol_2_ase(pymol):
         """Convert pymol object into ASE Atoms."""
@@ -583,7 +579,7 @@ class BasicStructureEditor(ipw.VBox):  # pylint: disable=too-many-instance-attri
 
     structure = Instance(Atoms, allow_none=True)
     selection = List(Int)
-    _camera_orientation = List()
+    camera_orientation = List()
 
     def __init__(self, title=''):
 
@@ -699,12 +695,6 @@ class BasicStructureEditor(ipw.VBox):  # pylint: disable=too-many-instance-attri
             ipw.HBox([btn_remove], layout={'margin': '0px 0px 0px 20px'}),
         ])
 
-    def connect_to_manager(self, manager):
-        """Link structure and selection traits."""
-        link((self, 'structure'), (manager, 'structure'))
-        link((self, 'selection'), (manager.viewer, 'selection'))
-        dlink((manager.viewer._viewer, '_camera_orientation'), (self, '_camera_orientation'))  # pylint: disable=protected-access
-
     def str2vec(self, string):
         return np.array(list(map(float, string.split())))
 
@@ -747,7 +737,7 @@ class BasicStructureEditor(ipw.VBox):  # pylint: disable=too-many-instance-attri
 
     def def_perpendicular_to_screen(self, _=None):
         """Define a normalized vector perpendicular to the screen."""
-        cmr = self._camera_orientation
+        cmr = self.camera_orientation
         if cmr:
             self.axis_p1.value = "0 0 0"
             versor = np.array([-cmr[2], -cmr[6], -cmr[10]]) / np.linalg.norm([-cmr[2], -cmr[6], -cmr[10]])

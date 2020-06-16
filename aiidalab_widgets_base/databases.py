@@ -1,6 +1,6 @@
 """Widgets that allow to query online databases."""
 import ipywidgets as ipw
-from traitlets import Instance, default, dlink
+from traitlets import Instance, default
 from ase import Atoms
 
 from aiida.tools.dbimporters.plugins.cod import CodDbImporter
@@ -58,10 +58,6 @@ class CodQueryWidget(ipw.VBox):
             ipw.HBox([self.drop_structure, self.link])
         ]
         super(CodQueryWidget, self).__init__(children=children, **kwargs)
-
-    def connect_to_manager(self, manager):
-        """Link structure trait."""
-        dlink((self, 'structure'), (manager, 'input_structure'))
 
     @staticmethod
     def _query(idn=None, formula=None):
