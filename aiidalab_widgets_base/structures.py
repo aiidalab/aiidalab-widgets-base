@@ -119,8 +119,7 @@ class StructureManagerWidget(ipw.VBox):
         # If there is only one importer - no need to make tabs.
         if len(importers) == 1:
             # Assigning a function which will be called when importer provides a structure.
-            if importers[0].has_trait('structure'):
-                dlink((importers[0], 'structure'), (self, 'input_structure'))
+            dlink((importers[0], 'structure'), (self, 'input_structure'))
             return importers[0]
 
         # Otherwise making one tab per importer.
@@ -129,15 +128,13 @@ class StructureManagerWidget(ipw.VBox):
         for i, importer in enumerate(importers):
             # Labeling tabs.
             importers_tab.set_title(i, importer.title)
-            if importer.has_trait('structure'):
-                dlink((importer, 'structure'), (self, 'input_structure'))
+            dlink((importer, 'structure'), (self, 'input_structure'))
         return importers_tab
 
     def _struture_editors(self, editors):
         """Preparing structure editors."""
         if editors and len(editors) == 1:
-            if editors[0].has_trait('structure'):
-                link((editors[0], 'structure'), (self, 'structure'))
+            link((editors[0], 'structure'), (self, 'structure'))
             if editors[0].has_trait('selection'):
                 link((editors[0], 'selection'), (self.viewer, 'selection'))
             if editors[0].has_trait('camera_orientation'):
@@ -150,8 +147,7 @@ class StructureManagerWidget(ipw.VBox):
             editors_tab.children = [i for i in editors]
             for i, editor in enumerate(editors):
                 editors_tab.set_title(i, editor.title)
-                if editor.has_trait('structure'):
-                    link((editor, 'structure'), (self, 'structure'))
+                link((editor, 'structure'), (self, 'structure'))
                 if editor.has_trait('selection'):
                     link((editor, 'selection'), (self.viewer, 'selection'))
                 if editor.has_trait('camera_orientation'):
