@@ -9,16 +9,20 @@ import ipywidgets as ipw
 from traitlets import Instance, Int, List, Unicode, Union, dlink, link, default, observe
 
 # ASE imports
+import ase
 from ase import Atom, Atoms
 from ase.data import chemical_symbols, covalent_radii
 
 # AiiDA and AiiDA lab imports
 from aiida.engine import calcfunction
-from aiida.orm import CalcFunctionNode, CalcJobNode, Data, QueryBuilder, Node, WorkChainNode, CifData
+from aiida.orm import CalcFunctionNode, CalcJobNode, Data, QueryBuilder, Node, WorkChainNode
 from aiida.plugins import DataFactory
 from .utils import get_ase_from_file
 from .viewers import StructureDataViewer
 from .data import LigandSelectorWidget
+
+CifData = DataFactory('cif')  # pylint: disable=invalid-name
+StructureData = DataFactory('structure')  # pylint: disable=invalid-name
 
 SYMBOL_RADIUS = {key: covalent_radii[i] for i, key in enumerate(chemical_symbols)}
 
@@ -266,7 +270,10 @@ class StructureManagerWidget(ipw.VBox):
 
         # If the `input_structure` trait is set to AiiDA node, then the `structure` trait should
         # be converted to an ASE Atoms object.
-        elif isinstance(change['new'], Data):
+        elif isinstance(change['new'], CifData):  # Special treatement of the CifData object
+            str_io = io.StringIO(change['new'].get_content())
+            self.structure = ase.io.read(str_io, format='cif', reader='ase', store_tags=True)
+        elif isinstance(change['new'], StructureData):
             self.structure = change['new'].get_ase()
 
         else:
