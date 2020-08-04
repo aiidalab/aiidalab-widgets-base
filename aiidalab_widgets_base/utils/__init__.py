@@ -2,6 +2,7 @@
 import more_itertools as mit
 from ase.io import read
 
+
 def valid_arguments(arguments, valid_args):
     """Check whether provided arguments are valid."""
     result = {}
