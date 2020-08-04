@@ -18,4 +18,4 @@ from .structures import BasicStructureEditor
 from .structures_multi import MultiStructureUploadWidget
 from .viewers import viewer
 
-__version__ = "1.0.0b8"
+__version__ = "1.0.0b9"
