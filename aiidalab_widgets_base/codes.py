@@ -11,7 +11,7 @@ from aiida.orm import Code, QueryBuilder, User
 from aiidalab_widgets_base.utils import predefine_settings, valid_arguments
 
 VALID_AIIDA_CODE_SETUP_ARGUMETNS = {
-    'label', 'selected_computer', 'plugin', 'description', 'exec_path', 'prepend_text', 'append_text'
+    'label', 'computer', 'plugin', 'description', 'exec_path', 'prepend_text', 'append_text'
 }
 
 
@@ -61,12 +61,21 @@ class CodeDropdown(ipw.VBox):
 
         self.observe(self.refresh, names=['allow_disabled_computers', 'allow_hidden_codes'])
 
-        # FOR LATER: use base_url here, when it will be implemented in the appmode.
-        self._setup_another = ipw.HTML(value="""<a href={path_to_root}aiidalab-widgets-base/setup_code.ipynb?
-                      label={label}&plugin={plugin} target="_blank">Setup new code</a>""".format(
-            path_to_root=path_to_root, label=input_plugin, plugin=input_plugin))
+        # Prepare URL parameters for the code setup.
+        setup_code_params = {
+            "label": input_plugin,
+            "plugin": input_plugin,
+        }
 
-        children = [ipw.HBox([self.dropdown, btn_refresh, self._setup_another]), self.output]
+        for key, value in kwargs.pop('setup_code_params', {}).items():
+            setup_code_params[key] = value
+
+        ## For later: use base_url here, when it will be implemented in the appmode.
+        url_string = f"<a href={path_to_root}aiidalab-widgets-base/setup_code.ipynb?"
+        url_string += "&".join([f"{k}={v}".replace(' ', '%20') for k, v in setup_code_params.items()])
+        url_string += ' target="_blank">Setup new code</a>'
+
+        children = [ipw.HBox([self.dropdown, btn_refresh, ipw.HTML(value=url_string)]), self.output]
 
         super().__init__(children=children, **kwargs)
 
@@ -202,9 +211,9 @@ class AiiDACodeSetup(ipw.VBox):
                 print("You did not specify absolute path to the executable")
                 return
             if self.exists():
-                print("Code {}@{} already exists".format(self.label, self.selected_computer.name))
+                print("Code {}@{} already exists".format(self.label, self.computer.name))
                 return
-            code = Code(remote_computer_exec=(self.selected_computer, self.exec_path))
+            code = Code(remote_computer_exec=(self.computer, self.exec_path))
             code.label = self.label
             code.description = self.description
             code.set_input_plugin_name(self.plugin)
@@ -212,14 +221,14 @@ class AiiDACodeSetup(ipw.VBox):
             code.set_append_text(self.append_text)
             code.store()
             code.reveal()
-            full_string = "{}@{}".format(self.label, self.selected_computer.name)
+            full_string = "{}@{}".format(self.label, self.computer.name)
             print(check_output(['verdi', 'code', 'show', full_string]).decode('utf-8'))
 
     def exists(self):
         """Returns True if the code exists, returns False otherwise."""
         from aiida.common import NotExistent, MultipleObjectsError
         try:
-            Code.get_from_string("{}@{}".format(self.label, self.selected_computer.name))
+            Code.get_from_string("{}@{}".format(self.label, self.computer.name))
             return True
         except MultipleObjectsError:
             return True
@@ -278,9 +287,9 @@ class AiiDACodeSetup(ipw.VBox):
         self._append_text.value = append_text
 
     @property
-    def selected_computer(self):
+    def computer(self):
         return self._computer.selected_computer
 
-    @selected_computer.setter
-    def selected_computer(self, selected_computer):
-        self._computer.selected_computer = selected_computer
+    @computer.setter
+    def computer(self, computer):
+        self._computer.selected_computer = computer
