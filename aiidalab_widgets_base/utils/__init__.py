@@ -1,4 +1,6 @@
 """Some utility functions used acrross the repository."""
+import more_itertools as mit
+from ase.io import read
 
 
 def valid_arguments(arguments, valid_args):
@@ -24,15 +26,10 @@ def predefine_settings(obj, **kwargs):
 
 def get_ase_from_file(fname, format=None):  # pylint: disable=redefined-builtin
     """Get ASE structure object."""
-    from ase.io import read
-    try:
+    if format == 'cif':
         traj = read(fname, format=format, index=":", store_tags=True)
-    except Exception as exc:  # pylint: disable=broad-except
-        if exc.args:
-            print((' '.join([str(c) for c in exc.args])))
-        else:
-            print("Unknown error")
-        return False
+    else:
+        traj = read(fname, format=format, index=":")
     if not traj:
         print(("Could not read any information from the file {}".format(fname)))
         return False
@@ -43,7 +40,6 @@ def get_ase_from_file(fname, format=None):  # pylint: disable=redefined-builtin
 
 def find_ranges(iterable):
     """Yield range of consecutive numbers."""
-    import more_itertools as mit
     for group in mit.consecutive_groups(iterable):
         group = list(group)
         if len(group) == 1:
@@ -66,7 +62,6 @@ def string_range_to_list(strng, shift=-1):
     """Converts a string like '1 3..5' into a list like [0, 2, 3, 4].
 
     Shift used when e.g. for a user interface numbering starts from 1 not from 0"""
-
     singles = [int(s) + shift for s in strng.split() if s.isdigit()]
     ranges = [r for r in strng.split() if '..' in r]
     if len(singles) + len(ranges) != len(strng.split()):
