@@ -803,7 +803,13 @@ class BasicStructureEditor(ipw.VBox):  # pylint: disable=too-many-instance-attri
 
         if self.ligand.value == 0:
             for idx in self.selection:
-                atoms[idx].symbol = self.element.value
+                new = Atom(self.element.value)
+                atoms[idx].mass = new.mass
+                atoms[idx].magmom = new.magmom
+                atoms[idx].momentum = new.momentum
+                atoms[idx].symbol = new.symbol
+                atoms[idx].tag = new.tag
+                atoms[idx].charge = new.charge
         else:
             initial_ligand = self.ligand.rotate(align_to=self.action_vector, remove_anchor=True)
             for idx in self.selection:
