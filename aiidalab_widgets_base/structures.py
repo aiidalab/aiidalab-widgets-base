@@ -270,7 +270,10 @@ class StructureManagerWidget(ipw.VBox):
             # if any of the cell vectors is too short, consider it faulty
             # set cell as bounding box + vacuum_ang
             bbox = np.ptp(ase_structure.positions, axis=0)
-            ase_structure.cell = bbox + vacuum_ang
+            new_structure = ase_structure.copy()
+            new_structure.cell = bbox + vacuum_ang
+            return new_structure
+        return ase_structure
 
     @observe('input_structure')
     def _observe_input_structure(self, change):
