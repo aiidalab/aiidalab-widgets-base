@@ -265,9 +265,10 @@ class StructureManagerWidget(ipw.VBox):
         otherwise sets it to bounding box plus specified "vacuum" space
         """
         cell = ase_structure.cell
-        if cell[0][0] < 0.1 or cell[1][1] < 0.1 or cell[2][2] < 0.1:
-            # if any diagonal component of the cell is 0, consider it faulty
-            # set bounding box + vacuum_ang angstrom as cell
+
+        if (np.linalg.norm(cell[0]) < 0.1 or np.linalg.norm(cell[1]) < 0.1 or np.linalg.norm(cell[2]) < 0.1):
+            # if any of the cell vectors is too short, consider it faulty
+            # set cell as bounding box + vacuum_ang
             bbox = np.ptp(ase_structure.positions, axis=0)
             ase_structure.cell = bbox + vacuum_ang
 
@@ -278,8 +279,8 @@ class StructureManagerWidget(ipw.VBox):
         self.history = []
 
         if isinstance(change['new'], Atoms):
+            self._validate_and_fix_ase_cell(change['new'])
             self.structure = change['new']
-            self._validate_and_fix_ase_cell(self.structure)
 
         # If the `input_structure` trait is set to AiiDA node, then the `structure` trait should
         # be converted to an ASE Atoms object.
