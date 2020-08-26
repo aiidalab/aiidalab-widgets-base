@@ -224,8 +224,6 @@ class StructureManagerWidget(ipw.VBox):
 
         # If the input_structure trait is set to Atoms object, structure node must be created from it.
         if isinstance(structure, Atoms):
-            if StructureNode == StructureData:
-                structure = self._validate_and_fix_ase_cell(structure)
             return StructureNode(ase=structure)
 
         # If the input_structure trait is set to AiiDA node, check what type
@@ -284,7 +282,7 @@ class StructureManagerWidget(ipw.VBox):
         self.history = []
 
         if isinstance(change['new'], Atoms):
-            self.structure = change['new']
+            self.structure = self._validate_and_fix_ase_cell(change['new'])
 
         # If the `input_structure` trait is set to AiiDA node, then the `structure` trait should
         # be converted to an ASE Atoms object.
