@@ -259,22 +259,6 @@ class StructureManagerWidget(ipw.VBox):
             self.structure_description.value = ''
             self.structure_description.disabled = False
 
-    def _validate_and_fix_ase_cell(self, ase_structure, vacuum_ang=10.0):
-        """
-        Checks if the ase Atoms object has a cell set,
-        otherwise sets it to bounding box plus specified "vacuum" space
-        """
-        cell = ase_structure.cell
-
-        if (np.linalg.norm(cell[0]) < 0.1 or np.linalg.norm(cell[1]) < 0.1 or np.linalg.norm(cell[2]) < 0.1):
-            # if any of the cell vectors is too short, consider it faulty
-            # set cell as bounding box + vacuum_ang
-            bbox = np.ptp(ase_structure.positions, axis=0)
-            new_structure = ase_structure.copy()
-            new_structure.cell = bbox + vacuum_ang
-            return new_structure
-        return ase_structure
-
     @observe('input_structure')
     def _observe_input_structure(self, change):
         """Returns ASE atoms object and sets structure_node trait."""
@@ -282,7 +266,7 @@ class StructureManagerWidget(ipw.VBox):
         self.history = []
 
         if isinstance(change['new'], Atoms):
-            self.structure = self._validate_and_fix_ase_cell(change['new'])
+            self.structure = change['new']
 
         # If the `input_structure` trait is set to AiiDA node, then the `structure` trait should
         # be converted to an ASE Atoms object.
@@ -330,6 +314,22 @@ class StructureUploadWidget(ipw.VBox):
         self.file_upload.observe(self._on_file_upload, names='value')
         super().__init__(children=[self.file_upload, supported_formats])
 
+    def _validate_and_fix_ase_cell(self, ase_structure, vacuum_ang=10.0):
+        """
+        Checks if the ase Atoms object has a cell set,
+        otherwise sets it to bounding box plus specified "vacuum" space
+        """
+        cell = ase_structure.cell
+
+        if (np.linalg.norm(cell[0]) < 0.1 or np.linalg.norm(cell[1]) < 0.1 or np.linalg.norm(cell[2]) < 0.1):
+            # if any of the cell vectors is too short, consider it faulty
+            # set cell as bounding box + vacuum_ang
+            bbox = np.ptp(ase_structure.positions, axis=0)
+            new_structure = ase_structure.copy()
+            new_structure.cell = bbox + vacuum_ang
+            return new_structure
+        return ase_structure
+
     def _on_file_upload(self, change=None):
         """When file upload button is pressed."""
         for fname, item in change['new'].items():
@@ -337,7 +337,8 @@ class StructureUploadWidget(ipw.VBox):
             if frmt == 'cif':
                 self.structure = CifData(file=io.BytesIO(item['content']))
             else:
-                self.structure = get_ase_from_file(io.StringIO(item['content'].decode()), format=frmt)
+                self.structure = self._validate_and_fix_ase_cell(
+                    get_ase_from_file(io.StringIO(item['content'].decode()), format=frmt))
             self.file_upload.value.clear()
             break
 
