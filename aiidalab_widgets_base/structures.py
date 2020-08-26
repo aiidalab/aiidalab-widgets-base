@@ -47,7 +47,7 @@ class StructureManagerWidget(ipw.VBox):
         """
         Arguments:
             importers(list): list of tuples each containing the displayed name of importer and the
-                importer object. Each object should containt 'structure' trait pointing to the imported
+                importer object. Each object should contain 'structure' trait pointing to the imported
                 structure. The trait will be linked to 'structure' trait of this class.
 
             storable(bool): Whether to provide Store button (together with Store format)
@@ -118,7 +118,7 @@ class StructureManagerWidget(ipw.VBox):
         """Preparing structure importers."""
         if not importers:
             raise ValueError("The parameter importers should contain a list (or tuple) of "
-                             "importers, got a falsy object.")
+                             "importers, got a false object.")
 
         # If there is only one importer - no need to make tabs.
         if len(importers) == 1:
@@ -215,6 +215,14 @@ class StructureManagerWidget(ipw.VBox):
         else:
             structure_node = self._convert_to_structure_node(self.input_structure)
         self.set_trait('structure_node', structure_node)
+        
+    def _validate_and_fix_ase_cell(self, ase_structure, vacuum_ang=10.0):
+        cell = ase_structure.cell
+        no_cell = cell[0][0] < 0.1 or cell[1][1] < 0.1 or cell[2][2] < 0.1
+        if no_cell:
+            # set bounding box + vacuum_ang angstrom as cell
+            bbox = np.ptp(ase_structure.positions, axis=0)
+            ase_structure.cell = bbox + vacuum_ang
 
     def _convert_to_structure_node(self, structure):
         """Convert structure of any type to the StructureNode object."""
@@ -224,6 +232,7 @@ class StructureManagerWidget(ipw.VBox):
 
         # If the input_structure trait is set to Atoms object, structure node must be created from it.
         if isinstance(structure, Atoms):
+            self._validate_and_fix_ase_cell(structure)
             return StructureNode(ase=structure)
 
         # If the input_structure trait is set to AiiDA node, check what type
@@ -233,6 +242,7 @@ class StructureManagerWidget(ipw.VBox):
                 return structure
 
         # Using self.structure, as it was already converted to the ASE Atoms object.
+        self._validate_and_fix_ase_cell(self.structure)
         return StructureNode(ase=self.structure)
 
     @observe('structure_node')
