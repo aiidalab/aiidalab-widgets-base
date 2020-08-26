@@ -282,8 +282,7 @@ class StructureManagerWidget(ipw.VBox):
         self.history = []
 
         if isinstance(change['new'], Atoms):
-            self._validate_and_fix_ase_cell(change['new'])
-            self.structure = change['new']
+            self.structure = self._validate_and_fix_ase_cell(change['new'])
 
         # If the `input_structure` trait is set to AiiDA node, then the `structure` trait should
         # be converted to an ASE Atoms object.
