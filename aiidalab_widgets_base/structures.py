@@ -570,9 +570,6 @@ class SmilesWidget(ipw.VBox):
         # initial cleanup before the weighted search
         f_f.Setup(mol.OBMol)
         f_f.SteepestDescent(5000, 1.0e-9)
-        #f_f.SteepestDescent(5500, 1.0e-9)
-        #f_f.WeightedRotorSearch(15000, 500)
-        #f_f.ConjugateGradients(6500, 1.0e-9)
         f_f.GetCoordinates(mol.OBMol)
         self.output.value = ""
 
