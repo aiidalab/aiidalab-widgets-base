@@ -544,10 +544,7 @@ class SmilesWidget(ipw.VBox):
         pos = np.asarray([atm.coords for atm in pymol.atoms])
         pca = PCA(n_components=3)
         posnew = pca.fit_transform(pos)
-        atoms = Atoms(species, positions=posnew)
-        sys_size = np.ptp(atoms.positions, axis=0)
-        atoms.pbc = True
-        atoms.cell = sys_size + 10
+        atoms = Atoms(species, positions=posnew, pbc=True, cell=np.ptp(posnew, axis=0)+10)
         atoms.center()
         return atoms
 
