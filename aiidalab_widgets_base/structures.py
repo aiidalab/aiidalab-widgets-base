@@ -567,7 +567,7 @@ class SmilesWidget(ipw.VBox):
                 self.output.value = "Cannot set up forcefield"
                 return
 
-        # initial cleanup before the weighted search
+        # Initial cleanup before the weighted search.
         f_f.Setup(mol.OBMol)
         f_f.SteepestDescent(5000, 1.0e-9)
         f_f.GetCoordinates(mol.OBMol)
