@@ -8,7 +8,6 @@ import numpy as np
 import ipywidgets as ipw
 from traitlets import Instance, Int, List, Unicode, Union, dlink, link, default, observe
 
-#from sklearn import manifold, datasets
 from sklearn.decomposition import PCA
 
 # ASE imports
