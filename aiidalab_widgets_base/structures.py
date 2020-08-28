@@ -8,7 +8,7 @@ import numpy as np
 import ipywidgets as ipw
 from traitlets import Instance, Int, List, Unicode, Union, dlink, link, default, observe
 
-from sklearn import manifold, datasets
+#from sklearn import manifold, datasets
 from sklearn.decomposition import PCA
 
 # ASE imports
@@ -541,14 +541,13 @@ class SmilesWidget(ipw.VBox):
     def pymol_2_ase(pymol):
         """Convert pymol object into ASE Atoms."""
 
-        asemol = Atoms()
-        species=[chemical_symbols[atm.atomicnum] for atm in pymol.atoms]
-        pos=np.asarray([atm.coords for atm in pymol.atoms])
+        species = [chemical_symbols[atm.atomicnum] for atm in pymol.atoms]
+        pos = np.asarray([atm.coords for atm in pymol.atoms])
         pca = PCA(n_components=3)
-        posnew=pca.fit_transform(pos)
+        posnew = pca.fit_transform(pos)
         atoms = Atoms(species, positions=posnew)
-        sys_size = np.ptp(atoms.positions,axis=0)
-        atoms.pbc=True
+        sys_size = np.ptp(atoms.positions, axis=0)
+        atoms.pbc = True
         atoms.cell = sys_size + 10
         atoms.center()
         return atoms
@@ -593,9 +592,9 @@ class SmilesWidget(ipw.VBox):
         self.output.value = """SMILES to 3D conversion {}""".format(self.SPINNER)
         mol.make3D()
         mol.addh()
-        
+
         pybel._builder.Build(mol.OBMol)  # pylint: disable=protected-access
-        
+
         self._optimize_mol(mol)
         self.structure = self.pymol_2_ase(mol)
 
