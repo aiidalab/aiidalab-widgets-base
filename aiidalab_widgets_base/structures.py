@@ -8,6 +8,8 @@ import numpy as np
 import ipywidgets as ipw
 from traitlets import Instance, Int, List, Unicode, Union, dlink, link, default, observe
 
+from sklearn.decomposition import PCA
+
 # ASE imports
 import ase
 from ase import Atom, Atoms
@@ -47,7 +49,7 @@ class StructureManagerWidget(ipw.VBox):
         """
         Arguments:
             importers(list): list of tuples each containing the displayed name of importer and the
-                importer object. Each object should containt 'structure' trait pointing to the imported
+                importer object. Each object should contain 'structure' trait pointing to the imported
                 structure. The trait will be linked to 'structure' trait of this class.
 
             storable(bool): Whether to provide Store button (together with Store format)
@@ -314,6 +316,22 @@ class StructureUploadWidget(ipw.VBox):
         self.file_upload.observe(self._on_file_upload, names='value')
         super().__init__(children=[self.file_upload, supported_formats])
 
+    def _validate_and_fix_ase_cell(self, ase_structure, vacuum_ang=10.0):
+        """
+        Checks if the ase Atoms object has a cell set,
+        otherwise sets it to bounding box plus specified "vacuum" space
+        """
+        cell = ase_structure.cell
+
+        if (np.linalg.norm(cell[0]) < 0.1 or np.linalg.norm(cell[1]) < 0.1 or np.linalg.norm(cell[2]) < 0.1):
+            # if any of the cell vectors is too short, consider it faulty
+            # set cell as bounding box + vacuum_ang
+            bbox = np.ptp(ase_structure.positions, axis=0)
+            new_structure = ase_structure.copy()
+            new_structure.cell = bbox + vacuum_ang
+            return new_structure
+        return ase_structure
+
     def _on_file_upload(self, change=None):
         """When file upload button is pressed."""
         for fname, item in change['new'].items():
@@ -321,7 +339,8 @@ class StructureUploadWidget(ipw.VBox):
             if frmt == 'cif':
                 self.structure = CifData(file=io.BytesIO(item['content']))
             else:
-                self.structure = get_ase_from_file(io.StringIO(item['content'].decode()), format=frmt)
+                self.structure = self._validate_and_fix_ase_cell(
+                    get_ase_from_file(io.StringIO(item['content'].decode()), format=frmt))
             self.file_upload.value.clear()
             break
 
@@ -521,13 +540,13 @@ class SmilesWidget(ipw.VBox):
     def pymol_2_ase(pymol):
         """Convert pymol object into ASE Atoms."""
 
-        asemol = Atoms()
-        for atm in pymol.atoms:
-            asemol.append(Atom(chemical_symbols[atm.atomicnum], atm.coords))
-        asemol.cell = np.amax(asemol.positions, axis=0) - np.amin(asemol.positions, axis=0) + [10] * 3
-        asemol.pbc = True
-        asemol.center()
-        return asemol
+        species = [chemical_symbols[atm.atomicnum] for atm in pymol.atoms]
+        pos = np.asarray([atm.coords for atm in pymol.atoms])
+        pca = PCA(n_components=3)
+        posnew = pca.fit_transform(pos)
+        atoms = Atoms(species, positions=posnew, pbc=True, cell=np.ptp(posnew, axis=0) + 10)
+        atoms.center()
+        return atoms
 
     def _optimize_mol(self, mol):
         """Optimize a molecule using force field (needed for complex SMILES)."""
@@ -538,17 +557,16 @@ class SmilesWidget(ipw.VBox):
 
         self.output.value = "Screening possible conformers {}".format(self.SPINNER)  #font-size:20em;
 
-        f_f = pybel._forcefields["mmff94"]  # pylint: disable=protected-access
+        f_f = pybel._forcefields["uff"]  # pylint: disable=protected-access
         if not f_f.Setup(mol.OBMol):
-            f_f = pybel._forcefields["uff"]  # pylint: disable=protected-access
+            f_f = pybel._forcefields["mmff94"]  # pylint: disable=protected-access
             if not f_f.Setup(mol.OBMol):
                 self.output.value = "Cannot set up forcefield"
                 return
 
-        # initial cleanup before the weighted search
-        f_f.SteepestDescent(5500, 1.0e-9)
-        f_f.WeightedRotorSearch(15000, 500)
-        f_f.ConjugateGradients(6500, 1.0e-10)
+        # Initial cleanup before the weighted search.
+        f_f.Setup(mol.OBMol)
+        f_f.SteepestDescent(5000, 1.0e-9)
         f_f.GetCoordinates(mol.OBMol)
         self.output.value = ""
 
@@ -563,12 +581,13 @@ class SmilesWidget(ipw.VBox):
         if not self.smiles.value:
             return
 
-        mol = pybel.readstring("smi", self.smiles.value)
+        mol = pybel.readstring("smiles", self.smiles.value)
         self.output.value = """SMILES to 3D conversion {}""".format(self.SPINNER)
         mol.make3D()
+        mol.addh()
 
         pybel._builder.Build(mol.OBMol)  # pylint: disable=protected-access
-        mol.addh()
+
         self._optimize_mol(mol)
         self.structure = self.pymol_2_ase(mol)
 
@@ -803,7 +822,13 @@ class BasicStructureEditor(ipw.VBox):  # pylint: disable=too-many-instance-attri
 
         if self.ligand.value == 0:
             for idx in self.selection:
-                atoms[idx].symbol = self.element.value
+                new = Atom(self.element.value)
+                atoms[idx].mass = new.mass
+                atoms[idx].magmom = new.magmom
+                atoms[idx].momentum = new.momentum
+                atoms[idx].symbol = new.symbol
+                atoms[idx].tag = new.tag
+                atoms[idx].charge = new.charge
         else:
             initial_ligand = self.ligand.rotate(align_to=self.action_vector, remove_anchor=True)
             for idx in self.selection:

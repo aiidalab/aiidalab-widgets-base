@@ -1,5 +1,5 @@
 {
-    "version": "1.0.0b9",
+    "version": "1.0.0b10",
     "name": "aiidalab-widgets-base",
     "author_email": "aiidalab@materialscloud.org",
     "url": "https://github.com/aiidalab/aiidalab-widgets-base",
@@ -22,7 +22,8 @@
     ],
     "extras_require": {
         "testing": [
-            "aiida-core[testing]~=1.0"
+            "aiida-core[testing]~=1.0",
+            "scikit-learn==0.23.2"
         ],
         "pre-commit": [
             "pre-commit==1.17.0",
