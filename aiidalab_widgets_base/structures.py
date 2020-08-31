@@ -8,6 +8,8 @@ import numpy as np
 import ipywidgets as ipw
 from traitlets import Instance, Int, List, Unicode, Union, dlink, link, default, observe
 
+from sklearn.decomposition import PCA
+
 # ASE imports
 import ase
 from ase import Atom, Atoms
@@ -538,13 +540,13 @@ class SmilesWidget(ipw.VBox):
     def pymol_2_ase(pymol):
         """Convert pymol object into ASE Atoms."""
 
-        asemol = Atoms()
-        for atm in pymol.atoms:
-            asemol.append(Atom(chemical_symbols[atm.atomicnum], atm.coords))
-        asemol.cell = np.amax(asemol.positions, axis=0) - np.amin(asemol.positions, axis=0) + [10] * 3
-        asemol.pbc = True
-        asemol.center()
-        return asemol
+        species = [chemical_symbols[atm.atomicnum] for atm in pymol.atoms]
+        pos = np.asarray([atm.coords for atm in pymol.atoms])
+        pca = PCA(n_components=3)
+        posnew = pca.fit_transform(pos)
+        atoms = Atoms(species, positions=posnew, pbc=True, cell=np.ptp(posnew, axis=0) + 10)
+        atoms.center()
+        return atoms
 
     def _optimize_mol(self, mol):
         """Optimize a molecule using force field (needed for complex SMILES)."""
@@ -555,17 +557,16 @@ class SmilesWidget(ipw.VBox):
 
         self.output.value = "Screening possible conformers {}".format(self.SPINNER)  #font-size:20em;
 
-        f_f = pybel._forcefields["mmff94"]  # pylint: disable=protected-access
+        f_f = pybel._forcefields["uff"]  # pylint: disable=protected-access
         if not f_f.Setup(mol.OBMol):
-            f_f = pybel._forcefields["uff"]  # pylint: disable=protected-access
+            f_f = pybel._forcefields["mmff94"]  # pylint: disable=protected-access
             if not f_f.Setup(mol.OBMol):
                 self.output.value = "Cannot set up forcefield"
                 return
 
-        # initial cleanup before the weighted search
-        f_f.SteepestDescent(5500, 1.0e-9)
-        f_f.WeightedRotorSearch(15000, 500)
-        f_f.ConjugateGradients(6500, 1.0e-10)
+        # Initial cleanup before the weighted search.
+        f_f.Setup(mol.OBMol)
+        f_f.SteepestDescent(5000, 1.0e-9)
         f_f.GetCoordinates(mol.OBMol)
         self.output.value = ""
 
@@ -580,12 +581,13 @@ class SmilesWidget(ipw.VBox):
         if not self.smiles.value:
             return
 
-        mol = pybel.readstring("smi", self.smiles.value)
+        mol = pybel.readstring("smiles", self.smiles.value)
         self.output.value = """SMILES to 3D conversion {}""".format(self.SPINNER)
         mol.make3D()
+        mol.addh()
 
         pybel._builder.Build(mol.OBMol)  # pylint: disable=protected-access
-        mol.addh()
+
         self._optimize_mol(mol)
         self.structure = self.pymol_2_ase(mol)
 
