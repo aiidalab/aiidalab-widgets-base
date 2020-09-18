@@ -15,7 +15,7 @@ import ase
 from ase import Atom, Atoms
 from ase.data import chemical_symbols, covalent_radii
 
-# AiiDA and AiiDA lab imports
+# AiiDA and AiiDAlab imports
 from aiida.engine import calcfunction
 from aiida.orm import CalcFunctionNode, CalcJobNode, Data, QueryBuilder, Node, WorkChainNode
 from aiida.plugins import DataFactory

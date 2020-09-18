@@ -1,6 +1,4 @@
-# aiidalab-widgets-base 
-
-Reusable widgets for applications in the AiiDA lab.
+# Base widgets for AiiDAlab
 
 ## Installation
 
@@ -9,7 +7,7 @@ Install the `aiidalab_widgets_base` python package via:
 pip install aiidalab-widgets-base 
 ```
 
-Install the corresponding `aiidalab-widgets-base` AiiDA lab application
+Install the corresponding `aiidalab-widgets-base` AiiDAlab application
 via the app manager as usual.
 
 ### Optional dependencies
@@ -21,37 +19,6 @@ via the app manager as usual.
 Using the widgets usually just involves importing and displaying them.
 For demos, have a look at the jupyter notebooks (`.ipynb` extension) in
 this folder.
-
-### Structures
-
-Uploading structures
-```python
-from aiidalab_widgets_base import StructureUploadWidget
-from IPython.display import display
-
-widget = StructureUploadWidget()
-# Enforce node format to be CifData:
-# widget = StructureUploadWidget(node_class='CifData')
-display(widget)
-```
-
-![Demo](https://image.ibb.co/fjnHco/structure.gif "Using the StructureUploadWidget.")
-
-### Codes
-
-Selecting codes
-```python
-from aiidalab_widgets_base import CodeDropdown
-from IPython.display import display
-
-# Select from installed codes for 'zeopp.network' input plugin
-dropdown = CodeDropdown(input_plugin='zeopp.network')
-display(dropdown)
-
-dropdown.selected_code  # returns selected code
-```
-
-![Demo](https://image.ibb.co/gSFFf8/codes.gif "Using the CodeDropDown.")
 
 ## License
 

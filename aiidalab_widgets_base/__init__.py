@@ -1,4 +1,4 @@
-"""Reusable widgets for AiiDA lab applications."""
+"""Reusable widgets for AiiDAlab applications."""
 # pylint: disable=unused-import,wrong-import-position
 from aiida import load_profile
 load_profile()
