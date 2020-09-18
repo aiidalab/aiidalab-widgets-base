@@ -18,7 +18,8 @@
         "ipywidgets",
         "nglview",
         "numpy",
-        "pandas"
+        "pandas",
+        "sklearn"
     ],
     "extras_require": {
         "testing": [
