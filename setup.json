@@ -21,6 +21,12 @@
         "pandas"
     ],
     "extras_require": {
+        "docs": [
+            "sphinx",
+            "sphinx-rtd-theme",
+            "sphinxcontrib-contentui",
+            "sphinxcontrib-details-directive"
+        ],
         "testing": [
             "aiida-core[testing]~=1.0",
             "scikit-learn==0.23.2"
@@ -30,9 +36,6 @@
             "yapf==0.28.0",
             "prospector==1.1.7",
       	    "pylint==2.3.1"
-        ],
-        "docs": [
-            "sphinx"
         ]
     }
 }
