@@ -6,7 +6,13 @@ import os
 import subprocess
 import sys
 import time
-import aiidalab_widgets_base
+
+# Load the dummy profile to make sure the docs build suucceed even if the current
+# default profile of the AiiDA installation is not configured.
+from aiida.manage.configuration import load_documentation_profile
+load_documentation_profile()
+
+import aiidalab_widgets_base  # pylint: disable=wrong-import-position
 
 # Add any Sphinx extension module names here, as strings. They can be
 # extensions coming with Sphinx (named 'sphinx.ext.*') or your custom
