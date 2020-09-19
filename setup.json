@@ -25,7 +25,7 @@
             "sphinx",
             "sphinx-rtd-theme",
             "sphinxcontrib-contentui",
-            "sphinxcontrib-details-directive; python_version>='3.0'"
+            "sphinxcontrib-details-directive"
         ],
         "testing": [
             "aiida-core[testing]~=1.0",
@@ -36,9 +36,6 @@
             "yapf==0.28.0",
             "prospector==1.1.7",
       	    "pylint==2.3.1"
-        ],
-        "docs": [
-            "sphinx"
         ]
     }
 }
