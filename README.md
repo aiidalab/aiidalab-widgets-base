@@ -16,6 +16,9 @@ via the app manager as usual.
 
 * The `SmilesWidget` widget requires the [OpenBabel](http://openbabel.org/) library.
 
+## Documentation
+The documentation can be found on the [following web page](https://aiidalab-widgets-base.readthedocs.io).
+
 ## Usage
 
 Using the widgets usually just involves importing and displaying them.
