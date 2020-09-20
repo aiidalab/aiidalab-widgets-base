@@ -16,6 +16,7 @@
         "bokeh",
         "fileupload",
         "ipywidgets",
+        "more_itertools",
         "nglview",
         "numpy",
         "pandas"
