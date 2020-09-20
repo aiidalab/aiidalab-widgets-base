@@ -12,6 +12,14 @@ import time
 from aiida.manage.configuration import load_documentation_profile
 load_documentation_profile()
 
+# Let's make sure the entry points are up to date
+try:
+    from aiida.plugins.entry_point import ENTRYPOINT_MANAGER as mgr
+    mgr.scan()
+except AttributeError:
+    # .scan may be no longer availabe if we switch away from reentry
+    pass
+
 import aiidalab_widgets_base  # pylint: disable=wrong-import-position
 
 # Add any Sphinx extension module names here, as strings. They can be
