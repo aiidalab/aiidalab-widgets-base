@@ -16,9 +16,11 @@
         "bokeh",
         "fileupload",
         "ipywidgets",
+        "more_itertools",
         "nglview",
         "numpy",
-        "pandas"
+        "pandas",
+        "scikit-learn"
     ],
     "extras_require": {
         "docs": [
@@ -26,10 +28,6 @@
             "sphinx-rtd-theme",
             "sphinxcontrib-contentui",
             "sphinxcontrib-details-directive"
-        ],
-        "testing": [
-            "aiida-core[testing]~=1.0",
-            "scikit-learn==0.23.2"
         ],
         "pre-commit": [
             "pre-commit==1.17.0",
