@@ -15,6 +15,7 @@ from .process import ProcessListWidget
 from .structures import StructureManagerWidget
 from .structures import StructureBrowserWidget, StructureExamplesWidget, StructureUploadWidget, SmilesWidget
 from .structures import BasicStructureEditor
+from .structures import OptimadeQueryWidget
 from .structures_multi import MultiStructureUploadWidget
 from .viewers import viewer
 
