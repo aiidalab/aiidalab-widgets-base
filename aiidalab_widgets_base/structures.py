@@ -882,15 +882,18 @@ class BasicStructureEditor(ipw.VBox):  # pylint: disable=too-many-instance-attri
 class OptimadeQueryWidget(ipw.VBox):
     """AiiDAlab-specific OPTIMADE Query widget
 
-    Useful as a widget to integrate with the StructureManagerWidget, embedded into applications.
+    Useful as a widget to integrate with the
+    :class:`aiidalab_widgets_base.structures.StructureManagerWidget`,
+    embedded into applications.
 
-    Arguments:
-        embedded (bool): Whether or not to show extra database and provider information.
-            When set to `True`, the extra information will be hidden, this is useful
-            in situations where the widget is used in a Tab or similar, e.g., for the
-            StructureManagerWidget.
-        title (str): Title used for Tab header if employed in StructureManagerWidget.
-
+    :param embedded: Whether or not to show extra database and provider information.
+        When set to `True`, the extra information will be hidden, this is useful
+        in situations where the widget is used in a Tab or similar, e.g., for the
+        :class:`aiidalab_widgets_base.structures.StructureManagerWidget`.
+    :type embedded: bool
+    :param title: Title used for Tab header if employed in
+        :class:`aiidalab_widgets_base.structures.StructureManagerWidget`.
+    :type title: str
     """
 
     structure = Instance(StructureData, allow_none=True)
