@@ -7,7 +7,7 @@ from .codes import CodeDropdown, AiiDACodeSetup, valid_aiidacode_args
 from .computers import SshComputerSetup, valid_sshcomputer_args
 from .computers import AiidaComputerSetup, valid_aiidacomputer_args
 from .computers import ComputerDropdown
-from .databases import CodQueryWidget
+from .databases import CodQueryWidget, AiidalabOptimadeWidget
 from .export import ExportButtonWidget
 from .process import ProgressBarWidget, ProcessFollowerWidget, ProcessInputsWidget, ProcessOutputsWidget
 from .process import ProcessCallStackWidget, RunningCalcJobOutputWidget, SubmitButtonWidget, ProcessReportWidget
@@ -15,7 +15,6 @@ from .process import ProcessListWidget
 from .structures import StructureManagerWidget
 from .structures import StructureBrowserWidget, StructureExamplesWidget, StructureUploadWidget, SmilesWidget
 from .structures import BasicStructureEditor
-from .structures import OptimadeQueryWidget
 from .structures_multi import MultiStructureUploadWidget
 from .viewers import viewer
 

@@ -8,9 +8,6 @@ import numpy as np
 import ipywidgets as ipw
 from traitlets import Instance, Int, List, Unicode, Union, dlink, link, default, observe
 
-from optimade_client.query_filter import OptimadeQueryFilterWidget
-from optimade_client.query_provider import OptimadeQueryProviderWidget
-
 # ASE imports
 import ase
 from ase import Atom, Atoms
@@ -877,49 +874,3 @@ class BasicStructureEditor(ipw.VBox):  # pylint: disable=too-many-instance-attri
         atoms = self.structure.copy()
         del [atoms[self.selection]]
         self.structure = atoms
-
-
-class OptimadeQueryWidget(ipw.VBox):
-    """AiiDAlab-specific OPTIMADE Query widget
-
-    Useful as a widget to integrate with the
-    :class:`aiidalab_widgets_base.structures.StructureManagerWidget`,
-    embedded into applications.
-
-    :param embedded: Whether or not to show extra database and provider information.
-        When set to `True`, the extra information will be hidden, this is useful
-        in situations where the widget is used in a Tab or similar, e.g., for the
-        :class:`aiidalab_widgets_base.structures.StructureManagerWidget`.
-    :type embedded: bool
-    :param title: Title used for Tab header if employed in
-        :class:`aiidalab_widgets_base.structures.StructureManagerWidget`.
-    :type title: str
-    """
-
-    structure = Instance(StructureData, allow_none=True)
-
-    def __init__(
-            self,
-            embedded: bool = True,
-            title: str = None,
-            **kwargs,
-    ) -> None:
-        providers = OptimadeQueryProviderWidget(embedded=embedded)
-        filters = OptimadeQueryFilterWidget()
-
-        ipw.dlink((providers, 'database'), (filters, 'database'))
-
-        filters.observe(self._update_structure, names='structure')
-
-        self.title = title if title is not None else 'OPTIMADE'
-        layout = kwargs.pop('layout') if 'layout' in kwargs else {'width': 'auto', 'height': 'auto'}
-
-        super().__init__(
-            children=(providers, filters),
-            layout=layout,
-            **kwargs,
-        )
-
-    def _update_structure(self, change: dict) -> None:
-        """New structure chosen"""
-        self.structure = change['new'].as_aiida_structuredata if change['new'] else None

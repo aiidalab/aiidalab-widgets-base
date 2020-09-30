@@ -3,6 +3,9 @@ import ipywidgets as ipw
 from traitlets import Instance, default
 from ase import Atoms
 
+from optimade_client.query_filter import OptimadeQueryFilterWidget
+from optimade_client.query_provider import OptimadeQueryProviderWidget
+
 from aiida.tools.dbimporters.plugins.cod import CodDbImporter
 
 
@@ -110,3 +113,49 @@ class CodQueryWidget(ipw.VBox):
     @default('structure')
     def _default_structure(self):  # pylint: disable=no-self-use
         return None
+
+
+class AiidalabOptimadeWidget(ipw.VBox):
+    """AiiDAlab-specific OPTIMADE Query widget
+
+    Useful as a widget to integrate with the
+    :class:`aiidalab_widgets_base.structures.StructureManagerWidget`,
+    embedded into applications.
+
+    :param embedded: Whether or not to show extra database and provider information.
+        When set to `True`, the extra information will be hidden, this is useful
+        in situations where the widget is used in a Tab or similar, e.g., for the
+        :class:`aiidalab_widgets_base.structures.StructureManagerWidget`.
+    :type embedded: bool
+    :param title: Title used for Tab header if employed in
+        :class:`aiidalab_widgets_base.structures.StructureManagerWidget`.
+    :type title: str
+    """
+
+    structure = Instance(Atoms, allow_none=True)
+
+    def __init__(
+        self,
+        embedded: bool = True,
+        title: str = None,
+        **kwargs,
+    ) -> None:
+        providers = OptimadeQueryProviderWidget(embedded=embedded)
+        filters = OptimadeQueryFilterWidget()
+
+        ipw.dlink((providers, 'database'), (filters, 'database'))
+
+        filters.observe(self._update_structure, names='structure')
+
+        self.title = title if title is not None else 'OPTIMADE'
+        layout = kwargs.pop('layout') if 'layout' in kwargs else {'width': 'auto', 'height': 'auto'}
+
+        super().__init__(
+            children=(providers, filters),
+            layout=layout,
+            **kwargs,
+        )
+
+    def _update_structure(self, change: dict) -> None:
+        """New structure chosen"""
+        self.structure = change['new'].as_ase if change['new'] else None
