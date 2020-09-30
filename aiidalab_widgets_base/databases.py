@@ -115,7 +115,7 @@ class CodQueryWidget(ipw.VBox):
         return None
 
 
-class AiidalabOptimadeWidget(ipw.VBox):
+class OptimadeQueryWidget(ipw.VBox):
     """AiiDAlab-specific OPTIMADE Query widget
 
     Useful as a widget to integrate with the
