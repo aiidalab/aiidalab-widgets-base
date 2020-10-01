@@ -135,10 +135,10 @@ class OptimadeQueryWidget(ipw.VBox):
     structure = Instance(Atoms, allow_none=True)
 
     def __init__(
-        self,
-        embedded: bool = True,
-        title: str = None,
-        **kwargs,
+            self,
+            embedded: bool = True,
+            title: str = None,
+            **kwargs,
     ) -> None:
         providers = OptimadeQueryProviderWidget(embedded=embedded)
         filters = OptimadeQueryFilterWidget()
