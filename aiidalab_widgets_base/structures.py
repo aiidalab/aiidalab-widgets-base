@@ -8,17 +8,19 @@ import numpy as np
 import ipywidgets as ipw
 from traitlets import Instance, Int, List, Unicode, Union, dlink, link, default, observe
 
-from sklearn.decomposition import PCA
-
 # ASE imports
 import ase
 from ase import Atom, Atoms
 from ase.data import chemical_symbols, covalent_radii
 
-# AiiDA and AiiDAlab imports
+# AiiDA imports
 from aiida.engine import calcfunction
 from aiida.orm import CalcFunctionNode, CalcJobNode, Data, QueryBuilder, Node, WorkChainNode
 from aiida.plugins import DataFactory
+
+from sklearn.decomposition import PCA
+
+# Local imports
 from .utils import get_ase_from_file
 from .viewers import StructureDataViewer
 from .data import LigandSelectorWidget
@@ -106,7 +108,7 @@ class StructureManagerWidget(ipw.VBox):
             ipw.HBox(store_and_description + [self.structure_label, self.structure_description])
         ]
 
-        structure_editors = self._struture_editors(editors)
+        structure_editors = self._structure_editors(editors)
         if structure_editors:
             structure_editors = ipw.VBox([btn_undo, structure_editors])
             accordion = ipw.Accordion([structure_editors])
@@ -137,7 +139,7 @@ class StructureManagerWidget(ipw.VBox):
             dlink((importer, 'structure'), (self, 'input_structure'))
         return importers_tab
 
-    def _struture_editors(self, editors):
+    def _structure_editors(self, editors):
         """Preparing structure editors."""
         if editors and len(editors) == 1:
             link((editors[0], 'structure'), (self, 'structure'))
@@ -150,7 +152,7 @@ class StructureManagerWidget(ipw.VBox):
         # If more than one editor was defined.
         if editors:
             editors_tab = ipw.Tab()
-            editors_tab.children = [i for i in editors]
+            editors_tab.children = tuple(editors)
             for i, editor in enumerate(editors):
                 editors_tab.set_title(i, editor.title)
                 link((editor, 'structure'), (self, 'structure'))
