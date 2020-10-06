@@ -1,4 +1,4 @@
-"""Reusable widgets for AiiDA lab applications."""
+"""Reusable widgets for AiiDAlab applications."""
 # pylint: disable=unused-import,wrong-import-position
 from aiida import load_profile
 load_profile()
@@ -7,7 +7,7 @@ from .codes import CodeDropdown, AiiDACodeSetup, valid_aiidacode_args
 from .computers import SshComputerSetup, valid_sshcomputer_args
 from .computers import AiidaComputerSetup, valid_aiidacomputer_args
 from .computers import ComputerDropdown
-from .databases import CodQueryWidget
+from .databases import CodQueryWidget, OptimadeQueryWidget
 from .export import ExportButtonWidget
 from .process import ProgressBarWidget, ProcessFollowerWidget, ProcessInputsWidget, ProcessOutputsWidget
 from .process import ProcessCallStackWidget, RunningCalcJobOutputWidget, SubmitButtonWidget, ProcessReportWidget
@@ -18,4 +18,4 @@ from .structures import BasicStructureEditor
 from .structures_multi import MultiStructureUploadWidget
 from .viewers import viewer
 
-__version__ = "1.0.0b10"
+__version__ = "1.0.0b11"

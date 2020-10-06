@@ -22,19 +22,20 @@ def valid_aiidacode_args(arguments):
 class CodeDropdown(ipw.VBox):
     """Code selection widget.
     Attributes:
-        selected_code(Unicode or Code): Trait that points to the selected Code instance.
-            It can be set either to an AiiDA Code instance or to a code label (will
-            automatically be replaced by the corresponding Code instance).
-            It is linked to the 'value' trait of the `self.dropdown` widget.
 
-        codes(Dict): Trait that contains a dictionary (label => Code instance) for all
-            codes found in the AiiDA database for the selected plugin. It is linked
-            to the 'options' trait of the `self.dropdown` widget.
+    selected_code(Unicode or Code): Trait that points to the selected Code instance.
+    It can be set either to an AiiDA Code instance or to a code label (will automatically
+    be replaced by the corresponding Code instance). It is linked to the 'value' trait of
+    the `self.dropdown` widget.
 
-        allow_hidden_codes(Bool): Trait that defines whether to show hidden codes or not.
+    codes(Dict): Trait that contains a dictionary (label => Code instance) for all
+    codes found in the AiiDA database for the selected plugin. It is linked
+    to the 'options' trait of the `self.dropdown` widget.
 
-        allow_disabled_computers(Bool): Trait that defines whether to show codes on disabled
-            computers.
+    allow_hidden_codes(Bool): Trait that defines whether to show hidden codes or not.
+
+    allow_disabled_computers(Bool): Trait that defines whether to show codes on disabled
+    computers.
     """
     selected_code = Union([Unicode(), Instance(Code)], allow_none=True)
     codes = Dict(allow_none=True)

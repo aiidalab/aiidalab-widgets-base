@@ -7,8 +7,9 @@ before_install:
   - pip install -U wheel setuptools coveralls
 
 install:
-- pip install .[testing,pre-commit]
+- pip install .[pre-commit,docs]
 - reentry scan -r aiida
 
 script:
   - pre-commit install; pre-commit run --all-files || ( git status --short; git diff ; exit 1 );
+  - cd docs && make
