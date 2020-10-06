@@ -4,13 +4,14 @@
 import os
 from inspect import isclass
 from time import sleep
+import warnings
 import pandas as pd
 import ipywidgets as ipw
 from IPython.display import HTML, Javascript, clear_output, display
 from traitlets import Instance, Int, List, Unicode, Union, observe, validate
 
 # AiiDA imports.
-from aiida.engine import submit, Process
+from aiida.engine import submit, Process, ProcessBuilder
 from aiida.orm import CalcFunctionNode, CalcJobNode, Node, ProcessNode, WorkChainNode, WorkFunctionNode, load_node
 from aiida.cmdline.utils.common import get_calcjob_report, get_workchain_report, get_process_function_report
 from aiida.cmdline.utils.ascii_vis import format_call_graph
@@ -39,18 +40,22 @@ class SubmitButtonWidget(ipw.VBox):
     """Submit button class that creates submit button jupyter widget."""
     process = Instance(ProcessNode, allow_none=True)
 
-    def __init__(self,
-                 process_class,
-                 input_dictionary_function,
-                 description="Submit",
-                 disable_after_submit=True,
-                 append_output=False,
-                 **kwargs):
+    def __init__(  # pylint: disable=too-many-arguments
+            self,
+            process_class,
+            inputs_generator=None,
+            input_dictionary_function=None,
+            description="Submit",
+            disable_after_submit=True,
+            append_output=False,
+            **kwargs):
         """Submit Button widget.
 
         process_class (Process): Process class to submit.
 
-        input_dictionary_function (func): Function that generates input parameters dictionary.
+        inputs_generator (func): Function that returns inputs dictionary or inputs builder.
+
+        input_dictionary_function (DEPRECATED): Function that generates input parameters dictionary.
 
         description (str): Description written on the submission button.
 
@@ -63,14 +68,26 @@ class SubmitButtonWidget(ipw.VBox):
         if isclass(process_class) and issubclass(process_class, Process):
             self._process_class = process_class
         else:
-            raise ValueError("process_class argument must be a sublcass of {}, got {}".format(Process, process_class))
+            raise ValueError(f"process_class argument must be a sublcass of {Process}, got {process_class}")
 
-        if callable(input_dictionary_function):
-            self.input_dictionary_function = input_dictionary_function
+        # Handling the deprecation.
+        if inputs_generator is None and input_dictionary_function is None:
+            raise ValueError("The `inputs_generator` argument must be provided.")
+        if inputs_generator and input_dictionary_function:
+            raise ValueError("You provided both: `inputs_generator` and `input_dictionary_function` "
+                             "arguments. Please provide `inpust_generator` only.")
+        if input_dictionary_function:
+            inputs_generator = input_dictionary_function
+            warnings.warn(("The `input_dictionary_function` argument is deprecated and "
+                           "will be removed in the release 1.1 of the aiidalab-widgets-base package. "
+                           "Please use the `inputs_generator` argument instead."), DeprecationWarning)
+
+        # Checking if the inputs generator is
+        if callable(inputs_generator):
+            self.inputs_generator = inputs_generator
         else:
-            raise ValueError(
-                "input_dictionary_function argument must be a function that returns input dictionary, got {}".format(
-                    input_dictionary_function))
+            raise ValueError("The `inputs_generator` argument must be a function that "
+                             f"returns input dictionary, got {inputs_generator}")
 
         self.disable_after_submit = disable_after_submit
         self.append_output = append_output
@@ -91,24 +108,28 @@ class SubmitButtonWidget(ipw.VBox):
         if not self.append_output:
             self.submit_out.value = ''
 
-        input_dict = self.input_dictionary_function()
-        if input_dict is None:
+        inputs = self.inputs_generator()
+        if inputs is None:
             if self.append_output:
-                self.submit_out.value += "SubmitButtonWidget: did not recieve input dictionary.<br>"
+                self.submit_out.value += "SubmitButtonWidget: did not recieve the process inputs.<br>"
             else:
-                self.submit_out.value = "SubmitButtonWidget: did not recieve input dictionary."
+                self.submit_out.value = "SubmitButtonWidget: did not recieve the process inputs."
         else:
-            self.btn_submit.disabled = self.disable_after_submit
-            self.process = submit(self._process_class, **input_dict)
+            if self.disable_after_submit:
+                self.btn_submit.disabled = True
+            if isinstance(inputs, ProcessBuilder):
+                self.process = submit(inputs)
+            else:
+                self.process = submit(self._process_class, **inputs)
 
             if self.append_output:
-                self.submit_out.value += """Submitted process {0}. Click
-                <a href={1}aiidalab-widgets-base/process.ipynb?id={2} target="_blank">here</a>
-                to follow.<br>""".format(self.process, self.path_to_root, self.process.pk)
+                self.submit_out.value += f"""Submitted process {self.process}. Click
+                <a href={self.path_to_root}aiidalab-widgets-base/process.ipynb?id={self.process.pk}
+                target="_blank">here</a> to follow.<br>"""
             else:
-                self.submit_out.value = """Submitted process {0}. Click
-                <a href={1}aiidalab-widgets-base/process.ipynb?id={2} target="_blank">here</a>
-                to follow.""".format(self.process, self.path_to_root, self.process.pk)
+                self.submit_out.value = f"""Submitted process {self.process}. Click
+                <a href={self.path_to_root}aiidalab-widgets-base/process.ipynb?id={self.process.pk}
+                target="_blank">here</a> to follow."""
 
             for func in self._run_after_submitted:
                 func(self.process)
