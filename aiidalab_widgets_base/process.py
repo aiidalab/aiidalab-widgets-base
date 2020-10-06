@@ -11,7 +11,7 @@ from IPython.display import HTML, Javascript, clear_output, display
 from traitlets import Instance, Int, List, Unicode, Union, observe, validate
 
 # AiiDA imports.
-from aiida.engine import submit, Process
+from aiida.engine import submit, Process, ProcessBuilder
 from aiida.orm import CalcFunctionNode, CalcJobNode, Node, ProcessNode, WorkChainNode, WorkFunctionNode, load_node
 from aiida.cmdline.utils.common import get_calcjob_report, get_workchain_report, get_process_function_report
 from aiida.cmdline.utils.ascii_vis import format_call_graph
@@ -108,24 +108,28 @@ class SubmitButtonWidget(ipw.VBox):
         if not self.append_output:
             self.submit_out.value = ''
 
-        input_dict = self.inputs_generator()
-        if input_dict is None:
+        inputs = self.inputs_generator()
+        if inputs is None:
             if self.append_output:
-                self.submit_out.value += "SubmitButtonWidget: did not recieve input dictionary.<br>"
+                self.submit_out.value += "SubmitButtonWidget: did not recieve the process inputs.<br>"
             else:
-                self.submit_out.value = "SubmitButtonWidget: did not recieve input dictionary."
+                self.submit_out.value = "SubmitButtonWidget: did not recieve the process inputs."
         else:
-            self.btn_submit.disabled = self.disable_after_submit
-            self.process = submit(self._process_class, **input_dict)
+            if self.disable_after_submit:
+                self.btn_submit.disabled = True
+            if isinstance(inputs, ProcessBuilder):
+                self.process = submit(inputs)
+            else:
+                self.process = submit(self._process_class, **inputs)
 
             if self.append_output:
-                self.submit_out.value += """Submitted process {0}. Click
-                <a href={1}aiidalab-widgets-base/process.ipynb?id={2} target="_blank">here</a>
-                to follow.<br>""".format(self.process, self.path_to_root, self.process.pk)
+                self.submit_out.value += f"""Submitted process {self.process}. Click
+                <a href={self.path_to_root}aiidalab-widgets-base/process.ipynb?id={self.process.pk}
+                target="_blank">here</a> to follow.<br>"""
             else:
-                self.submit_out.value = """Submitted process {0}. Click
-                <a href={1}aiidalab-widgets-base/process.ipynb?id={2} target="_blank">here</a>
-                to follow.""".format(self.process, self.path_to_root, self.process.pk)
+                self.submit_out.value = f"""Submitted process {self.process}. Click
+                <a href={self.path_to_root}aiidalab-widgets-base/process.ipynb?id={self.process.pk}
+                target="_blank">here</a> to follow."""
 
             for func in self._run_after_submitted:
                 func(self.process)
