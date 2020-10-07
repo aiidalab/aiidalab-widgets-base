@@ -1,5 +1,5 @@
 {
-    "version": "1.0.0b11",
+    "version": "1.0.0b12",
     "name": "aiidalab-widgets-base",
     "author_email": "aiidalab@materialscloud.org",
     "url": "https://github.com/aiidalab/aiidalab-widgets-base",
@@ -19,7 +19,6 @@
         "more_itertools",
         "nglview",
         "numpy",
-        "optimade-client",
         "pandas",
         "scikit-learn"
     ],
