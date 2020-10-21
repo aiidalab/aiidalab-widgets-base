@@ -20,7 +20,8 @@
         "nglview",
         "numpy",
         "pandas",
-        "scikit-learn"
+        "scikit-learn",
+        "vapory @ git+https://github.com/Zulko/vapory.git@master"
     ],
     "extras_require": {
         "docs": [

@@ -4,10 +4,14 @@
 import base64
 import warnings
 import numpy as np
+from numpy.linalg import norm
 import ipywidgets as ipw
 from IPython.display import display
 import nglview
 from ase import Atoms
+from vapory import *
+from matplotlib.colors import to_rgb
+import json
 
 from traitlets import Instance, Int, List, Union, default, link, observe, validate
 from aiida.orm import Node
@@ -207,7 +211,102 @@ class _StructureDataBaseViewer(ipw.VBox):
         self.screenshot_btn.on_click(lambda _: self._viewer.download_image())
         self.screenshot_box = ipw.VBox(children=[ipw.Label("Create a screenshot:"), self.screenshot_btn])
 
-        return ipw.VBox([self.download_box, self.screenshot_box])
+        # 4. Render a high quality image
+        self.render_btn = ipw.Button(description="Render", icon='fa-paint-brush')
+        self.render_btn.on_click(self._render_structure)
+        self.render_box = ipw.VBox(children=[ipw.Label("Render a image with POVRAY:"), self.render_btn])
+
+        return ipw.VBox([self.download_box, self.screenshot_box, self.render_box])
+
+    def _render_structure(self, change=None):
+        from .dicts import colors, radius 
+        from copy import deepcopy
+
+        self.render_btn.disabled = True 
+        A = np.array(self._viewer._camera_orientation)
+        A = A.reshape(4, 4)
+        A = np.transpose(A)
+
+        zfactor = norm(A[0, 0:3])
+        A[0:3, 0:3] = A[0:3, 0:3]/zfactor
+
+        bb = deepcopy(self.structure)
+
+        for i in bb:
+            a = np.array([i.x, i.y, i.z])
+            a = a + A[0:3, 3];
+            w = A[0:3, 0:3].dot(a)
+            i.x = -w[0]
+            i.y = w[1]
+            i.z = w[2]
+        
+        vertices = [];
+    
+        vx = np.array(bb.get_cell()[0]);
+        vy = np.array(bb.get_cell()[1]);
+        vz = np.array(bb.get_cell()[2]);
+
+        vertices.append(np.array([0, 0, 0]));
+        vertices.append(vx);
+        vertices.append(vy);
+        vertices.append(vz);
+    
+        vertices.append(vx+vy);
+        vertices.append(vx+vz);
+        vertices.append(vy+vz);
+        vertices.append(vx+vy+vz);
+
+        for n, i in enumerate(vertices):
+            a = i + A[0:3, 3];
+            w = A[0:3, 0:3].dot(a)
+            vertices[n] = np.array([-w[0], w[1], w[2]])
+    
+        camera = Camera('location', [0, 0, -zfactor/1.5], 'look_at', [0.0, 0.0, 0.0])
+        light = LightSource([0, 0, -100.0], 'color',  [1.5, 1.5, 1.5])
+
+        spheres = [];
+        for i in bb:
+            sphere = Sphere( [i.x, i.y, i.z], radius[i.symbol], 
+                            Texture(Pigment( 'color', np.array(colors[i.symbol]))), 
+                                Finish('phong', 0.9,'reflection', 0.05))
+            spheres.append(sphere)
+
+        bonds = [];
+        for x, i in enumerate(bb):
+            for j in bb[x+1:]:
+                v1 = np.array([i.x, i.y, i.z])
+                v2 = np.array([j.x, j.y, j.z])
+
+                if i.symbol == 'H' and j.symbol == 'H':
+                    continue;
+                
+                if norm(v1-v2) < 1.4*(radius[i.symbol] + radius[j.symbol]):
+                    midi = v1 + (v2-v1)*radius[i.symbol]/(radius[i.symbol] + radius[j.symbol]);
+                    bond = Cylinder(v1, midi, 0.2, Pigment('color', np.array(colors[i.symbol])),
+                                    Finish('phong', 0.8,'reflection', 0.05))
+                    bonds.append(bond)
+                    bond = Cylinder(v2, midi, 0.2, Pigment('color', np.array(colors[j.symbol])),
+                                    Finish('phong', 0.8,'reflection', 0.05))
+                    bonds.append(bond)
+                
+        edges = [];
+        for x, i in enumerate(vertices):
+            for y, j in enumerate(vertices):
+                if y > x:
+                    if norm(np.cross(i-j, vertices[1]-vertices[0])) < 0.001 or norm(np.cross(i-j, vertices[2]-vertices[0])) < 0.001 or norm(np.cross(i-j, vertices[3]-vertices[0])) < 0.001:
+                        edge = Cylinder(i, j, 0.06, Texture(Pigment( 'color', [212/255.0,175/255.0,55/255.0])), 
+                                        Finish('phong', 0.9,'reflection', 0.01))
+                        edges.append(edge)
+
+        objects = [light] + spheres + edges + bonds + [Background( "color", np.array(to_rgb(self._viewer.background)))]
+    
+        scene = Scene( camera, objects= objects)
+        fname = bb.get_chemical_formula() + '.png'
+        scene.render(fname, width=2560, height=1440, antialiasing=0.000, quality=11, remove_temp=False)
+        with open(fname, 'rb') as raw:
+            payload = base64.b64encode(raw.read()).decode()
+        self._download(payload=payload, filename=fname)
+        self.render_btn.disabled = False  
 
     def _on_atom_click(self, _=None):
         """Update selection when clicked on atom."""
