@@ -222,6 +222,9 @@ class _StructureDataBaseViewer(ipw.VBox):
         from .dicts import colors, radius 
         from copy import deepcopy
 
+        if not isinstance(self.structure, Atoms):
+            return 
+
         self.render_btn.disabled = True 
         A = np.array(self._viewer._camera_orientation)
         A = A.reshape(4, 4)
