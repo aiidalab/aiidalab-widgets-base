@@ -16,7 +16,7 @@ from aiida.orm import CalcFunctionNode, CalcJobNode, Node, ProcessNode, WorkChai
 from aiida.cmdline.utils.common import get_calcjob_report, get_workchain_report, get_process_function_report
 from aiida.cmdline.utils.ascii_vis import format_call_graph
 from aiida.cmdline.utils.query.calculation import CalculationQueryBuilder
-from aiida.common.exceptions import MultipleObjectsError, NotExistent
+from aiida.common.exceptions import MultipleObjectsError, NotExistent, NotExistentAttributeError
 
 # Local imports.
 from .viewers import viewer
@@ -411,13 +411,16 @@ class CalcJobOutputWidget(ipw.Textarea):
             return
 
         output_file_path = None
-        if 'remote_folder' in self.calculation.outputs:
-            try:
-                output_file_path = os.path.join(self.calculation.outputs.remote_folder.get_remote_path(),
-                                                self.calculation.attributes['output_filename'])
-            except KeyError:
-                self.placeholder = "The `output_filename` attribute is not set for " \
-                f"{self.calculation.process_class}. Nothing to show."
+        try:
+            output_file_path = os.path.join(self.calculation.outputs.remote_folders.get_remote_path(),
+                                            self.calculation.attributes['output_filename'])
+        except KeyError:
+            self.placeholder = "The `output_filename` attribute is not set for " \
+            f"{self.calculation.process_class}. Nothing to show."
+        except NotExistentAttributeError:
+            self.placeholder = "The object `remote_folder` was not found among the process outputs. " \
+            "Nothing to show."
+
         if output_file_path and os.path.exists(output_file_path):
             with open(output_file_path) as fobj:
                 difference = fobj.readlines()[len(self.output):-1]  # Only adding the difference
