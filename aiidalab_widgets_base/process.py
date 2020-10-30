@@ -412,8 +412,12 @@ class CalcJobOutputWidget(ipw.Textarea):
 
         output_file_path = None
         if 'remote_folder' in self.calculation.outputs:
-            output_file_path = os.path.join(self.calculation.outputs.remote_folder.get_remote_path(),
-                                            self.calculation.attributes['output_filename'])
+            try:
+                output_file_path = os.path.join(self.calculation.outputs.remote_folder.get_remote_path(),
+                                                self.calculation.attributes['output_filename'])
+            except KeyError:
+                self.placeholder = f"The `output_filename` attribute isn't set for {self.calculation.process_class}. " \
+                "The output won't appear here."
         if output_file_path and os.path.exists(output_file_path):
             with open(output_file_path) as fobj:
                 difference = fobj.readlines()[len(self.output):-1]  # Only adding the difference
