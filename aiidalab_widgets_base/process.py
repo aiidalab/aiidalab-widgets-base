@@ -412,7 +412,7 @@ class CalcJobOutputWidget(ipw.Textarea):
 
         output_file_path = None
         try:
-            output_file_path = os.path.join(self.calculation.outputs.remote_folders.get_remote_path(),
+            output_file_path = os.path.join(self.calculation.outputs.remote_folder.get_remote_path(),
                                             self.calculation.attributes['output_filename'])
         except KeyError:
             self.placeholder = "The `output_filename` attribute is not set for " \
