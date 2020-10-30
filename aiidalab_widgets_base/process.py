@@ -410,7 +410,6 @@ class CalcJobOutputWidget(ipw.Textarea):
         if self.calculation is None:
             return
 
-        output_file_path = None
         try:
             output_file_path = os.path.join(self.calculation.outputs.remote_folder.get_remote_path(),
                                             self.calculation.attributes['output_filename'])
@@ -420,12 +419,12 @@ class CalcJobOutputWidget(ipw.Textarea):
         except NotExistentAttributeError:
             self.placeholder = "The object `remote_folder` was not found among the process outputs. " \
             "Nothing to show."
-
-        if output_file_path and os.path.exists(output_file_path):
-            with open(output_file_path) as fobj:
-                difference = fobj.readlines()[len(self.output):-1]  # Only adding the difference
-                self.output += difference
-                self.value += ''.join(difference)
+        else:
+            if os.path.exists(output_file_path):
+                with open(output_file_path) as fobj:
+                    difference = fobj.readlines()[len(self.output):-1]  # Only adding the difference
+                    self.output += difference
+                    self.value += ''.join(difference)
 
         # Auto scroll down. Doesn't work in detached mode.
         # Also a hack as it is applied to all the textareas
