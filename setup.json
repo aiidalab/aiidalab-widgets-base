@@ -19,7 +19,7 @@
         "more_itertools",
         "nglview",
         "numpy",
-	"optimade-client",
+        "optimade-client",
         "pandas",
         "scikit-learn"
     ],
