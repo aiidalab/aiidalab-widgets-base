@@ -141,7 +141,7 @@ class OptimadeQueryWidget(ipw.VBox):
             **kwargs,
     ) -> None:
         providers = OptimadeQueryProviderWidget(embedded=embedded)
-        filters = OptimadeQueryFilterWidget()
+        filters = OptimadeQueryFilterWidget(embedded=embedded)
 
         ipw.dlink((providers, 'database'), (filters, 'database'))
 
