@@ -122,6 +122,9 @@ class OptimadeQueryWidget(ipw.VBox):
     :class:`aiidalab_widgets_base.structures.StructureManagerWidget`,
     embedded into applications.
 
+    NOTE: `embedded` for `OptimadeQueryFilterWidget` was introduced in `optimade-client`
+    version 2020.11.5.
+
     :param embedded: Whether or not to show extra database and provider information.
         When set to `True`, the extra information will be hidden, this is useful
         in situations where the widget is used in a Tab or similar, e.g., for the
@@ -141,7 +144,7 @@ class OptimadeQueryWidget(ipw.VBox):
             **kwargs,
     ) -> None:
         providers = OptimadeQueryProviderWidget(embedded=embedded)
-        filters = OptimadeQueryFilterWidget()
+        filters = OptimadeQueryFilterWidget(embedded=embedded)
 
         ipw.dlink((providers, 'database'), (filters, 'database'))
 

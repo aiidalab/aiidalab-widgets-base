@@ -8,7 +8,7 @@ import warnings
 import pandas as pd
 import ipywidgets as ipw
 from IPython.display import HTML, Javascript, clear_output, display
-from traitlets import Instance, Int, List, Unicode, Union, observe, validate
+from traitlets import Instance, Int, List, Unicode, Union, default, observe, validate
 
 # AiiDA imports.
 from aiida.engine import submit, Process, ProcessBuilder
@@ -16,7 +16,7 @@ from aiida.orm import CalcFunctionNode, CalcJobNode, Node, ProcessNode, WorkChai
 from aiida.cmdline.utils.common import get_calcjob_report, get_workchain_report, get_process_function_report
 from aiida.cmdline.utils.ascii_vis import format_call_graph
 from aiida.cmdline.utils.query.calculation import CalculationQueryBuilder
-from aiida.common.exceptions import MultipleObjectsError, NotExistent
+from aiida.common.exceptions import MultipleObjectsError, NotExistent, NotExistentAttributeError
 
 # Local imports.
 from .viewers import viewer
@@ -410,15 +410,21 @@ class CalcJobOutputWidget(ipw.Textarea):
         if self.calculation is None:
             return
 
-        output_file_path = None
-        if 'remote_folder' in self.calculation.outputs:
+        try:
             output_file_path = os.path.join(self.calculation.outputs.remote_folder.get_remote_path(),
                                             self.calculation.attributes['output_filename'])
-        if output_file_path and os.path.exists(output_file_path):
-            with open(output_file_path) as fobj:
-                difference = fobj.readlines()[len(self.output):-1]  # Only adding the difference
-                self.output += difference
-                self.value += ''.join(difference)
+        except KeyError:
+            self.placeholder = "The `output_filename` attribute is not set for " \
+            f"{self.calculation.process_class}. Nothing to show."
+        except NotExistentAttributeError:
+            self.placeholder = "The object `remote_folder` was not found among the process outputs. " \
+            "Nothing to show."
+        else:
+            if os.path.exists(output_file_path):
+                with open(output_file_path) as fobj:
+                    difference = fobj.readlines()[len(self.output):-1]  # Only adding the difference
+                    self.output += difference
+                    self.value += ''.join(difference)
 
         # Auto scroll down. Doesn't work in detached mode.
         # Also a hack as it is applied to all the textareas
@@ -570,6 +576,10 @@ class ProcessListWidget(ipw.VBox):
                 return load_node(provided['value'])
             except (MultipleObjectsError, NotExistent):
                 return None
+        return None
+
+    @default('process_label')
+    def _default_process_label(self):
         return None
 
     @validate('process_label')
