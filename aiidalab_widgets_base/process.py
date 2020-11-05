@@ -8,7 +8,7 @@ import warnings
 import pandas as pd
 import ipywidgets as ipw
 from IPython.display import HTML, Javascript, clear_output, display
-from traitlets import Instance, Int, List, Unicode, Union, observe, validate
+from traitlets import Instance, Int, List, Unicode, Union, default, observe, validate
 
 # AiiDA imports.
 from aiida.engine import submit, Process, ProcessBuilder
@@ -576,6 +576,10 @@ class ProcessListWidget(ipw.VBox):
                 return load_node(provided['value'])
             except (MultipleObjectsError, NotExistent):
                 return None
+        return None
+
+    @default('process_label')
+    def _default_process_label(self):
         return None
 
     @validate('process_label')
