@@ -9,7 +9,7 @@ from IPython.display import display
 import nglview
 from ase import Atoms
 
-from traitlets import Instance, Int, List, Union, default, link, observe, validate
+from traitlets import Instance, Int, List, Unicode, Union, default, link, observe, validate
 from aiida.orm import Node
 
 from .utils import string_range_to_list, list_to_string_range
@@ -84,6 +84,7 @@ class _StructureDataBaseViewer(ipw.VBox):
     :type configure_view: bool"""
 
     selection = List(Int)
+    selection_adv = Unicode()
     supercell = List(Int)
     DEFAULT_SELECTION_OPACITY = 0.2
     DEFAULT_SELECTION_RADIUS = 6
@@ -148,7 +149,13 @@ class _StructureDataBaseViewer(ipw.VBox):
 
         # 4. Button to clear selection.
         clear_selection = ipw.Button(description="Clear selection")
-        clear_selection.on_click(lambda _: self.set_trait('selection', list()))  # lambda cannot contain assignments
+        #clear_selection.on_click(lambda _: self.set_trait('selection', list()))  # lambda cannot contain assignments
+        clear_selection.on_click(lambda _: (
+            self.set_trait('selection', list()),
+            self.set_trait('selection_adv', ''),
+            # self.wrong_syntax.layout.visibility = 'hidden'
+        ))
+        ## CLEAR self.wrong_syntax.layout.visibility = 'visible'
 
         # 5. Button to apply selection
         apply_selection = ipw.Button(description="Apply selection")
@@ -158,6 +165,12 @@ class _StructureDataBaseViewer(ipw.VBox):
 
         return ipw.VBox([
             ipw.HBox([self._selected_atoms, self.wrong_syntax]),
+            ipw.HTML(
+                value=
+                """<p style="color:blue;font-size:12px;line-height:100%">The Selection field accepts either ranges e.g.
+            <font color="black">1 5..8 10</font> <br>
+            or booleans e.g.
+            <font color="black" x>1 and name is not [N,O] and d_from (1,1,1) >2 and id >= 10</font></p>"""),
             ipw.HBox([copy_to_clipboard, clear_selection, apply_selection]),
             self.selection_info,
         ])
@@ -261,11 +274,18 @@ class _StructureDataBaseViewer(ipw.VBox):
 
     def apply_selection(self, _=None):
         """Apply selection specified in the text field."""
+        #if self._advanced_sel_atoms and not self._selected_atoms.value :
+        #    self.selection_adv = self._advanced_sel_atoms.value
+        #else:
         selection_string = self._selected_atoms.value
         expanded_selection, syntax_ok = string_range_to_list(self._selected_atoms.value, shift=-1)
-        self.wrong_syntax.layout.visibility = 'hidden' if syntax_ok else 'visible'
-        self.selection = expanded_selection
-        self._selected_atoms.value = selection_string  # Keep the old string for further editing.
+        #self.wrong_syntax.layout.visibility = 'hidden' if syntax_ok else 'visible'
+        if syntax_ok:
+            self.wrong_syntax.layout.visibility = 'hidden'
+            self.selection = expanded_selection
+            self._selected_atoms.value = selection_string  # Keep the old string for further editing.
+        else:
+            self.selection_adv = selection_string
 
     def download(self, change=None):  # pylint: disable=unused-argument
         """Prepare a structure for downloading."""
@@ -361,6 +381,51 @@ class StructureDataViewer(_StructureDataBaseViewer):
                 self._viewer.add_ball_and_stick(aspectRatio=4)  # pylint: disable=no-member
                 self._viewer.add_unitcell()  # pylint: disable=no-member
 
+    def parse_advanced_sel(self, condition=None):
+        """Apply advanced selection specified in the text field."""
+        ## if you change the following 30 lines:
+        condition = condition.replace(" ", "")
+        condition = condition.replace("is", "")
+        condition = condition.replace("in", "")
+        condition = condition.replace('[', 'in \"')  #lst not list
+        condition = condition.replace(']', '\".replace(\" \",\"\").split(\",\") ')
+
+        for item in ['x', 'y', 'z', 'and', 'or', 'is', 'not', 'in', 'id', 'd_from', '>', '<', '=', 'name']:
+            condition = condition.replace(item, ' ' + item + ' ')
+        condition_split = condition.split()
+
+        ## d_from distance from
+        while 'd_from' in condition_split:
+            ind = condition_split.index('d_from')
+            condition_split[ind] = 'np.linalg.norm( ' + condition_split[ind + 1] + ' - atom.position)'
+            condition_split[ind + 1] = ''
+        ## name
+        while 'name' in condition_split:
+            ind = condition_split.index('name')
+            condition_split[ind] = 'atom.symbol '
+        ## id
+        while 'id' in condition_split:
+            ind = condition_split.index('id')
+            condition_split[ind] = 'atom.index +1'
+        ## x,y,z
+        for coord in ['x', 'y', 'z']:
+            while coord in condition_split:
+                ind = condition_split.index(coord)
+                condition_split[ind] = 'atom.' + coord + ' '
+        revised_condition = ' '.join([str(elem) for elem in condition_split])
+        for eq_sym in [' =', '= ', ' = ']:
+            while eq_sym in revised_condition:
+                revised_condition = revised_condition.replace(eq_sym, '=')
+        ase_condition = '[atom.index for atom in self.structure if ( ' + revised_condition + ' )]'
+        ## test that the example condition='x>1 and id >10 and name in [O,N,Si] and d_from(1,2,3)<= 10'
+        ## results finally in a string value of
+        ## '[atom.index for atom in struc if ( atom.x  > 1 and atom.index +1 > 10
+        ##  and atom.symbol  in list( "O,N,Si".replace(" ","").split(",") and
+        ##  np.linalg.norm( (1,2,3) - atom.position)  <=10 )]'
+        ## for the variable  'ase_condition' before the command 'code'   below
+        code = compile(ase_condition, "<string>", "eval")
+        return eval(code)
+
     def create_selection_info(self):
         """Create information to be displayed with selected atoms"""
 
@@ -405,6 +470,17 @@ class StructureDataViewer(_StructureDataBaseViewer):
                 len(self.selection), geom_center, dihedral.round(2))
 
         return "{} atoms selected<br>Geometric center: ({})".format(len(self.selection), geom_center)
+
+    @observe('selection_adv')
+    def _observe_selection_adv(self, _=None):
+        """ Apply the advanced boolean atom selection"""
+        try:
+            sel = self.parse_advanced_sel(condition=str(self.selection_adv))
+            self._selected_atoms.value = list_to_string_range(sel, shift=1)
+            self.wrong_syntax.layout.visibility = 'hidden'
+            self.apply_selection()
+        except (NameError, SyntaxError, RuntimeError):
+            self.wrong_syntax.layout.visibility = 'visible'
 
     @observe('selection')
     def _observe_selection_2(self, _=None):
