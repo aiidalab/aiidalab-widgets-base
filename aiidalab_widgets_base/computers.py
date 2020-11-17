@@ -16,22 +16,7 @@ from aiida.orm import Computer, QueryBuilder, User
 
 from aiida.transports.plugins.ssh import parse_sshconfig
 
-from aiidalab_widgets_base.utils import valid_arguments
-
 STYLE = {"description_width": "200px"}
-VALID_SSH_COMPUTER_SETUP_ARGUMETNS = {'hostname', 'username', 'proxy_hostname', 'proxy_username', 'port'}
-VALID_AIIDA_COMPUTER_SETUP_ARGUMETNS = {
-    'label', 'hostname', 'description', 'work_dir', 'mpirun_cmd', 'mpiprocs_per_machine', 'transport', 'scheduler',
-    'prepend_text', 'append_text'
-}
-
-
-def valid_sshcomputer_args(arguments):
-    return valid_arguments(arguments, VALID_SSH_COMPUTER_SETUP_ARGUMETNS)
-
-
-def valid_aiidacomputer_args(arguments):
-    return valid_arguments(arguments, VALID_AIIDA_COMPUTER_SETUP_ARGUMETNS)
 
 
 class SshComputerSetup(ipw.VBox):
@@ -152,8 +137,8 @@ class SshComputerSetup(ipw.VBox):
         """Add host information into known_hosts file."""
         proxycmd = [] if proxycmd is None else proxycmd
         fname = path.expanduser("~/.ssh/known_hosts")
-        print("Adding keys from %s to %s" % (hostname, fname))
-        hashes = check_output(proxycmd + ["ssh-keyscan", "-p", self.port, "-H", hostname])
+        print(f"Adding keys from {hostname} to {fname}")
+        hashes = check_output(proxycmd + ["ssh-keyscan", "-p", str(self.port), "-H", hostname])
         with open(fname, "a") as fobj:
             fobj.write(hashes.decode("utf-8"))
 
@@ -163,10 +148,10 @@ class SshComputerSetup(ipw.VBox):
             return False
         userhost = self.username + "@" + self.hostname
         if not silent:
-            print("Trying ssh " + userhost + " -p " + self.port + "... ", end='')
+            print(f"Trying ssh {userhost} -p {self.port}... ", end='')
         # With BatchMode on, no password prompt or other interaction is attempted,
         # so a connect that requires a password will fail.
-        ret = call(["ssh", userhost, "-p", self.port, "-o", "BatchMode=yes", "-o", "ConnectTimeout=5", "true"])
+        ret = call(["ssh", userhost, "-p", str(self.port), "-o", "BatchMode=yes", "-o", "ConnectTimeout=5", "true"])
         if not silent:
             print("Ok" if ret == 0 else "Failed")
         return ret == 0
@@ -182,15 +167,15 @@ class SshComputerSetup(ipw.VBox):
     def _write_ssh_config(self, proxycmd='', private_key_abs_fname=None):
         """Put host information into the config file."""
         fname = path.expanduser("~/.ssh/config")
-        print("Adding section to " + fname)
+        print(f"Adding section to {fname}")
         with open(fname, "a") as file:
-            file.write("Host " + self.hostname + "\n")
-            file.write("User " + self.username + "\n")
-            file.write("Port " + self.port + "\n")
+            file.write(f"Host {self.hostname} \n")
+            file.write(f"User {self.username} \n")
+            file.write(f"Port {self.port} \n")
             if private_key_abs_fname:
-                file.write("IdentityFile " + private_key_abs_fname + "\n")
+                file.write(f"IdentityFile {private_key_abs_fname} \n")
             if proxycmd:
-                file.write("ProxyCommand ssh -q -Y " + proxycmd + " netcat %h %p\n")
+                file.write(f"ProxyCommand ssh -q -Y {proxycmd} netcat %h %p\n")
             file.write("ServerAliveInterval 5\n")
 
     @staticmethod
@@ -199,7 +184,7 @@ class SshComputerSetup(ipw.VBox):
         param private_key_fname: string
         param private_key_content: bytes
         """
-        fname = path.expanduser("~/.ssh/" + private_key_fname)
+        fname = path.expanduser(f"~/.ssh/{private_key_fname}")
         if path.exists(fname):
             # if file already exist and have the same content
             with open(fname, "rb") as file:
@@ -311,14 +296,14 @@ class SshComputerSetup(ipw.VBox):
             if self._send_pubkey(self.proxy_hostname, proxy_username, proxy_password):
                 return True, proxy_username + '@' + self.proxy_hostname
 
-            print("Could not send public key to {} (proxy server).".format(self.proxy_hostname))
+            print(f"Could not send public key to {self.proxy_hostname} (proxy server).")
             return False, ''
 
         # If proxy is NOT required.
         return True, ''
 
     def on_setup_ssh(self, change):
-        """setup ssh, password and private key are supported"""
+        """Setup ssh, password and private key are supported"""
         with self._setup_ssh_out:
             mode = self._verification_mode.value
             self._on_setup_ssh(mode, change)
@@ -382,7 +367,7 @@ class SshComputerSetup(ipw.VBox):
         if mode == 'password':
             # sending public key to the main host
             if not self._send_pubkey(self.hostname, self.username, password, proxycmd):
-                print("Could not send public key to {}".format(self.hostname))
+                print("Could not send public key to {self.hostname}")
                 return
 
         # modify the ssh config file if necessary
@@ -607,7 +592,7 @@ class AiidaComputerSetup(ipw.VBox):
         super(AiidaComputerSetup, self).__init__(children, **kwargs)
 
     def _configure_computer(self):
-        """create AuthInfo"""
+        """Create AuthInfo."""
         print("Configuring '{}'".format(self.label))
         sshcfg = parse_sshconfig(self.hostname)
         authparams = {
@@ -626,8 +611,8 @@ class AiidaComputerSetup(ipw.VBox):
         if 'user' in sshcfg:
             authparams['username'] = sshcfg['user']
         else:
-            print("SSH username is not provided, please run `verdi computer configure {}` "
-                  "from the command line".format(self.label))
+            print(f"SSH username is not provided, please run `verdi computer configure {self.label}` "
+                  "from the command line.")
             return
         if 'proxycommand' in sshcfg:
             authparams['proxy_command'] = sshcfg['proxycommand']
@@ -647,12 +632,12 @@ class AiidaComputerSetup(ipw.VBox):
                 return
             try:
                 computer = Computer.objects.get(name=self.label)
-                print("A computer called {} already exists.".format(self.label))
+                print(f"A computer called {self.label} already exists.")
                 return
             except NotExistent:
                 pass
 
-            print("Creating new computer with name '{}'".format(self.label))
+            print(f"Creating new computer with name '{self.label}'")
             computer = Computer(name=self.label, hostname=self.hostname, description=self.description)
             computer.set_transport_type(self.transport)
             computer.set_scheduler_type(self.scheduler)
@@ -721,8 +706,8 @@ class ComputerDropdown(ipw.VBox):
         self.observe(self.refresh, names='allow_select_disabled')
 
         self._setup_another = ipw.HTML(
-            value="""<a href={path_to_root}aiidalab-widgets-base/setup_computer.ipynb target="_blank">
-            Setup new computer</a>""".format(path_to_root=path_to_root))
+            value=f"""<a href={path_to_root}aiidalab-widgets-base/setup_computer.ipynb target="_blank">
+            Setup new computer</a>""")
 
         children = [ipw.HBox([self._dropdown, btn_refresh, self._setup_another]), self.output]
         self.refresh()
@@ -766,13 +751,13 @@ class ComputerDropdown(ipw.VBox):
         if isinstance(computer, str):
             if computer in self.computers:
                 return self.computers[computer]
-            raise KeyError("No computer named '{}' was found in AiiDA database.".format(computer))
+            raise KeyError(f"No computer named '{computer}' was found in AiiDA database.")
 
         if isinstance(computer, Computer):
             if computer.name in self.computers:
                 return computer
-            raise ValueError("The computer instance '{}' supplied was not found in  the AiiDA database. "
-                             "Consider reloading".format(computer))
+            raise ValueError(f"The computer instance '{computer}' supplied was not found in  the AiiDA database. "
+                             "Consider reloading")
 
         # This place will never be reached, because the trait's type is checked before validation.
         return None
