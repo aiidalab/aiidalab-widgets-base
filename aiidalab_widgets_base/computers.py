@@ -745,9 +745,8 @@ class ComputerDropdown(ipw.VBox):
         """Select computer either by name or by class instance."""
         computer = change['value']
 
-        if computer is None:
+        if not computer:
             return None
-
         if isinstance(computer, str):
             if computer in self.computers:
                 return self.computers[computer]
