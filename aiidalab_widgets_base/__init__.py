@@ -3,7 +3,7 @@
 from aiida import load_profile
 load_profile()
 
-from .codes import CodeDropdown, AiiDACodeSetup, valid_aiidacode_args
+from .codes import CodeDropdown, AiiDACodeSetup
 from .computers import SshComputerSetup
 from .computers import AiidaComputerSetup
 from .computers import ComputerDropdown
