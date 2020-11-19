@@ -9,7 +9,7 @@ import pexpect
 import shortuuid
 import ipywidgets as ipw
 from IPython.display import clear_output
-from traitlets import Bool, Dict, Instance, Int, Unicode, Union, link, validate
+from traitlets import Bool, Dict, Instance, Int, Unicode, Union, link, observe, validate
 
 from aiida.common import NotExistent
 from aiida.orm import Computer, QueryBuilder, User
@@ -455,20 +455,18 @@ class SshComputerSetup(ipw.VBox):
             return fname, content
         return None, None
 
-    @validate('proxy_hostname')
-    def _validate_proxy_hostname(self, provided):
+    @observe('proxy_hostname')
+    def _observe_proxy_hostname(self, _=None):
         """Enable 'use proxy' widget if proxy hostname is provided."""
-        if provided['value']:
+        if self.proxy_hostname:
             self.use_proxy = True
-        return provided['value']
 
-    @validate('proxy_username')
-    def _validate_proxy_username(self, provided):
+    @observe('proxy_username')
+    def _observe_proxy_username(self, _=None):
         """Enable 'use proxy' and 'use different proxy username' widgets if proxy username is provided."""
-        if provided['value']:
+        if self.proxy_username:
             self.use_proxy = True
             self._use_diff_proxy_username.value = True
-        return provided['value']
 
     @validate('port')
     def _validate_port(self, provided):  # pylint: disable=no-self-use
