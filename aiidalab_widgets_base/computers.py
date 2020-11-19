@@ -690,7 +690,7 @@ class ComputerDropdown(ipw.VBox):
         path_to_root (str): Path to the app's root folder.
         """
 
-        self.output = ipw.Output()
+        self.output = ipw.HTML()
 
         self._dropdown = ipw.Dropdown(options={},
                                       value=None,
@@ -727,36 +727,33 @@ class ComputerDropdown(ipw.VBox):
 
     def refresh(self, _=None):
         """Refresh the list of configured computers."""
+        self.output.value = ''
+        with self.hold_trait_notifications():  # pylint: disable=not-context-manager
+            self._dropdown.options = self._get_computers()
+        if not self.computers:
+            self.output.value = "No computers found."
+            self._dropdown.disabled = True
+        else:
+            self._dropdown.disabled = False
 
-        with self.output:
-            clear_output()
-            with self.hold_trait_notifications():  # pylint: disable=not-context-manager
-                self._dropdown.options = self._get_computers()
-            if not self.computers:
-                print("No computers found.")
-                self._dropdown.disabled = True
-            else:
-                self._dropdown.disabled = False
-
-            self._dropdown.value = None
+        self._dropdown.value = None
 
     @validate('selected_computer')
     def _validate_selected_computer(self, change):
         """Select computer either by name or by class instance."""
         computer = change['value']
-        with self.output:
-            clear_output()
-            if not computer:
-                return None
-            if isinstance(computer, str):
-                if computer in self.computers:
-                    return self.computers[computer]
-                print(f"No computer named '{computer}' was found in AiiDA database.")
+        self.output.value = ''
+        if not computer:
+            return None
+        if isinstance(computer, str):
+            if computer in self.computers:
+                return self.computers[computer]
+            self.output.value = f"""No computer named '<span style="color:red">{computer}</span>'
+            was found in your AiiDA database."""
 
-            if isinstance(computer, Computer):
-                if computer.name in self.computers:
-                    return computer
-                print(f"The computer instance '{computer}' supplied was not found in  the AiiDA database. "
-                      "Consider reloading")
-
+        if isinstance(computer, Computer):
+            if computer.name in self.computers:
+                return computer
+            self.output.value = f"""The computer instance '<span style="color:red">{computer}</span>'
+            supplied was not found in your AiiDA database."""
         return None
