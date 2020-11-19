@@ -41,7 +41,7 @@ class CodeDropdown(ipw.VBox):
 
         description (str): Description to display before the dropdown.
         """
-        self.output = ipw.Output()
+        self.output = ipw.HTML()
 
         self.input_plugin = input_plugin
 
@@ -97,23 +97,23 @@ class CodeDropdown(ipw.VBox):
 
         The job of this function is to look in AiiDA database, find available codes and
         put them in the dropdown attribute."""
+        self.output.value = ''
 
-        with self.output:
-            clear_output()
-            with self.hold_trait_notifications():
-                self.dropdown.options = self._get_codes()
-            if not self.dropdown.options:
-                print("No codes found for input plugin '{self.input_plugin}'.")
-                self.dropdown.disabled = True
-            else:
-                self.dropdown.disabled = False
-            self.dropdown.value = None
+        with self.hold_trait_notifications():
+            self.dropdown.options = self._get_codes()
+        if not self.dropdown.options:
+            self.output.value = f"No codes found for input plugin '{self.input_plugin}'."
+            self.dropdown.disabled = True
+        else:
+            self.dropdown.disabled = False
+        self.dropdown.value = None
 
     @validate('selected_code')
     def _validate_selected_code(self, change):
         """If code is provided, set it as it is. If code's name is provided,
         select the code and set it."""
         code = change['value']
+        self.output.value = ''
 
         # If code None, set value to None
         if code is None:
@@ -123,15 +123,16 @@ class CodeDropdown(ipw.VBox):
         if isinstance(code, str):
             if code in self.codes:
                 return self.codes[code]
-            raise KeyError(f"No code named '{code}' found in the AiiDA database.")
+            self.output.value = f"""No code named '<span style="color:red">{code}</span>'
+            found in the AiiDA database."""
 
         # Check code by value.
         if isinstance(code, Code):
             label = self._full_code_label(code)
             if label in self.codes:
                 return code
-            raise ValueError(
-                f"The code instance '{code}' supplied was not found in the AiiDA database. Consider reloading.")
+            self.output.value = f"""The code instance '<span style="color:red">{code}</span>'
+            supplied was not found in the AiiDA database."""
 
         # This place will never be reached, because the trait's type is checked.
         return None
