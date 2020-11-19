@@ -1,7 +1,7 @@
 """Widgets that allow to query online databases."""
 import requests
 import ipywidgets as ipw
-from traitlets import Bool, Float, Instance, Int, Unicode, default, validate
+from traitlets import Bool, Float, Instance, Int, Unicode, default, observe
 from ase import Atoms
 
 from optimade_client.query_filter import OptimadeQueryFilterWidget
@@ -233,11 +233,10 @@ class ComputerDatabaseWidget(ipw.HBox):
             for setting in computer_configure:
                 self.set_trait(setting, computer_configure[setting])
 
-    @validate('proxy_command')
-    def _validate_proxy_command(self, change):
+    @observe('proxy_command')
+    def _observe_proxy_command(self, _=None):
         """Extrac username and hostname for connecting to a proxy server."""
-        command = change['value']
-        username, hostname = ''.join([w for w in command.split() if '@' in w]).split('@')
+        username, hostname = ''.join([w for w in self.proxy_command.split() if '@' in w]).split('@')
         with self.hold_trait_notifications():
             self.proxy_username = username
             self.proxy_hostname = hostname
