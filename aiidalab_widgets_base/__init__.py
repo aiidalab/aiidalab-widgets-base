@@ -3,11 +3,11 @@
 from aiida import load_profile
 load_profile()
 
-from .codes import CodeDropdown, AiiDACodeSetup, valid_aiidacode_args
-from .computers import SshComputerSetup, valid_sshcomputer_args
-from .computers import AiidaComputerSetup, valid_aiidacomputer_args
+from .codes import CodeDropdown, AiiDACodeSetup
+from .computers import SshComputerSetup
+from .computers import AiidaComputerSetup
 from .computers import ComputerDropdown
-from .databases import CodQueryWidget, OptimadeQueryWidget
+from .databases import CodQueryWidget, CodeDatabaseWidget, ComputerDatabaseWidget, OptimadeQueryWidget
 from .export import ExportButtonWidget
 from .process import ProgressBarWidget, ProcessFollowerWidget, ProcessInputsWidget, ProcessOutputsWidget
 from .process import ProcessCallStackWidget, RunningCalcJobOutputWidget, SubmitButtonWidget, ProcessReportWidget
@@ -18,4 +18,4 @@ from .structures import BasicStructureEditor
 from .structures_multi import MultiStructureUploadWidget
 from .viewers import viewer
 
-__version__ = "1.0.0b13"
+__version__ = "1.0.0b14"
