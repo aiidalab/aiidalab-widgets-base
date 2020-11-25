@@ -368,10 +368,10 @@ class InfixConverter:
             '^': 3,
             '>': 0,
             '<': 0,
-            '==': 0,
+            '=': 0,
             '>=': 0,
             '<=': 0,
-            'not': 0,
+            '!=': 0,
             'and': -1,
             'or': -2,
         }
@@ -535,6 +535,12 @@ class StructureDataViewer(_StructureDataBaseViewer):
         def lower(opa, opb):
             return np.where(opa < opb)[0]
 
+        def equal(opa, opb):
+            return np.where(opa == opb)[0]
+
+        def notequal(opa, opb):
+            return np.where(opa != opb)[0]
+
         def greatereq(opa, opb):
             return np.where(opa >= opb)[0]
 
@@ -575,6 +581,8 @@ class StructureDataViewer(_StructureDataBaseViewer):
             '*': mult,
             '/': division,
             '^': power,
+            '=': equal,
+            '!=': notequal,
         }
 
         stackposition = -1
@@ -605,25 +613,27 @@ class StructureDataViewer(_StructureDataBaseViewer):
 
     def parse_advanced_sel(self, condition=None):
         """Apply advanced selection specified in the text field."""
+        ## do not modify the order of execution of teh following replacements
         condition = condition.replace(" ", "")
         condition = condition.replace(">=", "ge")
         condition = condition.replace("<=", "le")
-        condition = condition.replace("==", "eq")
+        condition = condition.replace("!=", "ne")
+        condition = condition.replace("=", "eq")
         condition = condition.replace("is", "")
         condition = condition.replace("in", "")
         condition = condition.replace('[', '_')
         condition = condition.replace(']', '_')
         condition = condition.replace(',', '_')
         for item in [
-                'x', 'y', 'z', 'and', 'or', 'is', 'not', 'in', 'id', 'd_from', '>', '<', '=', 'name', '+', '-', '*',
-                '/', '^', 'ge', 'le', 'eq', '(', ')'
+                'x', 'y', 'z', 'and', 'or', 'is', 'not', 'in', 'id', 'd_from', '>', '<', 'name', '+', '-', '*', '/',
+                '^', 'ge', 'le', 'eq', 'ne', '(', ')'
         ]:
             condition = condition.replace(item, ' ' + item + ' ')
 
         csp = condition.split()
         ## syntax check
         ## dist
-        clean = {'ge': '>=', 'le': '<=', 'eq': '=='}
+        clean = {'ge': '>=', 'le': '<=', 'eq': '=', 'ne': '!='}
         #changing order would brake conversion of 'name not [N,O]'
         specials = ['not', 'name', 'd_from']
         for spec in specials:
