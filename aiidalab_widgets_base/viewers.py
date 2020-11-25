@@ -170,7 +170,7 @@ class _StructureDataBaseViewer(ipw.VBox):
                 """<p style="color:blue;font-size:12px;line-height:100%">The Selection field accepts either ranges e.g.
             <font color="black">1 5..8 10</font> <br>
             or booleans e.g.
-            <font color="black" x>1 and name is not [N,O] and d_from (1,1,1) >2 and id >= 10</font></p>"""),
+            <font color="black"> (x>1 and name not [N,O]) or d_from [1,1,1] >2 or id >= 10</font></p>"""),
             ipw.HBox([copy_to_clipboard, clear_selection, apply_selection]),
             self.selection_info,
         ])
@@ -319,6 +319,120 @@ class _StructureDataBaseViewer(ipw.VBox):
         return self._prepare_payload(file_format='png')
 
 
+## where should we put the two following classes?
+class Stack:
+    """Class defining the stack for RPN notation"""
+
+    #adapted from:
+    # Author: Alaa Awad
+    # Description: program converts infix to postfix notation
+    #https://gist.github.com/awadalaa/7ef7dc7e41edb501d44d1ba41cbf0dc6
+    def __init__(self):
+        self.items = []
+
+    def isempty(self):
+        """Empties the stack"""
+        return self.items == []
+
+    def push(self, item):
+        """Push element in the stack"""
+        self.items.append(item)
+
+    def pop(self):
+        """Drops element from the stack"""
+        return self.items.pop()
+
+    def peek(self):
+        """Returns last element in stack"""
+        return self.items[self.size() - 1]
+
+    def size(self):
+        """Returns length of the stack"""
+        return len(self.items)
+
+
+class InfixConverter:
+    """Class defining operations for RPN conversion"""
+
+    #adapted from:
+    # Author: Alaa Awad
+    # Description: program converts infix to postfix notation
+    #https://gist.github.com/awadalaa/7ef7dc7e41edb501d44d1ba41cbf0dc6
+    def __init__(self):
+        self.stack = Stack()
+        self.precedence = {
+            '+': 1,
+            '-': 1,
+            '*': 2,
+            '/': 2,
+            '^': 3,
+            '>': 0,
+            '<': 0,
+            '==': 0,
+            '>=': 0,
+            '<=': 0,
+            'not': 0,
+            'and': -1,
+            'or': -2,
+        }
+
+    def haslessorequalpriority(self, opa, opb):
+        """Priority of the different operators"""
+        if opa not in self.precedence:
+            return False
+        if opb not in self.precedence:
+            return False
+        return self.precedence[opa] <= self.precedence[opb]
+
+    def isoperator(self, opx):
+        """Identifies operators"""
+        ops = self.precedence.keys()
+        return opx in ops
+
+    def isoperand(self, ope):
+        """Identifies operands"""
+        return ope not in set(self.precedence.keys()).union({'(', ')'})  # ch.isalpha() or ch.isdigit()
+
+    def isopenparenthesis(self, ope):
+        """Identifies open paretheses"""
+        return ope == '('
+
+    def iscloseparenthesis(self, ope):
+        """Identifies closed paretheses"""
+        return ope == ')'
+
+    def topostfix(self, expr):
+        """Convert expression to postfix"""
+        #expr = expr.replace(" ", "")
+        self.stack = Stack()
+        output = []
+
+        for char in expr:
+            if self.isoperand(char):
+                output.append(char)
+            else:
+                if self.isopenparenthesis(char):
+                    self.stack.push(char)
+                elif self.iscloseparenthesis(char):
+                    operator = self.stack.pop()
+                    while not self.isopenparenthesis(operator):
+                        output.append(operator)
+                        operator = self.stack.pop()
+                else:
+                    while (not self.stack.isempty()) and self.haslessorequalpriority(char, self.stack.peek()):
+                        output.append(self.stack.pop())
+                    self.stack.push(char)
+
+        while not self.stack.isempty():
+            output.append(self.stack.pop())
+        return output
+
+    def convert(self, expr):
+        """conversion to postfix notation"""
+
+        return self.topostfix(expr)
+
+
 class StructureDataViewer(_StructureDataBaseViewer):
     """Viewer class for AiiDA structure objects.
 
@@ -381,50 +495,156 @@ class StructureDataViewer(_StructureDataBaseViewer):
                 self._viewer.add_ball_and_stick(aspectRatio=4)  # pylint: disable=no-member
                 self._viewer.add_unitcell()  # pylint: disable=no-member
 
+    def advanced_selection(self, struc, postfix):
+        """Applies rules of advanced selection."""
+        stack = []
+        if postfix == []:
+            return []
+
+        def is_number(string):
+            """Check if string is a number. """
+            try:
+                float(string)
+                return True
+            except ValueError:
+                return False
+
+        def addition(opa, opb):
+            return opa + opb
+
+        def subtraction(opa, opb):
+            return opa - opb
+
+        def mult(opa, opb):
+            return opa * opb
+
+        def division(opa, opb):
+            if isinstance(opb, type(np.array([]))):
+                if any(np.abs(opb) < 0.0001):
+                    return np.array([])
+            elif np.abs(opb) < 0.0001:
+                return np.array([])
+            return opa / opb
+
+        def power(opa, opb):
+            return opa**opb
+
+        def greater(opa, opb):
+            return np.where(opa > opb)[0]
+
+        def lower(opa, opb):
+            return np.where(opa < opb)[0]
+
+        def greatereq(opa, opb):
+            return np.where(opa >= opb)[0]
+
+        def lowereq(opa, opb):
+            return np.where(opa <= opb)[0]
+
+        def intersec(opa, opb):
+            return np.intersect1d(opa, opb)
+
+        def union(opa, opb):
+            return np.union1d(opa, opb)
+
+        def dfrom(ope, pos):
+            point = np.array([float(i) for i in ope.split('_')[2:5]])
+            return np.linalg.norm(pos - point, axis=1)
+
+        def name(ope, symbols):
+            names = ope.replace("name", "").replace("not", "").replace("_", " ").split()
+            if 'not' in ope:
+                return np.array([i for i, val in enumerate(symbols) if val not in names])
+            return np.array([i for i, val in enumerate(symbols) if val in names])
+
+        operandsdict = {
+            'x': struc.positions[:, 0],
+            'y': struc.positions[:, 1],
+            'z': struc.positions[:, 2],
+            'id': np.array([atom.index + 1 for atom in struc])
+        }
+        operatorsdict = {
+            '>': greater,
+            '<': lower,
+            '>=': greatereq,
+            '<=': lowereq,
+            'and': intersec,
+            'or': union,
+            '+': addition,
+            '-': subtraction,
+            '*': mult,
+            '/': division,
+            '^': power,
+        }
+
+        stackposition = -1
+
+        for ope in postfix:
+            #operands
+            if ope in operandsdict.keys():
+                stack.append(operandsdict[ope])
+                stackposition += 1
+            elif is_number(ope):
+                stack.append(float(ope))
+                stackposition += 1
+            #special case distance
+            elif 'd_from' in ope:
+                stack.append(dfrom(ope, struc.positions))
+                stackposition += 1
+            #special case name and namenot
+            elif 'name' in ope:
+                stack.append(name(ope, struc.get_chemical_symbols()))
+                stackposition += 1
+            #operators
+            elif ope in operatorsdict.keys():
+                stack[stackposition] = operatorsdict[ope](stack[stackposition - 1], stack[stackposition])
+                del stack[stackposition - 1]
+                stackposition -= 1
+
+        return stack[0].tolist()
+
     def parse_advanced_sel(self, condition=None):
         """Apply advanced selection specified in the text field."""
-        ## if you change the following 30 lines:
         condition = condition.replace(" ", "")
+        condition = condition.replace(">=", "ge")
+        condition = condition.replace("<=", "le")
+        condition = condition.replace("==", "eq")
         condition = condition.replace("is", "")
         condition = condition.replace("in", "")
-        condition = condition.replace('[', 'in \"')  #lst not list
-        condition = condition.replace(']', '\".replace(\" \",\"\").split(\",\") ')
-
-        for item in ['x', 'y', 'z', 'and', 'or', 'is', 'not', 'in', 'id', 'd_from', '>', '<', '=', 'name']:
+        condition = condition.replace('[', '_')
+        condition = condition.replace(']', '_')
+        condition = condition.replace(',', '_')
+        for item in [
+                'x', 'y', 'z', 'and', 'or', 'is', 'not', 'in', 'id', 'd_from', '>', '<', '=', 'name', '+', '-', '*',
+                '/', '^', 'ge', 'le', 'eq', '(', ')'
+        ]:
             condition = condition.replace(item, ' ' + item + ' ')
-        condition_split = condition.split()
 
-        ## d_from distance from
-        while 'd_from' in condition_split:
-            ind = condition_split.index('d_from')
-            condition_split[ind] = 'np.linalg.norm( ' + condition_split[ind + 1] + ' - atom.position)'
-            condition_split[ind + 1] = ''
-        ## name
-        while 'name' in condition_split:
-            ind = condition_split.index('name')
-            condition_split[ind] = 'atom.symbol '
-        ## id
-        while 'id' in condition_split:
-            ind = condition_split.index('id')
-            condition_split[ind] = 'atom.index +1'
-        ## x,y,z
-        for coord in ['x', 'y', 'z']:
-            while coord in condition_split:
-                ind = condition_split.index(coord)
-                condition_split[ind] = 'atom.' + coord + ' '
-        revised_condition = ' '.join([str(elem) for elem in condition_split])
-        for eq_sym in [' =', '= ', ' = ']:
-            while eq_sym in revised_condition:
-                revised_condition = revised_condition.replace(eq_sym, '=')
-        ase_condition = '[atom.index for atom in self.structure if ( ' + revised_condition + ' )]'
-        ## test that the example condition='x>1 and id >10 and name in [O,N,Si] and d_from(1,2,3)<= 10'
-        ## results finally in a string value of
-        ## '[atom.index for atom in struc if ( atom.x  > 1 and atom.index +1 > 10
-        ##  and atom.symbol  in list( "O,N,Si".replace(" ","").split(",") and
-        ##  np.linalg.norm( (1,2,3) - atom.position)  <=10 )]'
-        ## for the variable  'ase_condition' before the command 'code'   below
-        code = compile(ase_condition, "<string>", "eval")
-        return eval(code)
+        csp = condition.split()
+        ## syntax check
+        ## dist
+        clean = {'ge': '>=', 'le': '<=', 'eq': '=='}
+        #changing order would brake conversion of 'name not [N,O]'
+        specials = ['not', 'name', 'd_from']
+        for spec in specials:
+            while spec in csp:
+                ind = csp.index(spec)
+                csp[ind] = (spec + csp[ind + 1]).replace(" ", "")
+                csp[ind + 1] = ''
+
+        for key in clean.keys():
+            while key in csp:
+                ind = csp.index(key)
+                csp[ind] = clean[key]
+
+        #
+        # remove '' from the list
+        csp = list(filter(bool, csp))
+
+        infix = InfixConverter()
+        infix_expression = csp
+        postfix = infix.convert(infix_expression)
+        return self.advanced_selection(self.structure, postfix)
 
     def create_selection_info(self):
         """Create information to be displayed with selected atoms"""
@@ -479,7 +699,7 @@ class StructureDataViewer(_StructureDataBaseViewer):
             self._selected_atoms.value = list_to_string_range(sel, shift=1)
             self.wrong_syntax.layout.visibility = 'hidden'
             self.apply_selection()
-        except (NameError, SyntaxError, RuntimeError):
+        except (IndexError, TypeError, AttributeError):
             self.wrong_syntax.layout.visibility = 'visible'
 
     @observe('selection')
