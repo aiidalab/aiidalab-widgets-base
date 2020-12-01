@@ -522,72 +522,77 @@ class SmilesWidget(ipw.VBox):
     SPINNER = """<i class="fa fa-spinner fa-pulse" style="color:red;" ></i>"""
 
     def __init__(self, title=''):
+        # pylint: disable=unused-import
         self.title = title
+
+        try:
+            # Chem imports
+            from openbabel import pybel
+            from openbabel import openbabel
+        except ImportError:
+            super().__init__(
+                [ipw.HTML("The SmilesWidget requires the OpenBabel library, "
+                          "but the library was not found.")])
+            return
+        try:
+            # Chem imports
+            #from rdkit.Chem.rdmolfiles import MolFromSmiles  #, MolToMolFile
+            from rdkit import Chem
+            from rdkit.Chem import AllChem
+        except ImportError:
+            super().__init__(
+                [ipw.HTML("The SmilesWidget requires the rdkit library, "
+                          "but the library was not found.")])
+            return
 
         self.smiles = ipw.Text(placeholder='C=C')
         self.create_structure_btn = ipw.Button(description="Generate molecule", button_style='info')
         self.create_structure_btn.on_click(self._on_button_pressed)
         self.output = ipw.HTML("")
+
         super().__init__([self.smiles, self.create_structure_btn, self.output])
+
+    def try_align_principal_axis(self, pos):
+        """Use PCA to align the principal axis to z."""
+        try:
+            from sklearn.decomposition import PCA
+        except ImportError:
+            self.output.value = "PCA library not available, the molecule will not be aligned to z."
+            return pos
+        pca = PCA(n_components=3)
+        #pca.fit(pos)
+        #posnew = pca.transform(pos)
+        return pca.fit_transform(pos)
 
     def pybel2ase(self, mol):
         """Convert pymol object into ASE Atoms."""
-        try:
-            # ML imports
-            from sklearn.decomposition import PCA
-        except ImportError:
-            super().__init__(
-                [ipw.HTML("The SmilesWidget requires the sklearn library, "
-                          "but the library was not found.")])
-            return Atoms()
         species = [chemical_symbols[atm.atomicnum] for atm in mol.atoms]
         pos = np.asarray([atm.coords for atm in mol.atoms])
-        pca = PCA(n_components=3)
-        posnew = pca.fit_transform(pos)
-        #posnew[:,2]=0.0
-        atoms = Atoms(species, positions=posnew)
-        sys_size = np.ptp(atoms.positions, axis=0)
-        atoms.pbc = True
-        atoms.cell = sys_size + 10
+        pos = self.try_align_principal_axis(pos)
+        atoms = Atoms(species, positions=pos, pbc=True)
+        atoms.cell = np.ptp(atoms.positions, axis=0) + 10
         atoms.center()
         return atoms
 
     def rdkit2ase(self, mol):
         """Convert rdkit object into ASE Atoms."""
-        try:
-            # ML imports
-            from sklearn.decomposition import PCA
-        except ImportError:
-            super().__init__(
-                [ipw.HTML("The SmilesWidget requires the sklearn library, "
-                          "but the library was not found.")])
-            return Atoms()
         pos = mol.GetConformer().GetPositions()
         natoms = mol.GetNumAtoms()
         species = [mol.GetAtomWithIdx(j).GetSymbol() for j in range(natoms)]
         #Get the principal axes and realign the molecule
-        pca = PCA(n_components=3)
-        pca.fit(pos)
-        posnew = pca.transform(pos)
-        atoms = Atoms(species, positions=posnew)
-        sys_size = np.ptp(atoms.positions, axis=0)
-        atoms.pbc = True
-        atoms.cell = sys_size + 10
+        pos = self.try_align_principal_axis(pos)
+        atoms = Atoms(species, positions=pos, pbc=True)
+        atoms.cell = np.ptp(atoms.positions, axis=0) + 10
         atoms.center()
 
         return atoms
 
     def pybel_opt(self, smile, steps):
         """Optimize a molecule using force field and pybel (needed for complex SMILES)."""
-        try:
-            # Chem imports
-            from openbabel import pybel as pb
-            from openbabel import openbabel as ob
-        except ImportError:
-            super().__init__(
-                [ipw.HTML("The SmilesWidget requires the OpenBabel library, "
-                          "but the library was not found.")])
-            return Atoms()
+
+        # Chem imports
+        from openbabel import pybel as pb
+        from openbabel import openbabel as ob
         obconversion = ob.OBConversion()
         obconversion.SetInFormat('smi')
         obmol = ob.OBMol()
@@ -618,7 +623,6 @@ class SmilesWidget(ipw.VBox):
             super().__init__(
                 [ipw.HTML("The SmilesWidget requires the rdkit library, "
                           "but the library was not found.")])
-            return Atoms()
         test = Chem.MolFromSmiles(smile)
         test = Chem.AddHs(test)
 
@@ -628,16 +632,10 @@ class SmilesWidget(ipw.VBox):
 
     def rdkit_opt(self, smile, steps):
         """Optimize a molecule using force field and rdkit (needed for complex SMILES)."""
-        try:
-            # Chem imports
-            #from rdkit.Chem.rdmolfiles import MolFromSmiles  #, MolToMolFile
-            from rdkit import Chem
-            from rdkit.Chem import AllChem
-        except ImportError:
-            super().__init__(
-                [ipw.HTML("The SmilesWidget requires the rdkit library, "
-                          "but the library was not found.")])
-            return Atoms()
+        # Chem imports
+        from rdkit import Chem
+        from rdkit.Chem import AllChem
+
         mol = Chem.MolFromSmiles(smile)
         mol = Chem.AddHs(mol)
 
