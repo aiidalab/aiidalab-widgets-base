@@ -13,7 +13,7 @@ from traitlets import Instance, Int, List, Unicode, Union, default, link, observ
 from aiida.orm import Node
 
 from .utils import string_range_to_list, list_to_string_range
-from .misc import CopyToClipboardButton
+from .misc import CopyToClipboardButton, InfixConverter  #, Stack
 
 
 def viewer(obj, downloadable=True, **kwargs):
@@ -111,6 +111,7 @@ class _StructureDataBaseViewer(ipw.VBox):
                                         orientation='vertical')
 
         def change_camera(change):
+
             self._viewer.camera = change['new']
 
         camera_type.observe(change_camera, names="value")
@@ -319,120 +320,6 @@ class _StructureDataBaseViewer(ipw.VBox):
         return self._prepare_payload(file_format='png')
 
 
-## where should we put the two following classes?
-class Stack:
-    """Class defining the stack for RPN notation"""
-
-    #adapted from:
-    # Author: Alaa Awad
-    # Description: program converts infix to postfix notation
-    #https://gist.github.com/awadalaa/7ef7dc7e41edb501d44d1ba41cbf0dc6
-    def __init__(self):
-        self.items = []
-
-    def isempty(self):
-        """Empties the stack"""
-        return self.items == []
-
-    def push(self, item):
-        """Push element in the stack"""
-        self.items.append(item)
-
-    def pop(self):
-        """Drops element from the stack"""
-        return self.items.pop()
-
-    def peek(self):
-        """Returns last element in stack"""
-        return self.items[self.size() - 1]
-
-    def size(self):
-        """Returns length of the stack"""
-        return len(self.items)
-
-
-class InfixConverter:
-    """Class defining operations for RPN conversion"""
-
-    #adapted from:
-    # Author: Alaa Awad
-    # Description: program converts infix to postfix notation
-    #https://gist.github.com/awadalaa/7ef7dc7e41edb501d44d1ba41cbf0dc6
-    def __init__(self):
-        self.stack = Stack()
-        self.precedence = {
-            '+': 1,
-            '-': 1,
-            '*': 2,
-            '/': 2,
-            '^': 3,
-            '>': 0,
-            '<': 0,
-            '=': 0,
-            '>=': 0,
-            '<=': 0,
-            '!=': 0,
-            'and': -1,
-            'or': -2,
-        }
-
-    def haslessorequalpriority(self, opa, opb):
-        """Priority of the different operators"""
-        if opa not in self.precedence:
-            return False
-        if opb not in self.precedence:
-            return False
-        return self.precedence[opa] <= self.precedence[opb]
-
-    def isoperator(self, opx):
-        """Identifies operators"""
-        ops = self.precedence.keys()
-        return opx in ops
-
-    def isoperand(self, ope):
-        """Identifies operands"""
-        return ope not in set(self.precedence.keys()).union({'(', ')'})  # ch.isalpha() or ch.isdigit()
-
-    def isopenparenthesis(self, ope):
-        """Identifies open paretheses"""
-        return ope == '('
-
-    def iscloseparenthesis(self, ope):
-        """Identifies closed paretheses"""
-        return ope == ')'
-
-    def topostfix(self, expr):
-        """Convert expression to postfix"""
-        #expr = expr.replace(" ", "")
-        self.stack = Stack()
-        output = []
-
-        for char in expr:
-            if self.isoperand(char):
-                output.append(char)
-            else:
-                if self.isopenparenthesis(char):
-                    self.stack.push(char)
-                elif self.iscloseparenthesis(char):
-                    operator = self.stack.pop()
-                    while not self.isopenparenthesis(operator):
-                        output.append(operator)
-                        operator = self.stack.pop()
-                else:
-                    while (not self.stack.isempty()) and self.haslessorequalpriority(char, self.stack.peek()):
-                        output.append(self.stack.pop())
-                    self.stack.push(char)
-
-        while not self.stack.isempty():
-            output.append(self.stack.pop())
-        return output
-
-    def convert(self, expr):
-        """conversion to postfix notation"""
-
-        return self.topostfix(expr)
-
-
 class StructureDataViewer(_StructureDataBaseViewer):
     """Viewer class for AiiDA structure objects.
 
@@ -495,8 +382,9 @@ class StructureDataViewer(_StructureDataBaseViewer):
                 self._viewer.add_ball_and_stick(aspectRatio=4)  # pylint: disable=no-member
                 self._viewer.add_unitcell()  # pylint: disable=no-member
 
-    def advanced_selection(self, struc, postfix):
+    def advanced_selection(self, postfix):
         """Applies rules of advanced selection."""
+        # pylint: disable=too-many-locals
         stack = []
         if postfix == []:
             return []
@@ -564,10 +452,10 @@ class StructureDataViewer(_StructureDataBaseViewer):
             return np.array([i for i, val in enumerate(symbols) if val in names])
 
         operandsdict = {
-            'x': struc.positions[:, 0],
-            'y': struc.positions[:, 1],
-            'z': struc.positions[:, 2],
-            'id': np.array([atom.index + 1 for atom in struc])
+            'x': self.structure.positions[:, 0],
+            'y': self.structure.positions[:, 1],
+            'z': self.structure.positions[:, 2],
+            'id': np.array([atom.index + 1 for atom in self.structure])
         }
         operatorsdict = {
             '>': greater,
@@ -597,11 +485,11 @@ class StructureDataViewer(_StructureDataBaseViewer):
                 stackposition += 1
             #special case distance
             elif 'd_from' in ope:
-                stack.append(dfrom(ope, struc.positions))
+                stack.append(dfrom(ope, self.structure.positions))
                 stackposition += 1
             #special case name and namenot
             elif 'name' in ope:
-                stack.append(name(ope, struc.get_chemical_symbols()))
+                stack.append(name(ope, self.structure.get_chemical_symbols()))
                 stackposition += 1
             #operators
             elif ope in operatorsdict.keys():
@@ -642,7 +530,7 @@ class StructureDataViewer(_StructureDataBaseViewer):
                 csp[ind] = (spec + csp[ind + 1]).replace(" ", "")
                 csp[ind + 1] = ''
 
-        for key in clean.keys():
+        for key in clean:
             while key in csp:
                 ind = csp.index(key)
                 csp[ind] = clean[key]
@@ -654,7 +542,7 @@ class StructureDataViewer(_StructureDataBaseViewer):
         infix = InfixConverter()
         infix_expression = csp
         postfix = infix.convert(infix_expression)
-        return self.advanced_selection(self.structure, postfix)
+        return self.advanced_selection(postfix)
 
     def create_selection_info(self):
         """Create information to be displayed with selected atoms"""
