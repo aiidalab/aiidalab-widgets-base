@@ -555,7 +555,7 @@ class SmilesWidget(ipw.VBox):
 
         # Note, the pybel module imported below comes together with openbabel package. Do not confuse it with
         # pybel package available on PyPi: https://pypi.org/project/pybel/
-        import pybel  # pylint:disable=import-error
+        from openbabel import pybel  # pylint:disable=import-error
 
         self.output.value = "Screening possible conformers {}".format(self.SPINNER)  #font-size:20em;
 
@@ -578,7 +578,7 @@ class SmilesWidget(ipw.VBox):
 
         # Note, the pybel module imported below comes together with openbabel package. Do not confuse it with
         # pybel package available on PyPi: https://pypi.org/project/pybel/
-        import pybel  # pylint:disable=import-error
+        from openbabel import pybel  # pylint:disable=import-error
 
         if not self.smiles.value:
             return
