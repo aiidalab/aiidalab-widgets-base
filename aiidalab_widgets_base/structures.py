@@ -604,31 +604,13 @@ class SmilesWidget(ipw.VBox):
         pbmol.localopt(forcefield="gaff", steps=200)
         pbmol.localopt(forcefield="mmff94", steps=100)
 
-        f_f = pb._forcefields["uff"]
+        f_f = pb._forcefields["uff"]  # pylint: disable=protected-access
         f_f.Setup(pbmol.OBMol)
         f_f.ConjugateGradients(steps, 1.0e-9)
         f_f.GetCoordinates(pbmol.OBMol)
         #print(f_f.Energy(), f_f.GetUnit())
 
         return self.pybel2ase(pbmol)
-
-    def try_rdkit(self, smile):
-        """Check if possible to optimize a molecule using force field and rdkit."""
-        try:
-            # Chem imports
-            #from rdkit.Chem.rdmolfiles import MolFromSmiles  #, MolToMolFile
-            from rdkit import Chem
-            from rdkit.Chem import AllChem
-        except ImportError:
-            super().__init__(
-                [ipw.HTML("The SmilesWidget requires the rdkit library, "
-                          "but the library was not found.")])
-        test = Chem.MolFromSmiles(smile)
-        test = Chem.AddHs(test)
-
-        #test=convert_ase2rdkit(pybel_opt(smile,10))
-
-        return AllChem.EmbedMolecule(test, maxAttempts=10, randomSeed=42)
 
     def rdkit_opt(self, smile, steps):
         """Optimize a molecule using force field and rdkit (needed for complex SMILES)."""
@@ -646,12 +628,10 @@ class SmilesWidget(ipw.VBox):
 
     def mol_from_smiles(self, smile, steps=10000):
         """Convert SMILES to ase structure try rdkit then pybel"""
-        if self.try_rdkit(smile) == 0:
-            #print("Going for rdkit")
+        try:
             return self.rdkit_opt(smile, steps)
-
-        #print("Going for pybel")
-        return self.pybel_opt(smile, steps)
+        except ValueError:
+            return self.pybel_opt(smile, steps)
 
     def _on_button_pressed(self, change):  # pylint: disable=unused-argument
         """Convert SMILES to ase structure when button is pressed."""
