@@ -526,7 +526,6 @@ class SmilesWidget(ipw.VBox):
         self.title = title
 
         try:
-            # Chem imports
             from openbabel import pybel
             from openbabel import openbabel
         except ImportError:
@@ -535,8 +534,6 @@ class SmilesWidget(ipw.VBox):
                           "but the library was not found.")])
             return
         try:
-            # Chem imports
-            #from rdkit.Chem.rdmolfiles import MolFromSmiles  #, MolToMolFile
             from rdkit import Chem
             from rdkit.Chem import AllChem
         except ImportError:
@@ -560,37 +557,20 @@ class SmilesWidget(ipw.VBox):
             self.output.value = "PCA library not available, the molecule will not be aligned to z."
             return pos
         pca = PCA(n_components=3)
-        #pca.fit(pos)
-        #posnew = pca.transform(pos)
         return pca.fit_transform(pos)
 
-    def pybel2ase(self, mol):
-        """Convert pymol object into ASE Atoms."""
-        species = [chemical_symbols[atm.atomicnum] for atm in mol.atoms]
-        pos = np.asarray([atm.coords for atm in mol.atoms])
-        pos = self.try_align_principal_axis(pos)
-        atoms = Atoms(species, positions=pos, pbc=True)
-        atoms.cell = np.ptp(atoms.positions, axis=0) + 10
-        atoms.center()
-        return atoms
-
-    def rdkit2ase(self, mol):
-        """Convert rdkit object into ASE Atoms."""
-        pos = mol.GetConformer().GetPositions()
-        natoms = mol.GetNumAtoms()
-        species = [mol.GetAtomWithIdx(j).GetSymbol() for j in range(natoms)]
+    def make_ase(self, species, positions):
+        """Create ase Atoms object."""
         #Get the principal axes and realign the molecule
-        pos = self.try_align_principal_axis(pos)
-        atoms = Atoms(species, positions=pos, pbc=True)
+        positions = self.try_align_principal_axis(positions)
+        atoms = Atoms(species, positions=positions, pbc=True)
         atoms.cell = np.ptp(atoms.positions, axis=0) + 10
         atoms.center()
 
         return atoms
 
-    def pybel_opt(self, smile, steps):
+    def _pybel_opt(self, smile, steps):
         """Optimize a molecule using force field and pybel (needed for complex SMILES)."""
-
-        # Chem imports
         from openbabel import pybel as pb
         from openbabel import openbabel as ob
         obconversion = ob.OBConversion()
@@ -608,13 +588,12 @@ class SmilesWidget(ipw.VBox):
         f_f.Setup(pbmol.OBMol)
         f_f.ConjugateGradients(steps, 1.0e-9)
         f_f.GetCoordinates(pbmol.OBMol)
-        #print(f_f.Energy(), f_f.GetUnit())
+        species = [chemical_symbols[atm.atomicnum] for atm in pbmol.atoms]
+        positions = np.asarray([atm.coords for atm in pbmol.atoms])
+        return self.make_ase(species, positions)
 
-        return self.pybel2ase(pbmol)
-
-    def rdkit_opt(self, smile, steps):
+    def _rdkit_opt(self, smile, steps):
         """Optimize a molecule using force field and rdkit (needed for complex SMILES)."""
-        # Chem imports
         from rdkit import Chem
         from rdkit.Chem import AllChem
 
@@ -623,15 +602,17 @@ class SmilesWidget(ipw.VBox):
 
         AllChem.EmbedMolecule(mol, maxAttempts=20, randomSeed=42)
         AllChem.UFFOptimizeMolecule(mol, maxIters=steps)
-
-        return self.rdkit2ase(mol)
+        positions = mol.GetConformer().GetPositions()
+        natoms = mol.GetNumAtoms()
+        species = [mol.GetAtomWithIdx(j).GetSymbol() for j in range(natoms)]
+        return self.make_ase(species, positions)
 
     def mol_from_smiles(self, smile, steps=10000):
         """Convert SMILES to ase structure try rdkit then pybel"""
         try:
-            return self.rdkit_opt(smile, steps)
+            return self._rdkit_opt(smile, steps)
         except ValueError:
-            return self.pybel_opt(smile, steps)
+            return self._pybel_opt(smile, steps)
 
     def _on_button_pressed(self, change):  # pylint: disable=unused-argument
         """Convert SMILES to ase structure when button is pressed."""
