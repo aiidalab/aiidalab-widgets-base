@@ -618,10 +618,6 @@ class SmilesWidget(ipw.VBox):
         """Convert SMILES to ase structure when button is pressed."""
         self.output.value = ""
 
-        # Note, the pybel module imported below comes together with openbabel package. Do not confuse it with
-        # pybel package available on PyPi: https://pypi.org/project/pybel/
-        #import pybel  # pylint:disable=import-error
-
         if not self.smiles.value:
             return
         self.output.value = "Screening possible conformers {}".format(self.SPINNER)  #font-size:20em;
