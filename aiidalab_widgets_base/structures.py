@@ -18,8 +18,6 @@ from aiida.engine import calcfunction
 from aiida.orm import CalcFunctionNode, CalcJobNode, Data, QueryBuilder, Node, WorkChainNode
 from aiida.plugins import DataFactory
 
-from sklearn.decomposition import PCA
-
 # Local imports
 from .utils import get_ase_from_file
 from .viewers import StructureDataViewer
@@ -518,80 +516,113 @@ class StructureBrowserWidget(ipw.VBox):
 
 class SmilesWidget(ipw.VBox):
     """Conver SMILES into 3D structure."""
+
     structure = Instance(Atoms, allow_none=True)
 
     SPINNER = """<i class="fa fa-spinner fa-pulse" style="color:red;" ></i>"""
 
     def __init__(self, title=''):
+        # pylint: disable=unused-import
         self.title = title
+
         try:
-            import openbabel  # pylint: disable=unused-import
+            from openbabel import pybel
+            from openbabel import openbabel
         except ImportError:
             super().__init__(
                 [ipw.HTML("The SmilesWidget requires the OpenBabel library, "
                           "but the library was not found.")])
             return
+        try:
+            from rdkit import Chem
+            from rdkit.Chem import AllChem
+        except ImportError:
+            super().__init__(
+                [ipw.HTML("The SmilesWidget requires the rdkit library, "
+                          "but the library was not found.")])
+            return
 
-        self.smiles = ipw.Text()
+        self.smiles = ipw.Text(placeholder='C=C')
         self.create_structure_btn = ipw.Button(description="Generate molecule", button_style='info')
         self.create_structure_btn.on_click(self._on_button_pressed)
         self.output = ipw.HTML("")
+
         super().__init__([self.smiles, self.create_structure_btn, self.output])
 
-    @staticmethod
-    def pymol_2_ase(pymol):
-        """Convert pymol object into ASE Atoms."""
-
-        species = [chemical_symbols[atm.atomicnum] for atm in pymol.atoms]
-        pos = np.asarray([atm.coords for atm in pymol.atoms])
+    def try_align_principal_axis(self, pos):
+        """Use PCA to align the principal axis to z."""
+        try:
+            from sklearn.decomposition import PCA
+        except ImportError:
+            self.output.value = "PCA library not available, the molecule will not be aligned to z."
+            return pos
         pca = PCA(n_components=3)
-        posnew = pca.fit_transform(pos)
-        atoms = Atoms(species, positions=posnew, pbc=True, cell=np.ptp(posnew, axis=0) + 10)
+        return pca.fit_transform(pos)
+
+    def make_ase(self, species, positions):
+        """Create ase Atoms object."""
+        #Get the principal axes and realign the molecule
+        positions = self.try_align_principal_axis(positions)
+        atoms = Atoms(species, positions=positions, pbc=True)
+        atoms.cell = np.ptp(atoms.positions, axis=0) + 10
         atoms.center()
+
         return atoms
 
-    def _optimize_mol(self, mol):
-        """Optimize a molecule using force field (needed for complex SMILES)."""
+    def _pybel_opt(self, smile, steps):
+        """Optimize a molecule using force field and pybel (needed for complex SMILES)."""
+        from openbabel import pybel as pb
+        from openbabel import openbabel as ob
+        obconversion = ob.OBConversion()
+        obconversion.SetInFormat('smi')
+        obmol = ob.OBMol()
+        obconversion.ReadString(obmol, smile)
 
-        # Note, the pybel module imported below comes together with openbabel package. Do not confuse it with
-        # pybel package available on PyPi: https://pypi.org/project/pybel/
-        import pybel  # pylint:disable=import-error
+        pbmol = pb.Molecule(obmol)
+        pbmol.make3D(forcefield="uff", steps=50)
 
-        self.output.value = "Screening possible conformers {}".format(self.SPINNER)  #font-size:20em;
+        pbmol.localopt(forcefield="gaff", steps=200)
+        pbmol.localopt(forcefield="mmff94", steps=100)
 
-        f_f = pybel._forcefields["uff"]  # pylint: disable=protected-access
-        if not f_f.Setup(mol.OBMol):
-            f_f = pybel._forcefields["mmff94"]  # pylint: disable=protected-access
-            if not f_f.Setup(mol.OBMol):
-                self.output.value = "Cannot set up forcefield"
-                return
+        f_f = pb._forcefields["uff"]  # pylint: disable=protected-access
+        f_f.Setup(pbmol.OBMol)
+        f_f.ConjugateGradients(steps, 1.0e-9)
+        f_f.GetCoordinates(pbmol.OBMol)
+        species = [chemical_symbols[atm.atomicnum] for atm in pbmol.atoms]
+        positions = np.asarray([atm.coords for atm in pbmol.atoms])
+        return self.make_ase(species, positions)
 
-        # Initial cleanup before the weighted search.
-        f_f.Setup(mol.OBMol)
-        f_f.SteepestDescent(5000, 1.0e-9)
-        f_f.GetCoordinates(mol.OBMol)
-        self.output.value = ""
+    def _rdkit_opt(self, smile, steps):
+        """Optimize a molecule using force field and rdkit (needed for complex SMILES)."""
+        from rdkit import Chem
+        from rdkit.Chem import AllChem
+
+        mol = Chem.MolFromSmiles(smile)
+        mol = Chem.AddHs(mol)
+
+        AllChem.EmbedMolecule(mol, maxAttempts=20, randomSeed=42)
+        AllChem.UFFOptimizeMolecule(mol, maxIters=steps)
+        positions = mol.GetConformer().GetPositions()
+        natoms = mol.GetNumAtoms()
+        species = [mol.GetAtomWithIdx(j).GetSymbol() for j in range(natoms)]
+        return self.make_ase(species, positions)
+
+    def mol_from_smiles(self, smile, steps=10000):
+        """Convert SMILES to ase structure try rdkit then pybel"""
+        try:
+            return self._rdkit_opt(smile, steps)
+        except ValueError:
+            return self._pybel_opt(smile, steps)
 
     def _on_button_pressed(self, change):  # pylint: disable=unused-argument
         """Convert SMILES to ase structure when button is pressed."""
         self.output.value = ""
 
-        # Note, the pybel module imported below comes together with openbabel package. Do not confuse it with
-        # pybel package available on PyPi: https://pypi.org/project/pybel/
-        import pybel  # pylint:disable=import-error
-
         if not self.smiles.value:
             return
-
-        mol = pybel.readstring("smiles", self.smiles.value)
-        self.output.value = """SMILES to 3D conversion {}""".format(self.SPINNER)
-        mol.make3D()
-        mol.addh()
-
-        pybel._builder.Build(mol.OBMol)  # pylint: disable=protected-access
-
-        self._optimize_mol(mol)
-        self.structure = self.pymol_2_ase(mol)
+        self.output.value = "Screening possible conformers {}".format(self.SPINNER)  #font-size:20em;
+        self.structure = self.mol_from_smiles(self.smiles.value)
+        self.output.value = ""
 
     @default('structure')
     def _default_structure(self):
