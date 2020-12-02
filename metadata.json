@@ -16,8 +16,7 @@
             "nglview",
             "numpy",
             "optimade-client",
-            "pandas",
-            "scikit-learn"
+            "pandas"
         ]
     }
 }
