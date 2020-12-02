@@ -23,6 +23,10 @@
         "pandas"
     ],
     "extras_require": {
+        "smiles": [
+            "openbabel",
+            "rdkit"
+        ],
         "docs": [
             "sphinx",
             "sphinx-rtd-theme",
