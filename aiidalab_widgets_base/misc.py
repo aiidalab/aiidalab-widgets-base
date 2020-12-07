@@ -170,7 +170,9 @@ class ReversePolishNotation:
                 stackposition += 1
             # Operators.
             elif ope in self.operators:
-                stack[stackposition] = self.operators[ope]['function'](stack[stackposition - 1], stack[stackposition])
-                del stack[stackposition - 1]
-                stackposition -= 1
+                nargs = self.operators[ope]['nargs']
+                arguments = [stack[stackposition + indx] for indx in list(range(-nargs + 1, 1))]
+                stack[stackposition] = self.operators[ope]['function'](*arguments)
+                del stack[stackposition - nargs + 1:stackposition]
+                stackposition -= nargs - 1
         return stack[0]

@@ -447,63 +447,78 @@ class StructureDataViewer(_StructureDataBaseViewer):
         operatorsdict = {
             '>': {
                 'function': greater,
-                'priority': 0
+                'priority': 0,
+                'nargs': 2,
             },
             '<': {
                 'function': lower,
-                'priority': 0
+                'priority': 0,
+                'nargs': 2,
             },
             '>=': {
                 'function': greatereq,
-                'priority': 0
+                'priority': 0,
+                'nargs': 2,
             },
             '<=': {
                 'function': lowereq,
-                'priority': 0
+                'priority': 0,
+                'nargs': 2,
             },
             'and': {
                 'function': intersec,
-                'priority': -1
+                'priority': -1,
+                'nargs': 2,
             },
             'or': {
                 'function': union,
-                'priority': -2
+                'priority': -2,
+                'nargs': 2,
             },
             '+': {
                 'function': addition,
-                'priority': 1
+                'priority': 1,
+                'nargs': 2,
             },
             '-': {
                 'function': subtraction,
-                'priority': 1
+                'priority': 1,
+                'nargs': 2,
             },
             '*': {
                 'function': mult,
-                'priority': 2
+                'priority': 2,
+                'nargs': 2,
             },
             '/': {
                 'function': division,
-                'priority': 2
+                'priority': 2,
+                'nargs': 2,
             },
             '^': {
                 'function': power,
-                'priority': 3
+                'priority': 3,
+                'nargs': 2,
             },
             '=': {
                 'function': equal,
-                'priority': 0
+                'priority': 0,
+                'nargs': 2,
             },
             '!=': {
                 'function': notequal,
-                'priority': 0
+                'priority': 0,
+                'nargs': 2,
             },
             'd_from': {
                 'function': self.d_from,
-                'priority': 0
+                'priority': 10,
+                'nargs': 1,
             },  # At the moment the priority is not used.
             'name': {
                 'function': self.name_operator,
-                'priority': 0
+                'priority': 10,
+                'nargs': 1,
             },  # When changed, this should be re-assesed.
         }
 
