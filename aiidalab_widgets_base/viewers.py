@@ -13,7 +13,7 @@ from traitlets import Instance, Int, List, Unicode, Union, default, link, observ
 from aiida.orm import Node
 
 from .utils import string_range_to_list, list_to_string_range
-from .misc import CopyToClipboardButton, InfixConverter  #, Stack
+from .misc import CopyToClipboardButton, ReversePolishNotation
 
 
 def viewer(obj, downloadable=True, **kwargs):
@@ -275,9 +275,6 @@ class _StructureDataBaseViewer(ipw.VBox):
 
     def apply_selection(self, _=None):
         """Apply selection specified in the text field."""
-        #if self._advanced_sel_atoms and not self._selected_atoms.value :
-        #    self.selection_adv = self._advanced_sel_atoms.value
-        #else:
         selection_string = self._selected_atoms.value
         expanded_selection, syntax_ok = string_range_to_list(self._selected_atoms.value, shift=-1)
         #self.wrong_syntax.layout.visibility = 'hidden' if syntax_ok else 'visible'
@@ -382,20 +379,20 @@ class StructureDataViewer(_StructureDataBaseViewer):
                 self._viewer.add_ball_and_stick(aspectRatio=4)  # pylint: disable=no-member
                 self._viewer.add_unitcell()  # pylint: disable=no-member
 
-    def advanced_selection(self, postfix):
-        """Applies rules of advanced selection."""
-        # pylint: disable=too-many-locals
-        stack = []
-        if postfix == []:
-            return []
+    def d_from(self, operator):
+        point = np.array([float(i) for i in operator.split('_')[2:5]])
+        return np.linalg.norm(self.structure.positions - point, axis=1)
 
-        def is_number(string):
-            """Check if string is a number. """
-            try:
-                float(string)
-                return True
-            except ValueError:
-                return False
+    def name_operator(self, operator):
+        """Defining the name operator which will handle atom kind names."""
+        names = operator.replace("name", "").replace("not", "").replace("_", " ").split()
+        symbols = self.structure.get_chemical_symbols()
+        if 'not' in operator:
+            return np.array([i for i, val in enumerate(symbols) if val not in names])
+        return np.array([i for i, val in enumerate(symbols) if val in names])
+
+    def parse_advanced_sel(self, condition=None):
+        """Apply advanced selection specified in the text field."""
 
         def addition(opa, opb):
             return opa + opb
@@ -441,16 +438,6 @@ class StructureDataViewer(_StructureDataBaseViewer):
         def union(opa, opb):
             return np.union1d(opa, opb)
 
-        def dfrom(ope, pos):
-            point = np.array([float(i) for i in ope.split('_')[2:5]])
-            return np.linalg.norm(pos - point, axis=1)
-
-        def name(ope, symbols):
-            names = ope.replace("name", "").replace("not", "").replace("_", " ").split()
-            if 'not' in ope:
-                return np.array([i for i, val in enumerate(symbols) if val not in names])
-            return np.array([i for i, val in enumerate(symbols) if val in names])
-
         operandsdict = {
             'x': self.structure.positions[:, 0],
             'y': self.structure.positions[:, 1],
@@ -471,78 +458,12 @@ class StructureDataViewer(_StructureDataBaseViewer):
             '^': power,
             '=': equal,
             '!=': notequal,
+            'd_from': self.d_from,
+            'name': self.name_operator,
         }
 
-        stackposition = -1
-
-        for ope in postfix:
-            #operands
-            if ope in operandsdict.keys():
-                stack.append(operandsdict[ope])
-                stackposition += 1
-            elif is_number(ope):
-                stack.append(float(ope))
-                stackposition += 1
-            #special case distance
-            elif 'd_from' in ope:
-                stack.append(dfrom(ope, self.structure.positions))
-                stackposition += 1
-            #special case name and namenot
-            elif 'name' in ope:
-                stack.append(name(ope, self.structure.get_chemical_symbols()))
-                stackposition += 1
-            #operators
-            elif ope in operatorsdict.keys():
-                stack[stackposition] = operatorsdict[ope](stack[stackposition - 1], stack[stackposition])
-                del stack[stackposition - 1]
-                stackposition -= 1
-
-        return stack[0].tolist()
-
-    def parse_advanced_sel(self, condition=None):
-        """Apply advanced selection specified in the text field."""
-        ## do not modify the order of execution of teh following replacements
-        condition = condition.replace(" ", "")
-        condition = condition.replace(">=", "ge")
-        condition = condition.replace("<=", "le")
-        condition = condition.replace("!=", "ne")
-        condition = condition.replace("=", "eq")
-        condition = condition.replace("is", "")
-        condition = condition.replace("in", "")
-        condition = condition.replace('[', '_')
-        condition = condition.replace(']', '_')
-        condition = condition.replace(',', '_')
-        for item in [
-                'x', 'y', 'z', 'and', 'or', 'is', 'not', 'in', 'id', 'd_from', '>', '<', 'name', '+', '-', '*', '/',
-                '^', 'ge', 'le', 'eq', 'ne', '(', ')'
-        ]:
-            condition = condition.replace(item, ' ' + item + ' ')
-
-        csp = condition.split()
-        ## syntax check
-        ## dist
-        clean = {'ge': '>=', 'le': '<=', 'eq': '=', 'ne': '!='}
-        #changing order would brake conversion of 'name not [N,O]'
-        specials = ['not', 'name', 'd_from']
-        for spec in specials:
-            while spec in csp:
-                ind = csp.index(spec)
-                csp[ind] = (spec + csp[ind + 1]).replace(" ", "")
-                csp[ind + 1] = ''
-
-        for key in clean:
-            while key in csp:
-                ind = csp.index(key)
-                csp[ind] = clean[key]
-
-        #
-        # remove '' from the list
-        csp = list(filter(bool, csp))
-
-        infix = InfixConverter()
-        infix_expression = csp
-        postfix = infix.convert(infix_expression)
-        return self.advanced_selection(postfix)
+        rpn = ReversePolishNotation(operators=operatorsdict, operands=operandsdict)
+        return rpn.execute(expression=condition).tolist()
 
     def create_selection_info(self):
         """Create information to be displayed with selected atoms"""
@@ -592,6 +513,8 @@ class StructureDataViewer(_StructureDataBaseViewer):
     @observe('selection_adv')
     def _observe_selection_adv(self, _=None):
         """ Apply the advanced boolean atom selection"""
+        sel = self.parse_advanced_sel(condition=str(self.selection_adv))
+
         try:
             sel = self.parse_advanced_sel(condition=str(self.selection_adv))
             self._selected_atoms.value = list_to_string_range(sel, shift=1)

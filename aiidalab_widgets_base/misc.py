@@ -70,14 +70,16 @@ class Stack:
         return len(self.items)
 
 
-class InfixConverter:
+class ReversePolishNotation:
     """Class defining operations for RPN conversion"""
 
     #adapted from:
     # Author: Alaa Awad
     # Description: program converts infix to postfix notation
     #https://gist.github.com/awadalaa/7ef7dc7e41edb501d44d1ba41cbf0dc6
-    def __init__(self):
+    def __init__(self, operators, operands=None):
+        self.operands = operands
+        self.operators = operators
         self.stack = Stack()
         self.precedence = {
             '+': 1,
@@ -123,7 +125,7 @@ class InfixConverter:
         return operator == ')'
 
     def convert(self, expr):
-        """Convert expression to postfix"""
+        """Convert expression to postfix."""
         #expr = expr.replace(" ", "")
         self.stack = Stack()
         output = []
@@ -147,3 +149,78 @@ class InfixConverter:
         while not self.stack.isempty():
             output.append(self.stack.pop())
         return output
+
+    def parse_infix_notation(self, condition):
+        """Convert a string containing the expression into a list of operators and operands."""
+        # Do not modify the order of execution of the following replacements.
+        condition = condition.replace(" ", "")
+        condition = condition.replace(">=", "ge")  # operator = {operator} {d_from_adf_adf}
+        condition = condition.replace("<=", "le")
+        condition = condition.replace("!=", "ne")
+        condition = condition.replace("=", "eq")
+        condition = condition.replace("is", "")
+        condition = condition.replace("in", "")
+        condition = condition.replace('[', '_')
+        condition = condition.replace(']', '_')
+        condition = condition.replace(',', '_')
+        for item in [
+                'x', 'y', 'z', 'and', 'or', 'is', 'not', 'in', 'id', 'd_from', '>', '<', 'name', '+', '-', '*', '/',
+                '^', 'ge', 'le', 'eq', 'ne', '(', ')'
+        ]:
+            condition = condition.replace(item, ' ' + item + ' ')
+
+        csp = condition.split()
+        clean = {'ge': '>=', 'le': '<=', 'eq': '=', 'ne': '!='}
+
+        #changing order would brake conversion of 'name not [N,O]'
+        specials = ['not', 'name', 'd_from']
+        for spec in specials:
+            while spec in csp:
+                ind = csp.index(spec)
+                csp[ind] = (spec + csp[ind + 1]).replace(" ", "")
+                csp[ind + 1] = ''
+
+        for key in clean:
+            while key in csp:
+                ind = csp.index(key)
+                csp[ind] = clean[key]
+
+        csp = list(filter(bool, csp))
+        return csp
+
+    def execute(self, expression):
+        """Execute the provided expression."""
+
+        def is_number(string):
+            """Check if string is a number. """
+            try:
+                float(string)
+                return True
+            except ValueError:
+                return False
+
+        stack = []
+        stackposition = -1
+        infix_expression = self.parse_infix_notation(expression)
+        for ope in self.convert(infix_expression):
+            # Operands.
+            if ope in self.operands.keys():
+                stack.append(self.operands[ope])
+                stackposition += 1
+            elif is_number(ope):
+                stack.append(float(ope))
+                stackposition += 1
+            # Special case distance.
+            elif 'd_from' in ope:
+                stack.append(self.operators['d_from'](ope))
+                stackposition += 1
+            # Special case name and namenot.
+            elif 'name' in ope:
+                stack.append(self.operators['name'](ope))
+                stackposition += 1
+            # Operators.
+            elif ope in self.operators.keys():
+                stack[stackposition] = self.operators[ope](stack[stackposition - 1], stack[stackposition])
+                del stack[stackposition - 1]
+                stackposition -= 1
+        return stack[0]
