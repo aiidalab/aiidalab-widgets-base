@@ -445,21 +445,66 @@ class StructureDataViewer(_StructureDataBaseViewer):
             'id': np.array([atom.index + 1 for atom in self.structure])
         }
         operatorsdict = {
-            '>': greater,
-            '<': lower,
-            '>=': greatereq,
-            '<=': lowereq,
-            'and': intersec,
-            'or': union,
-            '+': addition,
-            '-': subtraction,
-            '*': mult,
-            '/': division,
-            '^': power,
-            '=': equal,
-            '!=': notequal,
-            'd_from': self.d_from,
-            'name': self.name_operator,
+            '>': {
+                'function': greater,
+                'priority': 0
+            },
+            '<': {
+                'function': lower,
+                'priority': 0
+            },
+            '>=': {
+                'function': greatereq,
+                'priority': 0
+            },
+            '<=': {
+                'function': lowereq,
+                'priority': 0
+            },
+            'and': {
+                'function': intersec,
+                'priority': -1
+            },
+            'or': {
+                'function': union,
+                'priority': -2
+            },
+            '+': {
+                'function': addition,
+                'priority': 1
+            },
+            '-': {
+                'function': subtraction,
+                'priority': 1
+            },
+            '*': {
+                'function': mult,
+                'priority': 2
+            },
+            '/': {
+                'function': division,
+                'priority': 2
+            },
+            '^': {
+                'function': power,
+                'priority': 3
+            },
+            '=': {
+                'function': equal,
+                'priority': 0
+            },
+            '!=': {
+                'function': notequal,
+                'priority': 0
+            },
+            'd_from': {
+                'function': self.d_from,
+                'priority': 0
+            },  # At the moment the priority is not used.
+            'name': {
+                'function': self.name_operator,
+                'priority': 0
+            },  # When changed, this should be re-assesed.
         }
 
         rpn = ReversePolishNotation(operators=operatorsdict, operands=operandsdict)

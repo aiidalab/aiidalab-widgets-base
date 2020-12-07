@@ -49,38 +49,22 @@ class ReversePolishNotation:
     def __init__(self, operators, operands=None):
         self.operands = operands
         self.operators = operators
-        self.precedence = {
-            '+': 1,
-            '-': 1,
-            '*': 2,
-            '/': 2,
-            '^': 3,
-            '>': 0,
-            '<': 0,
-            '=': 0,
-            '>=': 0,
-            '<=': 0,
-            '!=': 0,
-            'and': -1,
-            'or': -2,
-        }
 
     def haslessorequalpriority(self, opa, opb):
         """Priority of the different operators"""
-        if opa not in self.precedence:
+        if opa not in self.operators:
             return False
-        if opb not in self.precedence:
+        if opb not in self.operators:
             return False
-        return self.precedence[opa] <= self.precedence[opb]
+        return self.operators[opa]['priority'] <= self.operators[opb]['priority']
 
     def isoperator(self, opx):
         """Identifies operators"""
-        ops = self.precedence.keys()
-        return opx in ops
+        return opx in self.operators
 
     def isoperand(self, operator):
         """Identifies operands"""
-        return operator not in set(self.precedence.keys()).union({'(', ')'})  # ch.isalpha() or ch.isdigit()
+        return operator not in set(self.operators.keys()).union({'(', ')'})
 
     @staticmethod
     def isopenparenthesis(operator):
@@ -170,7 +154,7 @@ class ReversePolishNotation:
         infix_expression = self.parse_infix_notation(expression)
         for ope in self.convert(infix_expression):
             # Operands.
-            if ope in self.operands.keys():
+            if ope in self.operands:
                 stack.append(self.operands[ope])
                 stackposition += 1
             elif is_number(ope):
@@ -178,15 +162,15 @@ class ReversePolishNotation:
                 stackposition += 1
             # Special case distance.
             elif 'd_from' in ope:
-                stack.append(self.operators['d_from'](ope))
+                stack.append(self.operators['d_from']['function'](ope))
                 stackposition += 1
             # Special case name and namenot.
             elif 'name' in ope:
-                stack.append(self.operators['name'](ope))
+                stack.append(self.operators['name']['function'](ope))
                 stackposition += 1
             # Operators.
-            elif ope in self.operators.keys():
-                stack[stackposition] = self.operators[ope](stack[stackposition - 1], stack[stackposition])
+            elif ope in self.operators:
+                stack[stackposition] = self.operators[ope]['function'](stack[stackposition - 1], stack[stackposition])
                 del stack[stackposition - 1]
                 stackposition -= 1
         return stack[0]
