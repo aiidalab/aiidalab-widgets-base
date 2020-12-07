@@ -108,19 +108,21 @@ class InfixConverter:
         ops = self.precedence.keys()
         return opx in ops
 
-    def isoperand(self, ope):
+    def isoperand(self, operator):
         """Identifies operands"""
-        return ope not in set(self.precedence.keys()).union({'(', ')'})  # ch.isalpha() or ch.isdigit()
+        return operator not in set(self.precedence.keys()).union({'(', ')'})  # ch.isalpha() or ch.isdigit()
 
-    def isopenparenthesis(self, ope):  # pylint:disable=no-self-use
-        """Identifies open paretheses"""
-        return ope == '('
+    @staticmethod
+    def isopenparenthesis(operator):
+        """Identifies open paretheses."""
+        return operator == '('
 
-    def iscloseparenthesis(self, ope):  # pylint:disable=no-self-use
-        """Identifies closed paretheses"""
-        return ope == ')'
+    @staticmethod
+    def iscloseparenthesis(operator):
+        """Identifies closed paretheses."""
+        return operator == ')'
 
-    def topostfix(self, expr):
+    def convert(self, expr):
         """Convert expression to postfix"""
         #expr = expr.replace(" ", "")
         self.stack = Stack()
@@ -145,8 +147,3 @@ class InfixConverter:
         while not self.stack.isempty():
             output.append(self.stack.pop())
         return output
-
-    def convert(self, expr):
-        """conversion to postfix notation"""
-
-        return self.topostfix(expr)
