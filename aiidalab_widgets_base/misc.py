@@ -39,37 +39,6 @@ class CopyToClipboardButton(ipw.Button):
             display(javas)
 
 
-class Stack:
-    """Class defining the stack for RPN notation"""
-
-    #adapted from:
-    # Author: Alaa Awad
-    # Description: program converts infix to postfix notation
-    #https://gist.github.com/awadalaa/7ef7dc7e41edb501d44d1ba41cbf0dc6
-    def __init__(self):
-        self.items = []
-
-    def isempty(self):
-        """Empties the stack"""
-        return self.items == []
-
-    def push(self, item):
-        """Push element in the stack"""
-        self.items.append(item)
-
-    def pop(self):
-        """Drops element from the stack"""
-        return self.items.pop()
-
-    def peek(self):
-        """Returns last element in stack"""
-        return self.items[self.size() - 1]
-
-    def size(self):
-        """Returns length of the stack"""
-        return len(self.items)
-
-
 class ReversePolishNotation:
     """Class defining operations for RPN conversion"""
 
@@ -80,7 +49,6 @@ class ReversePolishNotation:
     def __init__(self, operators, operands=None):
         self.operands = operands
         self.operators = operators
-        self.stack = Stack()
         self.precedence = {
             '+': 1,
             '-': 1,
@@ -126,28 +94,26 @@ class ReversePolishNotation:
 
     def convert(self, expr):
         """Convert expression to postfix."""
-        #expr = expr.replace(" ", "")
-        self.stack = Stack()
+        stack = []
         output = []
-
         for char in expr:
             if self.isoperand(char):
                 output.append(char)
             else:
                 if self.isopenparenthesis(char):
-                    self.stack.push(char)
+                    stack.append(char)
                 elif self.iscloseparenthesis(char):
-                    operator = self.stack.pop()
+                    operator = stack.pop()
                     while not self.isopenparenthesis(operator):
                         output.append(operator)
-                        operator = self.stack.pop()
+                        operator = stack.pop()
                 else:
-                    while (not self.stack.isempty()) and self.haslessorequalpriority(char, self.stack.peek()):
-                        output.append(self.stack.pop())
-                    self.stack.push(char)
+                    while stack and self.haslessorequalpriority(char, stack[-1]):
+                        output.append(stack.pop())
+                    stack.append(char)
 
-        while not self.stack.isempty():
-            output.append(self.stack.pop())
+        while stack:
+            output.append(stack.pop())
         return output
 
     def parse_infix_notation(self, condition):
