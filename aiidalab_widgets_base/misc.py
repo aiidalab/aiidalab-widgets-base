@@ -1,5 +1,5 @@
 """Some useful classes used acrross the repository."""
-
+import re
 import ipywidgets as ipw
 from traitlets import Unicode
 
@@ -46,9 +46,9 @@ class ReversePolishNotation:
     # Author: Alaa Awad
     # Description: program converts infix to postfix notation
     #https://gist.github.com/awadalaa/7ef7dc7e41edb501d44d1ba41cbf0dc6
-    def __init__(self, operators, operands=None):
-        self.operands = operands
+    def __init__(self, operators, additional_operands=None):
         self.operators = operators
+        self.additional_operands = additional_operands
 
     def haslessorequalpriority(self, opa, opb):
         """Priority of the different operators"""
@@ -58,13 +58,9 @@ class ReversePolishNotation:
             return False
         return self.operators[opa]['priority'] <= self.operators[opb]['priority']
 
-    def isoperator(self, opx):
+    def is_operator(self, opx):
         """Identifies operators"""
         return opx in self.operators
-
-    def isoperand(self, operator):
-        """Identifies operands"""
-        return operator not in set(self.operators.keys()).union({'(', ')'})
 
     @staticmethod
     def isopenparenthesis(operator):
@@ -81,9 +77,7 @@ class ReversePolishNotation:
         stack = []
         output = []
         for char in expr:
-            if self.isoperand(char):
-                output.append(char)
-            else:
+            if self.is_operator(char):
                 if self.isopenparenthesis(char):
                     stack.append(char)
                 elif self.iscloseparenthesis(char):
@@ -95,48 +89,17 @@ class ReversePolishNotation:
                     while stack and self.haslessorequalpriority(char, stack[-1]):
                         output.append(stack.pop())
                     stack.append(char)
-
+            else:
+                output.append(char)
         while stack:
             output.append(stack.pop())
         return output
 
-    def parse_infix_notation(self, condition):
+    @staticmethod
+    def parse_infix_notation(condition):
         """Convert a string containing the expression into a list of operators and operands."""
-        # Do not modify the order of execution of the following replacements.
-        condition = condition.replace(" ", "")
-        condition = condition.replace(">=", "ge")  # operator = {operator} {d_from_adf_adf}
-        condition = condition.replace("<=", "le")
-        condition = condition.replace("!=", "ne")
-        condition = condition.replace("=", "eq")
-        condition = condition.replace("is", "")
-        condition = condition.replace("in", "")
-        condition = condition.replace('[', '_')
-        condition = condition.replace(']', '_')
-        condition = condition.replace(',', '_')
-        for item in [
-                'x', 'y', 'z', 'and', 'or', 'is', 'not', 'in', 'id', 'd_from', '>', '<', 'name', '+', '-', '*', '/',
-                '^', 'ge', 'le', 'eq', 'ne', '(', ')'
-        ]:
-            condition = condition.replace(item, ' ' + item + ' ')
-
-        csp = condition.split()
-        clean = {'ge': '>=', 'le': '<=', 'eq': '=', 'ne': '!='}
-
-        #changing order would brake conversion of 'name not [N,O]'
-        specials = ['not', 'name', 'd_from']
-        for spec in specials:
-            while spec in csp:
-                ind = csp.index(spec)
-                csp[ind] = (spec + csp[ind + 1]).replace(" ", "")
-                csp[ind + 1] = ''
-
-        for key in clean:
-            while key in csp:
-                ind = csp.index(key)
-                csp[ind] = clean[key]
-
-        csp = list(filter(bool, csp))
-        return csp
+        condition = re.sub(r'\[.*?\]', lambda x: ''.join(x.group(0).split()), condition)
+        return condition.split()
 
     def execute(self, expression):
         """Execute the provided expression."""
@@ -154,25 +117,23 @@ class ReversePolishNotation:
         infix_expression = self.parse_infix_notation(expression)
         for ope in self.convert(infix_expression):
             # Operands.
-            if ope in self.operands:
-                stack.append(self.operands[ope])
-                stackposition += 1
-            elif is_number(ope):
+            if is_number(ope):
                 stack.append(float(ope))
                 stackposition += 1
             # Special case distance.
             elif 'd_from' in ope:
                 stack.append(self.operators['d_from']['function'](ope))
                 stackposition += 1
-            # Special case name and namenot.
-            elif 'name' in ope:
-                stack.append(self.operators['name']['function'](ope))
-                stackposition += 1
-            # Operators.
             elif ope in self.operators:
                 nargs = self.operators[ope]['nargs']
                 arguments = [stack[stackposition + indx] for indx in list(range(-nargs + 1, 1))]
                 stack[stackposition] = self.operators[ope]['function'](*arguments)
                 del stack[stackposition - nargs + 1:stackposition]
                 stackposition -= nargs - 1
+            else:
+                if self.additional_operands and ope in self.additional_operands:
+                    stack.append(self.additional_operands[ope])
+                else:
+                    stack.append(ope)
+                stackposition += 1
         return stack[0]

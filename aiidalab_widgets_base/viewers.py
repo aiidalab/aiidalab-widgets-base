@@ -383,13 +383,23 @@ class StructureDataViewer(_StructureDataBaseViewer):
         point = np.array([float(i) for i in operator.split('_')[2:5]])
         return np.linalg.norm(self.structure.positions - point, axis=1)
 
-    def name_operator(self, operator):
+    def name_operator(self, operand):
         """Defining the name operator which will handle atom kind names."""
-        names = operator.replace("name", "").replace("not", "").replace("_", " ").split()
+        if operand.startswith('[') and operand.endswith(']'):
+            names = operand[1:-1].split(',')
+        elif not operand.endswith('[') and not operand.startswith(']'):
+            names = [operand]
+
         symbols = self.structure.get_chemical_symbols()
-        if 'not' in operator:
-            return np.array([i for i, val in enumerate(symbols) if val not in names])
         return np.array([i for i, val in enumerate(symbols) if val in names])
+
+    def not_operator(self, operand):
+        """Reverting the selected atoms."""
+        if operand.startswith('[') and operand.endswith(']'):
+            names = operand[1:-1].split(',')
+        elif not operand.endswith('[') and not operand.startswith(']'):
+            names = [operand]
+        return '[' + ','.join(list(set(self.structure.get_chemical_symbols()) - set(names))) + ']'
 
     def parse_advanced_sel(self, condition=None):
         """Apply advanced selection specified in the text field."""
@@ -444,6 +454,7 @@ class StructureDataViewer(_StructureDataBaseViewer):
             'z': self.structure.positions[:, 2],
             'id': np.array([atom.index + 1 for atom in self.structure])
         }
+
         operatorsdict = {
             '>': {
                 'function': greater,
@@ -517,13 +528,20 @@ class StructureDataViewer(_StructureDataBaseViewer):
             },  # At the moment the priority is not used.
             'name': {
                 'function': self.name_operator,
-                'priority': 10,
+                'priority': 9,
                 'nargs': 1,
             },  # When changed, this should be re-assesed.
+            'not': {
+                'function': self.not_operator,
+                'priority': 10,
+                'nargs': 1,
+            },
         }
 
-        rpn = ReversePolishNotation(operators=operatorsdict, operands=operandsdict)
-        return rpn.execute(expression=condition).tolist()
+        rpn = ReversePolishNotation(operators=operatorsdict, additional_operands=operandsdict)
+        to_return = rpn.execute(expression=condition)
+        print(to_return)
+        return list(to_return)
 
     def create_selection_info(self):
         """Create information to be displayed with selected atoms"""
@@ -562,7 +580,7 @@ class StructureDataViewer(_StructureDataBaseViewer):
             return "{} atoms selected<br>Geometric center: ({})<br>Angle: {}<br>Normal: ({})".format(
                 len(self.selection), geom_center, angle, print_pos(normal))
 
-        # Report  dihedral angle and geometric center.
+        # Report dihedral angle and geometric center.
         if len(self.selection) == 4:
             dihedral = self.structure.get_dihedral(self.selection) * 180 / np.pi
             return "{} atoms selected<br>Geometric center: ({})<br>Dihedral angle: {}".format(
@@ -573,8 +591,6 @@ class StructureDataViewer(_StructureDataBaseViewer):
     @observe('selection_adv')
     def _observe_selection_adv(self, _=None):
         """ Apply the advanced boolean atom selection"""
-        sel = self.parse_advanced_sel(condition=str(self.selection_adv))
-
         try:
             sel = self.parse_advanced_sel(condition=str(self.selection_adv))
             self._selected_atoms.value = list_to_string_range(sel, shift=1)
