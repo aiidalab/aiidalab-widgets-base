@@ -117,9 +117,6 @@ class ReversePolishNotation:
                 res += element
             else:
                 result.append(element)
-
-        print(condition)
-        print(result)
         return result
 
     def execute(self, expression):
@@ -153,4 +150,4 @@ class ReversePolishNotation:
                 else:
                     stack.append(ope)
                 stackposition += 1
-        return stack[0]
+        return stack[0] if stack else []
