@@ -510,7 +510,7 @@ class StructureDataViewer(_StructureDataBaseViewer):
                 'priority': 3,
                 'nargs': 2,
             },
-            '=': {
+            '==': {
                 'function': equal,
                 'priority': 0,
                 'nargs': 2,

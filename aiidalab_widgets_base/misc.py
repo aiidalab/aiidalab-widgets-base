@@ -1,5 +1,6 @@
 """Some useful classes used acrross the repository."""
-import re
+import io
+import tokenize
 import ipywidgets as ipw
 from traitlets import Unicode
 
@@ -98,8 +99,28 @@ class ReversePolishNotation:
     @staticmethod
     def parse_infix_notation(condition):
         """Convert a string containing the expression into a list of operators and operands."""
-        condition = re.sub(r'\[.*?\]', lambda x: ''.join(x.group(0).split()), condition)
-        return condition.split()
+        condition = [token[1] for token in tokenize.generate_tokens(io.StringIO(condition).readline) if token[1]]
+
+        result = []
+        open_bracket = False
+
+        # Merging lists.
+        for element in condition:
+            if element == '[':
+                res = '['
+                open_bracket = True
+            elif element == ']':
+                res += ']'
+                result.append(res)
+                open_bracket = False
+            elif open_bracket:
+                res += element
+            else:
+                result.append(element)
+
+        print(condition)
+        print(result)
+        return result
 
     def execute(self, expression):
         """Execute the provided expression."""
