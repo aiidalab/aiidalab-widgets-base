@@ -141,10 +141,6 @@ class ReversePolishNotation:
             if is_number(ope):
                 stack.append(float(ope))
                 stackposition += 1
-            # Special case distance.
-            elif 'd_from' in ope:
-                stack.append(self.operators['d_from']['function'](ope))
-                stackposition += 1
             elif ope in self.operators:
                 nargs = self.operators[ope]['nargs']
                 arguments = [stack[stackposition + indx] for indx in list(range(-nargs + 1, 1))]

@@ -379,8 +379,8 @@ class StructureDataViewer(_StructureDataBaseViewer):
                 self._viewer.add_ball_and_stick(aspectRatio=4)  # pylint: disable=no-member
                 self._viewer.add_unitcell()  # pylint: disable=no-member
 
-    def d_from(self, operator):
-        point = np.array([float(i) for i in operator.split('_')[2:5]])
+    def d_from(self, operand):
+        point = np.array([float(i) for i in operand[1:-1].split(',')])
         return np.linalg.norm(self.structure.positions - point, axis=1)
 
     def name_operator(self, operand):
@@ -522,7 +522,7 @@ class StructureDataViewer(_StructureDataBaseViewer):
             },
             'd_from': {
                 'function': self.d_from,
-                'priority': 10,
+                'priority': 11,
                 'nargs': 1,
             },  # At the moment the priority is not used.
             'name': {
