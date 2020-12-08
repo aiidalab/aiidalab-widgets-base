@@ -78,7 +78,7 @@ class ReversePolishNotation:
         stack = []
         output = []
         for char in expr:
-            if self.is_operator(char):
+            if self.is_operator(char) or char in ['(', ')']:
                 if self.isopenparenthesis(char):
                     stack.append(char)
                 elif self.iscloseparenthesis(char):
@@ -99,7 +99,9 @@ class ReversePolishNotation:
     @staticmethod
     def parse_infix_notation(condition):
         """Convert a string containing the expression into a list of operators and operands."""
-        condition = [token[1] for token in tokenize.generate_tokens(io.StringIO(condition).readline) if token[1]]
+        condition = [
+            token[1] for token in tokenize.generate_tokens(io.StringIO(condition.strip()).readline) if token[1]
+        ]
 
         result = []
         open_bracket = False
