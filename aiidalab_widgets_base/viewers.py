@@ -389,7 +389,6 @@ class StructureDataViewer(_StructureDataBaseViewer):
             names = operand[1:-1].split(',')
         elif not operand.endswith('[') and not operand.startswith(']'):
             names = [operand]
-
         symbols = self.structure.get_chemical_symbols()
         return np.array([i for i, val in enumerate(symbols) if val in names])
 
@@ -539,9 +538,7 @@ class StructureDataViewer(_StructureDataBaseViewer):
         }
 
         rpn = ReversePolishNotation(operators=operatorsdict, additional_operands=operandsdict)
-        to_return = rpn.execute(expression=condition)
-        print(to_return)
-        return list(to_return)
+        return list(rpn.execute(expression=condition))
 
     def create_selection_info(self):
         """Create information to be displayed with selected atoms"""
@@ -592,7 +589,7 @@ class StructureDataViewer(_StructureDataBaseViewer):
     def _observe_selection_adv(self, _=None):
         """ Apply the advanced boolean atom selection"""
         try:
-            sel = self.parse_advanced_sel(condition=str(self.selection_adv))
+            sel = self.parse_advanced_sel(condition=self.selection_adv)
             self._selected_atoms.value = list_to_string_range(sel, shift=1)
             self.wrong_syntax.layout.visibility = 'hidden'
             self.apply_selection()
