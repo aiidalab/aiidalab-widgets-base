@@ -597,6 +597,7 @@ class SmilesWidget(ipw.VBox):
         from rdkit import Chem
         from rdkit.Chem import AllChem
 
+        smile = smile.replace("[", "").replace("]", "")
         mol = Chem.MolFromSmiles(smile)
         mol = Chem.AddHs(mol)
 
