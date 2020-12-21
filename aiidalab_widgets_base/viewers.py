@@ -9,11 +9,11 @@ from IPython.display import display
 import nglview
 from ase import Atoms
 
-from traitlets import Instance, Int, List, Union, default, link, observe, validate
+from traitlets import Instance, Int, List, Unicode, Union, default, link, observe, validate
 from aiida.orm import Node
 
 from .utils import string_range_to_list, list_to_string_range
-from .misc import CopyToClipboardButton
+from .misc import CopyToClipboardButton, ReversePolishNotation
 
 
 def viewer(obj, downloadable=True, **kwargs):
@@ -84,6 +84,7 @@ class _StructureDataBaseViewer(ipw.VBox):
     :type configure_view: bool"""
 
     selection = List(Int)
+    selection_adv = Unicode()
     supercell = List(Int)
     DEFAULT_SELECTION_OPACITY = 0.2
     DEFAULT_SELECTION_RADIUS = 6
@@ -110,6 +111,7 @@ class _StructureDataBaseViewer(ipw.VBox):
                                         orientation='vertical')
 
         def change_camera(change):
+
             self._viewer.camera = change['new']
 
         camera_type.observe(change_camera, names="value")
@@ -148,7 +150,13 @@ class _StructureDataBaseViewer(ipw.VBox):
 
         # 4. Button to clear selection.
         clear_selection = ipw.Button(description="Clear selection")
-        clear_selection.on_click(lambda _: self.set_trait('selection', list()))  # lambda cannot contain assignments
+        #clear_selection.on_click(lambda _: self.set_trait('selection', list()))  # lambda cannot contain assignments
+        clear_selection.on_click(lambda _: (
+            self.set_trait('selection', list()),
+            self.set_trait('selection_adv', ''),
+            # self.wrong_syntax.layout.visibility = 'hidden'
+        ))
+        ## CLEAR self.wrong_syntax.layout.visibility = 'visible'
 
         # 5. Button to apply selection
         apply_selection = ipw.Button(description="Apply selection")
@@ -158,6 +166,13 @@ class _StructureDataBaseViewer(ipw.VBox):
 
         return ipw.VBox([
             ipw.HBox([self._selected_atoms, self.wrong_syntax]),
+            ipw.HTML(value="""
+                <p style="font-weight:800;">You can either specify ranges:
+                    <font style="font-style:italic;font-weight:400;">1 5..8 10</font>
+                </p>
+                <p style="font-weight:800;">or expressions:
+                    <font style="font-style:italic;font-weight:400;">(x>1 and name not [N,O]) or d_from [1,1,1]>2 or id>=10</font>
+                </p>"""),
             ipw.HBox([copy_to_clipboard, clear_selection, apply_selection]),
             self.selection_info,
         ])
@@ -263,9 +278,13 @@ class _StructureDataBaseViewer(ipw.VBox):
         """Apply selection specified in the text field."""
         selection_string = self._selected_atoms.value
         expanded_selection, syntax_ok = string_range_to_list(self._selected_atoms.value, shift=-1)
-        self.wrong_syntax.layout.visibility = 'hidden' if syntax_ok else 'visible'
-        self.selection = expanded_selection
-        self._selected_atoms.value = selection_string  # Keep the old string for further editing.
+        #self.wrong_syntax.layout.visibility = 'hidden' if syntax_ok else 'visible'
+        if syntax_ok:
+            self.wrong_syntax.layout.visibility = 'hidden'
+            self.selection = expanded_selection
+            self._selected_atoms.value = selection_string  # Keep the old string for further editing.
+        else:
+            self.selection_adv = selection_string
 
     def download(self, change=None):  # pylint: disable=unused-argument
         """Prepare a structure for downloading."""
@@ -361,6 +380,167 @@ class StructureDataViewer(_StructureDataBaseViewer):
                 self._viewer.add_ball_and_stick(aspectRatio=4)  # pylint: disable=no-member
                 self._viewer.add_unitcell()  # pylint: disable=no-member
 
+    def d_from(self, operand):
+        point = np.array([float(i) for i in operand[1:-1].split(',')])
+        return np.linalg.norm(self.structure.positions - point, axis=1)
+
+    def name_operator(self, operand):
+        """Defining the name operator which will handle atom kind names."""
+        if operand.startswith('[') and operand.endswith(']'):
+            names = operand[1:-1].split(',')
+        elif not operand.endswith('[') and not operand.startswith(']'):
+            names = [operand]
+        symbols = self.structure.get_chemical_symbols()
+        return np.array([i for i, val in enumerate(symbols) if val in names])
+
+    def not_operator(self, operand):
+        """Reverting the selected atoms."""
+        if operand.startswith('[') and operand.endswith(']'):
+            names = operand[1:-1].split(',')
+        elif not operand.endswith('[') and not operand.startswith(']'):
+            names = [operand]
+        return '[' + ','.join(list(set(self.structure.get_chemical_symbols()) - set(names))) + ']'
+
+    def parse_advanced_sel(self, condition=None):
+        """Apply advanced selection specified in the text field."""
+
+        def addition(opa, opb):
+            return opa + opb
+
+        def subtraction(opa, opb):
+            return opa - opb
+
+        def mult(opa, opb):
+            return opa * opb
+
+        def division(opa, opb):
+            if isinstance(opb, type(np.array([]))):
+                if any(np.abs(opb) < 0.0001):
+                    return np.array([])
+            elif np.abs(opb) < 0.0001:
+                return np.array([])
+            return opa / opb
+
+        def power(opa, opb):
+            return opa**opb
+
+        def greater(opa, opb):
+            return np.where(opa > opb)[0]
+
+        def lower(opa, opb):
+            return np.where(opa < opb)[0]
+
+        def equal(opa, opb):
+            return np.where(opa == opb)[0]
+
+        def notequal(opa, opb):
+            return np.where(opa != opb)[0]
+
+        def greatereq(opa, opb):
+            return np.where(opa >= opb)[0]
+
+        def lowereq(opa, opb):
+            return np.where(opa <= opb)[0]
+
+        def intersec(opa, opb):
+            return np.intersect1d(opa, opb)
+
+        def union(opa, opb):
+            return np.union1d(opa, opb)
+
+        operandsdict = {
+            'x': self.structure.positions[:, 0],
+            'y': self.structure.positions[:, 1],
+            'z': self.structure.positions[:, 2],
+            'id': np.array([atom.index + 1 for atom in self.structure])
+        }
+
+        operatorsdict = {
+            '>': {
+                'function': greater,
+                'priority': 0,
+                'nargs': 2,
+            },
+            '<': {
+                'function': lower,
+                'priority': 0,
+                'nargs': 2,
+            },
+            '>=': {
+                'function': greatereq,
+                'priority': 0,
+                'nargs': 2,
+            },
+            '<=': {
+                'function': lowereq,
+                'priority': 0,
+                'nargs': 2,
+            },
+            'and': {
+                'function': intersec,
+                'priority': -1,
+                'nargs': 2,
+            },
+            'or': {
+                'function': union,
+                'priority': -2,
+                'nargs': 2,
+            },
+            '+': {
+                'function': addition,
+                'priority': 1,
+                'nargs': 2,
+            },
+            '-': {
+                'function': subtraction,
+                'priority': 1,
+                'nargs': 2,
+            },
+            '*': {
+                'function': mult,
+                'priority': 2,
+                'nargs': 2,
+            },
+            '/': {
+                'function': division,
+                'priority': 2,
+                'nargs': 2,
+            },
+            '^': {
+                'function': power,
+                'priority': 3,
+                'nargs': 2,
+            },
+            '==': {
+                'function': equal,
+                'priority': 0,
+                'nargs': 2,
+            },
+            '!=': {
+                'function': notequal,
+                'priority': 0,
+                'nargs': 2,
+            },
+            'd_from': {
+                'function': self.d_from,
+                'priority': 11,
+                'nargs': 1,
+            },  # At the moment the priority is not used.
+            'name': {
+                'function': self.name_operator,
+                'priority': 9,
+                'nargs': 1,
+            },  # When changed, this should be re-assesed.
+            'not': {
+                'function': self.not_operator,
+                'priority': 10,
+                'nargs': 1,
+            },
+        }
+
+        rpn = ReversePolishNotation(operators=operatorsdict, additional_operands=operandsdict)
+        return list(rpn.execute(expression=condition))
+
     def create_selection_info(self):
         """Create information to be displayed with selected atoms"""
 
@@ -398,13 +578,24 @@ class StructureDataViewer(_StructureDataBaseViewer):
             return "{} atoms selected<br>Geometric center: ({})<br>Angle: {}<br>Normal: ({})".format(
                 len(self.selection), geom_center, angle, print_pos(normal))
 
-        # Report  dihedral angle and geometric center.
+        # Report dihedral angle and geometric center.
         if len(self.selection) == 4:
             dihedral = self.structure.get_dihedral(self.selection) * 180 / np.pi
             return "{} atoms selected<br>Geometric center: ({})<br>Dihedral angle: {}".format(
                 len(self.selection), geom_center, dihedral.round(2))
 
         return "{} atoms selected<br>Geometric center: ({})".format(len(self.selection), geom_center)
+
+    @observe('selection_adv')
+    def _observe_selection_adv(self, _=None):
+        """ Apply the advanced boolean atom selection"""
+        try:
+            sel = self.parse_advanced_sel(condition=self.selection_adv)
+            self._selected_atoms.value = list_to_string_range(sel, shift=1)
+            self.wrong_syntax.layout.visibility = 'hidden'
+            self.apply_selection()
+        except (IndexError, TypeError, AttributeError):
+            self.wrong_syntax.layout.visibility = 'visible'
 
     @observe('selection')
     def _observe_selection_2(self, _=None):

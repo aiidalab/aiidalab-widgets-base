@@ -53,8 +53,7 @@ def list_to_string_range(lst, shift=1):
 
     Shift used when e.g. for a user interface numbering starts from 1 not from 0"""
     return " ".join([
-        str(t + shift) if isinstance(t, int) else "{}..{}".format(t[0] + shift, t[1] + shift)
-        for t in find_ranges(sorted(lst))
+        f"{t[0] + shift}..{t[1] + shift}" if isinstance(t, tuple) else str(t + shift) for t in find_ranges(sorted(lst))
     ])
 
 
