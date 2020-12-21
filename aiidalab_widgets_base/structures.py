@@ -7,6 +7,7 @@ from collections import OrderedDict
 import numpy as np
 import ipywidgets as ipw
 from traitlets import Instance, Int, List, Unicode, Union, dlink, link, default, observe
+from sklearn.decomposition import PCA
 
 # ASE imports
 import ase
@@ -549,20 +550,10 @@ class SmilesWidget(ipw.VBox):
 
         super().__init__([self.smiles, self.create_structure_btn, self.output])
 
-    def try_align_principal_axis(self, pos):
-        """Use PCA to align the principal axis to z."""
-        try:
-            from sklearn.decomposition import PCA
-        except ImportError:
-            self.output.value = "PCA library not available, the molecule will not be aligned to z."
-            return pos
-        pca = PCA(n_components=3)
-        return pca.fit_transform(pos)
-
     def make_ase(self, species, positions):
         """Create ase Atoms object."""
-        #Get the principal axes and realign the molecule
-        positions = self.try_align_principal_axis(positions)
+        # Get the principal axes and realign the molecule along z-axis.
+        positions = PCA(n_components=3).fit_transform(positions)
         atoms = Atoms(species, positions=positions, pbc=True)
         atoms.cell = np.ptp(atoms.positions, axis=0) + 10
         atoms.center()
