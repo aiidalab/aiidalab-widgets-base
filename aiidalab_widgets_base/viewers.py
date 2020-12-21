@@ -166,12 +166,13 @@ class _StructureDataBaseViewer(ipw.VBox):
 
         return ipw.VBox([
             ipw.HBox([self._selected_atoms, self.wrong_syntax]),
-            ipw.HTML(
-                value=
-                """<p style="color:blue;font-size:12px;line-height:100%">The Selection field accepts either ranges e.g.
-            <font color="black">1 5..8 10</font> <br>
-            or booleans e.g.
-            <font color="black"> (x>1 and name not [N,O]) or d_from [1,1,1] >2 or id >= 10</font></p>"""),
+            ipw.HTML(value="""
+                <p style="font-weight:800;">You can either specify ranges:
+                    <font style="font-style:italic;font-weight:400;">1 5..8 10</font>
+                </p>
+                <p style="font-weight:800;">or expressions:
+                    <font style="font-style:italic;font-weight:400;">(x>1 and name not [N,O]) or d_from [1,1,1]>2 or id>=10</font>
+                </p>"""),
             ipw.HBox([copy_to_clipboard, clear_selection, apply_selection]),
             self.selection_info,
         ])
