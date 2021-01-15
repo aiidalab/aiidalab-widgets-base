@@ -582,10 +582,11 @@ class StructureDataViewer(_StructureDataBaseViewer):
         if len(self.selection) == 4:
             try:
                 dihedral = self.structure.get_dihedral(self.selection) * 180 / np.pi
-                return "{} atoms selected<br>Geometric center: ({})<br>Dihedral angle: {}".format(
-                    len(self.selection), geom_center, dihedral.round(2))
+                dihedral_str = "{:.2f}".format(dihedral)
             except ZeroDivisionError:
-                pass
+                dihedral_str = "nan"
+            return "{} atoms selected<br>Geometric center: ({})<br>Dihedral angle: {}".format(
+                len(self.selection), geom_center, dihedral_str)
 
         return "{} atoms selected<br>Geometric center: ({})".format(len(self.selection), geom_center)
 
