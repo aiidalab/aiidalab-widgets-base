@@ -580,9 +580,12 @@ class StructureDataViewer(_StructureDataBaseViewer):
 
         # Report dihedral angle and geometric center.
         if len(self.selection) == 4:
-            dihedral = self.structure.get_dihedral(self.selection) * 180 / np.pi
-            return "{} atoms selected<br>Geometric center: ({})<br>Dihedral angle: {}".format(
-                len(self.selection), geom_center, dihedral.round(2))
+            try:
+                dihedral = self.structure.get_dihedral(self.selection) * 180 / np.pi
+                return "{} atoms selected<br>Geometric center: ({})<br>Dihedral angle: {}".format(
+                    len(self.selection), geom_center, dihedral.round(2))
+            except ZeroDivisionError:
+                pass
 
         return "{} atoms selected<br>Geometric center: ({})".format(len(self.selection), geom_center)
 
