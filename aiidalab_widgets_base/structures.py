@@ -430,7 +430,7 @@ class StructureBrowserWidget(ipw.VBox):
         box = ipw.VBox([age_selection, h_line, ipw.HBox([self.mode, self.drop_label])])
 
         self.results = ipw.Dropdown(layout={'width': '900px'})
-        self.results.observe(self._on_select_structure)
+        self.results.observe(self._on_select_structure, names='value')
         self.search()
         super().__init__([box, h_line, self.results])
 
