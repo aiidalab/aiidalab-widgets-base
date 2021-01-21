@@ -551,7 +551,7 @@ class StructureDataViewer(_StructureDataBaseViewer):
             return " ".join([str(i) for i in pos.round(2)])
 
         def add_info(indx, atom):
-            return "Id: {}; Symbol: {}; Coordinates: ({})<br>".format(indx + 1, atom.symbol, print_pos(atom.position))
+            return f"Id: {indx + 1}; Symbol: {atom.symbol}; Coordinates: ({print_pos(atom.position)})<br>"
 
         # Find geometric center.
         geom_center = print_pos(np.average(self.structure[self.selection].get_positions(), axis=0))
@@ -565,9 +565,11 @@ class StructureDataViewer(_StructureDataBaseViewer):
             info = ""
             info += add_info(self.selection[0], self.structure[self.selection[0]])
             info += add_info(self.selection[1], self.structure[self.selection[1]])
-            info += "Distance: {}<br>Geometric center: ({})".format(
-                self.structure.get_distance(*self.selection).round(2), geom_center)
+            dist = self.structure.get_distance(*self.selection)
+            info += f"Distance: {dist:.2f}<br>Geometric center: ({geom_center})"
             return info
+
+        info_natoms_geo_center = f"{len(self.selection)} atoms selected<br>Geometric center: ({geom_center})"
 
         # Report angle geometric center and normal.
         if len(self.selection) == 3:
@@ -575,20 +577,18 @@ class StructureDataViewer(_StructureDataBaseViewer):
             normal = np.cross(*self.structure.get_distances(
                 self.selection[1], [self.selection[0], self.selection[2]], mic=False, vector=True))
             normal = normal / np.linalg.norm(normal)
-            return "{} atoms selected<br>Geometric center: ({})<br>Angle: {}<br>Normal: ({})".format(
-                len(self.selection), geom_center, angle, print_pos(normal))
+            return f"{info_natoms_geo_center}<br>Angle: {angle}<br>Normal: ({print_pos(normal)})"
 
         # Report dihedral angle and geometric center.
         if len(self.selection) == 4:
             try:
                 dihedral = self.structure.get_dihedral(self.selection) * 180 / np.pi
-                dihedral_str = "{:.2f}".format(dihedral)
+                dihedral_str = f"{dihedral:.2f}"
             except ZeroDivisionError:
                 dihedral_str = "nan"
-            return "{} atoms selected<br>Geometric center: ({})<br>Dihedral angle: {}".format(
-                len(self.selection), geom_center, dihedral_str)
+            return f"{info_natoms_geo_center}<br>Dihedral angle: {dihedral_str}"
 
-        return "{} atoms selected<br>Geometric center: ({})".format(len(self.selection), geom_center)
+        return info_natoms_geo_center
 
     @observe('selection_adv')
     def _observe_selection_adv(self, _=None):
