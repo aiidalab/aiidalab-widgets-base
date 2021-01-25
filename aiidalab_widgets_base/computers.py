@@ -9,7 +9,7 @@ import pexpect
 import shortuuid
 import ipywidgets as ipw
 from IPython.display import clear_output
-from traitlets import Bool, Dict, Instance, Int, Unicode, Union, link, observe, validate
+from traitlets import Bool, Dict, Float, Instance, Int, Unicode, Union, link, observe, validate
 
 from aiida.common import NotExistent
 from aiida.orm import Computer, QueryBuilder, User
@@ -485,6 +485,7 @@ class AiidaComputerSetup(ipw.VBox):
     append_text = Unicode()
     transport = Unicode()
     scheduler = Unicode()
+    safe_interval = Union([Unicode(), Float()])
 
     def __init__(self, **kwargs):
         from aiida.transports import Transport
@@ -532,11 +533,19 @@ class AiidaComputerSetup(ipw.VBox):
                                          style=STYLE)
         link((inp_computer_ncpus, 'value'), (self, 'mpiprocs_per_machine'))
 
+        # Transport type.
         inp_transport_type = ipw.Dropdown(value='ssh',
                                           options=Transport.get_valid_transports(),
                                           description="Transport type:",
                                           style=STYLE)
         link((inp_transport_type, 'value'), (self, 'transport'))
+
+        # Safe interval.
+        inp_safe_interval = ipw.FloatText(value=30.0,
+                                          description='Min. connection interval (sec):',
+                                          layout=ipw.Layout(width="270px"),
+                                          style=STYLE)
+        link((inp_safe_interval, 'value'), (self, 'safe_interval'))
 
         # Scheduler.
         inp_scheduler = ipw.Dropdown(value='slurm',
@@ -579,6 +588,7 @@ class AiidaComputerSetup(ipw.VBox):
                     inp_mpirun_cmd,
                     inp_computer_ncpus,
                     inp_transport_type,
+                    inp_safe_interval,
                     inp_scheduler,
                     self._use_login_shell,
                 ]),
@@ -605,6 +615,7 @@ class AiidaComputerSetup(ipw.VBox):
             'port': sshcfg.get('port', 22),
             'timeout': 60,
             'use_login_shell': self._use_login_shell.value,
+            'safe_interval': self.safe_interval,
         }
         if 'user' in sshcfg:
             authparams['username'] = sshcfg['user']
@@ -658,6 +669,10 @@ class AiidaComputerSetup(ipw.VBox):
     @validate('mpiprocs_per_machine')
     def _validate_mpiprocs_per_machine(self, provided):  # pylint: disable=no-self-use
         return int(provided['value'])
+
+    @validate('safe_interval')
+    def _validate_mpiprocs_per_machine(self, provided):  # pylint: disable=no-self-use
+        return float(provided['value'])
 
 
 class ComputerDropdown(ipw.VBox):
