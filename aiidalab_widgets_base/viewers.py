@@ -11,13 +11,14 @@ import nglview
 from ase import Atoms
 from vapory import *
 from matplotlib.colors import to_rgb
-import json
+from copy import deepcopy
 
 from traitlets import Instance, Int, List, Union, default, link, observe, validate
 from aiida.orm import Node
 
 from .utils import string_range_to_list, list_to_string_range
 from .misc import CopyToClipboardButton
+from .dicts import Colors, Radius 
 
 
 def viewer(obj, downloadable=True, **kwargs):
@@ -219,58 +220,57 @@ class _StructureDataBaseViewer(ipw.VBox):
         return ipw.VBox([self.download_box, self.screenshot_box, self.render_box])
 
     def _render_structure(self, change=None):
-        from .dicts import colors, radius 
-        from copy import deepcopy
+        """Render the structure with POVRAY"""
 
         if not isinstance(self.structure, Atoms):
             return 
 
         self.render_btn.disabled = True 
-        A = np.array(self._viewer._camera_orientation)
-        A = A.reshape(4, 4)
-        A = np.transpose(A)
+        omat = np.array(self._viewer._camera_orientation)
+        omat = omat.reshape(4, 4)
+        omat = np.transpose(omat)
 
-        zfactor = norm(A[0, 0:3])
-        A[0:3, 0:3] = A[0:3, 0:3]/zfactor
+        zfactor = norm(omat[0, 0:3])
+        omat[0:3, 0:3] = omat[0:3, 0:3]/zfactor
 
         bb = deepcopy(self.structure)
 
         for i in bb:
-            a = np.array([i.x, i.y, i.z])
-            a = a + A[0:3, 3];
-            w = A[0:3, 0:3].dot(a)
-            i.x = -w[0]
-            i.y = w[1]
-            i.z = w[2]
+            ixyz = np.array([i.x, i.y, i.z])
+            ixyz = ixyz + omat[0:3, 3];
+            ixyz = omat[0:3, 0:3].dot(ixyz)
+            i.x = -ixyz[0]
+            i.y =  ixyz[1]
+            i.z =  ixyz[2]
         
         vertices = [];
     
-        vx = np.array(bb.get_cell()[0]);
-        vy = np.array(bb.get_cell()[1]);
-        vz = np.array(bb.get_cell()[2]);
+        cellx = np.array(bb.get_cell()[0]);
+        celly = np.array(bb.get_cell()[1]);
+        cellz = np.array(bb.get_cell()[2]);
 
         vertices.append(np.array([0, 0, 0]));
-        vertices.append(vx);
-        vertices.append(vy);
-        vertices.append(vz);
+        vertices.append(cellx);
+        vertices.append(celly);
+        vertices.append(cellz);
     
-        vertices.append(vx+vy);
-        vertices.append(vx+vz);
-        vertices.append(vy+vz);
-        vertices.append(vx+vy+vz);
+        vertices.append(cellx+celly);
+        vertices.append(cellx+cellz);
+        vertices.append(celly+cellz);
+        vertices.append(cellx+celly+cellz);
 
         for n, i in enumerate(vertices):
-            a = i + A[0:3, 3];
-            w = A[0:3, 0:3].dot(a)
-            vertices[n] = np.array([-w[0], w[1], w[2]])
+            ixyz = i + omat[0:3, 3];
+            ixyz = omat[0:3, 0:3].dot(ixyz)
+            vertices[n] = np.array([-ixyz[0], ixyz[1], ixyz[2]])
     
         camera = Camera('location', [0, 0, -zfactor/1.5], 'look_at', [0.0, 0.0, 0.0])
         light = LightSource([0, 0, -100.0], 'color',  [1.5, 1.5, 1.5])
 
         spheres = [];
         for i in bb:
-            sphere = Sphere( [i.x, i.y, i.z], radius[i.symbol], 
-                            Texture(Pigment( 'color', np.array(colors[i.symbol]))), 
+            sphere = Sphere( [i.x, i.y, i.z], Radius[i.symbol], 
+                            Texture(Pigment( 'color', np.array(Colors[i.symbol]))), 
                                 Finish('phong', 0.9,'reflection', 0.05))
             spheres.append(sphere)
 
@@ -283,12 +283,12 @@ class _StructureDataBaseViewer(ipw.VBox):
                 if i.symbol == 'H' and j.symbol == 'H':
                     continue;
                 
-                if norm(v1-v2) < 1.4*(radius[i.symbol] + radius[j.symbol]):
-                    midi = v1 + (v2-v1)*radius[i.symbol]/(radius[i.symbol] + radius[j.symbol]);
-                    bond = Cylinder(v1, midi, 0.2, Pigment('color', np.array(colors[i.symbol])),
+                if norm(v1-v2) < 1.4*(Radius[i.symbol] + Radius[j.symbol]):
+                    midi = v1 + (v2-v1)*Radius[i.symbol]/(Radius[i.symbol] + Radius[j.symbol]);
+                    bond = Cylinder(v1, midi, 0.2, Pigment('color', np.array(Colors[i.symbol])),
                                     Finish('phong', 0.8,'reflection', 0.05))
                     bonds.append(bond)
-                    bond = Cylinder(v2, midi, 0.2, Pigment('color', np.array(colors[j.symbol])),
+                    bond = Cylinder(v2, midi, 0.2, Pigment('color', np.array(Colors[j.symbol])),
                                     Finish('phong', 0.8,'reflection', 0.05))
                     bonds.append(bond)
                 
