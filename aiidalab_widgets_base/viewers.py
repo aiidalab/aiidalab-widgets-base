@@ -261,7 +261,7 @@ class _StructureDataBaseViewer(ipw.VBox):
                             Texture(Pigment( 'color', np.array(Colors[i.symbol]))), 
                                 Finish('phong', 0.9,'reflection', 0.05)) for i in bb]
 
-        bonds = [];
+        bonds = []
         for x, i in enumerate(bb):
             for j in bb[x+1:]:
                 v1 = np.array([i.x, i.y, i.z])
