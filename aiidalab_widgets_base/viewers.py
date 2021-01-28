@@ -220,7 +220,7 @@ class _StructureDataBaseViewer(ipw.VBox):
         return ipw.VBox([self.download_box, self.screenshot_box, self.render_box])
 
     def _render_structure(self, change=None):
-        """Render the structure with POVRAY"""
+        """Render the structure with POVRAY."""
 
         if not isinstance(self.structure, Atoms):
             return 
