@@ -9,7 +9,7 @@ import ipywidgets as ipw
 from IPython.display import display
 import nglview
 from ase import Atoms
-from vapory import *
+from vapory import Camera, LightSource, Scene, Sphere, Finish, Texture, Pigment, Cylinder, Background
 from matplotlib.colors import to_rgb
 from copy import deepcopy
 
