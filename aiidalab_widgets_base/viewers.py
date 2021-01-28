@@ -245,19 +245,10 @@ class _StructureDataBaseViewer(ipw.VBox):
         
         vertices = [];
     
-        cellx = np.array(bb.get_cell()[0]);
-        celly = np.array(bb.get_cell()[1]);
-        cellz = np.array(bb.get_cell()[2]);
-
-        vertices.append(np.array([0, 0, 0]));
-        vertices.append(cellx);
-        vertices.append(celly);
-        vertices.append(cellz);
-    
-        vertices.append(cellx+celly);
-        vertices.append(cellx+cellz);
-        vertices.append(celly+cellz);
-        vertices.append(cellx+celly+cellz);
+        cell = bb.get_cell()
+        vertices.append(np.array([0, 0, 0]))
+        vertices.extend(cell)
+        vertices.extend([cell[0]+cell[1], cell[0]+cell[2], cell[1]+cell[2], cell[0]+cell[1]+cell[2]])
 
         for n, i in enumerate(vertices):
             ixyz = i + omat[0:3, 3];
