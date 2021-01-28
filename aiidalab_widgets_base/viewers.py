@@ -257,12 +257,9 @@ class _StructureDataBaseViewer(ipw.VBox):
         camera = Camera('location', [0, 0, -zfactor/1.5], 'look_at', [0.0, 0.0, 0.0])
         light = LightSource([0, 0, -100.0], 'color',  [1.5, 1.5, 1.5])
 
-        spheres = [];
-        for i in bb:
-            sphere = Sphere( [i.x, i.y, i.z], Radius[i.symbol], 
+        spheres = [Sphere( [i.x, i.y, i.z], Radius[i.symbol], 
                             Texture(Pigment( 'color', np.array(Colors[i.symbol]))), 
-                                Finish('phong', 0.9,'reflection', 0.05))
-            spheres.append(sphere)
+                                Finish('phong', 0.9,'reflection', 0.05)) for i in bb]
 
         bonds = [];
         for x, i in enumerate(bb):
