@@ -268,7 +268,7 @@ class _StructureDataBaseViewer(ipw.VBox):
                 v2 = np.array([j.x, j.y, j.z])
 
                 if i.symbol == 'H' and j.symbol == 'H':
-                    continue;
+                    continue
                 
                 if norm(v1-v2) < 1.4*(Radius[i.symbol] + Radius[j.symbol]):
                     midi = v1 + (v2-v1)*Radius[i.symbol]/(Radius[i.symbol] + Radius[j.symbol]);
