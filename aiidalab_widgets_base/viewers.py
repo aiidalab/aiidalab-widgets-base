@@ -279,7 +279,7 @@ class _StructureDataBaseViewer(ipw.VBox):
                                     Finish('phong', 0.8,'reflection', 0.05))
                     bonds.append(bond)
                 
-        edges = [];
+        edges = []
         for x, i in enumerate(vertices):
             for y, j in enumerate(vertices):
                 if y > x:
