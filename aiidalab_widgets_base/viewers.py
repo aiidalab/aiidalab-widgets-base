@@ -251,8 +251,7 @@ class _StructureDataBaseViewer(ipw.VBox):
         vertices.extend([cell[0]+cell[1], cell[0]+cell[2], cell[1]+cell[2], cell[0]+cell[1]+cell[2]])
 
         for n, i in enumerate(vertices):
-            ixyz = i + omat[0:3, 3];
-            ixyz = omat[0:3, 0:3].dot(ixyz)
+            ixyz = omat[0:3, 0:3].dot(i + omat[0:3, 3])
             vertices[n] = np.array([-ixyz[0], ixyz[1], ixyz[2]])
     
         camera = Camera('location', [0, 0, -zfactor/1.5], 'look_at', [0.0, 0.0, 0.0])
