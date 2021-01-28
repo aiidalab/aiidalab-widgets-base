@@ -2,7 +2,21 @@
     "title": "AiiDAlab Base Widgets",
     "description": "Reusable widgets for applications in the AiiDAlab.",
     "authors": "AiiDA Team",
-    "version": "1.0.0a5",
     "logo": "miscellaneous/logos/aiidalab.png",
-    "state": "stable"
+    "state": "stable",
+    "requires": {
+      "~=1.0b": [
+            "aiida-core>=1.0.0,<2.0.0",
+            "ase",
+            "bokeh",
+            "fileupload",
+            "ipywidgets",
+            "more_itertools",
+            "nglview",
+            "numpy",
+            "optimade-client",
+            "pandas",
+            "scikit-learn"
+        ]
+    }
 }
