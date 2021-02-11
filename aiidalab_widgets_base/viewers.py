@@ -257,7 +257,7 @@ class _StructureDataBaseViewer(ipw.VBox):
             i.y =  ixyz[1]
             i.z =  ixyz[2]
         
-        vertices = [];
+        vertices = []
     
         cell = bb.get_cell()
         vertices.append(np.array([0, 0, 0]))
