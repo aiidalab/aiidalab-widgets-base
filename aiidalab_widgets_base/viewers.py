@@ -242,9 +242,7 @@ class _StructureDataBaseViewer(ipw.VBox):
             return 
 
         self.render_btn.disabled = True 
-        omat = np.array(self._viewer._camera_orientation)
-        omat = omat.reshape(4, 4)
-        omat = np.transpose(omat)
+        omat = np.array(self._viewer._camera_orientation).reshape(4, 4).transpose()
 
         zfactor = norm(omat[0, 0:3])
         omat[0:3, 0:3] = omat[0:3, 0:3]/zfactor
