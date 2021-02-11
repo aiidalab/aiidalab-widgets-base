@@ -250,12 +250,8 @@ class _StructureDataBaseViewer(ipw.VBox):
         bb = deepcopy(self.structure)
 
         for i in bb:
-            ixyz = np.array([i.x, i.y, i.z])
-            ixyz = ixyz + omat[0:3, 3];
-            ixyz = omat[0:3, 0:3].dot(ixyz)
-            i.x = -ixyz[0]
-            i.y =  ixyz[1]
-            i.z =  ixyz[2]
+            ixyz = omat[0:3, 0:3].dot(np.array([i.x, i.y, i.z]) + omat[0:3, 3])
+            i.x, i.y, i.z = -ixyz[0], ixyz[1], ixyz[2]
         
         vertices = []
     
