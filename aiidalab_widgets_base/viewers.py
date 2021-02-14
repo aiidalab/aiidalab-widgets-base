@@ -823,7 +823,8 @@ class StructureDataViewer(_StructureDataBaseViewer):
             info += add_info(self.selection[0], self.structure[self.selection[0]])
             info += add_info(self.selection[1], self.structure[self.selection[1]])
             dist = self.structure.get_distance(*self.selection)
-            info += f"Distance: {dist:.2f}<br>Geometric center: ({geom_center})"
+            distv = self.structure.get_distance(*self.selection, vector=True)
+            info += f"Distance: {dist:.2f} ({print_pos(distv)})<br>Geometric center: ({geom_center})"
             return info
 
         info_natoms_geo_center = (
