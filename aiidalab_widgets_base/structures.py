@@ -808,6 +808,13 @@ class BasicStructureEditor(ipw.VBox):  # pylint: disable=too-many-instance-attri
         btn_mirror_3p = ipw.Button(description="Mirror", layout={"width": "10%"})
         btn_mirror_3p.on_click(self.mirror_3p)
 
+        # Align to axis
+        align_description = ipw.HTML(
+            "<b>Align action vector to XYZ</b>", layout={"margin": "0px 0px 0px 5px"}
+        )
+        btn_align = ipw.Button(description="Align", layout={"width": "10%"})
+        btn_align.on_click(self.align)
+
         # Atoms selection.
         self.element = ipw.Dropdown(
             description="Select element",
@@ -921,6 +928,10 @@ class BasicStructureEditor(ipw.VBox):  # pylint: disable=too-many-instance-attri
                         ),
                         btn_mirror_3p,
                     ],
+                    layout={"margin": "0px 0px 0px 20px"},
+                ),
+                ipw.HBox(
+                    [align_description, btn_align],
                     layout={"margin": "0px 0px 0px 20px"},
                 ),
                 ipw.HTML(
@@ -1095,6 +1106,25 @@ class BasicStructureEditor(ipw.VBox):  # pylint: disable=too-many-instance-attri
         normal = np.cross(pt1 - pt2, pt3 - pt2)
         normal = normal / np.linalg.norm(normal)
         self.mirror(norm=normal, point=pt3)
+
+    def align(self, _=None):
+        """Rotate atoms to align action vector to XYZ vector."""
+
+        atoms = self.structure.copy()
+        selection = self.selection
+
+        # The action.
+        rotated_subset = atoms[self.selection]
+        vec = self.str2vec(self.vec2str(self.action_vector))
+        nvec = self.str2vec(self.dxyz.value)
+        center = self.str2vec(self.point.value)
+        rotated_subset.translate(-1.0 * center)
+        rotated_subset.rotate(vec, nvec)
+        rotated_subset.translate(center)
+        atoms.positions[list(self.selection)] = rotated_subset.positions
+
+        self.structure = atoms
+        self.selection = selection
 
     def mod_element(self, _=None):
         """Modify selected atoms into the given element."""
