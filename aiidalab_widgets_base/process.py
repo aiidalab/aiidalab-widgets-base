@@ -12,11 +12,27 @@ from traitlets import Instance, Int, List, Unicode, Union, default, observe, val
 
 # AiiDA imports.
 from aiida.engine import submit, Process, ProcessBuilder
-from aiida.orm import CalcFunctionNode, CalcJobNode, Node, ProcessNode, WorkChainNode, WorkFunctionNode, load_node
-from aiida.cmdline.utils.common import get_calcjob_report, get_workchain_report, get_process_function_report
+from aiida.orm import (
+    CalcFunctionNode,
+    CalcJobNode,
+    Node,
+    ProcessNode,
+    WorkChainNode,
+    WorkFunctionNode,
+    load_node,
+)
+from aiida.cmdline.utils.common import (
+    get_calcjob_report,
+    get_workchain_report,
+    get_process_function_report,
+)
 from aiida.cmdline.utils.ascii_vis import format_call_graph
 from aiida.cmdline.utils.query.calculation import CalculationQueryBuilder
-from aiida.common.exceptions import MultipleObjectsError, NotExistent, NotExistentAttributeError
+from aiida.common.exceptions import (
+    MultipleObjectsError,
+    NotExistent,
+    NotExistentAttributeError,
+)
 
 # Local imports.
 from .viewers import viewer
@@ -38,17 +54,19 @@ def get_running_calcs(process):
 
 class SubmitButtonWidget(ipw.VBox):
     """Submit button class that creates submit button jupyter widget."""
+
     process = Instance(ProcessNode, allow_none=True)
 
     def __init__(  # pylint: disable=too-many-arguments
-            self,
-            process_class,
-            inputs_generator=None,
-            input_dictionary_function=None,
-            description="Submit",
-            disable_after_submit=True,
-            append_output=False,
-            **kwargs):
+        self,
+        process_class,
+        inputs_generator=None,
+        input_dictionary_function=None,
+        description="Submit",
+        disable_after_submit=True,
+        append_output=False,
+        **kwargs,
+    ):
         """Submit Button widget.
 
         process_class (Process): Process class to submit.
@@ -64,37 +82,48 @@ class SubmitButtonWidget(ipw.VBox):
         append_output (bool): Whether to clear widget output for each subsequent submission.
         """
 
-        self.path_to_root = kwargs.get('path_to_root', '../')
+        self.path_to_root = kwargs.get("path_to_root", "../")
         if isclass(process_class) and issubclass(process_class, Process):
             self._process_class = process_class
         else:
-            raise ValueError(f"process_class argument must be a sublcass of {Process}, got {process_class}")
+            raise ValueError(
+                f"process_class argument must be a sublcass of {Process}, got {process_class}"
+            )
 
         # Handling the deprecation.
         if inputs_generator is None and input_dictionary_function is None:
             raise ValueError("The `inputs_generator` argument must be provided.")
         if inputs_generator and input_dictionary_function:
-            raise ValueError("You provided both: `inputs_generator` and `input_dictionary_function` "
-                             "arguments. Please provide `inpust_generator` only.")
+            raise ValueError(
+                "You provided both: `inputs_generator` and `input_dictionary_function` "
+                "arguments. Please provide `inpust_generator` only."
+            )
         if input_dictionary_function:
             inputs_generator = input_dictionary_function
-            warnings.warn(("The `input_dictionary_function` argument is deprecated and "
-                           "will be removed in the release 1.1 of the aiidalab-widgets-base package. "
-                           "Please use the `inputs_generator` argument instead."), DeprecationWarning)
+            warnings.warn(
+                (
+                    "The `input_dictionary_function` argument is deprecated and "
+                    "will be removed in the release 1.1 of the aiidalab-widgets-base package. "
+                    "Please use the `inputs_generator` argument instead."
+                ),
+                DeprecationWarning,
+            )
 
         # Checking if the inputs generator is
         if callable(inputs_generator):
             self.inputs_generator = inputs_generator
         else:
-            raise ValueError("The `inputs_generator` argument must be a function that "
-                             f"returns input dictionary, got {inputs_generator}")
+            raise ValueError(
+                "The `inputs_generator` argument must be a function that "
+                f"returns input dictionary, got {inputs_generator}"
+            )
 
         self.disable_after_submit = disable_after_submit
         self.append_output = append_output
 
         self.btn_submit = ipw.Button(description=description, disabled=False)
         self.btn_submit.on_click(self.on_btn_submit_press)
-        self.submit_out = ipw.HTML('')
+        self.submit_out = ipw.HTML("")
         self._run_after_submitted = []
 
         super().__init__(children=[self.btn_submit, self.submit_out])
@@ -106,14 +135,18 @@ class SubmitButtonWidget(ipw.VBox):
         """When submit button is pressed."""
 
         if not self.append_output:
-            self.submit_out.value = ''
+            self.submit_out.value = ""
 
         inputs = self.inputs_generator()
         if inputs is None:
             if self.append_output:
-                self.submit_out.value += "SubmitButtonWidget: did not recieve the process inputs.<br>"
+                self.submit_out.value += (
+                    "SubmitButtonWidget: did not recieve the process inputs.<br>"
+                )
             else:
-                self.submit_out.value = "SubmitButtonWidget: did not recieve the process inputs."
+                self.submit_out.value = (
+                    "SubmitButtonWidget: did not recieve the process inputs."
+                )
         else:
             if self.disable_after_submit:
                 self.btn_submit.disabled = True
@@ -148,62 +181,83 @@ class ProcessInputsWidget(ipw.VBox):
         self.process = process
         self.output = ipw.Output()
         self.info = ipw.HTML()
-        inputs_list = [(l.title(), l) for l in self.process.inputs] if self.process else []
+        inputs_list = (
+            [(input_.title(), input_) for input_ in self.process.inputs]
+            if self.process
+            else []
+        )
         inputs = ipw.Dropdown(
-            options=[('Select input', '')] + inputs_list,
-            description='Select input:',
-            style={'description_width': 'initial'},
+            options=[("Select input", "")] + inputs_list,
+            description="Select input:",
+            style={"description_width": "initial"},
             disabled=False,
         )
-        inputs.observe(self.show_selected_input, names=['value'])
-        super().__init__(children=[ipw.HBox([inputs, self.info]), self.output], **kwargs)
+        inputs.observe(self.show_selected_input, names=["value"])
+        super().__init__(
+            children=[ipw.HBox([inputs, self.info]), self.output], **kwargs
+        )
 
     def show_selected_input(self, change=None):
         """Function that displays process inputs selected in the `inputs` Dropdown widget."""
         with self.output:
-            self.info.value = ''
+            self.info.value = ""
             clear_output()
-            if change['new']:
-                selected_input = self.process.inputs[change['new']]
+            if change["new"]:
+                selected_input = self.process.inputs[change["new"]]
                 self.info.value = "PK: {}".format(selected_input.id)
                 display(viewer(selected_input))
 
 
 class ProcessOutputsWidget(ipw.VBox):
     """Widget to select and show process outputs."""
+
     process = Instance(ProcessNode, allow_none=True)
 
     def __init__(self, process=None, **kwargs):
         self.process = process
         self.output = ipw.Output()
         self.info = ipw.HTML()
-        outputs_list = [(l.title(), l) for l in self.process.outputs] if self.process else []
+        outputs_list = (
+            [(output.title(), output) for output in self.process.outputs]
+            if self.process
+            else []
+        )
         outputs = ipw.Dropdown(
-            options=[('Select output', '')] + outputs_list,
-            label='Select output',
-            description='Select outputs:',
-            style={'description_width': 'initial'},
+            options=[("Select output", "")] + outputs_list,
+            label="Select output",
+            description="Select outputs:",
+            style={"description_width": "initial"},
             disabled=False,
         )
-        outputs.observe(self.show_selected_output, names=['value'])
-        super().__init__(children=[ipw.HBox([outputs, self.info]), self.output], **kwargs)
+        outputs.observe(self.show_selected_output, names=["value"])
+        super().__init__(
+            children=[ipw.HBox([outputs, self.info]), self.output], **kwargs
+        )
 
     def show_selected_output(self, change=None):
         """Function that displays process output selected in the `outputs` Dropdown widget."""
         with self.output:
-            self.info.value = ''
+            self.info.value = ""
             clear_output()
-            if change['new']:
-                selected_output = self.process.outputs[change['new']]
+            if change["new"]:
+                selected_output = self.process.outputs[change["new"]]
                 self.info.value = "PK: {}".format(selected_output.id)
                 display(viewer(selected_output))
 
 
 class ProcessFollowerWidget(ipw.VBox):
     """A Widget that follows a process until finished."""
+
     process = Instance(ProcessNode, allow_none=True)
 
-    def __init__(self, process=None, followers=None, update_interval=0.1, path_to_root='../', **kwargs):
+    def __init__(
+        self,
+        process=None,
+        followers=None,
+        update_interval=0.1,
+        path_to_root="../",
+        **kwargs,
+    ):
         """Initiate all the followers."""
         self.process = process
         self._run_after_completed = []
@@ -213,10 +267,14 @@ class ProcessFollowerWidget(ipw.VBox):
             for follower in followers:
                 follower.process = self.process
                 follower.path_to_root = path_to_root
-                self.followers.append(ipw.VBox([
-                    ipw.HTML("<h2><b>{}</b></h2>".format(follower.title)),
-                    follower,
-                ]))
+                self.followers.append(
+                    ipw.VBox(
+                        [
+                            ipw.HTML("<h2><b>{}</b></h2>".format(follower.title)),
+                            follower,
+                        ]
+                    )
+                )
         self.update()
         self.output = ipw.HTML()
         super().__init__(children=[self.output] + self.followers, **kwargs)
@@ -242,10 +300,11 @@ class ProcessFollowerWidget(ipw.VBox):
             self.output.value = """<font color="red"> ProcessFollowerWidget: process
             is set to 'None', nothing to follow. </font>"""
             return
-        self.output.value = ''
+        self.output.value = ""
 
         if detach:
             import threading
+
             update_state = threading.Thread(target=self._follow)
             update_state.start()
         else:
@@ -258,13 +317,14 @@ class ProcessFollowerWidget(ipw.VBox):
 
 class ProcessReportWidget(ipw.HTML):
     """Widget that shows process report."""
+
     process = Instance(ProcessNode, allow_none=True)
 
     def __init__(self, title="Process Report", **kwargs):
         self.title = title
         self.max_depth = None
         self.indent_size = 2
-        self.levelname = 'REPORT'
+        self.levelname = "REPORT"
         self.update()
         super().__init__(**kwargs)
 
@@ -276,19 +336,22 @@ class ProcessReportWidget(ipw.HTML):
         if isinstance(self.process, CalcJobNode):
             string = get_calcjob_report(self.process)
         elif isinstance(self.process, WorkChainNode):
-            string = get_workchain_report(self.process, self.levelname, self.indent_size, self.max_depth)
+            string = get_workchain_report(
+                self.process, self.levelname, self.indent_size, self.max_depth
+            )
         elif isinstance(self.process, (CalcFunctionNode, WorkFunctionNode)):
             string = get_process_function_report(self.process)
         else:
-            string = 'Nothing to show for node type {}'.format(self.process.__class__)
-        self.value = string.replace('\n', '<br/>')
+            string = "Nothing to show for node type {}".format(self.process.__class__)
+        self.value = string.replace("\n", "<br/>")
 
 
 class ProcessCallStackWidget(ipw.HTML):
     """Widget that shows process call stack."""
+
     process = Instance(ProcessNode, allow_none=True)
 
-    def __init__(self, title="Process Call Stack", path_to_root='../', **kwargs):
+    def __init__(self, title="Process Call Stack", path_to_root="../", **kwargs):
         self.title = title
         self.path_to_root = path_to_root
         self.update()
@@ -299,30 +362,36 @@ class ProcessCallStackWidget(ipw.HTML):
         if self.process is None:
             return
         string = format_call_graph(self.process, info_fn=self.calc_info)
-        self.value = string.replace('\n', '<br/>').replace(' ', '&nbsp;').replace('#space#', ' ')
+        self.value = (
+            string.replace("\n", "<br/>").replace(" ", "&nbsp;").replace("#space#", " ")
+        )
 
     def calc_info(self, node):
         """Return a string with the summary of the state of a CalculationNode."""
 
         if not isinstance(node, ProcessNode):
-            raise TypeError('Unknown type: {}'.format(type(node)))
+            raise TypeError("Unknown type: {}".format(type(node)))
 
         process_state = node.process_state.value.capitalize()
         pk = """<a#space#href={0}aiidalab-widgets-base/process.ipynb?id={1}#space#target="_blank">{1}</a>""".format(
-            self.path_to_root, node.pk)
+            self.path_to_root, node.pk
+        )
 
         if node.exit_status is not None:
-            string = '{}<{}> {} [{}]'.format(node.process_label, pk, process_state, node.exit_status)
+            string = "{}<{}> {} [{}]".format(
+                node.process_label, pk, process_state, node.exit_status
+            )
         else:
-            string = '{}<{}> {}'.format(node.process_label, pk, process_state)
+            string = "{}<{}> {}".format(node.process_label, pk, process_state)
 
         if isinstance(node, WorkChainNode) and node.stepper_state_info:
-            string += ' [{}]'.format(node.stepper_state_info)
+            string += " [{}]".format(node.stepper_state_info)
         return string
 
 
 class ProgressBarWidget(ipw.VBox):
     """A bar showing the proggress of a process."""
+
     process = Instance(ProcessNode, allow_none=True)
 
     def __init__(self, title="Progress Bar", **kwargs):
@@ -342,11 +411,16 @@ class ProgressBarWidget(ipw.VBox):
             min=0,
             max=2,
             step=1,
-            description='Progress:',
-            bar_style='warning',  # 'success', 'info', 'warning', 'danger' or ''
-            orientation='horizontal',
-            layout={'width': '800px'})
-        self.state = ipw.HTML(description="Calculation state:", value='Created', style={'description_width': 'initial'})
+            description="Progress:",
+            bar_style="warning",  # 'success', 'info', 'warning', 'danger' or ''
+            orientation="horizontal",
+            layout={"width": "800px"},
+        )
+        self.state = ipw.HTML(
+            description="Calculation state:",
+            value="Created",
+            style={"description_width": "initial"},
+        )
         super().__init__(children=[self.progress_bar, self.state], **kwargs)
 
     def update(self):
@@ -354,12 +428,12 @@ class ProgressBarWidget(ipw.VBox):
         if self.process is None:
             return
         self.progress_bar.value = self.correspondance[self.current_state]
-        if self.current_state == 'finished':
-            self.progress_bar.bar_style = 'success'
+        if self.current_state == "finished":
+            self.progress_bar.bar_style = "success"
         elif self.current_state in ["killed", "excepted"]:
-            self.progress_bar.bar_style = 'danger'
+            self.progress_bar.bar_style = "danger"
         else:
-            self.progress_bar.bar_style = 'info'
+            self.progress_bar.bar_style = "info"
         self.state.value = self.current_state.capitalize()
 
     @property
@@ -369,6 +443,7 @@ class ProgressBarWidget(ipw.VBox):
 
 class CalcJobOutputWidget(ipw.Textarea):
     """Output of a calculation."""
+
     calculation = Instance(CalcJobNode, allow_none=True)
 
     def __init__(self, **kwargs):
@@ -376,14 +451,9 @@ class CalcJobOutputWidget(ipw.Textarea):
             "value": "",
             "placeholder": "Calculation output will appear here",
             "description": "Calculation output:",
-            "layout": {
-                'width': "900px",
-                'height': '300px'
-            },
+            "layout": {"width": "900px", "height": "300px"},
             "disabled": False,
-            "style": {
-                'description_width': 'initial'
-            }
+            "style": {"description_width": "initial"},
         }
         default_params.update(kwargs)
         self.output = []
@@ -393,11 +463,11 @@ class CalcJobOutputWidget(ipw.Textarea):
 
         super().__init__(**default_params)
 
-    @observe('calculation')
+    @observe("calculation")
     def _change_calculation(self, _=None):
         """Reset things if the observed calculation has changed."""
         self.output = []
-        self.value = ''
+        self.value = ""
 
     def update(self):
         """Update the displayed output and scroll to its end.
@@ -411,25 +481,34 @@ class CalcJobOutputWidget(ipw.Textarea):
             return
 
         try:
-            output_file_path = os.path.join(self.calculation.outputs.remote_folder.get_remote_path(),
-                                            self.calculation.attributes['output_filename'])
+            output_file_path = os.path.join(
+                self.calculation.outputs.remote_folder.get_remote_path(),
+                self.calculation.attributes["output_filename"],
+            )
         except KeyError:
-            self.placeholder = "The `output_filename` attribute is not set for " \
-            f"{self.calculation.process_class}. Nothing to show."
+            self.placeholder = (
+                "The `output_filename` attribute is not set for "
+                f"{self.calculation.process_class}. Nothing to show."
+            )
         except NotExistentAttributeError:
-            self.placeholder = "The object `remote_folder` was not found among the process outputs. " \
-            "Nothing to show."
+            self.placeholder = (
+                "The object `remote_folder` was not found among the process outputs. "
+                "Nothing to show."
+            )
         else:
             if os.path.exists(output_file_path):
                 with open(output_file_path) as fobj:
-                    difference = fobj.readlines()[len(self.output):-1]  # Only adding the difference
+                    difference = fobj.readlines()[
+                        len(self.output) : -1
+                    ]  # Only adding the difference
                     self.output += difference
-                    self.value += ''.join(difference)
+                    self.value += "".join(difference)
 
         # Auto scroll down. Doesn't work in detached mode.
         # Also a hack as it is applied to all the textareas
         display(
-            Javascript("""
+            Javascript(
+                """
             $('textarea').each(function(){
                 // get the id
                 var id_value = $(this).attr('id');
@@ -438,19 +517,24 @@ class CalcJobOutputWidget(ipw.Textarea):
                     // the variable is defined
                     var textarea = document.getElementById(id_value);
                     textarea.scrollTop = textarea.scrollHeight;
-                }   
-            });"""))
+                }
+            });"""
+            )
+        )
 
 
 class RunningCalcJobOutputWidget(ipw.VBox):
     """Show an output of selected running child calculation."""
+
     process = Instance(ProcessNode, allow_none=True)
 
     def __init__(self, title="Running Job Output", **kwargs):
         self.title = title
-        self.selection = ipw.Dropdown(description="Select calculation:",
-                                      options={p.id: p for p in get_running_calcs(self.process)},
-                                      style={'description_width': 'initial'})
+        self.selection = ipw.Dropdown(
+            description="Select calculation:",
+            options={p.id: p for p in get_running_calcs(self.process)},
+            style={"description_width": "initial"},
+        )
         self.output = CalcJobOutputWidget()
         self.update()
         super().__init__(children=[self.selection, self.output], **kwargs)
@@ -461,7 +545,9 @@ class RunningCalcJobOutputWidget(ipw.VBox):
             return
         with self.hold_trait_notifications():
             old_label = self.selection.label
-            self.selection.options = {str(p.id): p for p in get_running_calcs(self.process)}
+            self.selection.options = {
+                str(p.id): p for p in get_running_calcs(self.process)
+            }
             # If the selection remains the same.
             if old_label in self.selection.options:
                 self.label = old_label  # After changing options trait, the label and value traits might change as well.
@@ -474,21 +560,22 @@ class RunningCalcJobOutputWidget(ipw.VBox):
 class ProcessListWidget(ipw.VBox):
     """List of AiiDA processes.
 
-        past_days (int): Sumulations that were submitted in the last `past_days`.
+    past_days (int): Sumulations that were submitted in the last `past_days`.
 
-        incoming_node (int, str, Node): Trait that takes node id or uuid and returns the node that must
-        be among the input nodes of the process of interest.
+    incoming_node (int, str, Node): Trait that takes node id or uuid and returns the node that must
+    be among the input nodes of the process of interest.
 
-        outgoing_node (int, str, Node): Trait that takes node id or uuid and returns the node that must
-        be among the output nodes of the process of interest.
+    outgoing_node (int, str, Node): Trait that takes node id or uuid and returns the node that must
+    be among the output nodes of the process of interest.
 
-        process_states (list): List of allowed process states.
+    process_states (list): List of allowed process states.
 
-        process_label (str): Show process states of type `process_label`.
+    process_label (str): Show process states of type `process_label`.
 
-        description_contains (str): string that should be present in the description of a process node.
+    description_contains (str): string that should be present in the description of a process node.
 
     """
+
     past_days = Int(7)
     incoming_node = Union([Int(), Unicode(), Instance(Node)], allow_none=True)
     outgoing_node = Union([Int(), Unicode(), Instance(Node)], allow_none=True)
@@ -496,15 +583,17 @@ class ProcessListWidget(ipw.VBox):
     process_label = Unicode(allow_none=True)
     description_contains = Unicode(allow_none=True)
 
-    def __init__(self, path_to_root='../', **kwargs):
+    def __init__(self, path_to_root="../", **kwargs):
         self.path_to_root = path_to_root
         self.table = ipw.HTML()
-        pd.set_option('max_colwidth', 40)
+        pd.set_option("max_colwidth", 40)
         self.output = ipw.HTML()
         update_button = ipw.Button(description="Update now")
         update_button.on_click(self.update)
         self.update()
-        super().__init__(children=[ipw.HBox([self.output, update_button]), self.table], **kwargs)
+        super().__init__(
+            children=[ipw.HBox([self.output, update_button]), self.table], **kwargs
+        )
 
     def update(self, _=None):
         """Perform the query."""
@@ -513,7 +602,7 @@ class ProcessListWidget(ipw.VBox):
         # can be applied to it as well.
         # For more information on how to controle the table appearance please visit:
         # https://css-tricks.com/complete-guide-table-element/
-        self.table.value = '''
+        self.table.value = """
         <style>
             .df { border: none; }
             .df tbody tr:nth-child(odd) { background-color: #e5e7e9; }
@@ -522,28 +611,39 @@ class ProcessListWidget(ipw.VBox):
             .df tbody td { min-width: 150px; text-align: center; border: none }
             .df th { text-align: center; border: none;  border-bottom: 1px solid black;}
         </style>
-        '''
+        """
         builder = CalculationQueryBuilder()
-        filters = builder.get_filters(all_entries=False,
-                                      process_state=self.process_states,
-                                      process_label=self.process_label,
-                                      exit_status=None,
-                                      failed=None)
+        filters = builder.get_filters(
+            all_entries=False,
+            process_state=self.process_states,
+            process_label=self.process_label,
+            exit_status=None,
+            failed=None,
+        )
         relationships = {}
         if self.incoming_node:
-            relationships = {**relationships, **{'with_outgoing': self.incoming_node}}
+            relationships = {**relationships, **{"with_outgoing": self.incoming_node}}
 
         if self.outgoing_node:
-            relationships = {**relationships, **{'with_incoming': self.outgoing_node}}
+            relationships = {**relationships, **{"with_incoming": self.outgoing_node}}
 
         query_set = builder.get_query_set(
             filters=filters,
             past_days=None if self.past_days < 0 else self.past_days,
-            order_by={'ctime': 'desc'},
+            order_by={"ctime": "desc"},
             relationships=relationships,
         )
         projected = builder.get_projected(
-            query_set, projections=['pk', 'ctime', 'process_label', 'state', 'process_status', 'description'])
+            query_set,
+            projections=[
+                "pk",
+                "ctime",
+                "process_label",
+                "state",
+                "process_status",
+                "description",
+            ],
+        )
         dataf = pd.DataFrame(projected[1:], columns=projected[0])
 
         # Keep only process that contain the requested string in the description.
@@ -553,39 +653,41 @@ class ProcessListWidget(ipw.VBox):
         self.output.value = "{} processes shown".format(len(dataf))
 
         # Add HTML links.
-        dataf['PK'] = dataf['PK'].apply(
+        dataf["PK"] = dataf["PK"].apply(
             lambda x: """<a href={0}aiidalab-widgets-base/process.ipynb?id={1} target="_blank">{1}</a>""".format(
-                self.path_to_root, x))
-        self.table.value += dataf.to_html(classes='df', escape=False, index=False)
+                self.path_to_root, x
+            )
+        )
+        self.table.value += dataf.to_html(classes="df", escape=False, index=False)
 
-    @validate('incoming_node')
+    @validate("incoming_node")
     def _validate_incoming_node(self, provided):
         """Validate incoming node. The function load_node takes care of managing ids and uuids."""
-        if provided['value']:
+        if provided["value"]:
             try:
-                return load_node(provided['value'])
+                return load_node(provided["value"])
             except (MultipleObjectsError, NotExistent):
                 return None
         return None
 
-    @validate('outgoing_node')
+    @validate("outgoing_node")
     def _validate_outgoing_node(self, provided):
         """Validate outgoing node. The function load_node takes care of managing ids and uuids."""
-        if provided['value']:
+        if provided["value"]:
             try:
-                return load_node(provided['value'])
+                return load_node(provided["value"])
             except (MultipleObjectsError, NotExistent):
                 return None
         return None
 
-    @default('process_label')
+    @default("process_label")
     def _default_process_label(self):
         return None
 
-    @validate('process_label')
+    @validate("process_label")
     def _validate_process_label(self, provided):
-        if provided['value']:
-            return provided['value']
+        if provided["value"]:
+            return provided["value"]
         return None
 
     def _follow(self, update_interval):
@@ -595,5 +697,6 @@ class ProcessListWidget(ipw.VBox):
 
     def start_autoupdate(self, update_interval=10):
         import threading
+
         update_state = threading.Thread(target=self._follow, args=(update_interval,))
         update_state.start()
