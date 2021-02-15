@@ -1,20 +1,12 @@
-# # Install pre-commit hooks via
-# pre-commit install
+repos:
+  - repo: https://github.com/psf/black
+    rev: 20.8b1
+    hooks:
+      - id: black
+        language_version: python3 # Should be a command that runs python3.6+
 
-- repo: local
-  hooks:
-  # yapf = yet another python formatter
-  - id: yapf
-    name: yapf
-    entry: yapf
-    language: system
-    types: [python]
-    args: ["-i"]
-
-  # prospector: collection of linters
-  - id: prospector
-    language: system
-    types: [file, python]
-    name: prospector
-    description: "This hook runs Prospector: https://github.com/landscapeio/prospector"
-    entry: prospector
+  - repo: https://gitlab.com/pycqa/flake8
+    rev: '3.8.4'
+    hooks:
+    - id: flake8
+      args: [--count, --show-source, --statistics]
