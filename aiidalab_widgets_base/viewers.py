@@ -231,7 +231,7 @@ class _StructureDataBaseViewer(ipw.VBox):
         # 4. Render a high quality image
         self.render_btn = ipw.Button(description="Render", icon='fa-paint-brush')
         self.render_btn.on_click(self._render_structure)
-        self.render_box = ipw.VBox(children=[ipw.Label("Render a image with POVRAY:"), self.render_btn])
+        self.render_box = ipw.VBox(children=[ipw.Label("Render an image with POVRAY:"), self.render_btn])
 
         return ipw.VBox([self.download_box, self.screenshot_box, self.render_box])
 
