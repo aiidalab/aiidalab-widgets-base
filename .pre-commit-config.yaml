@@ -1,4 +1,12 @@
 repos:
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v3.4.0
+    hooks:
+      - id: check-yaml
+      - id: check-json
+      - id: trailing-whitespace
+        exclude: miscellaneous/structures
+
   - repo: https://github.com/psf/black
     rev: 20.8b1
     hooks:
@@ -8,5 +16,5 @@ repos:
   - repo: https://gitlab.com/pycqa/flake8
     rev: '3.8.4'
     hooks:
-    - id: flake8
-      args: [--count, --show-source, --statistics]
+      - id: flake8
+        args: [--count, --show-source, --statistics]
