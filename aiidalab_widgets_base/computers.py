@@ -671,7 +671,7 @@ class AiidaComputerSetup(ipw.VBox):
         return int(provided['value'])
 
     @validate('safe_interval')
-    def _validate_mpiprocs_per_machine(self, provided):  # pylint: disable=no-self-use
+    def _validate_safe_interval(self, provided):  # pylint: disable=no-self-use
         return float(provided['value'])
 
 
