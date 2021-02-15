@@ -9,6 +9,7 @@ import ipywidgets as ipw
 from IPython.display import display
 import nglview
 from ase import Atoms
+from ase import neighborlist
 from vapory import Camera, LightSource, Scene, Sphere, Finish, Texture, Pigment, Cylinder, Background
 from matplotlib.colors import to_rgb
 from copy import deepcopy
@@ -248,6 +249,7 @@ class _StructureDataBaseViewer(ipw.VBox):
         omat[0:3, 0:3] = omat[0:3, 0:3]/zfactor
 
         bb = deepcopy(self.structure)
+        bb.pbc = (False, False, False)
 
         for i in bb:
             ixyz = omat[0:3, 0:3].dot(np.array([i.x, i.y, i.z]) + omat[0:3, 3])
@@ -264,7 +266,7 @@ class _StructureDataBaseViewer(ipw.VBox):
             ixyz = omat[0:3, 0:3].dot(i + omat[0:3, 3])
             vertices[n] = np.array([-ixyz[0], ixyz[1], ixyz[2]])
     
-        camera = Camera('location', [0, 0, -zfactor/1.5], 'look_at', [0.0, 0.0, 0.0])
+        camera = Camera('perspective', 'location', [0, 0, -zfactor/1.5], 'look_at', [0.0, 0.0, 0.0])
         light = LightSource([0, 0, -100.0], 'color',  [1.5, 1.5, 1.5])
 
         spheres = [Sphere( [i.x, i.y, i.z], Radius[i.symbol], 
@@ -272,27 +274,30 @@ class _StructureDataBaseViewer(ipw.VBox):
                                 Finish('phong', 0.9,'reflection', 0.05)) for i in bb]
 
         bonds = []
-        for x, i in enumerate(bb):
-            for j in bb[x+1:]:
-                v1 = np.array([i.x, i.y, i.z])
-                v2 = np.array([j.x, j.y, j.z])
 
-                if i.symbol == 'H' and j.symbol == 'H':
-                    continue
-                
-                if norm(v1-v2) < 1.4*(Radius[i.symbol] + Radius[j.symbol]):
-                    midi = v1 + (v2-v1)*Radius[i.symbol]/(Radius[i.symbol] + Radius[j.symbol]);
-                    bond = Cylinder(v1, midi, 0.2, Pigment('color', np.array(Colors[i.symbol])),
-                                    Finish('phong', 0.8,'reflection', 0.05))
-                    bonds.append(bond)
-                    bond = Cylinder(v2, midi, 0.2, Pigment('color', np.array(Colors[j.symbol])),
-                                    Finish('phong', 0.8,'reflection', 0.05))
-                    bonds.append(bond)
+        cutOff = neighborlist.natural_cutoffs(bb) # Takes the cutoffs from the ASE database
+        neighborList = neighborlist.NeighborList(cutOff, self_interaction=False, bothways=False)
+        neighborList.update(bb)
+        matrix = neighborList.get_connectivity_matrix()
+
+        for k in matrix.keys():
+            i = bb[k[0]]
+            j = bb[k[1]]
+
+            v1 = np.array([i.x, i.y, i.z])
+            v2 = np.array([j.x, j.y, j.z])
+            midi = v1 + (v2-v1)*Radius[i.symbol]/(Radius[i.symbol] + Radius[j.symbol])
+            bond = Cylinder(v1, midi, 0.2, Pigment('color', np.array(Colors[i.symbol])),
+                            Finish('phong', 0.8,'reflection', 0.05))
+            bonds.append(bond)
+            bond = Cylinder(v2, midi, 0.2, Pigment('color', np.array(Colors[j.symbol])),
+                            Finish('phong', 0.8,'reflection', 0.05))
+            bonds.append(bond)
+
                 
         edges = []
         for x, i in enumerate(vertices):
-            for y, j in enumerate(vertices):
-                if y > x:
+            for j in vertices[x+1:]:
                     if norm(np.cross(i-j, vertices[1]-vertices[0])) < 0.001 or norm(np.cross(i-j, vertices[2]-vertices[0])) < 0.001 or norm(np.cross(i-j, vertices[3]-vertices[0])) < 0.001:
                         edge = Cylinder(i, j, 0.06, Texture(Pigment( 'color', [212/255.0,175/255.0,55/255.0])), 
                                         Finish('phong', 0.9,'reflection', 0.01))
