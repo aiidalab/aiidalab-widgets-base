@@ -266,13 +266,6 @@ class _StructureDataBaseViewer(ipw.VBox):
             ixyz = omat[0:3, 0:3].dot(i + omat[0:3, 3])
             vertices[n] = np.array([-ixyz[0], ixyz[1], ixyz[2]])
     
-        camera = Camera('perspective', 'location', [0, 0, -zfactor/1.5], 'look_at', [0.0, 0.0, 0.0])
-        light = LightSource([0, 0, -100.0], 'color',  [1.5, 1.5, 1.5])
-
-        spheres = [Sphere( [i.x, i.y, i.z], Radius[i.symbol], 
-                            Texture(Pigment( 'color', np.array(Colors[i.symbol]))), 
-                                Finish('phong', 0.9,'reflection', 0.05)) for i in bb]
-
         bonds = []
 
         cutOff = neighborlist.natural_cutoffs(bb) # Takes the cutoffs from the ASE database
@@ -302,6 +295,13 @@ class _StructureDataBaseViewer(ipw.VBox):
                         edge = Cylinder(i, j, 0.06, Texture(Pigment( 'color', [212/255.0,175/255.0,55/255.0])), 
                                         Finish('phong', 0.9,'reflection', 0.01))
                         edges.append(edge)
+
+        camera = Camera('perspective', 'location', [0, 0, -zfactor/1.5], 'look_at', [0.0, 0.0, 0.0])
+        light = LightSource([0, 0, -100.0], 'color',  [1.5, 1.5, 1.5])
+
+        spheres = [Sphere( [i.x, i.y, i.z], Radius[i.symbol], 
+                            Texture(Pigment( 'color', np.array(Colors[i.symbol]))), 
+                                Finish('phong', 0.9,'reflection', 0.05)) for i in bb]
 
         objects = [light] + spheres + edges + bonds + [Background( "color", np.array(to_rgb(self._viewer.background)))]
     
