@@ -4,16 +4,23 @@
 import base64
 import warnings
 import numpy as np
+from numpy.linalg import norm
 import ipywidgets as ipw
 from IPython.display import display
 import nglview
 from ase import Atoms
+from ase import neighborlist
+from vapory import Camera, LightSource, Scene, Sphere, Finish, Texture, Pigment, Cylinder, Background
+from matplotlib.colors import to_rgb
+from copy import deepcopy
 
 from traitlets import Instance, Int, List, Unicode, Union, default, link, observe, validate
 from aiida.orm import Node
 
 from .utils import string_range_to_list, list_to_string_range
+from .dicts import Colors, Radius 
 from .misc import CopyToClipboardButton, ReversePolishNotation
+
 
 
 def viewer(obj, downloadable=True, **kwargs):
@@ -222,7 +229,89 @@ class _StructureDataBaseViewer(ipw.VBox):
         self.screenshot_btn.on_click(lambda _: self._viewer.download_image())
         self.screenshot_box = ipw.VBox(children=[ipw.Label("Create a screenshot:"), self.screenshot_btn])
 
-        return ipw.VBox([self.download_box, self.screenshot_box])
+        # 4. Render a high quality image
+        self.render_btn = ipw.Button(description="Render", icon='fa-paint-brush')
+        self.render_btn.on_click(self._render_structure)
+        self.render_box = ipw.VBox(children=[ipw.Label("Render an image with POVRAY:"), self.render_btn])
+
+        return ipw.VBox([self.download_box, self.screenshot_box, self.render_box])
+
+    def _render_structure(self, change=None):
+        """Render the structure with POVRAY."""
+
+        if not isinstance(self.structure, Atoms):
+            return 
+
+        self.render_btn.disabled = True 
+        omat = np.array(self._viewer._camera_orientation).reshape(4, 4).transpose()
+
+        zfactor = norm(omat[0, 0:3])
+        omat[0:3, 0:3] = omat[0:3, 0:3]/zfactor
+
+        bb = deepcopy(self.structure)
+        bb.pbc = (False, False, False)
+
+        for i in bb:
+            ixyz = omat[0:3, 0:3].dot(np.array([i.x, i.y, i.z]) + omat[0:3, 3])
+            i.x, i.y, i.z = -ixyz[0], ixyz[1], ixyz[2]
+        
+        vertices = []
+    
+        cell = bb.get_cell()
+        vertices.append(np.array([0, 0, 0]))
+        vertices.extend(cell)
+        vertices.extend([cell[0]+cell[1], cell[0]+cell[2], cell[1]+cell[2], cell[0]+cell[1]+cell[2]])
+
+        for n, i in enumerate(vertices):
+            ixyz = omat[0:3, 0:3].dot(i + omat[0:3, 3])
+            vertices[n] = np.array([-ixyz[0], ixyz[1], ixyz[2]])
+    
+        bonds = []
+
+        cutOff = neighborlist.natural_cutoffs(bb) # Takes the cutoffs from the ASE database
+        neighborList = neighborlist.NeighborList(cutOff, self_interaction=False, bothways=False)
+        neighborList.update(bb)
+        matrix = neighborList.get_connectivity_matrix()
+
+        for k in matrix.keys():
+            i = bb[k[0]]
+            j = bb[k[1]]
+
+            v1 = np.array([i.x, i.y, i.z])
+            v2 = np.array([j.x, j.y, j.z])
+            midi = v1 + (v2-v1)*Radius[i.symbol]/(Radius[i.symbol] + Radius[j.symbol])
+            bond = Cylinder(v1, midi, 0.2, Pigment('color', np.array(Colors[i.symbol])),
+                            Finish('phong', 0.8,'reflection', 0.05))
+            bonds.append(bond)
+            bond = Cylinder(v2, midi, 0.2, Pigment('color', np.array(Colors[j.symbol])),
+                            Finish('phong', 0.8,'reflection', 0.05))
+            bonds.append(bond)
+
+                
+        edges = []
+        for x, i in enumerate(vertices):
+            for j in vertices[x+1:]:
+                    if norm(np.cross(i-j, vertices[1]-vertices[0])) < 0.001 or norm(np.cross(i-j, vertices[2]-vertices[0])) < 0.001 or norm(np.cross(i-j, vertices[3]-vertices[0])) < 0.001:
+                        edge = Cylinder(i, j, 0.06, Texture(Pigment( 'color', [212/255.0,175/255.0,55/255.0])), 
+                                        Finish('phong', 0.9,'reflection', 0.01))
+                        edges.append(edge)
+
+        camera = Camera('perspective', 'location', [0, 0, -zfactor/1.5], 'look_at', [0.0, 0.0, 0.0])
+        light = LightSource([0, 0, -100.0], 'color',  [1.5, 1.5, 1.5])
+
+        spheres = [Sphere( [i.x, i.y, i.z], Radius[i.symbol], 
+                            Texture(Pigment( 'color', np.array(Colors[i.symbol]))), 
+                                Finish('phong', 0.9,'reflection', 0.05)) for i in bb]
+
+        objects = [light] + spheres + edges + bonds + [Background( "color", np.array(to_rgb(self._viewer.background)))]
+    
+        scene = Scene( camera, objects= objects)
+        fname = bb.get_chemical_formula() + '.png'
+        scene.render(fname, width=2560, height=1440, antialiasing=0.000, quality=11, remove_temp=False)
+        with open(fname, 'rb') as raw:
+            payload = base64.b64encode(raw.read()).decode()
+        self._download(payload=payload, filename=fname)
+        self.render_btn.disabled = False  
 
     def _on_atom_click(self, _=None):
         """Update selection when clicked on atom."""

@@ -21,7 +21,9 @@
         "numpy",
         "optimade-client",
         "pandas",
-        "scikit-learn"
+        "scikit-learn",
+        "optimade-client",
+        "vapory @ git+https://github.com/Zulko/vapory.git@master"
     ],
     "extras_require": {
         "docs": [
