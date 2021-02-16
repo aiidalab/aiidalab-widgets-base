@@ -33,4 +33,4 @@ def get_start_widget(appbase, jupbase, notebase):
     return ipw.HTML(html)
 
 
-#EOF
+# EOF
