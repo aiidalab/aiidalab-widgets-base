@@ -37,6 +37,7 @@ from .structures import (
 from .structures import BasicStructureEditor
 from .structures_multi import MultiStructureUploadWidget
 from .viewers import viewer
+from .viewers import register_viewer_widget
 
 
 __all__ = [
@@ -66,6 +67,7 @@ __all__ = [
     "StructureManagerWidget",
     "StructureUploadWidget",
     "SubmitButtonWidget",
+    "register_viewer_widget",
     "viewer",
 ]
 

@@ -42,6 +42,19 @@ from .dicts import Colors, Radius
 from .misc import CopyToClipboardButton, ReversePolishNotation
 
 
+AIIDA_VIEWER_MAPPING = dict()
+
+
+def register_viewer_widget(key):
+    """Register widget as a viewer for the given key."""
+
+    def registration_decorator(widget):
+        AIIDA_VIEWER_MAPPING[key] = widget
+        return widget
+
+    return registration_decorator
+
+
 def viewer(obj, downloadable=True, **kwargs):
     """Display AiiDA data types in Jupyter notebooks.
 
@@ -68,6 +81,7 @@ def viewer(obj, downloadable=True, **kwargs):
         raise exc
 
 
+@register_viewer_widget("data.dict.Dict.")
 class DictViewer(ipw.HTML):
     """Viewer class for Dict object.
 
@@ -544,6 +558,8 @@ class _StructureDataBaseViewer(ipw.VBox):
         return self._prepare_payload(file_format="png")
 
 
+@register_viewer_widget("data.cif.CifData.")
+@register_viewer_widget("data.structure.StructureData.")
 class StructureDataViewer(_StructureDataBaseViewer):
     """Viewer class for AiiDA structure objects.
 
@@ -855,6 +871,7 @@ class StructureDataViewer(_StructureDataBaseViewer):
         self.selection_info.value = self.create_selection_info()
 
 
+@register_viewer_widget("data.folder.FolderData.")
 class FolderDataViewer(ipw.VBox):
     """Viewer class for FolderData object.
 
@@ -910,6 +927,7 @@ class FolderDataViewer(ipw.VBox):
         display(javas)
 
 
+@register_viewer_widget("data.array.bands.BandsData.")
 class BandsDataViewer(ipw.VBox):
     """Viewer class for BandsData object.
 
@@ -957,12 +975,3 @@ class BandsDataViewer(ipw.VBox):
             show(plot)
         children = [out]
         super().__init__(children, **kwargs)
-
-
-AIIDA_VIEWER_MAPPING = {
-    "data.dict.Dict.": DictViewer,
-    "data.structure.StructureData.": StructureDataViewer,
-    "data.cif.CifData.": StructureDataViewer,
-    "data.folder.FolderData.": FolderDataViewer,
-    "data.array.bands.BandsData.": BandsDataViewer,
-}
