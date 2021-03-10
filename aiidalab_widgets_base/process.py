@@ -1,16 +1,26 @@
 """Widgets to work with processes."""
 # pylint: disable=no-self-use
-
+# Built-in imports
 import os
-from inspect import isclass
-from time import sleep
+import itertools
 import warnings
-import pandas as pd
+from inspect import isclass
+from threading import Event
+from threading import Lock
+from threading import Thread
+from time import sleep
+
+# External imports
 import ipywidgets as ipw
+import pandas as pd
+import traitlets
 from IPython.display import HTML, Javascript, clear_output, display
 from traitlets import Instance, Int, List, Unicode, Union, default, observe, validate
 
+
 # AiiDA imports.
+from aiida.cmdline.utils.ascii_vis import format_call_graph
+from aiida.cmdline.utils.query.calculation import CalculationQueryBuilder
 from aiida.engine import submit, Process, ProcessBuilder
 from aiida.orm import (
     CalcFunctionNode,
@@ -26,8 +36,6 @@ from aiida.cmdline.utils.common import (
     get_workchain_report,
     get_process_function_report,
 )
-from aiida.cmdline.utils.ascii_vis import format_call_graph
-from aiida.cmdline.utils.query.calculation import CalculationQueryBuilder
 from aiida.common.exceptions import (
     MultipleObjectsError,
     NotExistent,
@@ -36,6 +44,7 @@ from aiida.common.exceptions import (
 
 # Local imports.
 from .viewers import viewer
+from .nodes import NodesTreeWidget
 
 
 def get_running_calcs(process):
@@ -700,3 +709,108 @@ class ProcessListWidget(ipw.VBox):
 
         update_state = threading.Thread(target=self._follow, args=(update_interval,))
         update_state.start()
+
+
+class ProcessMonitor(traitlets.HasTraits):
+    """Monitor a process and execute callback functions at specified intervals."""
+
+    process = traitlets.Instance(ProcessNode, allow_none=True)
+
+    def __init__(self, callbacks=None, timeout=None, **kwargs):
+        self.callbacks = [] if callbacks is None else list(callbacks)
+        self.timeout = 0.1 if timeout is None else timeout
+
+        self._monitor_thread = None
+        self._monitor_thread_stop = Event()
+        self._monitor_thread_lock = Lock()
+
+        super().__init__(**kwargs)
+
+    @traitlets.observe("process")
+    def _observe_process(self, change):
+        process = change["new"]
+        if process is None or process.id != getattr(change["old"], "id", None):
+            with self.hold_trait_notifications():
+                with self._monitor_thread_lock:
+                    # stop thread
+                    if self._monitor_thread is not None:
+                        self._monitor_thread_stop.set()
+                        self._monitor_thread.join()
+
+                    # reset output
+                    for callback, _ in self.callbacks:
+                        callback(None)
+
+                    # start monitor thread
+                    self._monitor_thread_stop.clear()
+                    process_id = getattr(process, "id", None)
+                    self._monitor_thread = Thread(
+                        target=self._monitor_process, args=(process_id,)
+                    )
+                    self._monitor_thread.start()
+
+    def _monitor_process(self, process_id):
+        self._monitor_thread_stop.wait(
+            timeout=10 * self.timeout
+        )  # brief delay to increase app stability
+
+        process = None if process_id is None else load_node(process_id)
+
+        iterations = itertools.count()
+        while not (process is None or process.is_sealed):
+
+            iteration = next(iterations)
+            for callback, period in self.callbacks:
+                if iteration % period == 0:
+                    callback(process_id)
+
+            if self._monitor_thread_stop.wait(timeout=self.timeout):
+                break
+
+        # Final update:
+        for callback, _ in self.callbacks:
+            callback(process_id)
+
+
+class ProcessNodesTreeWidget(ipw.VBox):
+    """A tree widget for the structured representation of a process graph.
+
+    Args:
+        refresh_period:
+            The time period in between updates to the process tree view in seconds.
+    """
+
+    process = traitlets.Instance(ProcessNode, allow_none=True)
+    selected_nodes = traitlets.Tuple(read_only=True).tag(trait=traitlets.Instance(Node))
+
+    def __init__(self, refresh_period=0.2, **kwargs):
+        self._tree = NodesTreeWidget()
+        self._tree.observe(self._observe_tree_selected_nodes, ["selected_nodes"])
+
+        if refresh_period > 0:
+            self._process_monitor = ProcessMonitor(
+                timeout=refresh_period,
+                callbacks=[
+                    (self.update, 1),
+                ],
+            )
+            ipw.dlink((self, "process"), (self._process_monitor, "process"))
+        else:
+            self._process_monitor = None  # externally managed
+
+        super().__init__(children=[self._tree], **kwargs)
+
+    def _observe_tree_selected_nodes(self, change):
+        self.set_trait("selected_nodes", change["new"])
+
+    def update(self, _=None):
+        self._tree.update()
+
+    @traitlets.observe("process")
+    def _observe_process(self, change):
+        process = change["new"]
+        if process:
+            self._tree.nodes = [process]
+            self._tree.find_node(process.pk).selected = True
+        else:
+            self._tree.nodes = []
