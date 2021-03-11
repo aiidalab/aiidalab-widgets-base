@@ -47,6 +47,8 @@ class WizardApp(ipw.VBox):
         ret[cls.State.ACTIVE] = ["\u25dc", "\u25dd", "\u25de", "\u25df"][period]
         return ret
 
+    selected_index = traitlets.Int()
+
     def __init__(self, steps, **kwargs):
         # The number of steps must be greater than one
         # for this app's logic to make sense.
@@ -59,7 +61,7 @@ class WizardApp(ipw.VBox):
         # Initialize the accordion with the widgets ...
         self.accordion = ipw.Accordion(children=widgets)
         self._update_titles()
-        self.accordion.observe(self._observe_selected_index, "selected_index")
+        ipw.link((self.accordion, "selected_index"), (self, "selected_index"))
 
         # Watch for changes to each step's state
         for widget in widgets:
