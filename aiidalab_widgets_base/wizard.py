@@ -5,6 +5,9 @@ Authors:
     * Carl Simon Adorf <simon.adorf@epfl.ch>
 """
 from enum import Enum
+from time import sleep
+from time import time
+from threading import Thread
 
 import traitlets
 import ipywidgets as ipw
@@ -27,21 +30,23 @@ class WizardApp(ipw.VBox):
 
     ICONS = {
         State.INIT: "\u25cb",
-        State.CONFIGURED: "\u25ce",
         State.READY: "\u25ce",
-        State.ACTIVE: "\u25d4",
-        State.SUCCESS: "\u25cf",
-        State.FAIL: "\u25cd",
+        State.CONFIGURED: "\u25cf",
+        State.ACTIVE: ["\u25dc", "\u25dd", "\u25de", "\u25df"],
+        State.SUCCESS: "\u2713",
+        State.FAIL: "\u00d7",
     }
 
     @classmethod
     def icons(cls):
-        from time import time
-
-        ret = cls.ICONS.copy()
-        period = int((time() * 4) % 4)
-        ret[cls.State.ACTIVE] = ["\u25dc", "\u25dd", "\u25de", "\u25df"][period]
-        return ret
+        """Return the icon set and return animated icons based on the current time stamp."""
+        t = time()
+        return {
+            key: item
+            if isinstance(item, str)
+            else item[int((t * len(item) % len(item)))]
+            for key, item in cls.ICONS.items()
+        }
 
     selected_index = traitlets.Int()
 
@@ -58,6 +63,15 @@ class WizardApp(ipw.VBox):
         self.accordion = ipw.Accordion(children=widgets)
         self._update_titles()
         ipw.link((self.accordion, "selected_index"), (self, "selected_index"))
+
+        # Automatically update titles to implement the "spinner"
+
+        def spinner_thread():
+            while True:
+                sleep(0.1)
+                self._update_titles()
+
+        Thread(target=spinner_thread).start()
 
         # Watch for changes to each step's state
         for widget in widgets:
