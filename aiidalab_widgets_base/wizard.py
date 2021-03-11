@@ -23,10 +23,6 @@ class WizardApp(ipw.VBox):
         # All error states have negative codes
         FAIL = -1
 
-    #     The state of a step can no longer be changed once
-    #     it is one of the following sealed states.
-    SEALED_STATES = [State.SUCCESS, State.FAIL]
-
     ICON_SEPARATOR = "\u2000"  # en-dash  (placed between title and icon)
 
     ICONS = {
@@ -155,10 +151,13 @@ class WizardApp(ipw.VBox):
                 selected_widget = self.accordion.children[index]
 
                 self.back_button.disabled = (
-                    first_step_selected or selected_widget.state != self.State.READY
+                    first_step_selected
+                    or selected_widget.state
+                    in (self.State.ACTIVE, self.State.SUCCESS, self.State.FAIL)
                 )
                 self.next_button.disabled = (
-                    last_step_selected or selected_widget.state != self.State.SUCCESS
+                    last_step_selected
+                    or selected_widget.state is not self.State.SUCCESS
                 )
 
                 self.reset_button.disabled = not self.can_reset()
