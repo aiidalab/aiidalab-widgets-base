@@ -72,7 +72,7 @@ class WizardApp(ipw.VBox):
             description="Reset",
             icon="undo",
             layout=ipw.Layout(width="auto", flex="1 1 auto"),
-            tooltip="Unlock the current step for editing (if possible).",
+            tooltip="Reset the app to start over (if possible)",
             disabled=True,
         )
         self.reset_button.on_click(self._on_click_reset_button)
@@ -131,6 +131,17 @@ class WizardApp(ipw.VBox):
         "Activate/deactivate the next-button based on which step is selected."
         self._update_buttons()
 
+    def can_reset(self):
+        steps = [
+            self.accordion.children[idx] for idx in range(len(self.accordion.children))
+        ]
+
+        if any(not step.can_reset() for step in steps):
+            return False
+
+        if any(step.state is not self.State.INIT for step in steps):
+            return True
+
     def _update_buttons(self):
         with self.hold_trait_notifications():
             index = self.accordion.selected_index
@@ -150,10 +161,7 @@ class WizardApp(ipw.VBox):
                     last_step_selected or selected_widget.state != self.State.SUCCESS
                 )
 
-                self.reset_button.disabled = not (  # reset possible when:
-                    hasattr(selected_widget, "reset")
-                    and selected_widget.state in self.SEALED_STATES
-                )
+                self.reset_button.disabled = not self.can_reset()
 
     def reset(self, step=0):
         """Reset the app down to the given step.
@@ -163,13 +171,13 @@ class WizardApp(ipw.VBox):
         """
         with self.hold_sync():
             for index in range(step, len(self.accordion.children)):
-                self.accordion.children[index].reset()
+                if hasattr(self.accordion.children[index], "reset"):
+                    self.accordion.children[index].reset()
 
     def _on_click_reset_button(self, _):
         with self.hold_sync():
-            current_index = self.accordion.selected_index
-            self.reset(current_index)
-        self.accordion.selected_index = current_index  # restore selected step
+            self.reset()
+            self.accordion.selected_index = 0
 
     def _on_click_back_button(self, _):
         self.accordion.selected_index -= 1
@@ -183,3 +191,6 @@ class WizardAppStep(traitlets.HasTraits):
 
     state = traitlets.UseEnum(WizardApp.State)
     auto_next = traitlets.Bool()
+
+    def can_reset(self):
+        return hasattr(self, "reset")
