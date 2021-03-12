@@ -738,12 +738,13 @@ class ProcessMonitor(traitlets.HasTraits):
                         self._monitor_thread.join()
 
                     # start monitor thread
-                    self._monitor_thread_stop.clear()
-                    process_id = getattr(process, "id", None)
-                    self._monitor_thread = Thread(
-                        target=self._monitor_process, args=(process_id,)
-                    )
-                    self._monitor_thread.start()
+                    if process is not None:
+                        self._monitor_thread_stop.clear()
+                        process_id = getattr(process, "id", None)
+                        self._monitor_thread = Thread(
+                            target=self._monitor_process, args=(process_id,)
+                        )
+                        self._monitor_thread.start()
 
     def _monitor_process(self, process_id):
         assert process_id is not None
