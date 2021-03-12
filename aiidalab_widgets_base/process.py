@@ -268,6 +268,8 @@ class ProcessFollowerWidget(ipw.VBox):
         **kwargs,
     ):
         """Initiate all the followers."""
+        self._monitor = None
+
         self.process = process
         self._run_after_completed = []
         self.update_interval = update_interval
@@ -292,17 +294,6 @@ class ProcessFollowerWidget(ipw.VBox):
         for follower in self.followers:
             follower.children[1].update()
 
-    def _follow(self):
-        """Periodically update all followers while the process is running."""
-        while not self.process.is_sealed:
-            self.update()
-            sleep(self.update_interval)
-        self.update()  # Update the state for the last time to be 100% sure.
-
-        # Call functions to be run after the process is completed.
-        for func in self._run_after_completed:
-            func(self.process)
-
     def follow(self, detach=False):
         """Initiate following the process with or without blocking."""
         if self.process is None:
@@ -311,16 +302,24 @@ class ProcessFollowerWidget(ipw.VBox):
             return
         self.output.value = ""
 
-        if detach:
-            import threading
+        if self._monitor is None:
+            self._monitor = ProcessMonitor(
+                process=self.process,
+                callbacks=[self.update],
+                on_sealed=self._run_after_completed,
+                timeout=self.update_interval,
+            )
+            ipw.dlink((self, "process"), (self._monitor, "process"))
 
-            update_state = threading.Thread(target=self._follow)
-            update_state.start()
-        else:
-            self._follow()
+        if not detach:
+            self._monitor.join()
 
     def on_completed(self, function):
         """Run functions after a process has been completed."""
+        if self._monitor is not None:
+            raise RuntimeError(
+                "Can not register new on_completed callback functions after following has already been initiated."
+            )
         self._run_after_completed.append(function)
 
 
