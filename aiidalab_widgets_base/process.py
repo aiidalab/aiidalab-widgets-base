@@ -4,6 +4,7 @@
 import os
 import warnings
 from inspect import isclass
+from inspect import signature
 from threading import Event
 from threading import Lock
 from threading import Thread
@@ -750,21 +751,25 @@ class ProcessMonitor(traitlets.HasTraits):
         assert process_id is not None
         process = load_node(process_id)
 
+        def _run(funcs):
+            for func in funcs:
+                if len(signature(func).parameters) > 0:
+                    func(process_id)
+                else:
+                    func()
+
         while not process.is_sealed:
-            for callback in self.callbacks:
-                callback(process_id)
+            _run(self.callbacks)
 
             if self._monitor_thread_stop.wait(timeout=self.timeout):
                 break  # thread was signaled to be stopped
 
         # Final update:
-        for callback in self.callbacks:
-            callback(process_id)
+        _run(self.callbacks)
 
         # Run special 'on_sealed' callback functions in case that process is sealed.
         if process.is_sealed:
-            for on_sealed in self.on_sealed:
-                on_sealed(process_id)
+            _run(self.on_sealed)
 
     def join(self):
         if self._monitor_thread is not None:
