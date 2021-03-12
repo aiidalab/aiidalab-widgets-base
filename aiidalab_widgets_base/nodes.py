@@ -146,9 +146,12 @@ class NodesTreeWidget(ipw.Output):
         called.sort(key=lambda p: p.ctime)
         for node in called:
             if node.pk not in root.nodes_registry:
-                root.nodes_registry[node.pk] = cls._to_tree_node(
-                    node, name=calc_info(node)
-                )
+                try:
+                    name = calc_info(node)
+                except AttributeError:
+                    name = str(node)
+
+                root.nodes_registry[node.pk] = cls._to_tree_node(node, name=name)
             yield root.nodes_registry[node.pk]
 
     @classmethod
