@@ -13,9 +13,9 @@ import traitlets
 import ipywidgets as ipw
 
 
-class WizardApp(ipw.VBox):
+class WizardAppWidget(ipw.VBox):
     class State(Enum):
-        "Every step within the WizardApp must have this traitlet."
+        "Every step within the WizardAppWidget must have this traitlet."
         INIT = 0  # implicit default value
 
         CONFIGURED = 1
@@ -199,10 +199,10 @@ class WizardApp(ipw.VBox):
         self.accordion.selected_index += 1
 
 
-class WizardAppStep(traitlets.HasTraits):
-    "One step of a WizardApp."
+class WizardAppWidgetStep(traitlets.HasTraits):
+    "One step of a WizardAppWidget."
 
-    state = traitlets.UseEnum(WizardApp.State)
+    state = traitlets.UseEnum(WizardAppWidget.State)
     auto_next = traitlets.Bool()
 
     def can_reset(self):

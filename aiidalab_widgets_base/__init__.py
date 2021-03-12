@@ -39,8 +39,8 @@ from .structures_multi import MultiStructureUploadWidget
 from .viewers import viewer
 from .viewers import register_viewer_widget
 
-from .wizard import WizardApp
-from .wizard import WizardAppStep
+from .wizard import WizardAppWidget
+from .wizard import WizardAppWidgetStep
 
 
 __all__ = [
@@ -70,8 +70,8 @@ __all__ = [
     "StructureManagerWidget",
     "StructureUploadWidget",
     "SubmitButtonWidget",
-    "WizardApp",
-    "WizardAppStep",
+    "WizardAppWidget",
+    "WizardAppWidgetStep",
     "register_viewer_widget",
     "viewer",
 ]
