@@ -57,7 +57,7 @@ class WizardAppWidget(ipw.VBox):
             for key, item in cls.ICONS.items()
         }
 
-    selected_index = traitlets.Int()
+    selected_index = traitlets.Int(allow_none=True)
 
     def __init__(self, steps, **kwargs):
         # The number of steps must be greater than one
