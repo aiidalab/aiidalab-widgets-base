@@ -715,8 +715,9 @@ class ProcessMonitor(traitlets.HasTraits):
 
     process = traitlets.Instance(ProcessNode, allow_none=True)
 
-    def __init__(self, callbacks=None, timeout=None, **kwargs):
+    def __init__(self, callbacks=None, on_sealed=None, timeout=None, **kwargs):
         self.callbacks = [] if callbacks is None else list(callbacks)
+        self.on_sealed = [] if on_sealed is None else list(on_sealed)
         self.timeout = 0.1 if timeout is None else timeout
 
         self._monitor_thread = None
@@ -758,6 +759,15 @@ class ProcessMonitor(traitlets.HasTraits):
         # Final update:
         for callback in self.callbacks:
             callback(process_id)
+
+        # Run special 'on_sealed' callback functions in case that process is sealed.
+        if process.is_sealed:
+            for on_sealed in self.on_sealed:
+                on_sealed(process_id)
+
+    def join(self):
+        if self._monitor_thread is not None:
+            self._monitor_thread.join()
 
 
 class ProcessNodesTreeWidget(ipw.VBox):
