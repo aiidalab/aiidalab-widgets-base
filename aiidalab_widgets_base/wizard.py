@@ -13,9 +13,10 @@ import traitlets
 import ipywidgets as ipw
 
 
-class WizardAppWidget(ipw.VBox):
+class WizardAppWidgetStep(traitlets.HasTraits):
+    "One step of a WizardAppWidget."
+
     class State(Enum):
-        "Every step within the WizardAppWidget must have this traitlet."
         INIT = 0  # implicit default value
 
         CONFIGURED = 1
@@ -26,15 +27,23 @@ class WizardAppWidget(ipw.VBox):
         # All error states have negative codes
         FAIL = -1
 
+    state = traitlets.UseEnum(State)
+    auto_next = traitlets.Bool()
+
+    def can_reset(self):
+        return hasattr(self, "reset")
+
+
+class WizardAppWidget(ipw.VBox):
     ICON_SEPARATOR = "\u2000"  # en-dash  (placed between title and icon)
 
     ICONS = {
-        State.INIT: "\u25cb",
-        State.READY: "\u25ce",
-        State.CONFIGURED: "\u25cf",
-        State.ACTIVE: ["\u25dc", "\u25dd", "\u25de", "\u25df"],
-        State.SUCCESS: "\u2713",
-        State.FAIL: "\u00d7",
+        WizardAppWidgetStep.State.INIT: "\u25cb",
+        WizardAppWidgetStep.State.READY: "\u25ce",
+        WizardAppWidgetStep.State.CONFIGURED: "\u25cf",
+        WizardAppWidgetStep.State.ACTIVE: ["\u25dc", "\u25dd", "\u25de", "\u25df"],
+        WizardAppWidgetStep.State.SUCCESS: "\u2713",
+        WizardAppWidgetStep.State.FAIL: "\u00d7",
     }
 
     @classmethod
@@ -126,7 +135,7 @@ class WizardAppWidget(ipw.VBox):
             if (
                 selected_widget.auto_next
                 and not last_step_selected
-                and selected_widget.state == self.State.SUCCESS
+                and selected_widget.state == WizardAppWidgetStep.State.SUCCESS
             ):
                 self.accordion.selected_index += 1
 
@@ -149,7 +158,7 @@ class WizardAppWidget(ipw.VBox):
         if any(not step.can_reset() for step in steps):
             return False
 
-        if any(step.state is not self.State.INIT for step in steps):
+        if any(step.state is not WizardAppWidgetStep.State.INIT for step in steps):
             return True
 
     def _update_buttons(self):
@@ -167,11 +176,15 @@ class WizardAppWidget(ipw.VBox):
                 self.back_button.disabled = (
                     first_step_selected
                     or selected_widget.state
-                    in (self.State.ACTIVE, self.State.SUCCESS, self.State.FAIL)
+                    in (
+                        WizardAppWidgetStep.State.ACTIVE,
+                        WizardAppWidgetStep.State.SUCCESS,
+                        WizardAppWidgetStep.State.FAIL,
+                    )
                 )
                 self.next_button.disabled = (
                     last_step_selected
-                    or selected_widget.state is not self.State.SUCCESS
+                    or selected_widget.state is not WizardAppWidgetStep.State.SUCCESS
                 )
 
                 self.reset_button.disabled = not self.can_reset()
@@ -197,13 +210,3 @@ class WizardAppWidget(ipw.VBox):
 
     def _on_click_next_button(self, _):
         self.accordion.selected_index += 1
-
-
-class WizardAppWidgetStep(traitlets.HasTraits):
-    "One step of a WizardAppWidget."
-
-    state = traitlets.UseEnum(WizardAppWidget.State)
-    auto_next = traitlets.Bool()
-
-    def can_reset(self):
-        return hasattr(self, "reset")
