@@ -2,7 +2,6 @@
 # pylint: disable=no-self-use
 # Built-in imports
 import os
-import itertools
 import warnings
 from inspect import isclass
 from threading import Event
@@ -732,14 +731,10 @@ class ProcessMonitor(traitlets.HasTraits):
         if process is None or process.id != getattr(change["old"], "id", None):
             with self.hold_trait_notifications():
                 with self._monitor_thread_lock:
-                    # stop thread
+                    # stop thread (if running)
                     if self._monitor_thread is not None:
                         self._monitor_thread_stop.set()
                         self._monitor_thread.join()
-
-                    # reset output
-                    for callback, _ in self.callbacks:
-                        callback(None)
 
                     # start monitor thread
                     self._monitor_thread_stop.clear()
@@ -750,25 +745,18 @@ class ProcessMonitor(traitlets.HasTraits):
                     self._monitor_thread.start()
 
     def _monitor_process(self, process_id):
-        self._monitor_thread_stop.wait(
-            timeout=10 * self.timeout
-        )  # brief delay to increase app stability
+        assert process_id is not None
+        process = load_node(process_id)
 
-        process = None if process_id is None else load_node(process_id)
-
-        iterations = itertools.count()
-        while not (process is None or process.is_sealed):
-
-            iteration = next(iterations)
-            for callback, period in self.callbacks:
-                if iteration % period == 0:
-                    callback(process_id)
+        while not process.is_sealed:
+            for callback in self.callbacks:
+                callback(process_id)
 
             if self._monitor_thread_stop.wait(timeout=self.timeout):
-                break
+                break  # thread was signaled to be stopped
 
         # Final update:
-        for callback, _ in self.callbacks:
+        for callback in self.callbacks:
             callback(process_id)
 
 
@@ -789,10 +777,9 @@ class ProcessNodesTreeWidget(ipw.VBox):
 
         if refresh_period > 0:
             self._process_monitor = ProcessMonitor(
+                process=self.process,
                 timeout=refresh_period,
-                callbacks=[
-                    (self.update, 1),
-                ],
+                callbacks=[self.update],
             )
             ipw.dlink((self, "process"), (self._process_monitor, "process"))
         else:
