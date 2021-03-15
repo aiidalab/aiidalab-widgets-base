@@ -62,7 +62,11 @@ class WizardAppWidget(ipw.VBox):
     def __init__(self, steps, **kwargs):
         # The number of steps must be greater than one
         # for this app's logic to make sense.
-        assert len(steps) > 1
+        if len(steps) < 2:
+            raise ValueError(
+                "The number of steps of a WizardAppWidget must be at least two."
+            )
+
         self.steps = steps
 
         # Unzip the steps to titles and widgets.
