@@ -200,13 +200,13 @@ class WizardAppWidget(ipw.VBox):
                 self.reset_button.disabled = not self.can_reset()
 
     def reset(self, step=0):
-        """Reset the app down to the given step.
+        """Reset the app up to the given step.
 
         For example, with step=0 (the default), the whole app is reset.
         With step=1, all but the first step are reset.
         """
         with self.hold_sync():
-            for index in range(step, len(self.accordion.children)):
+            for index in reversed(range(step, len(self.accordion.children))):
                 if hasattr(self.accordion.children[index], "reset"):
                     self.accordion.children[index].reset()
 
