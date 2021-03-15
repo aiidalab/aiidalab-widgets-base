@@ -120,11 +120,11 @@ class WizardAppWidget(ipw.VBox):
         )
         self.next_button.on_click(self._on_click_next_button)
 
-        self.header = ipw.HBox(
+        header = ipw.HBox(
             children=[self.back_button, self.reset_button, self.next_button]
         )
 
-        super().__init__(children=[self.header, self.accordion], **kwargs)
+        super().__init__(children=[header, self.accordion], **kwargs)
 
     def _update_titles(self):
         for i, (title, widget) in enumerate(zip(self.titles, self.accordion.children)):
