@@ -28,7 +28,7 @@ class WizardAppWidgetStep(traitlets.HasTraits):
         FAIL = -1
 
     state = traitlets.UseEnum(State)
-    auto_next = traitlets.Bool()
+    auto_advance = traitlets.Bool()
 
     def can_reset(self):
         return hasattr(self, "reset")
@@ -135,7 +135,7 @@ class WizardAppWidget(ipw.VBox):
         """Determine whether the app should automatically advance to the next step.
 
         This is performed whenever the current step is within the SUCCESS state and has
-        the auto_next attribute set to True.
+        the auto_advance attribute set to True.
         """
 
         with self.hold_trait_notifications():
@@ -143,7 +143,7 @@ class WizardAppWidget(ipw.VBox):
             last_step_selected = index + 1 == len(self.accordion.children)
             selected_widget = self.accordion.children[index]
             if (
-                selected_widget.auto_next
+                selected_widget.auto_advance
                 and not last_step_selected
                 and selected_widget.state == WizardAppWidgetStep.State.SUCCESS
             ):
