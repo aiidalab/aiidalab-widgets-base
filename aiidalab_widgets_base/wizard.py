@@ -131,7 +131,13 @@ class WizardAppWidget(ipw.VBox):
             icon = self.icons().get(widget.state, str(widget.state).upper())
             self.accordion.set_title(i, f"{icon} Step {i+1}: {title}")
 
-    def _consider_switch(self, _=None):
+    def _consider_auto_advance(self, _=None):
+        """Determine whether the app should automatically advance to the next step.
+
+        This is performed whenever the current step is within the SUCCESS state and has
+        the auto_next attribute set to True.
+        """
+
         with self.hold_trait_notifications():
             index = self.accordion.selected_index
             last_step_selected = index + 1 == len(self.accordion.children)
@@ -147,7 +153,7 @@ class WizardAppWidget(ipw.VBox):
         with self.hold_trait_notifications():
             self._update_titles()
             self._update_buttons()
-            self._consider_switch()
+            self._consider_auto_advance()
 
     @traitlets.observe("selected_index")
     def _observe_selected_index(self, change):
