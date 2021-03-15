@@ -88,7 +88,11 @@ class WizardAppWidget(ipw.VBox):
 
         # Watch for changes to each step's state
         for widget in widgets:
-            assert widget.has_trait("state")
+            if not widget.has_trait("state"):
+                raise TypeError(
+                    f"The provided '{widget}' as wizard app step has no `state` trait. "
+                    "It is expected that step classes are derived from the WizardAppWidgetStep class."
+                )
             widget.observe(self._update_step_state, names=["state"])
 
         self.reset_button = ipw.Button(
