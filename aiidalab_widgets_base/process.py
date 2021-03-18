@@ -793,7 +793,9 @@ class ProcessNodesTreeWidget(ipw.VBox):
     process = traitlets.Instance(ProcessNode, allow_none=True)
     selected_nodes = traitlets.Tuple(read_only=True).tag(trait=traitlets.Instance(Node))
 
-    def __init__(self, **kwargs):
+    def __init__(self, title="Process Tree", **kwargs):
+        self.title = title  # needed for ProcessFollowerWidget
+
         self._tree = NodesTreeWidget()
         self._tree.observe(self._observe_tree_selected_nodes, ["selected_nodes"])
         super().__init__(children=[self._tree], **kwargs)
