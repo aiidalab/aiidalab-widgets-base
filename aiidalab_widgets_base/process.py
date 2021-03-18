@@ -1,16 +1,26 @@
 """Widgets to work with processes."""
 # pylint: disable=no-self-use
-
+# Built-in imports
 import os
-from inspect import isclass
-from time import sleep
 import warnings
-import pandas as pd
+from inspect import isclass
+from inspect import signature
+from threading import Event
+from threading import Lock
+from threading import Thread
+from time import sleep
+
+# External imports
 import ipywidgets as ipw
+import pandas as pd
+import traitlets
 from IPython.display import HTML, Javascript, clear_output, display
 from traitlets import Instance, Int, List, Unicode, Union, default, observe, validate
 
+
 # AiiDA imports.
+from aiida.cmdline.utils.ascii_vis import format_call_graph
+from aiida.cmdline.utils.query.calculation import CalculationQueryBuilder
 from aiida.engine import submit, Process, ProcessBuilder
 from aiida.orm import (
     CalcFunctionNode,
@@ -26,8 +36,6 @@ from aiida.cmdline.utils.common import (
     get_workchain_report,
     get_process_function_report,
 )
-from aiida.cmdline.utils.ascii_vis import format_call_graph
-from aiida.cmdline.utils.query.calculation import CalculationQueryBuilder
 from aiida.common.exceptions import (
     MultipleObjectsError,
     NotExistent,
@@ -36,6 +44,7 @@ from aiida.common.exceptions import (
 
 # Local imports.
 from .viewers import viewer
+from .nodes import NodesTreeWidget
 
 
 def get_running_calcs(process):
@@ -259,6 +268,8 @@ class ProcessFollowerWidget(ipw.VBox):
         **kwargs,
     ):
         """Initiate all the followers."""
+        self._monitor = None
+
         self.process = process
         self._run_after_completed = []
         self.update_interval = update_interval
@@ -283,17 +294,6 @@ class ProcessFollowerWidget(ipw.VBox):
         for follower in self.followers:
             follower.children[1].update()
 
-    def _follow(self):
-        """Periodically update all followers while the process is running."""
-        while not self.process.is_sealed:
-            self.update()
-            sleep(self.update_interval)
-        self.update()  # Update the state for the last time to be 100% sure.
-
-        # Call functions to be run after the process is completed.
-        for func in self._run_after_completed:
-            func(self.process)
-
     def follow(self, detach=False):
         """Initiate following the process with or without blocking."""
         if self.process is None:
@@ -302,16 +302,24 @@ class ProcessFollowerWidget(ipw.VBox):
             return
         self.output.value = ""
 
-        if detach:
-            import threading
+        if self._monitor is None:
+            self._monitor = ProcessMonitor(
+                process=self.process,
+                callbacks=[self.update],
+                on_sealed=self._run_after_completed,
+                timeout=self.update_interval,
+            )
+            ipw.dlink((self, "process"), (self._monitor, "process"))
 
-            update_state = threading.Thread(target=self._follow)
-            update_state.start()
-        else:
-            self._follow()
+        if not detach:
+            self._monitor.join()
 
     def on_completed(self, function):
         """Run functions after a process has been completed."""
+        if self._monitor is not None:
+            raise RuntimeError(
+                "Can not register new on_completed callback functions after following has already been initiated."
+            )
         self._run_after_completed.append(function)
 
 
@@ -700,3 +708,109 @@ class ProcessListWidget(ipw.VBox):
 
         update_state = threading.Thread(target=self._follow, args=(update_interval,))
         update_state.start()
+
+
+class ProcessMonitor(traitlets.HasTraits):
+    """Monitor a process and execute callback functions at specified intervals."""
+
+    process = traitlets.Instance(ProcessNode, allow_none=True)
+
+    def __init__(self, callbacks=None, on_sealed=None, timeout=None, **kwargs):
+        self.callbacks = [] if callbacks is None else list(callbacks)
+        self.on_sealed = [] if on_sealed is None else list(on_sealed)
+        self.timeout = 0.1 if timeout is None else timeout
+
+        self._monitor_thread = None
+        self._monitor_thread_stop = Event()
+        self._monitor_thread_lock = Lock()
+
+        super().__init__(**kwargs)
+
+    @traitlets.observe("process")
+    def _observe_process(self, change):
+        process = change["new"]
+        if process is None or process.id != getattr(change["old"], "id", None):
+            with self.hold_trait_notifications():
+                with self._monitor_thread_lock:
+                    # stop thread (if running)
+                    if self._monitor_thread is not None:
+                        self._monitor_thread_stop.set()
+                        self._monitor_thread.join()
+
+                    # start monitor thread
+                    if process is not None:
+                        self._monitor_thread_stop.clear()
+                        process_id = getattr(process, "id", None)
+                        self._monitor_thread = Thread(
+                            target=self._monitor_process, args=(process_id,)
+                        )
+                        self._monitor_thread.start()
+
+    def _monitor_process(self, process_id):
+        assert process_id is not None
+        process = load_node(process_id)
+
+        disabled_funcs = set()
+
+        def _run(funcs):
+            for func in funcs:
+                # skip all functions that had previously raised an exception
+                if func in disabled_funcs:
+                    continue
+
+                try:
+                    if len(signature(func).parameters) > 0:
+                        func(process_id)
+                    else:
+                        func()
+                except Exception as error:
+                    warnings.warn(
+                        f"WARNING: Callback function '{func}' disabled due to error: {error}"
+                    )
+                    disabled_funcs.add(func)
+
+        while not process.is_sealed:
+            _run(self.callbacks)
+
+            if self._monitor_thread_stop.wait(timeout=self.timeout):
+                break  # thread was signaled to be stopped
+
+        # Final update:
+        _run(self.callbacks)
+
+        # Run special 'on_sealed' callback functions in case that process is sealed.
+        if process.is_sealed:
+            _run(self.on_sealed)
+
+    def join(self):
+        if self._monitor_thread is not None:
+            self._monitor_thread.join()
+
+
+class ProcessNodesTreeWidget(ipw.VBox):
+    """A tree widget for the structured representation of a process graph."""
+
+    process = traitlets.Instance(ProcessNode, allow_none=True)
+    selected_nodes = traitlets.Tuple(read_only=True).tag(trait=traitlets.Instance(Node))
+
+    def __init__(self, title="Process Tree", **kwargs):
+        self.title = title  # needed for ProcessFollowerWidget
+
+        self._tree = NodesTreeWidget()
+        self._tree.observe(self._observe_tree_selected_nodes, ["selected_nodes"])
+        super().__init__(children=[self._tree], **kwargs)
+
+    def _observe_tree_selected_nodes(self, change):
+        self.set_trait("selected_nodes", change["new"])
+
+    def update(self, _=None):
+        self._tree.update()
+
+    @traitlets.observe("process")
+    def _observe_process(self, change):
+        process = change["new"]
+        if process:
+            self._tree.nodes = [process]
+            self._tree.find_node(process.pk).selected = True
+        else:
+            self._tree.nodes = []

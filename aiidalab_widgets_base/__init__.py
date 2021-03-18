@@ -14,19 +14,20 @@ from .databases import (
     OptimadeQueryWidget,
 )
 from .export import ExportButtonWidget
-from .process import (
-    ProgressBarWidget,
-    ProcessFollowerWidget,
-    ProcessInputsWidget,
-    ProcessOutputsWidget,
-)
+from .nodes import NodesTreeWidget
 from .process import (
     ProcessCallStackWidget,
+    ProcessFollowerWidget,
+    ProcessInputsWidget,
+    ProcessListWidget,
+    ProcessMonitor,
+    ProcessNodesTreeWidget,
+    ProcessOutputsWidget,
+    ProcessReportWidget,
+    ProgressBarWidget,
     RunningCalcJobOutputWidget,
     SubmitButtonWidget,
-    ProcessReportWidget,
 )
-from .process import ProcessListWidget
 from .structures import StructureManagerWidget
 from .structures import (
     StructureBrowserWidget,
@@ -54,11 +55,14 @@ __all__ = [
     "ComputerDropdown",
     "ExportButtonWidget",
     "MultiStructureUploadWidget",
+    "NodesTreeWidget",
     "OptimadeQueryWidget",
     "ProcessCallStackWidget",
     "ProcessFollowerWidget",
     "ProcessInputsWidget",
     "ProcessListWidget",
+    "ProcessMonitor",
+    "ProcessNodesTreeWidget",
     "ProcessOutputsWidget",
     "ProcessReportWidget",
     "ProgressBarWidget",
