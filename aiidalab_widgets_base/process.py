@@ -750,12 +750,24 @@ class ProcessMonitor(traitlets.HasTraits):
         assert process_id is not None
         process = load_node(process_id)
 
+        disabled_funcs = set()
+
         def _run(funcs):
             for func in funcs:
-                if len(signature(func).parameters) > 0:
-                    func(process_id)
-                else:
-                    func()
+                # skip all functions that had previously raised an exception
+                if func in disabled_funcs:
+                    continue
+
+                try:
+                    if len(signature(func).parameters) > 0:
+                        func(process_id)
+                    else:
+                        func()
+                except Exception as error:
+                    warnings.warn(
+                        f"WARNING: Callback function '{func}' disabled due to error: {error}"
+                    )
+                    disabled_funcs.add(func)
 
         while not process.is_sealed:
             _run(self.callbacks)
