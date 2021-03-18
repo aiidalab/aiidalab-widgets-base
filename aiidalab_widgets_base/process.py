@@ -776,30 +776,14 @@ class ProcessMonitor(traitlets.HasTraits):
 
 
 class ProcessNodesTreeWidget(ipw.VBox):
-    """A tree widget for the structured representation of a process graph.
-
-    Args:
-        refresh_period:
-            The time period in between updates to the process tree view in seconds.
-    """
+    """A tree widget for the structured representation of a process graph."""
 
     process = traitlets.Instance(ProcessNode, allow_none=True)
     selected_nodes = traitlets.Tuple(read_only=True).tag(trait=traitlets.Instance(Node))
 
-    def __init__(self, refresh_period=0.2, **kwargs):
+    def __init__(self, **kwargs):
         self._tree = NodesTreeWidget()
         self._tree.observe(self._observe_tree_selected_nodes, ["selected_nodes"])
-
-        if refresh_period > 0:
-            self._process_monitor = ProcessMonitor(
-                process=self.process,
-                timeout=refresh_period,
-                callbacks=[self.update],
-            )
-            ipw.dlink((self, "process"), (self._process_monitor, "process"))
-        else:
-            self._process_monitor = None  # externally managed
-
         super().__init__(children=[self._tree], **kwargs)
 
     def _observe_tree_selected_nodes(self, change):
