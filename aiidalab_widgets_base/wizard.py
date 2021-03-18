@@ -246,11 +246,10 @@ class WizardAppWidget(ipw.VBox):
             for index in reversed(range(step, len(self.accordion.children))):
                 if hasattr(self.accordion.children[index], "reset"):
                     self.accordion.children[index].reset()
+            self.accordion.selected_index = step
 
     def _on_click_reset_button(self, _):
-        with self.hold_sync():
-            self.reset()
-            self.accordion.selected_index = 0
+        self.reset()
 
     def _on_click_back_button(self, _):
         self.accordion.selected_index -= 1
