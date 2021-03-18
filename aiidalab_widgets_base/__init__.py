@@ -39,6 +39,9 @@ from .structures_multi import MultiStructureUploadWidget
 from .viewers import viewer
 from .viewers import register_viewer_widget
 
+from .wizard import WizardAppWidget
+from .wizard import WizardAppWidgetStep
+
 
 __all__ = [
     "AiiDACodeSetup",
@@ -67,6 +70,8 @@ __all__ = [
     "StructureManagerWidget",
     "StructureUploadWidget",
     "SubmitButtonWidget",
+    "WizardAppWidget",
+    "WizardAppWidgetStep",
     "register_viewer_widget",
     "viewer",
 ]
