@@ -17,15 +17,48 @@ class WizardAppWidgetStep(traitlets.HasTraits):
     "One step of a WizardAppWidget."
 
     class State(Enum):
-        INIT = 0  # implicit default value
+        """Each step is always in one specific state.
 
-        CONFIGURED = 1
-        READY = 2
-        ACTIVE = 3
-        SUCCESS = 4
+        The state is used to determine:
+
+            1) how the step is visually presented to the user, and
+            2) whether the next step is accessible (i.e. reached the SUCCESS state).
+
+        App developers are encouraged to use the step states to couple application
+        logic and interface. In general, all widget changes should trigger
+        a re-evaluation of the step state, and states also determine whether certain
+        widgets are enabled or disabled.
+
+        A step can be in one of the following states:
+
+            INIT: The initial state, usually all widgets disabled.
+            READY: The step (widget) is ready for user input (some or all widgets enabled).
+            CONFIGURED: The step is in a consistent configuration awaiting confirmation.
+            ACTIVE: The step is carrying out a runtime operation.
+            SUCCESS: A configuration has been confirmed / a runtime operation successfully finished.
+            FAIL: A runtime operation has failed in an unrecoverable way.
+
+        Not all steps must implement all states, for example:
+
+            - the first step does not need an INIT state
+            - a step without runtime process should not have an ACTIVE or FAIL state
+            - a "review & confirm" step does not require a READY state.
+            - a step without configuration options (e.g. pure "review & confirm" step)
+
+        Important: The next step is only accessible if the current step is within the SUCCESS
+        state!
+        """
+
+        INIT = 0  # the step is initialized and all widgets are typically disabled
+
+        # The step is correctly configured and can in principle be confirmed.
+        CONFIGURED = 1  # configuration is valid
+        READY = 2  # step is ready for user input
+        ACTIVE = 3  # step is carrying out a runtime operation
+        SUCCESS = 4  # step has successfully completed
 
         # All error states have negative codes
-        FAIL = -1
+        FAIL = -1  # the step has unrecoverably failed
 
     state = traitlets.UseEnum(State)
     auto_advance = traitlets.Bool()
