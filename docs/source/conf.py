@@ -141,13 +141,10 @@ def setup(app):
 
 # Warnings to ignore when using the -n (nitpicky) option
 # We should ignore any python built-in exception, for instance
-nitpick_ignore = [
-    ("py:class", "ipywidgets.widgets.widget_box.VBox"),
-    ("py:class", "ipywidgets.widgets.widget_button.Button"),
-    ("py:class", "ipywidgets.widgets.widget_selection.Dropdown"),
-    ("py:class", "ipywidgets.widgets.widget_string.HTML"),
-    ("py:class", "ipywidgets.widgets.widget_string.Textarea"),
-    ("py:class", "BandsData"),
-    ("py:class", "Dict"),
-    ("py:class", "FolderData"),
-]
+nitpick_ignore = []
+for line in open("nitpick-exceptions"):
+    if line.strip() == "" or line.startswith("#"):
+        continue
+    dtype, target = line.split(None, 1)
+    target = target.strip()
+    nitpick_ignore.append((dtype, target))
