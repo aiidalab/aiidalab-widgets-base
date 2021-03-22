@@ -1,0 +1,20 @@
+
+# AiiDA.
+py:class BandsData
+py:class Dict
+py:class FolderData
+
+# ipytree.
+py:class ipytree.tree.Node
+
+# ipywidgets.
+py:class ipywidgets.widgets.widget_box.VBox
+py:class ipywidgets.widgets.widget_box.HBox
+py:class ipywidgets.widgets.widget_button.Button
+py:class ipywidgets.widgets.widget_output.Output
+py:class ipywidgets.widgets.widget_selection.Dropdown
+py:class ipywidgets.widgets.widget_string.HTML
+py:class ipywidgets.widgets.widget_string.Textarea
+
+# Traitlets.
+py:class traitlets.traitlets.HasTraits
