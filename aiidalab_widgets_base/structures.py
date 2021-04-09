@@ -1057,14 +1057,14 @@ class BasicStructureEditor(ipw.VBox):  # pylint: disable=too-many-instance-attri
         self.selection = selection
 
     def copy_sel(self, _=None):
-        """Copy selected atoms and shift by 0.5A in x"""
+        """Copy selected atoms and shift by 1.0 A along X-axis."""
         atoms = self.structure.copy()
         last_atom = atoms.get_global_number_of_atoms()
         selection = self.selection
 
         # The action
         add_atoms = atoms[self.selection].copy()
-        add_atoms.translate([0.5, 0, 0])
+        add_atoms.translate([1.0, 0, 0])
         atoms += add_atoms
 
         self.structure = atoms
