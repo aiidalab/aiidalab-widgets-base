@@ -834,6 +834,12 @@ class BasicStructureEditor(ipw.VBox):  # pylint: disable=too-many-instance-attri
         )
         link((use_covalent_radius, "value"), (self.bond_length, "disabled"))
 
+        # Copy atoms
+        btn_copy_sel = ipw.Button(
+            description="Copy selected", layout={"width": "initial"}
+        )
+        btn_copy_sel.on_click(self.copy_sel)
+
         # Modify atom.
         btn_modify = ipw.Button(
             description="Modify selected",
@@ -894,6 +900,7 @@ class BasicStructureEditor(ipw.VBox):  # pylint: disable=too-many-instance-attri
                 ipw.HTML(
                     "<b>Modify atom(s):</v>", layout={"margin": "20px 0px 10px 0px"}
                 ),
+                ipw.HBox([btn_copy_sel], layout={"margin": "0px 0px 0px 20px"}),
                 ipw.HBox(
                     [self.element, self.ligand], layout={"margin": "0px 0px 0px 20px"}
                 ),
@@ -1048,6 +1055,20 @@ class BasicStructureEditor(ipw.VBox):  # pylint: disable=too-many-instance-attri
 
         self.structure = atoms
         self.selection = selection
+
+    def copy_sel(self, _=None):
+        """Copy selected atoms and shift by 1.0 A along X-axis."""
+        atoms = self.structure.copy()
+        last_atom = atoms.get_global_number_of_atoms()
+        selection = self.selection
+
+        # The action
+        add_atoms = atoms[self.selection].copy()
+        add_atoms.translate([1.0, 0, 0])
+        atoms += add_atoms
+
+        self.structure = atoms
+        self.selection = [i for i in range(last_atom, last_atom + len(selection))]
 
     def add(self, _=None):
         """Add atoms."""
