@@ -1059,14 +1059,14 @@ class BasicStructureEditor(ipw.VBox):  # pylint: disable=too-many-instance-attri
         mirror_subset = atoms.positions[selection] - p_point
 
         # Project vectors onto the plane normal.
-        res = (
+        projections = (
             p_normal
             * np.dot(mirror_subset, p_normal)[:, np.newaxis]
             / np.dot(p_normal, p_normal)
         )
 
         # Mirror atoms.
-        atoms.positions[selection] -= 2 * res
+        atoms.positions[selection] -= 2 * projections
 
         self.structure = atoms
         self.selection = selection
