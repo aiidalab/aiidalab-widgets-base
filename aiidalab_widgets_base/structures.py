@@ -802,7 +802,7 @@ class BasicStructureEditor(ipw.VBox):  # pylint: disable=too-many-instance-attri
             layout={"width": "initial"},
         )
 
-        # Mirror atoms
+        # Mirror atoms.
         btn_mirror = ipw.Button(description="Mirror", layout={"width": "10%"})
         btn_mirror.on_click(self.mirror)
 
@@ -838,7 +838,7 @@ class BasicStructureEditor(ipw.VBox):  # pylint: disable=too-many-instance-attri
         )
         link((use_covalent_radius, "value"), (self.bond_length, "disabled"))
 
-        # Copy atoms
+        # Copy atoms.
         btn_copy_sel = ipw.Button(
             description="Copy selected", layout={"width": "initial"}
         )
@@ -904,7 +904,7 @@ class BasicStructureEditor(ipw.VBox):  # pylint: disable=too-many-instance-attri
                 ipw.HBox(
                     [
                         ipw.HTML(
-                            'Mirror with respect to a plane defined by "Action Vector" points',
+                            "Mirror on the plane perpendicular to the action vector",
                             layout={"margin": "0px 0px 0px 0px"},
                         ),
                         btn_mirror,
@@ -1044,30 +1044,32 @@ class BasicStructureEditor(ipw.VBox):  # pylint: disable=too-many-instance-attri
         self.selection = selection
 
     def mirror(self, _=None):
-        """Mirror atoms wrt plane through three points."""
+        """Mirror atoms with respect to the plane perpendicular to the action vector."""
 
         selection = self.selection
         atoms = self.structure.copy()
 
         # The action.
-        mirror_subset = atoms[self.selection].positions
-        pt1 = self.str2vec(self.axis_p2.value)
-        pt2 = self.str2vec(self.axis_p1.value)
-        pt3 = self.str2vec(self.point.value)
-        normal = np.cross(pt1 - pt2, pt3 - pt2)
-        normal = normal / np.linalg.norm(normal)
-        v_to_plane = pt2 - mirror_subset
-        if len(mirror_subset.shape) > 1:
-            npoints = mirror_subset.shape[0]
-            mirror_subset += 2 * np.dot(v_to_plane, normal).reshape(npoints, 1) * normal
-            atoms.positions[list(self.selection)] = mirror_subset
-            self.structure = atoms
-            self.selection = selection
-        else:
-            mirror_subset += 2 * np.dot(v_to_plane, normal) * normal
-            atoms.positions[list(self.selection)] = mirror_subset
-            self.structure = atoms
-            self.selection = selection
+
+        # Vector and point define the mirrorring surface.
+        p_normal = self.action_vector
+        p_point = self.str2vec(self.point.value)
+
+        # Define vectors from p_point that point to the atoms which are to be moved.
+        mirror_subset = atoms.positions[selection] - p_point
+
+        # Project vectors onto the plane normal.
+        res = (
+            p_normal
+            * np.dot(mirror_subset, p_normal)[:, np.newaxis]
+            / np.dot(p_normal, p_normal)
+        )
+
+        # Mirror atoms.
+        atoms.positions[selection] -= 2 * res
+
+        self.structure = atoms
+        self.selection = selection
 
     def mod_element(self, _=None):
         """Modify selected atoms into the given element."""
