@@ -808,6 +808,10 @@ class BasicStructureEditor(ipw.VBox):  # pylint: disable=too-many-instance-attri
         btn_mirror_3p = ipw.Button(description="Mirror", layout={"width": "10%"})
         btn_mirror_3p.on_click(self.mirror_3p)
 
+        # Rotate atoms while aligning action vector with XYZ vector.
+        btn_align = ipw.Button(description="Align", layout={"width": "10%"})
+        btn_align.on_click(self.align)
+
         # Atoms selection.
         self.element = ipw.Dropdown(
             description="Select element",
@@ -920,6 +924,16 @@ class BasicStructureEditor(ipw.VBox):  # pylint: disable=too-many-instance-attri
                             layout={"margin": "0px 0px 0px 0px"},
                         ),
                         btn_mirror_3p,
+                    ],
+                    layout={"margin": "0px 0px 0px 20px"},
+                ),
+                ipw.HBox(
+                    [
+                        ipw.HTML(
+                            "Rotate atoms while aligning the action vector with the XYZ vector",
+                            layout={"margin": "0px 0px 0px 0px"},
+                        ),
+                        btn_align,
                     ],
                     layout={"margin": "0px 0px 0px 20px"},
                 ),
@@ -1095,6 +1109,24 @@ class BasicStructureEditor(ipw.VBox):  # pylint: disable=too-many-instance-attri
         normal = np.cross(pt1 - pt2, pt3 - pt2)
         normal = normal / np.linalg.norm(normal)
         self.mirror(norm=normal, point=pt3)
+
+    def align(self, _=None):
+        """Rotate atoms to align action vector with XYZ vector."""
+
+        atoms = self.structure.copy()
+        selection = self.selection
+
+        if not self.selection:
+            return
+
+        # The action.
+        center = self.str2vec(self.point.value)
+        subset = atoms[selection]
+        subset.rotate(self.action_vector, self.str2vec(self.dxyz.value), center=center)
+        atoms.positions[selection] = subset.positions
+
+        self.structure = atoms
+        self.selection = selection
 
     def mod_element(self, _=None):
         """Modify selected atoms into the given element."""
