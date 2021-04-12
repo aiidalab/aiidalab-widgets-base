@@ -1114,14 +1114,14 @@ class BasicStructureEditor(ipw.VBox):  # pylint: disable=too-many-instance-attri
         selection = self.selection
 
         # The action.
-        rotated_subset = atoms[self.selection]
+        rotated_subset = atoms[selection]
         vec = self.str2vec(self.vec2str(self.action_vector))
         nvec = self.str2vec(self.dxyz.value)
         center = self.str2vec(self.point.value)
         rotated_subset.translate(-1.0 * center)
         rotated_subset.rotate(vec, nvec)
         rotated_subset.translate(center)
-        atoms.positions[list(self.selection)] = rotated_subset.positions
+        atoms.positions[selection] = rotated_subset.positions
 
         self.structure = atoms
         self.selection = selection
