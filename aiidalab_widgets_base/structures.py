@@ -1116,6 +1116,9 @@ class BasicStructureEditor(ipw.VBox):  # pylint: disable=too-many-instance-attri
         atoms = self.structure.copy()
         selection = self.selection
 
+        if not self.selection:
+            return
+
         # The action.
         center = self.str2vec(self.point.value)
         subset = atoms[selection]
