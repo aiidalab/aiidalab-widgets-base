@@ -930,7 +930,7 @@ class BasicStructureEditor(ipw.VBox):  # pylint: disable=too-many-instance-attri
                 ipw.HBox(
                     [
                         ipw.HTML(
-                            "Rotate atoms while aligning action vector with XYZ vector",
+                            "Rotate atoms while aligning the action vector with the XYZ vector",
                             layout={"margin": "0px 0px 0px 0px"},
                         ),
                         btn_align,
