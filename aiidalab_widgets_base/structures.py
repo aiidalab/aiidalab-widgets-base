@@ -802,6 +802,12 @@ class BasicStructureEditor(ipw.VBox):  # pylint: disable=too-many-instance-attri
             layout={"width": "initial"},
         )
 
+        # Mirror atoms.
+        btn_mirror_perp = ipw.Button(description="Mirror", layout={"width": "10%"})
+        btn_mirror_perp.on_click(self.mirror)
+        btn_mirror_3p = ipw.Button(description="Mirror", layout={"width": "10%"})
+        btn_mirror_3p.on_click(self.mirror_3p)
+
         # Atoms selection.
         self.element = ipw.Dropdown(
             description="Select element",
@@ -834,7 +840,7 @@ class BasicStructureEditor(ipw.VBox):  # pylint: disable=too-many-instance-attri
         )
         link((use_covalent_radius, "value"), (self.bond_length, "disabled"))
 
-        # Copy atoms
+        # Copy atoms.
         btn_copy_sel = ipw.Button(
             description="Copy selected", layout={"width": "initial"}
         )
@@ -897,6 +903,26 @@ class BasicStructureEditor(ipw.VBox):  # pylint: disable=too-many-instance-attri
                     layout={"margin": "0px 0px 0px 20px"},
                 ),
                 ipw.HBox([self.phi, btn_rotate], layout={"margin": "0px 0px 0px 20px"}),
+                ipw.HBox(
+                    [
+                        ipw.HTML(
+                            "Mirror on the plane perpendicular to the action vector",
+                            layout={"margin": "0px 0px 0px 0px"},
+                        ),
+                        btn_mirror_perp,
+                    ],
+                    layout={"margin": "0px 0px 0px 20px"},
+                ),
+                ipw.HBox(
+                    [
+                        ipw.HTML(
+                            "Mirror on the plane containing action vector and action point",
+                            layout={"margin": "0px 0px 0px 0px"},
+                        ),
+                        btn_mirror_3p,
+                    ],
+                    layout={"margin": "0px 0px 0px 20px"},
+                ),
                 ipw.HTML(
                     "<b>Modify atom(s):</v>", layout={"margin": "20px 0px 10px 0px"}
                 ),
@@ -1028,6 +1054,47 @@ class BasicStructureEditor(ipw.VBox):  # pylint: disable=too-many-instance-attri
 
         self.structure = atoms
         self.selection = selection
+
+    def mirror(self, _=None, norm=None, point=None):
+        """Mirror atoms on the plane perpendicular to the action vector."""
+
+        selection = self.selection
+        atoms = self.structure.copy()
+
+        # The action.
+
+        # Vector and point define the mirrorring surface.
+        p_normal = norm if norm is not None else self.action_vector
+        p_point = point if point is not None else self.str2vec(self.point.value)
+
+        # Check if norm vector makes sense.
+        if np.isnan(p_normal).any() or np.linalg.norm(p_normal) < 1e-4:
+            return
+
+        # Define vectors from p_point that point to the atoms which are to be moved.
+        mirror_subset = atoms.positions[selection] - p_point
+
+        # Project vectors onto the plane normal.
+        projections = (
+            p_normal
+            * np.dot(mirror_subset, p_normal)[:, np.newaxis]
+            / np.dot(p_normal, p_normal)
+        )
+
+        # Mirror atoms.
+        atoms.positions[selection] -= 2 * projections
+
+        self.structure = atoms
+        self.selection = selection
+
+    def mirror_3p(self, _=None):
+        """Mirror atoms on the plane containing action vector and action point."""
+        pt1 = self.str2vec(self.axis_p2.value)
+        pt2 = self.str2vec(self.axis_p1.value)
+        pt3 = self.str2vec(self.point.value)
+        normal = np.cross(pt1 - pt2, pt3 - pt2)
+        normal = normal / np.linalg.norm(normal)
+        self.mirror(norm=normal, point=pt3)
 
     def mod_element(self, _=None):
         """Modify selected atoms into the given element."""
