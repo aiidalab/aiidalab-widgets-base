@@ -82,7 +82,9 @@ def viewer(obj, downloadable=True, **kwargs):
 
 
 @register_viewer_widget("data.dict.Dict.")
-class DictViewer(ipw.HTML):
+class DictViewer(ipw.VBox):
+
+    value = Unicode()
     """Viewer class for Dict object.
 
     :param parameter: Dict object to be viewed
@@ -91,7 +93,6 @@ class DictViewer(ipw.HTML):
     :type downloadable: bool"""
 
     def __init__(self, parameter, downloadable=True, **kwargs):
-        super().__init__(**kwargs)
         import pandas as pd
 
         # Here we are defining properties of 'df' class (specified while exporting pandas table into html).
@@ -99,7 +100,10 @@ class DictViewer(ipw.HTML):
         # can be applied to it as well.
         # For more information on how to controle the table appearance please visit:
         # https://css-tricks.com/complete-guide-table-element/
-        self.value = """
+        self.widget = ipw.HTML()
+        ipw.dlink((self, "value"), (self.widget, "value"))
+
+        self.value += """
         <style>
             .df { border: none; }
             .df tbody tr:nth-child(odd) { background-color: #e5e7e9; }
@@ -109,6 +113,7 @@ class DictViewer(ipw.HTML):
             .df th { text-align: center; border: none;  border-bottom: 1px solid black;}
         </style>
         """
+
         pd.set_option("max_colwidth", 40)
         dataf = pd.DataFrame(
             [(key, value) for key, value in sorted(parameter.get_dict().items())],
@@ -124,6 +129,8 @@ class DictViewer(ipw.HTML):
             to_add = """Download table in csv format: <a download="{filename}"
             href="data:text/csv;base64,{payload}" target="_blank">{title}</a>"""
             self.value += to_add.format(filename=fname, payload=payload, title=fname)
+
+        super().__init__([self.widget], **kwargs)
 
 
 class _StructureDataBaseViewer(ipw.VBox):
