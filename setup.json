@@ -1,5 +1,5 @@
 {
-    "version": "1.0.0b15",
+    "version": "1.0.0b16",
     "name": "aiidalab-widgets-base",
     "author_email": "aiidalab@materialscloud.org",
     "url": "https://github.com/aiidalab/aiidalab-widgets-base",
@@ -16,7 +16,7 @@
         "bokeh",
         "fileupload",
         "ipytree",
-        "ipywidgets",
+        "ipywidgets<8.0.0",
         "more_itertools",
         "nglview",
         "numpy",
