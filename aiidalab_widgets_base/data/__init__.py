@@ -6,15 +6,24 @@ import ipywidgets as ipw
 # The first atom is anchoring, so the new bond will be connecting it
 # The direction of the new bond is (-1, -1, -1).
 LIGANDS = {
-    'Select ligand':
-        0,
-    'Methyl -CH3': [('C', 0, 0, 0), ('H', 0.23962342, -0.47699124, 0.78585262),
-                    ('H', 0.78584986, 0.23962732, -0.47698795), ('H', -0.47699412, 0.78585121, 0.23962671)],
-    'Methylene =CH2': [('C', 0, 0, 0), ('H', -0.39755349, 0.59174911, 0.62728004),
-                       ('H', 0.94520686, -0.04409933, -0.07963039)],
-    'Hydroxy -OH': [('O', 0, 0, 0), ('H', 0.87535922, -0.3881659, 0.06790889)],
-    'Amine -NH2': [('N', 0, 0, 0), ('H', 0.7250916, -0.56270993, 0.42151063),
-                   ('H', -0.56261958, 0.4215284, 0.72515241)],
+    "Select ligand": 0,
+    "Methyl -CH3": [
+        ("C", 0, 0, 0),
+        ("H", 0.23962342, -0.47699124, 0.78585262),
+        ("H", 0.78584986, 0.23962732, -0.47698795),
+        ("H", -0.47699412, 0.78585121, 0.23962671),
+    ],
+    "Methylene =CH2": [
+        ("C", 0, 0, 0),
+        ("H", -0.39755349, 0.59174911, 0.62728004),
+        ("H", 0.94520686, -0.04409933, -0.07963039),
+    ],
+    "Hydroxy -OH": [("O", 0, 0, 0), ("H", 0.87535922, -0.3881659, 0.06790889)],
+    "Amine -NH2": [
+        ("N", 0, 0, 0),
+        ("H", 0.7250916, -0.56270993, 0.42151063),
+        ("H", -0.56261958, 0.4215284, 0.72515241),
+    ],
 }
 
 
@@ -22,9 +31,11 @@ class LigandSelectorWidget(ipw.Dropdown):
     """Class to select ligands that are returned as `Atoms` object"""
 
     def __init__(self, value=0, description="Select ligand", **kwargs):
-        self.style = {'description_width': 'initial'}
-        self.layout = {'width': 'initial'}
-        super().__init__(value=value, description=description, options=LIGANDS, **kwargs)
+        self.style = {"description_width": "initial"}
+        self.layout = {"width": "initial"}
+        super().__init__(
+            value=value, description=description, options=LIGANDS, **kwargs
+        )
 
     def rotate(self, align_to=(0, 0, 1), remove_anchor=False):
         """Rotate group in such a way that vector which was (-1,-1,-1)

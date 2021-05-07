@@ -10,6 +10,7 @@
             "ase",
             "bokeh",
             "fileupload",
+            "ipytree",
             "ipywidgets",
             "more_itertools",
             "nglview",

@@ -17,7 +17,9 @@ class CopyToClipboardButton(ipw.Button):
     def copy_to_clipboard(self, change=None):  # pylint:disable=unused-argument
         """Copy text to clipboard."""
         from IPython.display import Javascript, display
-        javas = Javascript("""
+
+        javas = Javascript(
+            """
            function copyStringToClipboard (str) {{
                // Create new element
                var el = document.createElement('textarea');
@@ -35,7 +37,10 @@ class CopyToClipboardButton(ipw.Button):
                document.body.removeChild(el);
             }}
             copyStringToClipboard("{selection}");
-       """.format(selection=self.value))  # For the moment works for Chrome, but doesn't work for Firefox.
+       """.format(
+                selection=self.value
+            )
+        )  # For the moment works for Chrome, but doesn't work for Firefox.
         if self.value:  # If no value provided - do nothing.
             display(javas)
 
@@ -43,10 +48,10 @@ class CopyToClipboardButton(ipw.Button):
 class ReversePolishNotation:
     """Class defining operations for RPN conversion"""
 
-    #adapted from:
+    # adapted from:
     # Author: Alaa Awad
     # Description: program converts infix to postfix notation
-    #https://gist.github.com/awadalaa/7ef7dc7e41edb501d44d1ba41cbf0dc6
+    # https://gist.github.com/awadalaa/7ef7dc7e41edb501d44d1ba41cbf0dc6
     def __init__(self, operators, additional_operands=None):
         self.operators = operators
         self.additional_operands = additional_operands
@@ -57,7 +62,7 @@ class ReversePolishNotation:
             return False
         if opb not in self.operators:
             return False
-        return self.operators[opa]['priority'] <= self.operators[opb]['priority']
+        return self.operators[opa]["priority"] <= self.operators[opb]["priority"]
 
     def is_operator(self, opx):
         """Identifies operators"""
@@ -66,19 +71,19 @@ class ReversePolishNotation:
     @staticmethod
     def isopenparenthesis(operator):
         """Identifies open paretheses."""
-        return operator == '('
+        return operator == "("
 
     @staticmethod
     def iscloseparenthesis(operator):
         """Identifies closed paretheses."""
-        return operator == ')'
+        return operator == ")"
 
     def convert(self, expr):
         """Convert expression to postfix."""
         stack = []
         output = []
         for char in expr:
-            if self.is_operator(char) or char in ['(', ')']:
+            if self.is_operator(char) or char in ["(", ")"]:
                 if self.isopenparenthesis(char):
                     stack.append(char)
                 elif self.iscloseparenthesis(char):
@@ -100,7 +105,11 @@ class ReversePolishNotation:
     def parse_infix_notation(condition):
         """Convert a string containing the expression into a list of operators and operands."""
         condition = [
-            token[1] for token in tokenize.generate_tokens(io.StringIO(condition.strip()).readline) if token[1]
+            token[1]
+            for token in tokenize.generate_tokens(
+                io.StringIO(condition.strip()).readline
+            )
+            if token[1]
         ]
 
         result = []
@@ -108,11 +117,11 @@ class ReversePolishNotation:
 
         # Merging lists.
         for element in condition:
-            if element == '[':
-                res = '['
+            if element == "[":
+                res = "["
                 open_bracket = True
-            elif element == ']':
-                res += ']'
+            elif element == "]":
+                res += "]"
                 result.append(res)
                 open_bracket = False
             elif open_bracket:
@@ -141,10 +150,12 @@ class ReversePolishNotation:
                 stack.append(float(ope))
                 stackposition += 1
             elif ope in self.operators:
-                nargs = self.operators[ope]['nargs']
-                arguments = [stack[stackposition + indx] for indx in list(range(-nargs + 1, 1))]
-                stack[stackposition] = self.operators[ope]['function'](*arguments)
-                del stack[stackposition - nargs + 1:stackposition]
+                nargs = self.operators[ope]["nargs"]
+                arguments = [
+                    stack[stackposition + indx] for indx in list(range(-nargs + 1, 1))
+                ]
+                stack[stackposition] = self.operators[ope]["function"](*arguments)
+                del stack[stackposition - nargs + 1 : stackposition]
                 stackposition -= nargs - 1
             else:
                 if self.additional_operands and ope in self.additional_operands:

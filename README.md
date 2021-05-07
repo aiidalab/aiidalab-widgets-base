@@ -6,7 +6,7 @@
 
 Install the `aiidalab_widgets_base` python package via:
 ```
-pip install aiidalab-widgets-base 
+pip install aiidalab-widgets-base
 ```
 
 Install the corresponding `aiidalab-widgets-base` AiiDAlab application

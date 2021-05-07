@@ -29,12 +29,15 @@ class CodeDropdown(ipw.VBox):
     allow_disabled_computers(Bool): Trait that defines whether to show codes on disabled
     computers.
     """
+
     selected_code = Union([Unicode(), Instance(Code)], allow_none=True)
     codes = Dict(allow_none=True)
     allow_hidden_codes = Bool(False)
     allow_disabled_computers = Bool(False)
 
-    def __init__(self, input_plugin, description='Select code:', path_to_root='../', **kwargs):
+    def __init__(
+        self, input_plugin, description="Select code:", path_to_root="../", **kwargs
+    ):
         """Dropdown for Codes for one input plugin.
 
         input_plugin (str): Input plugin of codes to show.
@@ -46,13 +49,15 @@ class CodeDropdown(ipw.VBox):
         self.input_plugin = input_plugin
 
         self.dropdown = ipw.Dropdown(description=description, disabled=True, value=None)
-        link((self, 'codes'), (self.dropdown, 'options'))
-        link((self.dropdown, 'value'), (self, 'selected_code'))
+        link((self, "codes"), (self.dropdown, "options"))
+        link((self.dropdown, "value"), (self, "selected_code"))
 
         btn_refresh = ipw.Button(description="Refresh", layout=ipw.Layout(width="70px"))
         btn_refresh.on_click(self.refresh)
 
-        self.observe(self.refresh, names=['allow_disabled_computers', 'allow_hidden_codes'])
+        self.observe(
+            self.refresh, names=["allow_disabled_computers", "allow_hidden_codes"]
+        )
 
         # Prepare URL parameters for the code setup.
         setup_code_params = {
@@ -60,15 +65,20 @@ class CodeDropdown(ipw.VBox):
             "plugin": input_plugin,
         }
 
-        for key, value in kwargs.pop('setup_code_params', {}).items():
+        for key, value in kwargs.pop("setup_code_params", {}).items():
             setup_code_params[key] = value
 
-        ## For later: use base_url here, when it will be implemented in the appmode.
+        # For later: use base_url here, when it will be implemented in the appmode.
         url_string = f"<a href={path_to_root}aiidalab-widgets-base/setup_code.ipynb?"
-        url_string += "&".join([f"{k}={v}".replace(' ', '%20') for k, v in setup_code_params.items()])
+        url_string += "&".join(
+            [f"{k}={v}".replace(" ", "%20") for k, v in setup_code_params.items()]
+        )
         url_string += ' target="_blank">Setup new code</a>'
 
-        children = [ipw.HBox([self.dropdown, btn_refresh, ipw.HTML(value=url_string)]), self.output]
+        children = [
+            ipw.HBox([self.dropdown, btn_refresh, ipw.HTML(value=url_string)]),
+            self.output,
+        ]
 
         super().__init__(children=children, **kwargs)
 
@@ -81,11 +91,12 @@ class CodeDropdown(ipw.VBox):
 
         return {
             self._full_code_label(c[0]): c[0]
-            for c in QueryBuilder().append(Code, filters={
-                'attributes.input_plugin': self.input_plugin
-            }).all()
-            if c[0].computer.is_user_configured(user) and (self.allow_hidden_codes or not c[0].hidden) and
-            (self.allow_disabled_computers or c[0].computer.is_user_enabled(user))
+            for c in QueryBuilder()
+            .append(Code, filters={"attributes.input_plugin": self.input_plugin})
+            .all()
+            if c[0].computer.is_user_configured(user)
+            and (self.allow_hidden_codes or not c[0].hidden)
+            and (self.allow_disabled_computers or c[0].computer.is_user_enabled(user))
         }
 
     @staticmethod
@@ -97,23 +108,25 @@ class CodeDropdown(ipw.VBox):
 
         The job of this function is to look in AiiDA database, find available codes and
         put them in the dropdown attribute."""
-        self.output.value = ''
+        self.output.value = ""
 
         with self.hold_trait_notifications():
             self.dropdown.options = self._get_codes()
         if not self.dropdown.options:
-            self.output.value = f"No codes found for input plugin '{self.input_plugin}'."
+            self.output.value = (
+                f"No codes found for input plugin '{self.input_plugin}'."
+            )
             self.dropdown.disabled = True
         else:
             self.dropdown.disabled = False
         self.dropdown.value = None
 
-    @validate('selected_code')
+    @validate("selected_code")
     def _validate_selected_code(self, change):
         """If code is provided, set it as it is. If code's name is provided,
         select the code and set it."""
-        code = change['value']
-        self.output.value = ''
+        code = change["value"]
+        self.output.value = ""
 
         # If code None, set value to None
         if code is None:
@@ -140,6 +153,7 @@ class CodeDropdown(ipw.VBox):
 
 class AiiDACodeSetup(ipw.VBox):
     """Class that allows to setup AiiDA code"""
+
     label = Unicode()
     computer = Union([Unicode(), Instance(Computer)], allow_none=True)
 
@@ -154,52 +168,76 @@ class AiiDACodeSetup(ipw.VBox):
         style = {"description_width": "200px"}
 
         # Code label.
-        inp_label = ipw.Text(description="AiiDA code label:", layout=ipw.Layout(width="500px"), style=style)
-        link((inp_label, 'value'), (self, 'label'))
+        inp_label = ipw.Text(
+            description="AiiDA code label:",
+            layout=ipw.Layout(width="500px"),
+            style=style,
+        )
+        link((inp_label, "value"), (self, "label"))
 
         # Computer on which the code is installed. Two dlinks are needed to make sure we get a Computer instance.
-        inp_computer = ComputerDropdown(layout={'margin': '0px 0px 0px 125px'})
-        dlink((inp_computer, 'selected_computer'), (self, 'computer'))
-        dlink((self, 'computer'), (inp_computer, 'selected_computer'))
+        inp_computer = ComputerDropdown(layout={"margin": "0px 0px 0px 125px"})
+        dlink((inp_computer, "selected_computer"), (self, "computer"))
+        dlink((self, "computer"), (inp_computer, "selected_computer"))
 
         # Code plugin.
-        inp_code_plugin = ipw.Dropdown(options=sorted(get_entry_point_names('aiida.calculations')),
-                                       description="Code plugin:",
-                                       layout=ipw.Layout(width="500px"),
-                                       style=style)
-        link((inp_code_plugin, 'value'), (self, 'input_plugin'))
+        inp_code_plugin = ipw.Dropdown(
+            options=sorted(get_entry_point_names("aiida.calculations")),
+            description="Code plugin:",
+            layout=ipw.Layout(width="500px"),
+            style=style,
+        )
+        link((inp_code_plugin, "value"), (self, "input_plugin"))
 
         # Code description.
-        inp_description = ipw.Text(placeholder='No description (yet)',
-                                   description="Code description:",
-                                   layout=ipw.Layout(width="500px"),
-                                   style=style)
-        link((inp_description, 'value'), (self, 'description'))
+        inp_description = ipw.Text(
+            placeholder="No description (yet)",
+            description="Code description:",
+            layout=ipw.Layout(width="500px"),
+            style=style,
+        )
+        link((inp_description, "value"), (self, "description"))
 
-        inp_abs_path = ipw.Text(placeholder='/path/to/executable',
-                                description="Absolute path to executable:",
-                                layout=ipw.Layout(width="500px"),
-                                style=style)
-        link((inp_abs_path, 'value'), (self, 'remote_abs_path'))
+        inp_abs_path = ipw.Text(
+            placeholder="/path/to/executable",
+            description="Absolute path to executable:",
+            layout=ipw.Layout(width="500px"),
+            style=style,
+        )
+        link((inp_abs_path, "value"), (self, "remote_abs_path"))
 
-        inp_prepend_text = ipw.Textarea(placeholder='Text to prepend to each command execution',
-                                        description='Prepend text:',
-                                        layout=ipw.Layout(width="400px"))
-        link((inp_prepend_text, 'value'), (self, 'prepend_text'))
+        inp_prepend_text = ipw.Textarea(
+            placeholder="Text to prepend to each command execution",
+            description="Prepend text:",
+            layout=ipw.Layout(width="400px"),
+        )
+        link((inp_prepend_text, "value"), (self, "prepend_text"))
 
-        inp_append_text = ipw.Textarea(placeholder='Text to append to each command execution',
-                                       description='Append text:',
-                                       layout=ipw.Layout(width="400px"))
-        link((inp_append_text, 'value'), (self, 'append_text'))
+        inp_append_text = ipw.Textarea(
+            placeholder="Text to append to each command execution",
+            description="Append text:",
+            layout=ipw.Layout(width="400px"),
+        )
+        link((inp_append_text, "value"), (self, "append_text"))
 
         btn_setup_code = ipw.Button(description="Setup code")
         btn_setup_code.on_click(self._setup_code)
         self._setup_code_out = ipw.Output()
         children = [
-            ipw.HBox([
-                ipw.VBox([inp_label, inp_computer, inp_code_plugin, inp_description, inp_abs_path]),
-                ipw.VBox([inp_prepend_text, inp_append_text])
-            ]),
+            ipw.HBox(
+                [
+                    ipw.VBox(
+                        [
+                            inp_label,
+                            inp_computer,
+                            inp_code_plugin,
+                            inp_description,
+                            inp_abs_path,
+                        ]
+                    ),
+                    ipw.VBox([inp_prepend_text, inp_append_text]),
+                ]
+            ),
             btn_setup_code,
             self._setup_code_out,
         ]
@@ -227,11 +265,12 @@ class AiiDACodeSetup(ipw.VBox):
             code.store()
             code.reveal()
             full_string = f"{self.label}@{self.computer.name}"
-            print(check_output(['verdi', 'code', 'show', full_string]).decode('utf-8'))
+            print(check_output(["verdi", "code", "show", full_string]).decode("utf-8"))
 
     def exists(self):
         """Returns True if the code exists, returns False otherwise."""
         from aiida.common import NotExistent, MultipleObjectsError
+
         try:
             Code.get_from_string(f"{self.label}@{self.computer.name}")
             return True
