@@ -12,19 +12,17 @@
     ],
     "install_requires": [
         "aiida-core>=1.0.0,<2.0.0",
-        "ase",
-        "bokeh",
-        "fileupload",
-        "ipytree",
+        "ase<3.20",
+        "bokeh~=2.0",
+        "ipytree~=0.2",
         "ipywidgets<8.0.0",
-        "more_itertools",
-        "nglview",
-        "numpy",
-        "optimade-client",
-        "pandas",
-        "scikit-learn",
-        "optimade-client",
-        "vapory @ git+https://github.com/Zulko/vapory.git@master"
+        "more_itertools~=8.0",
+        "nglview~=3.0",
+        "numpy~=1.17",
+        "optimade-client==2021.5.7",
+        "pandas~=1.0",
+        "scikit-learn~=0.24",
+        "aiidalab-vapory==0.1.2"
     ],
     "extras_require": {
         "docs": [
