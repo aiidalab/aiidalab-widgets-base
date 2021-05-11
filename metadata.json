@@ -17,7 +17,7 @@
             "optimade-client==2021.5.7",
             "pandas~=1.0",
             "scikit-learn~=0.24",
-            "aiidalab-vapory==0.1.2"
+            "vapory~=0.1.2"
         ]
     }
 }
