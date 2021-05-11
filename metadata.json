@@ -8,7 +8,7 @@
       "~=1.0b": [
             "aiida-core>=1.0.0,<2.0.0",
             "ase<3.20",
-            "bokeh~2.0",
+            "bokeh~=2.0",
             "ipytree~=0.2",
             "ipywidgets<8.0.0",
             "more_itertools~=8.0",
