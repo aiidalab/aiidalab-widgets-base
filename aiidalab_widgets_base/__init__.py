@@ -36,7 +36,6 @@ from .structures import (
     SmilesWidget,
 )
 from .structures import BasicStructureEditor
-from .structures_multi import MultiStructureUploadWidget
 from .viewers import viewer
 from .viewers import register_viewer_widget
 
@@ -80,4 +79,4 @@ __all__ = [
     "viewer",
 ]
 
-__version__ = "1.0.0b17"
+__version__ = "1.0.0b18"
