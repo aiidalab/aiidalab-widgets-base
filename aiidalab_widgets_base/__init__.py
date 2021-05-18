@@ -36,7 +36,6 @@ from .structures import (
     SmilesWidget,
 )
 from .structures import BasicStructureEditor
-from .structures_multi import MultiStructureUploadWidget
 from .viewers import viewer
 from .viewers import register_viewer_widget
 
