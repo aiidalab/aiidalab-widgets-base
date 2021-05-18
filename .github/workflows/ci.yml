@@ -20,15 +20,7 @@ jobs:
       with:
         python-version: 3.8
 
-    - name: Install dependencies
-      run: |
-        python -m pip install $(python -c '\
-          import json;\
-          setup_json = json.load(open("setup.json"));\
-          print(" ".join(setup_json["extras_require"]["pre-commit"]))')
-
-    - name: Run pre-commit
-      run: pre-commit run --all-files || ( git status --short ; git diff ; exit 1 )
+    - uses: pre-commit/action@v2.0.0
 
   test-app:
 
