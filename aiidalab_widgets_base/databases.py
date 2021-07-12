@@ -148,25 +148,65 @@ class OptimadeQueryWidget(ipw.VBox):
 
     structure = Instance(Atoms, allow_none=True)
 
+    _disable_providers = [
+        "cod",
+        "tcod",
+        "nmd",
+        "omdb",
+        "oqmd",
+        "aflow",
+        "matcloud",
+        "httk",
+        "mpds",
+        "necro",
+    ]
+    _skip_databases = {"Materials Cloud": ["optimade-sample", "li-ion-conductors"]}
+    _database_grouping = {
+        "Materials Cloud": {
+            "General": ["curated-cofs"],
+            "Projects": [
+                "2dstructures",
+                "2dtopo",
+                "pyrene-mofs",
+                "scdm",
+                "sssp",
+                "stoceriaitf",
+                "tc-applicability",
+                "threedd",
+            ],
+        },
+    }
+
     def __init__(
         self,
         embedded: bool = True,
         title: str = None,
         **kwargs,
     ) -> None:
-        providers = OptimadeQueryProviderWidget(embedded=embedded)
-        filters = OptimadeQueryFilterWidget(embedded=embedded)
+        providers = OptimadeQueryProviderWidget(
+            embedded=embedded,
+            width_ratio=kwargs.pop("width_ratio", None),
+            width_space=kwargs.pop("width_space", None),
+            database_limit=kwargs.pop("database_limit", None),
+            disable_providers=kwargs.pop("disable_providers", self._disable_providers),
+            skip_databases=kwargs.pop("skip_databases", self._skip_databases),
+            provider_database_groupings=kwargs.pop(
+                "provider_database_groupings", self._database_grouping
+            ),
+        )
+        filters = OptimadeQueryFilterWidget(
+            embedded=embedded,
+            button_style=kwargs.pop("button_style", None),
+            result_limit=kwargs.pop("results_limit", None),
+            subparts_order=kwargs.pop("subparts_order", None),
+        )
 
         ipw.dlink((providers, "database"), (filters, "database"))
 
         filters.observe(self._update_structure, names="structure")
 
-        self.title = title if title is not None else "OPTIMADE"
-        layout = (
-            kwargs.pop("layout")
-            if "layout" in kwargs
-            else {"width": "auto", "height": "auto"}
-        )
+        self.title = title or "OPTIMADE"
+        layout = kwargs.pop("layout", {"width": "auto", "height": "auto"})
 
         super().__init__(
             children=(providers, filters),
