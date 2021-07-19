@@ -15,6 +15,7 @@ from urllib.parse import urlencode, urlsplit, urlunsplit
 
 import ipywidgets as ipw
 from aiidalab.utils import find_installed_packages
+from ansi2html import Ansi2HTMLConverter
 
 
 def get_environment_fingerprint(encoding="utf-8"):
@@ -101,6 +102,12 @@ def _strip_ansi_codes(msg):
     return re.sub(r"\x1B(?:[@-Z\\-_]|\[[0-?]*[ -/]*[@-~])", "", msg)
 
 
+def _convert_ansi_codes_to_html(msg):
+    """Convert any ANSI codes (e.g. color codes) into HTML."""
+    converter = Ansi2HTMLConverter()
+    return converter.produce_headers().strip() + converter.convert(msg, full=False)
+
+
 _ORIGINAL_EXCEPTION_HANDLER = None
 
 
@@ -146,7 +153,7 @@ def install_create_github_issue_exception_handler(output, url, labels=None):
                 msg = ipw.HTML(
                     ERROR_MESSAGE.format(
                         issue_url=issue_url,
-                        traceback=truncated_traceback,
+                        traceback=_convert_ansi_codes_to_html("\n".join(traceback)),
                         len_url=len(issue_url),
                     )
                 )
