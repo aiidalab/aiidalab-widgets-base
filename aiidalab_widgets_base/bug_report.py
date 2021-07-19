@@ -108,6 +108,16 @@ def _convert_ansi_codes_to_html(msg):
     return converter.produce_headers().strip() + converter.convert(msg, full=False)
 
 
+def _format_truncated_traceback(traceback, max_num_chars=3000):
+    """Truncate the traceback to the given character length."""
+    n = 0
+    for i, line in enumerate(reversed(traceback)):
+        n += len(_strip_ansi_codes(line)) + 2  # add 2 for newline control characters
+        if n > max_num_chars:
+            break
+    return _strip_ansi_codes("\n".join(traceback[-i:]))
+
+
 _ORIGINAL_EXCEPTION_HANDLER = None
 
 
@@ -130,18 +140,19 @@ def install_create_github_issue_exception_handler(output, url, labels=None):
         try:
             output.clear_output()
 
-            truncated_traceback = _strip_ansi_codes("\n".join(traceback[-25:]))
-            environment_fingerprint = "\n".join(
-                wrap(get_environment_fingerprint().decode("utf-8"), 100)
-            )
-
             bug_report_query = {
                 "title": BUG_REPORT_TITLE.format(
                     exception_type=str(exception_type.__name__)
                 ),
                 "body": BUG_REPORT_BODY.format(
-                    traceback=truncated_traceback,
-                    environment_fingerprint=environment_fingerprint,
+                    # Truncate the traceback to a maximum of 3000 characters
+                    # and strip all ansi control characters:
+                    traceback=_format_truncated_traceback(traceback, 3000),
+                    # Determine and format the environment fingerprint to be
+                    # included with the bug report:
+                    environment_fingerprint="\n".join(
+                        wrap(get_environment_fingerprint().decode("utf-8"), 100)
+                    ),
                 ),
                 "labels": ",".join(labels),
             }
