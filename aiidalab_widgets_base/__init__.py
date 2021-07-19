@@ -34,7 +34,7 @@ from .structures import (
     StructureManagerWidget,
     StructureUploadWidget,
 )
-from .viewers import register_viewer_widget, viewer
+from .viewers import AiidaNodeViewWidget, register_viewer_widget, viewer  # noqa
 from .wizard import WizardAppWidget, WizardAppWidgetStep
 
 __all__ = [
