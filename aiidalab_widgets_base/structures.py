@@ -1,18 +1,14 @@
 """Module to provide functionality to import structures."""
 # pylint: disable=no-self-use
 
-import io
 import datetime
+import io
 from collections import OrderedDict
-import numpy as np
-import ipywidgets as ipw
-from traitlets import Instance, Int, List, Unicode, Union, dlink, link, default, observe
-from sklearn.decomposition import PCA
 
 # ASE imports
 import ase
-from ase import Atom, Atoms
-from ase.data import chemical_symbols, covalent_radii
+import ipywidgets as ipw
+import numpy as np
 
 # AiiDA imports
 from aiida.engine import calcfunction
@@ -20,16 +16,21 @@ from aiida.orm import (
     CalcFunctionNode,
     CalcJobNode,
     Data,
-    QueryBuilder,
     Node,
+    QueryBuilder,
     WorkChainNode,
 )
 from aiida.plugins import DataFactory
+from ase import Atom, Atoms
+from ase.data import chemical_symbols, covalent_radii
+from sklearn.decomposition import PCA
+from traitlets import Instance, Int, List, Unicode, Union, default, dlink, link, observe
+
+from .data import LigandSelectorWidget
 
 # Local imports
 from .utils import get_ase_from_file
 from .viewers import StructureDataViewer
-from .data import LigandSelectorWidget
 
 CifData = DataFactory("cif")  # pylint: disable=invalid-name
 StructureData = DataFactory("structure")  # pylint: disable=invalid-name
@@ -615,8 +616,8 @@ class SmilesWidget(ipw.VBox):
         self.title = title
 
         try:
-            from openbabel import pybel  # noqa: F401
             from openbabel import openbabel  # noqa: F401
+            from openbabel import pybel  # noqa: F401
         except ImportError:
             super().__init__(
                 [
@@ -662,8 +663,8 @@ class SmilesWidget(ipw.VBox):
 
     def _pybel_opt(self, smile, steps):
         """Optimize a molecule using force field and pybel (needed for complex SMILES)."""
-        from openbabel import pybel as pb
         from openbabel import openbabel as ob
+        from openbabel import pybel as pb
 
         obconversion = ob.OBConversion()
         obconversion.SetInFormat("smi")

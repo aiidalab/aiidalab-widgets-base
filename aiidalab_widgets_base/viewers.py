@@ -3,27 +3,16 @@
 
 import base64
 import warnings
-import numpy as np
-from numpy.linalg import norm
-import ipywidgets as ipw
-from IPython.display import display
-import nglview
-from ase import Atoms
-from ase import neighborlist
-from vapory import (
-    Camera,
-    LightSource,
-    Scene,
-    Sphere,
-    Finish,
-    Texture,
-    Pigment,
-    Cylinder,
-    Background,
-)
-from matplotlib.colors import to_rgb
 from copy import deepcopy
 
+import ipywidgets as ipw
+import nglview
+import numpy as np
+from aiida.orm import Node
+from ase import Atoms, neighborlist
+from IPython.display import display
+from matplotlib.colors import to_rgb
+from numpy.linalg import norm
 from traitlets import (
     Instance,
     Int,
@@ -35,12 +24,21 @@ from traitlets import (
     observe,
     validate,
 )
-from aiida.orm import Node
+from vapory import (
+    Background,
+    Camera,
+    Cylinder,
+    Finish,
+    LightSource,
+    Pigment,
+    Scene,
+    Sphere,
+    Texture,
+)
 
-from .utils import string_range_to_list, list_to_string_range
 from .dicts import Colors, Radius
 from .misc import CopyToClipboardButton, ReversePolishNotation
-
+from .utils import list_to_string_range, string_range_to_list
 
 AIIDA_VIEWER_MAPPING = dict()
 
@@ -943,7 +941,7 @@ class BandsDataViewer(ipw.VBox):
     :type bands: BandsData"""
 
     def __init__(self, bands, **kwargs):
-        from bokeh.io import show, output_notebook
+        from bokeh.io import output_notebook, show
         from bokeh.models import Span
         from bokeh.plotting import figure
 

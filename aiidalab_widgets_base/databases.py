@@ -1,13 +1,11 @@
 """Widgets that allow to query online databases."""
-import requests
 import ipywidgets as ipw
-from traitlets import Bool, Float, Instance, Int, Unicode, default, observe
+import requests
+from aiida.tools.dbimporters.plugins.cod import CodDbImporter
 from ase import Atoms
-
 from optimade_client.query_filter import OptimadeQueryFilterWidget
 from optimade_client.query_provider import OptimadeQueryProviderWidget
-
-from aiida.tools.dbimporters.plugins.cod import CodDbImporter
+from traitlets import Bool, Float, Instance, Int, Unicode, default, observe
 
 
 class CodQueryWidget(ipw.VBox):

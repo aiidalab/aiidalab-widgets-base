@@ -11,14 +11,9 @@ import re
 import sys
 import zlib
 from textwrap import wrap
-from urllib.parse import (
-    urlencode,
-    urlsplit,
-    urlunsplit,
-)
+from urllib.parse import urlencode, urlsplit, urlunsplit
 
 import ipywidgets as ipw
-
 from aiidalab.utils import find_installed_packages
 
 

@@ -1,7 +1,8 @@
 """Widgets to manage AiiDA export."""
 import os
-from ipywidgets import Button
+
 from IPython.display import display
+from ipywidgets import Button
 
 
 class ExportButtonWidget(Button):
@@ -22,6 +23,7 @@ class ExportButtonWidget(Button):
         import base64
         import subprocess
         from tempfile import mkdtemp
+
         from IPython.display import Javascript
 
         fname = os.path.join(mkdtemp(), "export.aiida")

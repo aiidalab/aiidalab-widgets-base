@@ -5,12 +5,11 @@ Authors:
     * Carl Simon Adorf <simon.adorf@epfl.ch>
 """
 from enum import Enum
-from time import sleep
-from time import time
 from threading import Thread
+from time import sleep, time
 
-import traitlets
 import ipywidgets as ipw
+import traitlets
 
 
 class WizardAppWidgetStep(traitlets.HasTraits):
