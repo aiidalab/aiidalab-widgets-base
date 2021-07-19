@@ -80,7 +80,7 @@ def viewer(obj, downloadable=True, **kwargs):
         raise exc
 
 
-class DisplayAiidaObject(ipw.VBox):
+class AiidaNodeViewWidget(ipw.VBox):
     node = traitlets.Instance(Node, allow_none=True)
 
     def __init__(self, **kwargs):
