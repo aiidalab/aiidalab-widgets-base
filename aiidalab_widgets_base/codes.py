@@ -3,11 +3,11 @@
 from subprocess import check_output
 
 import ipywidgets as ipw
+from aiida.orm import Code, Computer, QueryBuilder, User
+from aiida.plugins.entry_point import get_entry_point_names
 from IPython.display import clear_output
 from traitlets import Bool, Dict, Instance, Unicode, Union, dlink, link, validate
 
-from aiida.orm import Code, Computer, QueryBuilder, User
-from aiida.plugins.entry_point import get_entry_point_names
 from aiidalab_widgets_base.computers import ComputerDropdown
 
 
@@ -269,7 +269,7 @@ class AiiDACodeSetup(ipw.VBox):
 
     def exists(self):
         """Returns True if the code exists, returns False otherwise."""
-        from aiida.common import NotExistent, MultipleObjectsError
+        from aiida.common import MultipleObjectsError, NotExistent
 
         try:
             Code.get_from_string(f"{self.label}@{self.computer.name}")

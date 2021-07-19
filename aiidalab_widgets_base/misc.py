@@ -1,6 +1,7 @@
 """Some useful classes used acrross the repository."""
 import io
 import tokenize
+
 import ipywidgets as ipw
 from traitlets import Unicode
 

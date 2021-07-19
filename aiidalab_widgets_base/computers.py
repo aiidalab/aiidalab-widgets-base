@@ -1,13 +1,16 @@
 """All functionality needed to setup a computer."""
 
 import os
-from os import path
 from copy import copy
-from subprocess import check_output, call
+from os import path
+from subprocess import call, check_output
 
+import ipywidgets as ipw
 import pexpect
 import shortuuid
-import ipywidgets as ipw
+from aiida.common import NotExistent
+from aiida.orm import Computer, QueryBuilder, User
+from aiida.transports.plugins.ssh import parse_sshconfig
 from IPython.display import clear_output
 from traitlets import (
     Bool,
@@ -21,11 +24,6 @@ from traitlets import (
     observe,
     validate,
 )
-
-from aiida.common import NotExistent
-from aiida.orm import Computer, QueryBuilder, User
-
-from aiida.transports.plugins.ssh import parse_sshconfig
 
 STYLE = {"description_width": "200px"}
 
@@ -581,8 +579,8 @@ class AiidaComputerSetup(ipw.VBox):
     safe_interval = Union([Unicode(), Float()])
 
     def __init__(self, **kwargs):
-        from aiida.transports import Transport
         from aiida.schedulers import Scheduler
+        from aiida.transports import Transport
 
         # List of widgets to be displayed.
         inp_computer_name = ipw.Text(

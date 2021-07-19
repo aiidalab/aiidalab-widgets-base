@@ -3,25 +3,29 @@
 # Built-in imports
 import os
 import warnings
-from inspect import isclass
-from inspect import signature
-from threading import Event
-from threading import Lock
-from threading import Thread
+from inspect import isclass, signature
+from threading import Event, Lock, Thread
 from time import sleep
 
 # External imports
 import ipywidgets as ipw
 import pandas as pd
 import traitlets
-from IPython.display import HTML, Javascript, clear_output, display
-from traitlets import Instance, Int, List, Unicode, Union, default, observe, validate
-
 
 # AiiDA imports.
 from aiida.cmdline.utils.ascii_vis import format_call_graph
+from aiida.cmdline.utils.common import (
+    get_calcjob_report,
+    get_process_function_report,
+    get_workchain_report,
+)
 from aiida.cmdline.utils.query.calculation import CalculationQueryBuilder
-from aiida.engine import submit, Process, ProcessBuilder
+from aiida.common.exceptions import (
+    MultipleObjectsError,
+    NotExistent,
+    NotExistentAttributeError,
+)
+from aiida.engine import Process, ProcessBuilder, submit
 from aiida.orm import (
     CalcFunctionNode,
     CalcJobNode,
@@ -31,20 +35,13 @@ from aiida.orm import (
     WorkFunctionNode,
     load_node,
 )
-from aiida.cmdline.utils.common import (
-    get_calcjob_report,
-    get_workchain_report,
-    get_process_function_report,
-)
-from aiida.common.exceptions import (
-    MultipleObjectsError,
-    NotExistent,
-    NotExistentAttributeError,
-)
+from IPython.display import HTML, Javascript, clear_output, display
+from traitlets import Instance, Int, List, Unicode, Union, default, observe, validate
+
+from .nodes import NodesTreeWidget
 
 # Local imports.
 from .viewers import viewer
-from .nodes import NodesTreeWidget
 
 
 def get_running_calcs(process):

@@ -1,16 +1,17 @@
 """Widgets to work with AiiDA nodes."""
-import traitlets
 import ipywidgets as ipw
-from IPython.display import clear_output
-from IPython.display import display
+import traitlets
 from aiida.cmdline.utils.ascii_vis import calc_info
 from aiida.engine import ProcessState
-from aiida.orm import CalcFunctionNode
-from aiida.orm import CalcJobNode
-from aiida.orm import Node
-from aiida.orm import ProcessNode
-from aiida.orm import WorkChainNode
-from aiida.orm import load_node
+from aiida.orm import (
+    CalcFunctionNode,
+    CalcJobNode,
+    Node,
+    ProcessNode,
+    WorkChainNode,
+    load_node,
+)
+from IPython.display import clear_output, display
 from ipytree import Node as TreeNode
 from ipytree import Tree
 

@@ -1,7 +1,7 @@
 """Useful functions that provide access to some data. """
-from ase import Atom, Atoms
-import numpy as np
 import ipywidgets as ipw
+import numpy as np
+from ase import Atom, Atoms
 
 # The first atom is anchoring, so the new bond will be connecting it
 # The direction of the new bond is (-1, -1, -1).
