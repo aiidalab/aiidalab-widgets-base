@@ -210,3 +210,104 @@ class NodesTreeWidget(ipw.Output):
             if getattr(node, "pk", None) == pk:
                 return node
         raise KeyError(pk)
+
+
+class AppIcon:
+    def __init__(self, icon, link, description):
+        self.icon = icon
+        self.link = link
+        self.description = description
+
+    def to_html_string(self):
+        return f"""
+            <table style="border-collapse:separate;border-spacing:15px;">
+            <tr>
+                <td style="width:200px"> <a href="{self.link}" target="_blank">  <img src="{self.icon}"> </a></td>
+                <td style="width:800px"> <p style="font-size:16px;">{self.description} </p></td>
+            </tr>
+            </table>
+            """
+
+
+class OpenAiidaNodeInAppWidget(ipw.VBox):
+
+    node = traitlets.Instance(Node, allow_none=True)
+
+    def __init__(self, **kwargs):
+        self.tab = ipw.Tab()
+        self.tab_selection = ipw.RadioButtons(
+            options=[],
+            description="",
+            disabled=False,
+            style={"description_width": "initial"},
+            layout=ipw.Layout(width="auto"),
+        )
+        spacer = ipw.HTML("""<p style="margin-bottom:1cm;"></p>""")
+        super().__init__(children=[self.tab_selection, spacer, self.tab], **kwargs)
+
+    @traitlets.observe("node")
+    def _observe_node(self, change):
+        if change["new"]:
+            self.tab.children = [
+                self.get_geo_opt_tab(),
+                self.get_geometry_analysis_tab(),
+                self.get_isotherm_tab(),
+            ]
+            self.tab.set_title(0, "Geometry Optimization")
+            self.tab.set_title(1, "Geometry analysis")
+            self.tab.set_title(2, "Isotherm")
+
+            self.tab_selection.options = [
+                (
+                    "Geometry Optimization - typically this is the first step needed to find optimal positions of atoms in the unit cell.",
+                    0,
+                ),
+                (
+                    "Geometry analysis - calculate parameters describing the geometry of a porous material.",
+                    1,
+                ),
+                (
+                    "Isotherm - compute adsorption isotherm of a small molecules in the selected material. ",
+                    2,
+                ),
+            ]
+            ipw.link((self.tab, "selected_index"), (self.tab_selection, "value"))
+        else:
+            self.tab.children = []
+
+    def get_geo_opt_tab(self):
+        geo_opt = ipw.HTML("")
+
+        geo_opt.value += AppIcon(
+            icon="https://gitlab.com/QEF/q-e/raw/develop/logo.jpg",
+            link=f"https://aiidalab-demo.materialscloud.org/user-redirect/apps/apps/quantum-espresso/qe.ipynb?structure_uuid={self.node.uuid}",
+            description="Optimize atomic positions and/or unit cell employing Quantum ESPRESSO. Quantum ESPRESSO is preferable for small structures with no cell dimensions larger than 15 Å. Additionally, you can choose to compute electronic properties of the material such as band structure and density of states.",
+        ).to_html_string()
+
+        geo_opt.value += AppIcon(
+            icon="https://raw.githubusercontent.com/lsmo-epfl/aiidalab-epfl-lsmo/develop/miscellaneous/logos/LSMO.png",
+            link=f"https://aiidalab-demo.materialscloud.org/user-redirect/apps/apps/aiidalab-lsmo/multistage_geo_opt_ddec.ipynb?structure_uuid={self.node.uuid}",
+            description="Optimize atomic positions and unit cell with CP2K. CP2K is very efficient for large and/or porous structures. A structure is considered large when any cell dimension is larger than 15 Å. Additionally, you can choose to assign point charges to the atoms using DDEC.",
+        ).to_html_string()
+
+        return geo_opt
+
+    def get_isotherm_tab(self):
+        isotherm = ipw.HTML()
+        isotherm.value += AppIcon(
+            icon="https://raw.githubusercontent.com/lsmo-epfl/aiidalab-epfl-lsmo/develop/miscellaneous/logos/LSMO.png",
+            link=f"https://aiidalab-demo.materialscloud.org/user-redirect/apps/apps/aiidalab-lsmo/compute_isotherm.ipynb?structure_uuid={self.node.uuid}",
+            description="Compute adsorption isotherm of the selected material using the RASPA code. Typically, one needs to optimize geometry and compute the charges of material before isotherm. However, if this is already done, you can go for it.",
+        ).to_html_string()
+
+        return isotherm
+
+    def get_geometry_analysis_tab(self):
+        geo_analysis = ipw.HTML()
+        geo_analysis.value += AppIcon(
+            icon="https://raw.githubusercontent.com/lsmo-epfl/aiidalab-epfl-lsmo/develop/miscellaneous/logos/LSMO.png",
+            link=f"https://aiidalab-demo.materialscloud.org/user-redirect/apps/apps/aiidalab-lsmo/pore_analysis.ipynb?structure_uuid={self.node.uuid}",
+            description="Perform geometry analysis of a material employing Zeo++ code.",
+        ).to_html_string()
+
+        return geo_analysis
