@@ -40,13 +40,26 @@ def parse_environment_fingerprint(data, encoding="utf-8"):
 
 
 ERROR_MESSAGE = """<div class="alert alert-danger">
-<p><strong><i class="fa fa-bug" aria-hidden="true"></i> Oh no... the application crashed due to an unexpected error.</strong></p>
-<p>Please click <a href="{issue_url}" target="_blank">here</a> to submit an automatically created bug report.</p>
-<details>
-  <summary><u>View the full traceback</u></summary>
-  <pre>{traceback}</pre>
-</details>
-</div>"""
+<p><strong>
+    <i class="fa fa-bug" aria-hidden="true"></i> Oh no... the application crashed due to an unexpected error.
+</strong></p>
+<a href="{issue_url}" target="_blank" class="btn btn-primary">
+    <i class="fa fa-share" aria-hidden="true"></i> Create bug report
+</a>
+<button
+    onclick="Jupyter.notebook.clear_all_output(); Jupyter.notebook.restart_run_all({{confirm: false}})"
+    type="button"
+    class="btn btn-success">
+        <i class="fa fa-refresh" aria-hidden="true"></i> Restart app
+</button>
+<div style="padding-top: 1em">
+    <details style="border: 1px solid #aaa; border-radius: 4px; padding: .5em .5em 0; ">
+        <summary style="font-weight: bold; margin: -.5em -.5em 0; padding: .5em">
+            <i class="fa fa-code" aria-hidden="true"></i> View the full traceback
+        </summary>
+      <pre style="color: #333; background: #f8f8f8;"><code>{traceback}</code></pre>
+    </details>
+</div></div>"""
 
 
 BUG_REPORT_TITLE = """Bug report: Application crashed with {exception_type}"""
