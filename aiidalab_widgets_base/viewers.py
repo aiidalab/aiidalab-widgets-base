@@ -8,9 +8,10 @@ from copy import deepcopy
 import ipywidgets as ipw
 import nglview
 import numpy as np
+import traitlets
 from aiida.orm import Node
 from ase import Atoms, neighborlist
-from IPython.display import display
+from IPython.display import clear_output, display
 from matplotlib.colors import to_rgb
 from numpy.linalg import norm
 from traitlets import (
@@ -77,6 +78,29 @@ def viewer(obj, downloadable=True, **kwargs):
             )
             return obj
         raise exc
+
+
+class AiidaNodeViewWidget(ipw.VBox):
+    node = traitlets.Instance(Node, allow_none=True)
+
+    def __init__(self, **kwargs):
+        self._output = ipw.Output()
+        super().__init__(
+            children=[
+                self._output,
+            ],
+            **kwargs,
+        )
+
+    @traitlets.observe("node")
+    def _observe_node(self, change):
+        from aiidalab_widgets_base import viewer
+
+        if change["new"] != change["old"]:
+            with self._output:
+                clear_output()
+                if change["new"]:
+                    display(viewer(change["new"]))
 
 
 @register_viewer_widget("data.dict.Dict.")
