@@ -34,12 +34,13 @@ from .structures import (
     StructureManagerWidget,
     StructureUploadWidget,
 )
-from .viewers import AiidaNodeViewWidget, register_viewer_widget, viewer  # noqa
+from .viewers import AiidaNodeViewWidget, register_viewer_widget, viewer
 from .wizard import WizardAppWidget, WizardAppWidgetStep
 
 __all__ = [
     "AiiDACodeSetup",
     "AiidaComputerSetup",
+    "AiidaNodeViewWidget",
     "BasicStructureEditor",
     "CodQueryWidget",
     "CodeDatabaseWidget",
