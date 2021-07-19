@@ -1,4 +1,6 @@
 """Widgets to work with AiiDA nodes."""
+import os
+
 import ipywidgets as ipw
 import traitlets
 from aiida.cmdline.utils.ascii_vis import calc_info
@@ -264,11 +266,19 @@ class NodesTreeWidget(ipw.Output):
         raise KeyError(pk)
 
 
-class AppIcon:
-    def __init__(self, icon, link, description):
+class _AppIcon:
+    def __init__(self, app, app_object, path_to_apps, node):
+
+        icon = os.path.splitext(app_object.url)[0]
+        # We expect it to always be a git repository
+        icon += "/master/" + app_object.metadata["logo"]
+        if "github.com" in icon:
+            icon = icon.replace("github.com", "raw.githubusercontent.com")
+            if icon.endswith(".svg"):
+                icon += "?sanitize=true"
         self.icon = icon
-        self.link = link
-        self.description = description
+        self.link = f"{path_to_apps}/{app['name']}/{app['notebook']}?{app['parameter_name']}={node.uuid}"
+        self.description = app["description"]
 
     def to_html_string(self):
         return f"""
@@ -326,7 +336,7 @@ class OpenAiidaNodeInAppWidget(ipw.VBox):
                 continue
             name = app["name"]
             app_data = app_registry["apps"][name]
-            tab_content.value += AppIcon(
+            tab_content.value += _AppIcon(
                 app=app,
                 app_object=AiidaLabApp(name, app_data, AIIDALAB_APPS),
                 path_to_apps=self.path_to_root,
