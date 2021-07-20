@@ -267,9 +267,13 @@ class NodesTreeWidget(ipw.Output):
 
 
 class _AppIcon:
-    def __init__(self, app, app_object, path_to_apps, node):
+    def __init__(self, app, app_registry, path_to_root, node):
 
+        name = app["name"]
+        app_data = app_registry["apps"][name]
+        app_object = AiidaLabApp(name, app_data, AIIDALAB_APPS)
         icon = os.path.splitext(app_object.url)[0]
+
         # We expect it to always be a git repository
         icon += "/master/" + app_object.metadata["logo"]
         if "github.com" in icon:
@@ -277,7 +281,10 @@ class _AppIcon:
             if icon.endswith(".svg"):
                 icon += "?sanitize=true"
         self.icon = icon
-        self.link = f"{path_to_apps}/{app['name']}/{app['notebook']}?{app['parameter_name']}={node.uuid}"
+        if app_object.is_installed():
+            self.link = f"{path_to_root}{app['name']}/{app['notebook']}?{app['parameter_name']}={node.uuid}"
+        else:
+            self.link = f"{path_to_root}home/single_app.ipynb?app={app['name']}"
         self.description = app["description"]
 
     def to_html_string(self):
@@ -328,18 +335,16 @@ class OpenAiidaNodeInAppWidget(ipw.VBox):
 
     def get_tab_content(self, apps_type):
 
-        app_registry = load_app_registry()
         tab_content = ipw.HTML("")
+        app_registry = load_app_registry()
 
         for app in SELECTED_APPS:
             if app["calculation_type"] != apps_type:
                 continue
-            name = app["name"]
-            app_data = app_registry["apps"][name]
             tab_content.value += _AppIcon(
                 app=app,
-                app_object=AiidaLabApp(name, app_data, AIIDALAB_APPS),
-                path_to_apps=self.path_to_root,
+                app_registry=app_registry,
+                path_to_root=self.path_to_root,
                 node=self.node,
             ).to_html_string()
 
