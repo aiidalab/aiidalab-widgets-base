@@ -10,23 +10,27 @@ from IPython.display import clear_output, display
 ELN_CONFIG = Path.home() / ".aiidalab" / "aiidalab-eln-config.json"
 
 
-def connect_to_eln(eln_name=None, **kwargs):
+def connect_to_eln(eln_instance=None, **kwargs):
     try:
         with open(ELN_CONFIG, "r") as file:
-            options = json.load(file)
+            config = json.load(file)
     except (FileNotFoundError, json.JSONDecodeError, KeyError):
         return None
 
-    if not eln_name:
-        eln_name = options.pop("default", None)
+    if not eln_instance:
+        eln_instance = config.pop("default", None)
 
-    if eln_name:
-        if eln_name in options:
-            options = options[eln_name]
-        eln_type = options.pop("eln_type", None)
+    if eln_instance:
+        if eln_instance in config:
+            eln_config = config[eln_instance]
+            eln_type = eln_config.pop("eln_type", None)
+        else:
+            eln_type = None
         if not eln_type:
             return None
-        eln = get_eln_connector(eln_type)(eln_instance=eln_name, **options, **kwargs)
+        eln = get_eln_connector(eln_type)(
+            eln_instance=eln_instance, **eln_config, **kwargs
+        )
         eln.connect()
         return eln
 
@@ -47,11 +51,12 @@ class ElnImportWidget(ipw.VBox):
         eln = connect_to_eln(**kwargs)
 
         if eln is None:
-            error_message.value = f"""Warning! The access to ELN {kwargs['eln_name']} is not configured. Please follow <a href="{path_to_root}aiidalab-widgets-base/eln_configure.ipynb" target="_blank">the link</a> to configure it."""
+            url = f"{path_to_root}aiidalab-widgets-base/eln_configure.ipynb"
+            error_message.value = f"""Warning! The access to ELN {kwargs['eln_instance']} is not configured. Please follow <a href="{url}" target="_blank">the link</a> to configure it."""
             return
 
         traitlets.dlink((eln, "node"), (self, "node"))
-        eln.import_data_object()
+        eln.import_data()
 
 
 class ElnExportWidget(ipw.VBox):
@@ -83,6 +88,7 @@ class ElnExportWidget(ipw.VBox):
             self._output,
         ]
         self.eln = connect_to_eln()
+        traitlets.dlink((self, "node"), (self.eln, "node"))
 
         super().__init__(children=children, **kwargs)
 
@@ -113,7 +119,7 @@ class ElnExportWidget(ipw.VBox):
     def send_to_eln(self, _=None):
         if self.eln.is_connected:
             self.error_message.value = ""
-            self.eln.export_data_object(data_object=self.node)
+            self.eln.export_data()
         else:
             self.error_message.value = f"""Warning! The access to ELN is not configured. Please follow <a href="{self.path_to_root}/aiidalab-widgets-base/eln_configure.ipynb" target="_blank">the link</a> to configure it."""
 
@@ -125,8 +131,6 @@ class ElnExportWidget(ipw.VBox):
 
 
 class ElnConfigureWidget(ipw.VBox):
-    selected = traitlets.Dict()
-
     def __init__(self, **kwargs):
         self._output = ipw.Output()
 
@@ -136,6 +140,7 @@ class ElnConfigureWidget(ipw.VBox):
             style={"description_width": "initial"},
         )
         self.update_list_of_elns()
+        self.eln_instance.observe(self.display_eln_config, names=["value", "options"])
 
         self.eln_types = ipw.Dropdown(
             description="ELN type:",
@@ -143,23 +148,27 @@ class ElnConfigureWidget(ipw.VBox):
             value="cheminfo",
             style={"description_width": "initial"},
         )
-
-        self.eln_instance.observe(self.display_eln_config, names=["value", "options"])
         self.eln_types.observe(self.display_eln_config, names=["value", "options"])
 
+        # Buttons.
+
+        # Make current ELN the default.
         default_button = ipw.Button(description="Set as default", button_style="info")
         default_button.on_click(self.set_current_eln_as_default)
 
+        # Save current ELN configuration.
         save_config = ipw.Button(
             description="Save configuration", button_style="success"
         )
         save_config.on_click(self.save_eln_configuration)
 
+        # Erase current ELN from the configuration.
         erase_config = ipw.Button(
             description="Erase configuration", button_style="danger"
         )
-        erase_config.on_click(self.erase_eln_configuration)
+        erase_config.on_click(self.erase_current_eln_from_configuration)
 
+        # Check if connection to the current ELN can be established.
         check_connection = ipw.Button(
             description="Check connection", button_style="warning"
         )
@@ -177,45 +186,51 @@ class ElnConfigureWidget(ipw.VBox):
             **kwargs,
         )
 
-    def update_list_of_elns(self):
-        config = self.get_configured_elns()
-        default_eln = config.pop("default", None)
-        self.eln_instance.options = [("Setup new ELN", {})] + [
-            (k, v) for k, v in config.items()
-        ]
-        if default_eln:
-            self.eln_instance.label = default_eln
+    def write_to_config(self, config):
+        with open(ELN_CONFIG, "w") as file:
+            json.dump(config, file, indent=4)
 
-    def get_configured_elns(self):
+    def get_config(self):
         try:
             with open(ELN_CONFIG, "r") as file:
                 return json.load(file)
         except (FileNotFoundError, json.JSONDecodeError, KeyError):
             return {}
 
+    def update_list_of_elns(self):
+        config = self.get_config()
+        default_eln = config.pop("default", None)
+        if (
+            default_eln not in config
+        ):  # Erase the default ELN if it is not present in the config
+            self.write_to_config(config)
+            default_eln = None
+
+        self.eln_instance.options = [("Setup new ELN", {})] + [
+            (k, v) for k, v in config.items()
+        ]
+        if default_eln:
+            self.eln_instance.label = default_eln
+
     def set_current_eln_as_default(self, _=None):
         self.update_eln_configuration("default", self.eln_instance.label)
 
-    def update_eln_configuration(self, eln, config):
-        elns = self.get_configured_elns()
-        elns[eln] = config
-        with open(ELN_CONFIG, "w") as file:
-            json.dump(elns, file, indent=4)
+    def update_eln_configuration(self, eln_instance, eln_config):
+        config = self.get_config()
+        config[eln_instance] = eln_config
+        self.write_to_config(config)
 
-    def erase_eln_configuration(self, _=None):
-        elns = self.get_configured_elns()
-        elns.pop(self.eln_instance.label, None)
-        if "default" in elns and elns["default"] not in elns:
-            elns.pop("default")
-
-        with open(ELN_CONFIG, "w") as file:
-            json.dump(elns, file, indent=4)
+    def erase_current_eln_from_configuration(self, _=None):
+        config = self.get_config()
+        config.pop(self.eln_instance.label, None)
+        self.write_to_config(config)
         self.update_list_of_elns()
 
     def check_connection(self, _=None):
         print("Not implemented :(")
 
     def display_eln_config(self, value=None):
+        """Display ELN configuration specific to the selected type of ELN."""
         connector_class = get_eln_connector(self.eln_types.value)
         self.connector = connector_class(
             eln_instance=self.eln_instance.label if self.eln_instance.value else "",
@@ -234,7 +249,7 @@ class ElnConfigureWidget(ipw.VBox):
 
     def save_eln_configuration(self, _=None):
         config = self.connector.get_config()
-        eln = config.pop("eln_instance")
-        if eln:
-            self.update_eln_configuration(eln, config)
+        eln_instance = config.pop("eln_instance")
+        if eln_instance:
+            self.update_eln_configuration(eln_instance, config)
             self.update_list_of_elns()
