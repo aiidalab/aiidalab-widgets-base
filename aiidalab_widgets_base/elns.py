@@ -133,6 +133,7 @@ class ElnExportWidget(ipw.VBox):
 class ElnConfigureWidget(ipw.VBox):
     def __init__(self, **kwargs):
         self._output = ipw.Output()
+        self.eln = None
 
         self.eln_instance = ipw.Dropdown(
             description="ELN:",
@@ -174,6 +175,8 @@ class ElnConfigureWidget(ipw.VBox):
         )
         check_connection.on_click(self.check_connection)
 
+        self.my_output = ipw.HTML()
+
         self.display_eln_config()
 
         super().__init__(
@@ -182,6 +185,7 @@ class ElnConfigureWidget(ipw.VBox):
                 self.eln_types,
                 self._output,
                 ipw.HBox([default_button, save_config, erase_config, check_connection]),
+                self.my_output,
             ],
             **kwargs,
         )
@@ -227,28 +231,33 @@ class ElnConfigureWidget(ipw.VBox):
         self.update_list_of_elns()
 
     def check_connection(self, _=None):
-        print("Not implemented :(")
+        if self.eln:
+            self.eln.connect()
+            if self.eln.is_connected:
+                self.my_output.value = "Connected :)"
+                return
+        self.my_output.value = "Not connected :("
 
     def display_eln_config(self, value=None):
         """Display ELN configuration specific to the selected type of ELN."""
-        connector_class = get_eln_connector(self.eln_types.value)
-        self.connector = connector_class(
+        eln_class = get_eln_connector(self.eln_types.value)
+        self.eln = eln_class(
             eln_instance=self.eln_instance.label if self.eln_instance.value else "",
             **self.eln_instance.value,
         )
 
         if self.eln_instance.value:
-            self.eln_types.value = self.connector.eln_type
+            self.eln_types.value = self.eln.eln_type
             self.eln_types.disabled = True
         else:
             self.eln_types.disabled = False
 
         with self._output:
             clear_output()
-            display(self.connector)
+            display(self.eln)
 
     def save_eln_configuration(self, _=None):
-        config = self.connector.get_config()
+        config = self.eln.get_config()
         eln_instance = config.pop("eln_instance")
         if eln_instance:
             self.update_eln_configuration(eln_instance, config)
