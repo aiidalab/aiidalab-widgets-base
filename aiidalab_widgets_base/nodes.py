@@ -1,6 +1,4 @@
 """Widgets to work with AiiDA nodes."""
-import os
-
 import ipywidgets as ipw
 import traitlets
 from aiida.cmdline.utils.ascii_vis import calc_info
@@ -13,9 +11,7 @@ from aiida.orm import (
     WorkChainNode,
     load_node,
 )
-from aiidalab.app import AiidaLabApp
-from aiidalab.config import AIIDALAB_APPS
-from aiidalab.utils import load_app_registry
+from aiidalab.app import _AiidaLabApp
 from IPython.display import clear_output, display
 from ipytree import Node as TreeNode
 from ipytree import Tree
@@ -267,20 +263,11 @@ class NodesTreeWidget(ipw.Output):
 
 
 class _AppIcon:
-    def __init__(self, app, app_registry, path_to_root, node):
+    def __init__(self, app, path_to_root, node):
 
         name = app["name"]
-        app_data = app_registry["apps"][name]
-        app_object = AiidaLabApp(name, app_data, AIIDALAB_APPS)
-        icon = os.path.splitext(app_object.url)[0]
-
-        # We expect it to always be a git repository
-        icon += "/master/" + app_object.metadata["logo"]
-        if "github.com" in icon:
-            icon = icon.replace("github.com", "raw.githubusercontent.com")
-            if icon.endswith(".svg"):
-                icon += "?sanitize=true"
-        self.icon = icon
+        app_object = _AiidaLabApp.from_id(name)
+        self.logo = app_object.logo
         if app_object.is_installed():
             self.link = f"{path_to_root}{app['name']}/{app['notebook']}?{app['parameter_name']}={node.uuid}"
         else:
@@ -291,7 +278,7 @@ class _AppIcon:
         return f"""
             <table style="border-collapse:separate;border-spacing:15px;">
             <tr>
-                <td style="width:200px"> <a href="{self.link}" target="_blank">  <img src="{self.icon}"> </a></td>
+                <td style="width:200px"> <a href="{self.link}" target="_blank">  <img src="{self.logo}"> </a></td>
                 <td style="width:800px"> <p style="font-size:16px;">{self.description} </p></td>
             </tr>
             </table>
@@ -336,14 +323,12 @@ class OpenAiidaNodeInAppWidget(ipw.VBox):
     def get_tab_content(self, apps_type):
 
         tab_content = ipw.HTML("")
-        app_registry = load_app_registry()
 
         for app in SELECTED_APPS:
             if app["calculation_type"] != apps_type:
                 continue
             tab_content.value += _AppIcon(
                 app=app,
-                app_registry=app_registry,
                 path_to_root=self.path_to_root,
                 node=self.node,
             ).to_html_string()
