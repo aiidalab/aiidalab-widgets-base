@@ -127,6 +127,11 @@ class ElnExportWidget(ipw.VBox):
         with self._output:
             clear_output()
             if self.modify_settings.value:
+                display(
+                    ipw.HTML(
+                        f"""Currently used ELN is: "{self.eln.eln_instance}". To change it, please follow <a href="{self.path_to_root}/aiidalab-widgets-base/eln_configure.ipynb" target="_blank">the link</a>."""
+                    )
+                )
                 display(self.eln.sample_config_editor())
 
 
