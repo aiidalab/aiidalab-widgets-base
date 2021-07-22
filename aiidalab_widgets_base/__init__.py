@@ -11,7 +11,7 @@ from .databases import (
     ComputerDatabaseWidget,
     OptimadeQueryWidget,
 )
-from .elns import ElnExportWidget, ElnImportWidget
+from .elns import ElnConfigureWidget, ElnExportWidget, ElnImportWidget
 from .export import ExportButtonWidget
 from .nodes import NodesTreeWidget, OpenAiidaNodeInAppWidget
 from .process import (
@@ -48,6 +48,7 @@ __all__ = [
     "CodeDropdown",
     "ComputerDatabaseWidget",
     "ComputerDropdown",
+    "ElnConfigureWidget",
     "ElnExportWidget",
     "ElnImportWidget",
     "ExportButtonWidget",
