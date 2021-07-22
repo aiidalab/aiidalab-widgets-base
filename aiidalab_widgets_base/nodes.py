@@ -11,9 +11,59 @@ from aiida.orm import (
     WorkChainNode,
     load_node,
 )
+from aiidalab.app import _AiidaLabApp
 from IPython.display import clear_output, display
 from ipytree import Node as TreeNode
 from ipytree import Tree
+
+CALCULATION_TYPES = [
+    (
+        "geo_opt",
+        "Geometry Optimization",
+        "Geometry Optimization - typically this is the first step needed to find optimal positions of atoms in the unit cell.",
+    ),
+    (
+        "geo_analysis",
+        "Geometry analysis",
+        "Geometry analysis - calculate parameters describing the geometry of a material.",
+    ),
+    (
+        "isotherm",
+        "Isotherm",
+        "Isotherm - compute adsorption isotherm of a small molecules in the selected material.",
+    ),
+]
+
+SELECTED_APPS = [
+    {
+        "name": "quantum-espresso",
+        "calculation_type": "geo_opt",
+        "notebook": "qe.ipynb",
+        "parameter_name": "structure_uuid",
+        "description": "Optimize atomic positions and/or unit cell employing Quantum ESPRESSO. Quantum ESPRESSO is preferable for small structures with no cell dimensions larger than 15 Å. Additionally, you can choose to compute electronic properties of the material such as band structure and density of states.",
+    },
+    {
+        "name": "aiidalab-lsmo",
+        "calculation_type": "geo_opt",
+        "notebook": "multistage_geo_opt_ddec.ipynb",
+        "parameter_name": "structure_uuid",
+        "description": "Optimize atomic positions and unit cell with CP2K. CP2K is very efficient for large (any cell dimension is larger than 15 Å) and/or porous structures. Additionally, you can choose to assign point charges to the atoms using DDEC.",
+    },
+    {
+        "name": "aiidalab-lsmo",
+        "calculation_type": "geo_analysis",
+        "notebook": "pore_analysis.ipynb",
+        "parameter_name": "structure_uuid",
+        "description": "Calculate descriptors for the pore geometry using the Zeo++.",
+    },
+    {
+        "name": "aiidalab-lsmo",
+        "calculation_type": "isotherm",
+        "notebook": "compute_isotherm.ipynb",
+        "parameter_name": "structure_uuid",
+        "description": "Compute adsorption isotherm of the selected material using the RASPA code. Typically, one needs to optimize geometry and compute the charges of material before computing the isotherm. However, if this is already done, you can go for it.",
+    },
+]
 
 
 class AiidaNodeTreeNode(TreeNode):
@@ -210,3 +260,77 @@ class NodesTreeWidget(ipw.Output):
             if getattr(node, "pk", None) == pk:
                 return node
         raise KeyError(pk)
+
+
+class _AppIcon:
+    def __init__(self, app, path_to_root, node):
+
+        name = app["name"]
+        app_object = _AiidaLabApp.from_id(name)
+        self.logo = app_object.logo
+        if app_object.is_installed():
+            self.link = f"{path_to_root}{app['name']}/{app['notebook']}?{app['parameter_name']}={node.uuid}"
+        else:
+            self.link = f"{path_to_root}home/single_app.ipynb?app={app['name']}"
+        self.description = app["description"]
+
+    def to_html_string(self):
+        return f"""
+            <table style="border-collapse:separate;border-spacing:15px;">
+            <tr>
+                <td style="width:200px"> <a href="{self.link}" target="_blank">  <img src="{self.logo}"> </a></td>
+                <td style="width:800px"> <p style="font-size:16px;">{self.description} </p></td>
+            </tr>
+            </table>
+            """
+
+
+class OpenAiidaNodeInAppWidget(ipw.VBox):
+
+    node = traitlets.Instance(Node, allow_none=True)
+
+    def __init__(self, path_to_root="../", **kwargs):
+        self.path_to_root = path_to_root
+        self.tab = ipw.Tab(style={"description_width": "initial"})
+        self.tab_selection = ipw.RadioButtons(
+            options=[],
+            description="",
+            disabled=False,
+            style={"description_width": "initial"},
+            layout=ipw.Layout(width="auto"),
+        )
+        spacer = ipw.HTML("""<p style="margin-bottom:1cm;"></p>""")
+        super().__init__(children=[self.tab_selection, spacer, self.tab], **kwargs)
+
+    @traitlets.observe("node")
+    def _observe_node(self, change):
+        if change["new"]:
+            self.tab.children = [
+                self.get_tab_content(apps_type=calctype[0])
+                for calctype in CALCULATION_TYPES
+            ]
+            for i, calctype in enumerate(CALCULATION_TYPES):
+                self.tab.set_title(i, calctype[1])
+
+            self.tab_selection.options = [
+                (calctype[1], i) for i, calctype in enumerate(CALCULATION_TYPES)
+            ]
+
+            ipw.link((self.tab, "selected_index"), (self.tab_selection, "value"))
+        else:
+            self.tab.children = []
+
+    def get_tab_content(self, apps_type):
+
+        tab_content = ipw.HTML("")
+
+        for app in SELECTED_APPS:
+            if app["calculation_type"] != apps_type:
+                continue
+            tab_content.value += _AppIcon(
+                app=app,
+                path_to_root=self.path_to_root,
+                node=self.node,
+            ).to_html_string()
+
+        return tab_content

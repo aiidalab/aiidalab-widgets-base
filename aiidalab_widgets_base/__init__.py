@@ -12,7 +12,7 @@ from .databases import (
     OptimadeQueryWidget,
 )
 from .export import ExportButtonWidget
-from .nodes import NodesTreeWidget
+from .nodes import NodesTreeWidget, OpenAiidaNodeInAppWidget
 from .process import (
     ProcessCallStackWidget,
     ProcessFollowerWidget,
@@ -50,6 +50,7 @@ __all__ = [
     "ExportButtonWidget",
     "MultiStructureUploadWidget",
     "NodesTreeWidget",
+    "OpenAiidaNodeInAppWidget",
     "OptimadeQueryWidget",
     "ProcessCallStackWidget",
     "ProcessFollowerWidget",
