@@ -3,13 +3,11 @@ from aiida import load_profile
 
 load_profile()
 
-from .codes import CodeDropdown, AiiDACodeSetup
-from .computers import SshComputerSetup
-from .computers import AiidaComputerSetup
-from .computers import ComputerDropdown
+from .codes import AiiDACodeSetup, CodeDropdown
+from .computers import AiidaComputerSetup, ComputerDropdown, SshComputerSetup
 from .databases import (
-    CodQueryWidget,
     CodeDatabaseWidget,
+    CodQueryWidget,
     ComputerDatabaseWidget,
     OptimadeQueryWidget,
 )
@@ -28,24 +26,21 @@ from .process import (
     RunningCalcJobOutputWidget,
     SubmitButtonWidget,
 )
-from .structures import StructureManagerWidget
 from .structures import (
+    BasicStructureEditor,
+    SmilesWidget,
     StructureBrowserWidget,
     StructureExamplesWidget,
+    StructureManagerWidget,
     StructureUploadWidget,
-    SmilesWidget,
 )
-from .structures import BasicStructureEditor
-from .viewers import viewer
-from .viewers import register_viewer_widget
-
-from .wizard import WizardAppWidget
-from .wizard import WizardAppWidgetStep
-
+from .viewers import AiidaNodeViewWidget, register_viewer_widget, viewer
+from .wizard import WizardAppWidget, WizardAppWidgetStep
 
 __all__ = [
     "AiiDACodeSetup",
     "AiidaComputerSetup",
+    "AiidaNodeViewWidget",
     "BasicStructureEditor",
     "CodQueryWidget",
     "CodeDatabaseWidget",
@@ -79,4 +74,4 @@ __all__ = [
     "viewer",
 ]
 
-__version__ = "1.0.0b18"
+__version__ = "1.0.0b19"
