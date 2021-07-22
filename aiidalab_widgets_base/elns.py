@@ -2,12 +2,16 @@ import json
 from pathlib import Path
 
 import ipywidgets as ipw
+import requests_cache
 import traitlets
 from aiida.orm import Node, QueryBuilder
 from aiidalab_eln import get_eln_connector
 from IPython.display import clear_output, display
 
 ELN_CONFIG = Path.home() / ".aiidalab" / "aiidalab-eln-config.json"
+ELN_CONFIG.parent.mkdir(
+    parents=True, exist_ok=True
+)  # making sure that the folder exists.
 
 
 def connect_to_eln(eln_instance=None, **kwargs):
@@ -56,7 +60,9 @@ class ElnImportWidget(ipw.VBox):
             return
 
         traitlets.dlink((eln, "node"), (self, "node"))
-        eln.import_data()
+        with requests_cache.disabled():
+            # Since the cache is enabled in AiiDAlab, we disable it here to get correct results.
+            eln.import_data()
 
 
 class ElnExportWidget(ipw.VBox):
@@ -67,8 +73,8 @@ class ElnExportWidget(ipw.VBox):
         self.path_to_root = path_to_root
 
         # Send to ELN button.
-        self.send = ipw.Button(description="Send to ELN")
-        self.send.on_click(self.send_to_eln)
+        send_button = ipw.Button(description="Send to ELN")
+        send_button.on_click(self.send_to_eln)
 
         # Use non-default destination.
         self.modify_settings = ipw.Checkbox(
@@ -80,21 +86,26 @@ class ElnExportWidget(ipw.VBox):
         self._output = ipw.Output()
 
         # Communicate to the user if something isn't right.
-        self.error_message = ipw.HTML()
+        self.message = ipw.HTML()
 
         children = [
-            ipw.HBox([self.send, self.modify_settings]),
-            self.error_message,
+            ipw.HBox([send_button, self.modify_settings]),
             self._output,
+            self.message,
         ]
         self.eln = connect_to_eln()
-        traitlets.dlink((self, "node"), (self.eln, "node"))
+        if self.eln:
+            traitlets.dlink((self, "node"), (self.eln, "node"))
+        else:
+            self.modify_settings.disabled = True
+            send_button.disabled = True
+            self.message.value = f"""Warning! The access to an ELN is not configured. Please follow <a href="{self.path_to_root}/aiidalab-widgets-base/eln_configure.ipynb" target="_blank">the link</a> to configure it."""
 
         super().__init__(children=children, **kwargs)
 
     @traitlets.observe("node")
     def _observe_node(self, _=None):
-        if self.node is None:
+        if self.node is None or self.eln is None:
             return
 
         if "eln" in self.node.extras:
@@ -117,11 +128,16 @@ class ElnExportWidget(ipw.VBox):
         self.eln.set_sample_config(**info)
 
     def send_to_eln(self, _=None):
-        if self.eln.is_connected:
-            self.error_message.value = ""
-            self.eln.export_data()
+        if self.eln and self.eln.is_connected:
+            self.message.value = f"\u29D7 Sending data to {self.eln.eln_instance}..."
+            with requests_cache.disabled():
+                # Since the cache is enabled in AiiDAlab, we disable it here to get correct results.
+                self.eln.export_data()
+            self.message.value = (
+                f"\u2705 The data were successfully sent to {self.eln.eln_instance}."
+            )
         else:
-            self.error_message.value = f"""Warning! The access to ELN is not configured. Please follow <a href="{self.path_to_root}/aiidalab-widgets-base/eln_configure.ipynb" target="_blank">the link</a> to configure it."""
+            self.message.value = f"""\u274C Something isn't right! We were not able to send the data to the "<strong>{self.eln.eln_instance}</strong>" ELN instance. Please follow <a href="{self.path_to_root}/aiidalab-widgets-base/eln_configure.ipynb" target="_blank">the link</a> to update the ELN's configuration."""
 
     def handle_output(self, _=None):
         with self._output:
@@ -129,7 +145,7 @@ class ElnExportWidget(ipw.VBox):
             if self.modify_settings.value:
                 display(
                     ipw.HTML(
-                        f"""Currently used ELN is: "{self.eln.eln_instance}". To change it, please follow <a href="{self.path_to_root}/aiidalab-widgets-base/eln_configure.ipynb" target="_blank">the link</a>."""
+                        f"""Currently used ELN is: "<strong>{self.eln.eln_instance}</strong>". To change it, please follow <a href="{self.path_to_root}/aiidalab-widgets-base/eln_configure.ipynb" target="_blank">the link</a>."""
                     )
                 )
                 display(self.eln.sample_config_editor())
@@ -237,11 +253,11 @@ class ElnConfigureWidget(ipw.VBox):
 
     def check_connection(self, _=None):
         if self.eln:
-            self.eln.connect()
+            err_message = self.eln.connect()
             if self.eln.is_connected:
-                self.my_output.value = "Connected :)"
+                self.my_output.value = "\u2705 Connected."
                 return
-        self.my_output.value = "Not connected :("
+        self.my_output.value = f"\u274C Not connected. {err_message}"
 
     def display_eln_config(self, value=None):
         """Display ELN configuration specific to the selected type of ELN."""
