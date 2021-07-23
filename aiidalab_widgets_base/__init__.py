@@ -11,8 +11,9 @@ from .databases import (
     ComputerDatabaseWidget,
     OptimadeQueryWidget,
 )
+from .elns import ElnConfigureWidget, ElnExportWidget, ElnImportWidget
 from .export import ExportButtonWidget
-from .nodes import NodesTreeWidget
+from .nodes import NodesTreeWidget, OpenAiidaNodeInAppWidget
 from .process import (
     ProcessCallStackWidget,
     ProcessFollowerWidget,
@@ -47,9 +48,13 @@ __all__ = [
     "CodeDropdown",
     "ComputerDatabaseWidget",
     "ComputerDropdown",
+    "ElnConfigureWidget",
+    "ElnExportWidget",
+    "ElnImportWidget",
     "ExportButtonWidget",
     "MultiStructureUploadWidget",
     "NodesTreeWidget",
+    "OpenAiidaNodeInAppWidget",
     "OptimadeQueryWidget",
     "ProcessCallStackWidget",
     "ProcessFollowerWidget",
@@ -74,4 +79,4 @@ __all__ = [
     "viewer",
 ]
 
-__version__ = "1.0.0b19"
+__version__ = "1.0.0rc1"
