@@ -5,8 +5,8 @@ from ase import Atom, Atoms
 
 # The first atom is anchoring, so the new bond will be connecting it
 # The direction of the new bond is (-1, -1, -1).
-LIGANDS = {
-    "Select ligand": 0,
+FUNCTIONAL_GROUPS = {
+    "Select functional group": 0,
     "Methyl -CH3": [
         ("C", 0, 0, 0),
         ("H", 0.23962342, -0.47699124, 0.78585262),
@@ -26,15 +26,14 @@ LIGANDS = {
     ],
 }
 
+class FunctionalGroupSelectorWidget(ipw.Dropdown):
+    """Class to select functional groups that are returned as `Atoms` object"""
 
-class LigandSelectorWidget(ipw.Dropdown):
-    """Class to select ligands that are returned as `Atoms` object"""
-
-    def __init__(self, value=0, description="Select ligand", **kwargs):
+    def __init__(self, value=0, description="Select functional group", **kwargs):
         self.style = {"description_width": "initial"}
         self.layout = {"width": "initial"}
         super().__init__(
-            value=value, description=description, options=LIGANDS, **kwargs
+            value=value, description=description, options=FUNCTIONAL_GROUPS, **kwargs
         )
 
     def rotate(self, align_to=(0, 0, 1), remove_anchor=False):
@@ -70,3 +69,6 @@ class LigandSelectorWidget(ipw.Dropdown):
         if self.value == 0:
             return None
         return self.value[0][0]
+
+# LigandSelectorWidget is deprecated
+LigandSelectorWidget = FunctionalGroupSelectorWidget
