@@ -26,6 +26,7 @@ FUNCTIONAL_GROUPS = {
     ],
 }
 
+
 class FunctionalGroupSelectorWidget(ipw.Dropdown):
     """Class to select functional groups that are returned as `Atoms` object"""
 
@@ -69,6 +70,7 @@ class FunctionalGroupSelectorWidget(ipw.Dropdown):
         if self.value == 0:
             return None
         return self.value[0][0]
+
 
 # LigandSelectorWidget is deprecated
 LigandSelectorWidget = FunctionalGroupSelectorWidget
