@@ -8,7 +8,7 @@ from aiida.plugins.entry_point import get_entry_point_names
 from IPython.display import clear_output
 from traitlets import Bool, Dict, Instance, Unicode, Union, dlink, link, validate
 
-from aiidalab_widgets_base.computers import ComputerDropdown
+from .computers import ComputerDropdown
 
 
 class CodeDropdown(ipw.VBox):

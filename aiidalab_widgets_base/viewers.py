@@ -94,8 +94,6 @@ class AiidaNodeViewWidget(ipw.VBox):
 
     @traitlets.observe("node")
     def _observe_node(self, change):
-        from aiidalab_widgets_base import viewer
-
         if change["new"] != change["old"]:
             with self._output:
                 clear_output()
