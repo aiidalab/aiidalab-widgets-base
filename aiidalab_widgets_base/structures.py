@@ -355,7 +355,7 @@ class StructureUploadWidget(ipw.VBox):
             description=description, multiple=False, layout={"width": "initial"}
         )
         supported_formats = ipw.HTML(
-            """<a href="https://wiki.fysik.dtu.dk/ase/_modules/ase/io/formats.html" target="_blank">
+            """<a href="https://wiki.fysik.dtu.dk/ase/ase/io/io.html#ase.io.write" target="_blank">
         Supported structure formats
         </a>"""
         )
