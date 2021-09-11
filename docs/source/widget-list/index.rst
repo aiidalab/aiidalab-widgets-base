@@ -6,8 +6,7 @@ This is a collection of Jupyter notebooks that illustrate how to use the widgets
 
 
 Using the widgets usually just involves importing and displaying them.
-For demos, have a look at the jupyter notebooks (`.ipynb` extension) in
-this folder.
+For demos, have a look at the jupyter notebooks (`.ipynb` extension) in this folder.
 
 
 .. toctree::
