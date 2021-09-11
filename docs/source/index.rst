@@ -1,29 +1,26 @@
-#################################################
-Welcome to AiiDAlab Widgets Base's documentation!
-#################################################
+##############################################
+Welcome to the AiiDAlab Widgets documentation!
+##############################################
 
+`AiiDAlab <https://materialscloud.org/aiidalab>`_ applications typically involve some of following steps:
 
-AiiDAlab Widgets Base (AWB) is a set of handy widgets that are used in AiiDAlab to create applications.
+ * prepare the input for a calculation (e.g. an atomic structure)
+ * select computational resources and submit a calculation to AiiDA
+ * monitor a running calculation
+ * find and analyze the results of a calculation
+
+The AiiDAlab widgets help with these common tasks.
+
 
 .. toctree::
    :maxdepth: 2
 
-   AWB introduction <introduction/index>
-   Contribute to AWB <contribute/index>
-   List of widgets <widget-list/index>
+   installation
+   widget-list/index
+   contribute/index
+
    API documentation <apidoc/aiidalab_widgets_base>
 
-
-``aiidalab-widgets-base`` package is released under the MIT license.
-
-
-
-Indices and tables
-==================
-
-* :ref:`genindex`
-* :ref:`modindex`
-* :ref:`search`
 
 ***********
 How to cite
@@ -38,3 +35,12 @@ Acknowledgements
 ****************
 
 This work is supported by the `MARVEL National Centre for Competency in Research <http://nccr-marvel.ch>`__	funded by the `Swiss National Science Foundation <http://www.snf.ch/en>`__, as well as by the `MaX European Centre of Excellence <http://www.max-centre.eu/>`__ funded by the Horizon 2020 EINFRA-5 program, Grant No. 676598.
+
+
+******************
+Indices and tables
+******************
+
+* :ref:`genindex`
+* :ref:`modindex`
+* :ref:`search`

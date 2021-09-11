@@ -1,29 +1,18 @@
 [![Documentation Status](https://readthedocs.org/projects/aiidalab-widgets-base/badge/?version=latest)](https://aiidalab-widgets-base.readthedocs.io/en/latest/?badge=latest)
 
-# Base widgets for AiiDAlab
+# AiiDAlab Widgets
 
-## Installation
+[AiiDAlab](https://materialscloud.org/aiidalab) applications typically involve some of following steps:
 
-Install the `aiidalab_widgets_base` python package via:
-```
-pip install aiidalab-widgets-base
-```
+ * prepare the input for a calculation (e.g. an atomic structure)
+ * select computational resources and submit a calculation to AiiDA
+ * monitor a running calculation
+ * find and analyze the results of a calculation
 
-Install the corresponding `aiidalab-widgets-base` AiiDAlab application
-via the app manager as usual.
-
-### Optional dependencies
-
-* The `SmilesWidget` widget requires the [OpenBabel](http://openbabel.org/) library.
+The AiiDAlab widgets help with these common tasks.
 
 ## Documentation
 The documentation can be found on the [following web page](https://aiidalab-widgets-base.readthedocs.io).
-
-## Usage
-
-Using the widgets usually just involves importing and displaying them.
-For demos, have a look at the jupyter notebooks (`.ipynb` extension) in
-this folder.
 
 ## License
 
