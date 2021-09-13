@@ -1,10 +1,10 @@
-*****************
-Contribute to AWB
-*****************
+************
+Contributing
+************
 
-If would like to contiribute to the project you can do it in multiple ways:
+Contributions to the AiiDAlab widgets are highly welcome and can take different forms:
 
-* `Create issues <https://github.com/aiidalab/aiidalab-widgets-base/issues/new>`_ in case you found a bug or you need a feature that is not yet implemented.
-* Contribute new widgets.
-* Help us with fixing the `existing issues <https://github.com/aiidalab/aiidalab-widgets-base/issues>`_.
-* Extend the documentation.
+* Contribute a widget you created that would be of general interest to AiiDAlab users.
+* `Report bugs <https://github.com/aiidalab/aiidalab-widgets-base/issues>`_.
+* `Feature requests <https://github.com/aiidalab/aiidalab-widgets-base/issues>`_.
+* Help us improve the documentation of widgets.
