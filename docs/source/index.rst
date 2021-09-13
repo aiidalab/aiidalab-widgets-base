@@ -4,14 +4,12 @@ Welcome to the AiiDAlab Widgets documentation!
 
 `AiiDAlab <https://materialscloud.org/aiidalab>`_ applications typically involve some of following steps:
 
- * Prepare the input for a calculation (e.g. an atomic structure).
- * Select computational resources and submit a calculation to AiiDA.
- * Monitor a running calculation.
- * Find and analyze the results of a calculation.
-
+* Prepare the input for a calculation (e.g. an atomic structure).
+* Select computational resources and submit a calculation to AiiDA.
+* Monitor a running calculation.
+* Find and analyze the results of a calculation.
 
 The AiiDAlab widgets help with these common tasks.
-
 
 .. toctree::
    :maxdepth: 2

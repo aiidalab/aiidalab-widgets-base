@@ -2,11 +2,12 @@
 Installation
 ************
 
-The AiiDAlab widgets app comes pre-installed in the AiiDAlab environment.
+The AiiDAlab widgets are already pre-installed in the AiiDAlab environment.
 
-The app contains
- * the `aiidalab-widgets-base` Python package that contains the widgets (`from aiidalab_widgets_base import ...`)
- * several Jupyter notebooks illustrating how to use the widgets
+This includes:
+
+ * the ``aiidalab-widgets-base`` Python package that contains the widgets (``from aiidalab_widgets_base import ...``)
+ * the "AiiDAlab Widgets" app that contains Jupyter notebooks illustrating how to use the widgets
 
 Installation outside the AiiDAlab
 =================================
@@ -17,7 +18,7 @@ Install the Python package from PyPI:
 
     pip install aiidalab-widgets-base
 
-For developers, clone the app and install the Python package in editable mode:
+Developers may want to clone the git repository containing the app and the notebooks and install the Python package in editable mode:
 
 .. code-block:: bash
 

@@ -12,7 +12,8 @@
 The AiiDAlab widgets help with these common tasks.
 
 ## Documentation
-The documentation can be found on the [following web page](https://aiidalab-widgets-base.readthedocs.io).
+
+Hosted on [aiidalab-widgets-base.readthedocs.io](https://aiidalab-widgets-base.readthedocs.io).
 
 ## License
 

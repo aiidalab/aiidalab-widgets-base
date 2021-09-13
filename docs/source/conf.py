@@ -99,6 +99,8 @@ htmlhelp_basename = "aiidalab-widgets-base-doc"
 # This pattern also affects html_static_path and html_extra_path.
 exclude_patterns = []
 
+html_theme = "pydata_sphinx_theme"
+
 # -- Modifications for Readthedocs ----------------------------------------
 
 
