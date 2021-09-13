@@ -34,10 +34,10 @@ extensions = [
     "sphinx.ext.intersphinx",
     "sphinx.ext.viewcode",
     "sphinxcontrib.contentui",
-    "nbsphinx",
+    "myst_nb",
 ]
 
-nbsphinx_execute = "never"
+jupyter_execute_notebooks = "off"
 
 intersphinx_mapping = {
     "python": ("https://docs.python.org/3.7", None),
