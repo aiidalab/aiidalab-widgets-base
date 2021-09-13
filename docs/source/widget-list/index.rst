@@ -2,7 +2,7 @@
 List of widgets
 ***************
 
-Here we collect a set of Jupyter notebooks that illustrate how to use all available widgets.
+This is a collection of Jupyter notebooks that illustrate how to use the widgets available from this library.
 
 .. toctree::
     :titlesonly:
