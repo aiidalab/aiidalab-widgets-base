@@ -69,7 +69,7 @@ SELECTED_APPS = [
 class AiidaNodeTreeNode(TreeNode):
     def __init__(self, pk, name, **kwargs):
         self.pk = pk
-        self.nodes_registry = dict()
+        self.nodes_registry = {}
         super().__init__(name=name, **kwargs)
 
     @traitlets.default("opened")
@@ -101,7 +101,7 @@ class AiidaOutputsTreeNode(TreeNode):
 
     def __init__(self, name, parent_pk, **kwargs):
         self.parent_pk = parent_pk
-        self.nodes_registry = dict()
+        self.nodes_registry = {}
         super().__init__(name=name, **kwargs)
 
 

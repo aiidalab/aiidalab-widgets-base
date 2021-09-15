@@ -13,7 +13,7 @@ import traitlets
 
 
 class WizardAppWidgetStep(traitlets.HasTraits):
-    "One step of a WizardAppWidget."
+    """One step of a WizardAppWidget."""
 
     class State(Enum):
         """Each step is always in one specific state.
@@ -67,6 +67,8 @@ class WizardAppWidgetStep(traitlets.HasTraits):
 
 
 class WizardAppWidget(ipw.VBox):
+    """Wizard widget that guides the users through individual steps."""
+
     ICON_SEPARATOR = "\u2000"  # en-dash  (placed between title and icon)
 
     ICONS = {
@@ -81,11 +83,11 @@ class WizardAppWidget(ipw.VBox):
     @classmethod
     def icons(cls):
         """Return the icon set and return animated icons based on the current time stamp."""
-        t = time()
+        now = time()
         return {
             key: item
             if isinstance(item, str)
-            else item[int((t * len(item) % len(item)))]
+            else item[int((now * len(item) % len(item)))]
             for key, item in cls.ICONS.items()
         }
 
@@ -192,11 +194,12 @@ class WizardAppWidget(ipw.VBox):
             self._consider_auto_advance()
 
     @traitlets.observe("selected_index")
-    def _observe_selected_index(self, change):
+    def _observe_selected_index(self, change):  # pylint: disable=unused-argument
         "Activate/deactivate the next-button based on which step is selected."
         self._update_buttons()
 
     def can_reset(self):
+        """Return whether the current step allows the user to reset the widget."""
         steps = [
             self.accordion.children[idx] for idx in range(len(self.accordion.children))
         ]
@@ -208,6 +211,8 @@ class WizardAppWidget(ipw.VBox):
             return True
 
     def _update_buttons(self):
+        """Update buttons of the wizard"""
+
         with self.hold_trait_notifications():
             index = self.accordion.selected_index
             if index is None:

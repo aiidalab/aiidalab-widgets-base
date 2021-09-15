@@ -763,7 +763,7 @@ class ProcessMonitor(traitlets.HasTraits):
                         func(process_id)
                     else:
                         func()
-                except Exception as error:
+                except Exception as error:  # pylint: disable=broad-except
                     warnings.warn(
                         f"WARNING: Callback function '{func}' disabled due to error: {error}"
                     )
@@ -808,6 +808,7 @@ class ProcessNodesTreeWidget(ipw.VBox):
 
     @traitlets.observe("process")
     def _observe_process(self, change):
+        """Populate tree with the process node."""
         process = change["new"]
         if process:
             self._tree.nodes = [process]

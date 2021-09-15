@@ -1,5 +1,5 @@
 """Module to provide functionality to import structures."""
-# pylint: disable=no-self-use,import-outside-toplevel
+# pylint: disable=no-self-use,import-outside-toplevel,too-many-lines
 
 import datetime
 import io
@@ -188,11 +188,12 @@ class StructureManagerWidget(ipw.VBox):
                 if editor.has_trait("selection"):
                     link((editor, "selection"), (self.viewer, "selection"))
                 if editor.has_trait("camera_orientation"):
+                    # pylint: disable=protected-access
                     dlink(
                         (
                             self.viewer._viewer,
                             "_camera_orientation",
-                        ),  # pylint: disable=protected-access
+                        ),
                         (editor, "camera_orientation"),
                     )
             return editors_tab

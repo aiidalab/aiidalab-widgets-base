@@ -16,9 +16,11 @@ from urllib.parse import urlencode, urlsplit, urlunsplit
 import ipywidgets as ipw
 from aiidalab.utils import find_installed_packages
 from ansi2html import Ansi2HTMLConverter
+from IPython.display import display
 
 
 def get_environment_fingerprint(encoding="utf-8"):
+    """Return a string representing the current environment."""
     packages = find_installed_packages()
     data = {
         "version": 1,
@@ -110,10 +112,12 @@ def _convert_ansi_codes_to_html(msg):
 
 def _format_truncated_traceback(traceback, max_num_chars=3000):
     """Truncate the traceback to the given character length."""
-    n = 0
+    length = 0
     for i, line in enumerate(reversed(traceback)):
-        n += len(_strip_ansi_codes(line)) + 2  # add 2 for newline control characters
-        if n > max_num_chars:
+        length += (
+            len(_strip_ansi_codes(line)) + 2
+        )  # add 2 for newline control characters
+        if length > max_num_chars:
             break
     return _strip_ansi_codes("\n".join(traceback[-i:]))
 
@@ -128,13 +132,15 @@ def install_create_github_issue_exception_handler(output, url, labels=None):
     message to the user, with the option to file an automatic bug report at the
     given URL.
     """
-    global _ORIGINAL_EXCEPTION_HANDLER
+    global _ORIGINAL_EXCEPTION_HANDLER  # pylint: disable=global-statement
 
     if labels is None:
         labels = []
 
-    ipython = get_ipython()  # noqa
-    _ORIGINAL_EXCEPTION_HANDLER = _ORIGINAL_EXCEPTION_HANDLER or ipython._showtraceback
+    ipython = get_ipython()  # noqa  # pylint: disable=undefined-variable
+    _ORIGINAL_EXCEPTION_HANDLER = (
+        _ORIGINAL_EXCEPTION_HANDLER or ipython._showtraceback
+    )  # pylint: disable=protected-access
 
     def create_github_issue_exception_handler(exception_type, exception, traceback):
         try:
@@ -169,13 +175,17 @@ def install_create_github_issue_exception_handler(output, url, labels=None):
                     )
                 )
                 display(msg)  # noqa
-        except Exception as error:
+        except Exception as error:  # pylint: disable=broad-except
             print(f"Error while generating bug report: {error}", file=sys.stderr)
             _ORIGINAL_EXCEPTION_HANDLER(exception_type, exception, traceback)
 
     def restore_original_exception_handler():
-        ipython._showtraceback = _ORIGINAL_EXCEPTION_HANDLER
+        ipython._showtraceback = (
+            _ORIGINAL_EXCEPTION_HANDLER  # pylint: disable=protected-access
+        )
 
-    ipython._showtraceback = create_github_issue_exception_handler
+    ipython._showtraceback = (
+        create_github_issue_exception_handler  # pylint: disable=protected-access
+    )
 
     return restore_original_exception_handler
