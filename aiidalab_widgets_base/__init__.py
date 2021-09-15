@@ -50,7 +50,6 @@ __all__ = [
     "ElnExportWidget",
     "ElnImportWidget",
     "ExportButtonWidget",
-    "MultiStructureUploadWidget",
     "NodesTreeWidget",
     "OpenAiidaNodeInAppWidget",
     "OptimadeQueryWidget",
