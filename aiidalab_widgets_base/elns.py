@@ -55,7 +55,7 @@ class ElnImportWidget(ipw.VBox):
         eln = connect_to_eln(**kwargs)
 
         if eln is None:
-            url = f"{path_to_root}aiidalab-widgets-base/eln_configure.ipynb"
+            url = f"{path_to_root}aiidalab-widgets-base/notebooks/eln_configure.ipynb"
             error_message.value = f"""Warning! The access to ELN {kwargs['eln_instance']} is not configured. Please follow <a href="{url}" target="_blank">the link</a> to configure it."""
             return
 
@@ -99,7 +99,7 @@ class ElnExportWidget(ipw.VBox):
         else:
             self.modify_settings.disabled = True
             send_button.disabled = True
-            self.message.value = f"""Warning! The access to an ELN is not configured. Please follow <a href="{self.path_to_root}/aiidalab-widgets-base/eln_configure.ipynb" target="_blank">the link</a> to configure it."""
+            self.message.value = f"""Warning! The access to an ELN is not configured. Please follow <a href="{self.path_to_root}/aiidalab-widgets-base/notebooks/eln_configure.ipynb" target="_blank">the link</a> to configure it."""
 
         super().__init__(children=children, **kwargs)
 
@@ -137,7 +137,7 @@ class ElnExportWidget(ipw.VBox):
                 f"\u2705 The data were successfully sent to {self.eln.eln_instance}."
             )
         else:
-            self.message.value = f"""\u274C Something isn't right! We were not able to send the data to the "<strong>{self.eln.eln_instance}</strong>" ELN instance. Please follow <a href="{self.path_to_root}/aiidalab-widgets-base/eln_configure.ipynb" target="_blank">the link</a> to update the ELN's configuration."""
+            self.message.value = f"""\u274C Something isn't right! We were not able to send the data to the "<strong>{self.eln.eln_instance}</strong>" ELN instance. Please follow <a href="{self.path_to_root}/aiidalab-widgets-base/notebooks/eln_configure.ipynb" target="_blank">the link</a> to update the ELN's configuration."""
 
     def handle_output(self, _=None):
         with self._output:
@@ -145,7 +145,7 @@ class ElnExportWidget(ipw.VBox):
             if self.modify_settings.value:
                 display(
                     ipw.HTML(
-                        f"""Currently used ELN is: "<strong>{self.eln.eln_instance}</strong>". To change it, please follow <a href="{self.path_to_root}/aiidalab-widgets-base/eln_configure.ipynb" target="_blank">the link</a>."""
+                        f"""Currently used ELN is: "<strong>{self.eln.eln_instance}</strong>". To change it, please follow <a href="{self.path_to_root}/aiidalab-widgets-base/notebooks/eln_configure.ipynb" target="_blank">the link</a>."""
                     )
                 )
                 display(self.eln.sample_config_editor())

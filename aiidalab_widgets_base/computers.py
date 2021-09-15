@@ -851,7 +851,7 @@ class ComputerDropdown(ipw.VBox):
         self.observe(self.refresh, names="allow_select_disabled")
 
         self._setup_another = ipw.HTML(
-            value=f"""<a href={path_to_root}aiidalab-widgets-base/setup_computer.ipynb target="_blank">
+            value=f"""<a href={path_to_root}aiidalab-widgets-base/notebooks/setup_computer.ipynb target="_blank">
             Setup new computer</a>"""
         )
 

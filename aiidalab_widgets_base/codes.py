@@ -69,7 +69,9 @@ class CodeDropdown(ipw.VBox):
             setup_code_params[key] = value
 
         # For later: use base_url here, when it will be implemented in the appmode.
-        url_string = f"<a href={path_to_root}aiidalab-widgets-base/setup_code.ipynb?"
+        url_string = (
+            f"<a href={path_to_root}aiidalab-widgets-base/notebooks/setup_code.ipynb?"
+        )
         url_string += "&".join(
             [f"{k}={v}".replace(" ", "%20") for k, v in setup_code_params.items()]
         )
