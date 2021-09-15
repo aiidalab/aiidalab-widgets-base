@@ -1,8 +1,6 @@
 """Reusable widgets for AiiDAlab applications."""
 from aiida import load_profile
 
-load_profile()
-
 from .codes import AiiDACodeSetup, CodeDropdown
 from .computers import AiidaComputerSetup, ComputerDropdown, SshComputerSetup
 from .databases import (
@@ -80,3 +78,5 @@ __all__ = [
 ]
 
 __version__ = "1.0.0rc2"
+
+load_profile()

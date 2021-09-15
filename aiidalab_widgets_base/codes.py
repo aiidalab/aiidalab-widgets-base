@@ -3,6 +3,7 @@
 from subprocess import check_output
 
 import ipywidgets as ipw
+from aiida.common import MultipleObjectsError, NotExistent
 from aiida.orm import Code, Computer, QueryBuilder, User
 from aiida.plugins.entry_point import get_entry_point_names
 from IPython.display import clear_output
@@ -241,7 +242,7 @@ class AiiDACodeSetup(ipw.VBox):
             btn_setup_code,
             self._setup_code_out,
         ]
-        super(AiiDACodeSetup, self).__init__(children, **kwargs)
+        super().__init__(children, **kwargs)
 
     def _setup_code(self, _=None):
         """Setup an AiiDA code."""
@@ -269,8 +270,6 @@ class AiiDACodeSetup(ipw.VBox):
 
     def exists(self):
         """Returns True if the code exists, returns False otherwise."""
-        from aiida.common import MultipleObjectsError, NotExistent
-
         try:
             Code.get_from_string(f"{self.label}@{self.computer.name}")
             return True

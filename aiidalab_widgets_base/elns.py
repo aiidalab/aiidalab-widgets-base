@@ -1,3 +1,4 @@
+"""Handle authentication and data transfer with electronic lab notebooks (ELNs)."""
 import json
 from pathlib import Path
 
@@ -15,8 +16,9 @@ ELN_CONFIG.parent.mkdir(
 
 
 def connect_to_eln(eln_instance=None, **kwargs):
+    """Connect to electronic lab notebook"""
     try:
-        with open(ELN_CONFIG, "r") as file:
+        with open(ELN_CONFIG, "r", encoding="utf-8") as file:
             config = json.load(file)
     except (FileNotFoundError, json.JSONDecodeError, KeyError):
         return None
@@ -42,6 +44,8 @@ def connect_to_eln(eln_instance=None, **kwargs):
 
 
 class ElnImportWidget(ipw.VBox):
+    """Import data from electronic lab notebook"""
+
     node = traitlets.Instance(Node, allow_none=True)
 
     def __init__(self, path_to_root="../", **kwargs):
@@ -56,7 +60,9 @@ class ElnImportWidget(ipw.VBox):
 
         if eln is None:
             url = f"{path_to_root}aiidalab-widgets-base/eln_configure.ipynb"
-            error_message.value = f"""Warning! The access to ELN {kwargs['eln_instance']} is not configured. Please follow <a href="{url}" target="_blank">the link</a> to configure it."""
+            error_message.value = f"""
+Warning! The access to ELN {kwargs['eln_instance']} is not configured.
+Please follow <a href="{url}" target="_blank">the link</a> to configure it."""
             return
 
         traitlets.dlink((eln, "node"), (self, "node"))
@@ -66,6 +72,8 @@ class ElnImportWidget(ipw.VBox):
 
 
 class ElnExportWidget(ipw.VBox):
+    """Export data to electronic lab notebook"""
+
     node = traitlets.Instance(Node, allow_none=True)
 
     def __init__(self, path_to_root="../", **kwargs):
@@ -99,12 +107,14 @@ class ElnExportWidget(ipw.VBox):
         else:
             self.modify_settings.disabled = True
             send_button.disabled = True
-            self.message.value = f"""Warning! The access to an ELN is not configured. Please follow <a href="{self.path_to_root}/aiidalab-widgets-base/eln_configure.ipynb" target="_blank">the link</a> to configure it."""
+            self.message.value = f"""Warning! The access to an ELN is not configured.
+Please follow <a href="{self.path_to_root}/aiidalab-widgets-base/eln_configure.ipynb" target="_blank">the link</a> to configure it."""  # pylint: disable=line-too-long
 
         super().__init__(children=children, **kwargs)
 
     @traitlets.observe("node")
     def _observe_node(self, _=None):
+        """Observe changes in node"""
         if self.node is None or self.eln is None:
             return
 
@@ -112,22 +122,23 @@ class ElnExportWidget(ipw.VBox):
             info = self.node.extras["eln"]
         else:
             try:
-                q = QueryBuilder().append(
+                query = QueryBuilder().append(
                     Node,
                     filters={"extras": {"has_key": "eln"}},
                     tag="source_node",
                     project="extras.eln",
                 )
-                q.append(
+                query.append(
                     Node, filters={"uuid": self.node.uuid}, with_ancestors="source_node"
                 )
-                info = q.all(flat=True)[0]
+                info = query.all(flat=True)[0]
             except IndexError:
                 info = {}
 
         self.eln.set_sample_config(**info)
 
     def send_to_eln(self, _=None):
+        """Send data to ELN."""
         if self.eln and self.eln.is_connected:
             self.message.value = f"\u29D7 Sending data to {self.eln.eln_instance}..."
             with requests_cache.disabled():
@@ -137,21 +148,27 @@ class ElnExportWidget(ipw.VBox):
                 f"\u2705 The data were successfully sent to {self.eln.eln_instance}."
             )
         else:
-            self.message.value = f"""\u274C Something isn't right! We were not able to send the data to the "<strong>{self.eln.eln_instance}</strong>" ELN instance. Please follow <a href="{self.path_to_root}/aiidalab-widgets-base/eln_configure.ipynb" target="_blank">the link</a> to update the ELN's configuration."""
+            self.message.value = f"""\u274C Something isn't right!
+We were not able to send the data to the "<strong>{self.eln.eln_instance}</strong>" ELN instance.
+Please follow <a href="{self.path_to_root}/aiidalab-widgets-base/eln_configure.ipynb" target="_blank">the link</a> to update the ELN's configuration."""  # pylint: disable=line-too-long
 
     def handle_output(self, _=None):
+        """Display ELN settings"""
         with self._output:
             clear_output()
             if self.modify_settings.value:
                 display(
                     ipw.HTML(
-                        f"""Currently used ELN is: "<strong>{self.eln.eln_instance}</strong>". To change it, please follow <a href="{self.path_to_root}/aiidalab-widgets-base/eln_configure.ipynb" target="_blank">the link</a>."""
+                        f"""Currently used ELN is: "<strong>{self.eln.eln_instance}</strong>".
+To change it, please follow <a href="{self.path_to_root}/aiidalab-widgets-base/eln_configure.ipynb" target="_blank">the link</a>."""  # pylint: disable=line-too-long
                     )
                 )
                 display(self.eln.sample_config_editor())
 
 
 class ElnConfigureWidget(ipw.VBox):
+    """Configure connection to electronic lab notebook"""
+
     def __init__(self, **kwargs):
         self._output = ipw.Output()
         self.eln = None
@@ -212,17 +229,20 @@ class ElnConfigureWidget(ipw.VBox):
         )
 
     def write_to_config(self, config):
-        with open(ELN_CONFIG, "w") as file:
+        """Write current configuration to file."""
+        with open(ELN_CONFIG, "w", encoding="utf-8") as file:
             json.dump(config, file, indent=4)
 
     def get_config(self):
+        """Get ELN config from file"""
         try:
-            with open(ELN_CONFIG, "r") as file:
+            with open(ELN_CONFIG, "r", encoding="utf-8") as file:
                 return json.load(file)
         except (FileNotFoundError, json.JSONDecodeError, KeyError):
             return {}
 
     def update_list_of_elns(self):
+        """Update list of configured ELNs"""
         config = self.get_config()
         default_eln = config.pop("default", None)
         if (
@@ -252,6 +272,7 @@ class ElnConfigureWidget(ipw.VBox):
         self.update_list_of_elns()
 
     def check_connection(self, _=None):
+        """Check whether AiiDAlab is connected to ELN"""
         if self.eln:
             err_message = self.eln.connect()
             if self.eln.is_connected:
@@ -259,7 +280,7 @@ class ElnConfigureWidget(ipw.VBox):
                 return
         self.my_output.value = f"\u274C Not connected. {err_message}"
 
-    def display_eln_config(self, value=None):
+    def display_eln_config(self, value=None):  # pylint: disable=unused-argument
         """Display ELN configuration specific to the selected type of ELN."""
         eln_class = get_eln_connector(self.eln_types.value)
         self.eln = eln_class(
@@ -278,6 +299,7 @@ class ElnConfigureWidget(ipw.VBox):
             display(self.eln)
 
     def save_eln_configuration(self, _=None):
+        """Save connection configuration"""
         config = self.eln.get_config()
         eln_instance = config.pop("eln_instance")
         if eln_instance:

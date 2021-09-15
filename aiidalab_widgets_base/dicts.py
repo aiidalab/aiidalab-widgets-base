@@ -1,3 +1,4 @@
+"""Dictionaries with constants."""
 Colors = {
     "H": [1.0, 1.0, 1.0],
     "He": [0.8509803921568627, 1.0, 1.0],

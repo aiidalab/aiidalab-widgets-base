@@ -64,7 +64,7 @@ class CodQueryWidget(ipw.VBox):
             self.query_message,
             ipw.HBox([self.drop_structure, self.link]),
         ]
-        super(CodQueryWidget, self).__init__(children=children, **kwargs)
+        super().__init__(children=children, **kwargs)
 
     @staticmethod
     def _query(idn=None, formula=None):
@@ -91,7 +91,7 @@ class CodQueryWidget(ipw.VBox):
             try:
                 entry_cif = entry.get_cif_node()
                 formula = entry_cif.get_ase().get_chemical_formula()
-            except:  # noqa: E722
+            except:  # noqa: E722  # pylint: disable=bare-except
                 continue
             entry_add = (
                 "{} (id: {})".format(formula, entry.source["id"]),
@@ -273,6 +273,7 @@ class ComputerDatabaseWidget(ipw.HBox):
         self.domain.options = self.database.keys()
 
     def update_computers(self, _=None):
+        """Update computer dropdown from database"""
         self.computer.options = [
             key for key in self.database[self.domain.value].keys() if key != "default"
         ]
@@ -361,6 +362,7 @@ class CodeDatabaseWidget(ipw.HBox):
         self.inp_domain.options = self.database.keys()
 
     def update_computers(self, _=None):
+        """Update computer dropdown from database"""
         self.inp_computer.options = [
             key
             for key in self.database[self.inp_domain.value].keys()

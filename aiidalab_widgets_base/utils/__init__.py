@@ -75,11 +75,11 @@ def string_range_to_list(strng, shift=-1):
     singles = [int(s) + shift for s in strng.split() if s.isdigit()]
     ranges = [r for r in strng.split() if ".." in r]
     if len(singles) + len(ranges) != len(strng.split()):
-        return list(), False
+        return [], False
     for rng in ranges:
         try:
             start, end = rng.split("..")
             singles += [i + shift for i in range(int(start), int(end) + 1)]
         except ValueError:
-            return list(), False
+            return [], False
     return singles, True

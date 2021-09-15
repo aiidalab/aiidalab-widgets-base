@@ -502,7 +502,7 @@ class CalcJobOutputWidget(ipw.Textarea):
             )
         else:
             if os.path.exists(output_file_path):
-                with open(output_file_path) as fobj:
+                with open(output_file_path, encoding="utf-8") as fobj:
                     difference = fobj.readlines()[
                         len(self.output) : -1
                     ]  # Only adding the difference
@@ -701,9 +701,7 @@ class ProcessListWidget(ipw.VBox):
             sleep(update_interval)
 
     def start_autoupdate(self, update_interval=10):
-        import threading
-
-        update_state = threading.Thread(target=self._follow, args=(update_interval,))
+        update_state = Thread(target=self._follow, args=(update_interval,))
         update_state.start()
 
 
@@ -725,6 +723,10 @@ class ProcessMonitor(traitlets.HasTraits):
 
     @traitlets.observe("process")
     def _observe_process(self, change):
+        """Handle changes in process.
+
+        Start/stop monitor thread.
+        """
         process = change["new"]
         if process is None or process.id != getattr(change["old"], "id", None):
             with self.hold_trait_notifications():
@@ -744,6 +746,7 @@ class ProcessMonitor(traitlets.HasTraits):
                         self._monitor_thread.start()
 
     def _monitor_process(self, process_id):
+        """Monitor AiiDA process"""
         assert process_id is not None
         process = load_node(process_id)
 

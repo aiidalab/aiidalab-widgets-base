@@ -3,6 +3,7 @@ import io
 import tokenize
 
 import ipywidgets as ipw
+from IPython.display import Javascript, display
 from traitlets import Unicode
 
 
@@ -17,8 +18,6 @@ class CopyToClipboardButton(ipw.Button):
 
     def copy_to_clipboard(self, change=None):  # pylint:disable=unused-argument
         """Copy text to clipboard."""
-        from IPython.display import Javascript, display
-
         javas = Javascript(
             """
            function copyStringToClipboard (str) {{

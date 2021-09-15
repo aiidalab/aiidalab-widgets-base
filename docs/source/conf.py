@@ -54,7 +54,7 @@ source_suffix = ".rst"
 master_doc = "index"
 
 # General information about the project.
-project = u"aiidalab-widgets-base"
+project = "aiidalab-widgets-base"
 copyright_first_year = "2020"
 copyright_owners = "The AiiDAlab Team"
 
@@ -64,9 +64,9 @@ copyright_year_string = (
     if current_year == copyright_first_year
     else "{}-{}".format(copyright_first_year, current_year)
 )
-copyright = u"{}, {}. All rights reserved".format(
+copyright = "{}, {}. All rights reserved".format(  # pylint: disable=redefined-builtin
     copyright_year_string, copyright_owners
-)  # pylint: disable=redefined-builtin
+)
 
 # The version info for the project you're documenting, acts as replacement for
 # |version| and |release|, also used in various other places throughout the
@@ -162,7 +162,7 @@ def setup(app):
 # Warnings to ignore when using the -n (nitpicky) option
 # We should ignore any python built-in exception, for instance
 nitpick_ignore = []
-for line in open("nitpick-exceptions"):
+for line in open("nitpick-exceptions", encoding="utf-8"):
     if line.strip() == "" or line.startswith("#"):
         continue
     dtype, target = line.split(None, 1)

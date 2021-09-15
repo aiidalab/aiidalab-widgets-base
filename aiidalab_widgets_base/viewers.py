@@ -4,14 +4,15 @@
 import base64
 import warnings
 from copy import deepcopy
+from tempfile import NamedTemporaryFile
 
+import ase
 import ipywidgets as ipw
 import nglview
 import numpy as np
 import traitlets
 from aiida.orm import Node
-from ase import Atoms, neighborlist
-from IPython.display import clear_output, display
+from IPython.display import Javascript, clear_output, display
 from matplotlib.colors import to_rgb
 from numpy.linalg import norm
 from traitlets import (
@@ -41,7 +42,7 @@ from .dicts import Colors, Radius
 from .misc import CopyToClipboardButton, ReversePolishNotation
 from .utils import list_to_string_range, string_range_to_list
 
-AIIDA_VIEWER_MAPPING = dict()
+AIIDA_VIEWER_MAPPING = {}
 
 
 def register_viewer_widget(key):
@@ -81,6 +82,8 @@ def viewer(obj, downloadable=True, **kwargs):
 
 
 class AiidaNodeViewWidget(ipw.VBox):
+    """View generic AiiDA node"""
+
     node = traitlets.Instance(Node, allow_none=True)
 
     def __init__(self, **kwargs):
@@ -94,6 +97,7 @@ class AiidaNodeViewWidget(ipw.VBox):
 
     @traitlets.observe("node")
     def _observe_node(self, change):
+        """Display any changes using viewer."""
         if change["new"] != change["old"]:
             with self._output:
                 clear_output()
@@ -103,17 +107,18 @@ class AiidaNodeViewWidget(ipw.VBox):
 
 @register_viewer_widget("data.dict.Dict.")
 class DictViewer(ipw.VBox):
+    """Viewer for Dict nodes."""
 
     value = Unicode()
-    """Viewer class for Dict object.
-
-    :param parameter: Dict object to be viewed
-    :type parameter: Dict
-    :param downloadable: If True, add link/button to download the content of the object
-    :type downloadable: bool"""
 
     def __init__(self, parameter, downloadable=True, **kwargs):
-        import pandas as pd
+        """
+        :param parameter: Dict object to be viewed
+        :type parameter: Dict
+        :param downloadable: If True, add link/button to download the content of the object
+        :type downloadable: bool
+        """
+        import pandas as pd  # pylint: disable=import-outside-toplevel
 
         # Here we are defining properties of 'df' class (specified while exporting pandas table into html).
         # Since the exported object is nothing more than HTML table, all 'standard' HTML table settings
@@ -136,7 +141,7 @@ class DictViewer(ipw.VBox):
 
         pd.set_option("max_colwidth", 40)
         dataf = pd.DataFrame(
-            [(key, value) for key, value in sorted(parameter.get_dict().items())],
+            list(sorted(parameter.get_dict().items())),
             columns=["Key", "Value"],
         )
         self.value += dataf.to_html(
@@ -236,10 +241,10 @@ class _StructureDataBaseViewer(ipw.VBox):
 
         # 4. Button to clear selection.
         clear_selection = ipw.Button(description="Clear selection")
-        # clear_selection.on_click(lambda _: self.set_trait('selection', list()))  # lambda cannot contain assignments
+        # clear_selection.on_click(lambda _: self.set_trait('selection', []))  # lambda cannot contain assignments
         clear_selection.on_click(
             lambda _: (
-                self.set_trait("selection", list()),
+                self.set_trait("selection", []),
                 self.set_trait("selection_adv", ""),
                 # self.wrong_syntax.layout.visibility = 'hidden'
             )
@@ -338,14 +343,18 @@ class _StructureDataBaseViewer(ipw.VBox):
 
         return ipw.VBox([self.download_box, self.screenshot_box, self.render_box])
 
-    def _render_structure(self, change=None):
+    def _render_structure(self, change=None):  # pylint: disable=unused-argument
         """Render the structure with POVRAY."""
 
-        if not isinstance(self.structure, Atoms):
+        if not isinstance(self.structure, ase.Atoms):
             return
 
         self.render_btn.disabled = True
-        omat = np.array(self._viewer._camera_orientation).reshape(4, 4).transpose()
+        omat = (
+            np.array(self._viewer._camera_orientation)
+            .reshape(4, 4)
+            .transpose()  # pylint: disable=protected-access
+        )
 
         zfactor = norm(omat[0, 0:3])
         omat[0:3, 0:3] = omat[0:3, 0:3] / zfactor
@@ -371,32 +380,32 @@ class _StructureDataBaseViewer(ipw.VBox):
             ]
         )
 
-        for n, i in enumerate(vertices):
+        for n_vertex, i in enumerate(vertices):
             ixyz = omat[0:3, 0:3].dot(i + omat[0:3, 3])
-            vertices[n] = np.array([-ixyz[0], ixyz[1], ixyz[2]])
+            vertices[n_vertex] = np.array([-ixyz[0], ixyz[1], ixyz[2]])
 
         bonds = []
 
-        cutOff = neighborlist.natural_cutoffs(
+        cutoff = ase.neighborlist.natural_cutoffs(
             bb
         )  # Takes the cutoffs from the ASE database
-        neighborList = neighborlist.NeighborList(
-            cutOff, self_interaction=False, bothways=False
+        neighborlist = ase.neighborlist.NeighborList(
+            cutoff, self_interaction=False, bothways=False
         )
-        neighborList.update(bb)
-        matrix = neighborList.get_connectivity_matrix()
+        neighborlist.update(bb)
+        matrix = neighborlist.get_connectivity_matrix()
 
         for k in matrix.keys():
             i = bb[k[0]]
             j = bb[k[1]]
 
-            v1 = np.array([i.x, i.y, i.z])
-            v2 = np.array([j.x, j.y, j.z])
-            midi = v1 + (v2 - v1) * Radius[i.symbol] / (
+            vec1 = np.array([i.x, i.y, i.z])
+            vec2 = np.array([j.x, j.y, j.z])
+            midi = vec1 + (vec2 - vec1) * Radius[i.symbol] / (
                 Radius[i.symbol] + Radius[j.symbol]
             )
             bond = Cylinder(
-                v1,
+                vec1,
                 midi,
                 0.2,
                 Pigment("color", np.array(Colors[i.symbol])),
@@ -404,7 +413,7 @@ class _StructureDataBaseViewer(ipw.VBox):
             )
             bonds.append(bond)
             bond = Cylinder(
-                v2,
+                vec2,
                 midi,
                 0.2,
                 Pigment("color", np.array(Colors[j.symbol])),
@@ -413,8 +422,8 @@ class _StructureDataBaseViewer(ipw.VBox):
             bonds.append(bond)
 
         edges = []
-        for x, i in enumerate(vertices):
-            for j in vertices[x + 1 :]:
+        for index_i, i in enumerate(vertices):
+            for j in vertices[index_i + 1 :]:
                 if (
                     norm(np.cross(i - j, vertices[1] - vertices[0])) < 0.001
                     or norm(np.cross(i - j, vertices[2] - vertices[0])) < 0.001
@@ -500,12 +509,12 @@ class _StructureDataBaseViewer(ipw.VBox):
         """Highlighting atoms according to the provided list."""
         if not hasattr(self._viewer, "component_0"):
             return
-        self._viewer._remove_representations_by_name(
+        self._viewer._remove_representations_by_name(  # pylint:disable=protected-access
             repr_name="selected_atoms"
-        )  # pylint:disable=protected-access
+        )
         self._viewer.add_ball_and_stick(  # pylint:disable=no-member
             name="selected_atoms",
-            selection=list() if vis_list is None else vis_list,
+            selection=[] if vis_list is None else vis_list,
             color=color,
             aspectRatio=size,
             opacity=opacity,
@@ -517,7 +526,7 @@ class _StructureDataBaseViewer(ipw.VBox):
 
     @default("selection")
     def _default_selection(self):
-        return list()
+        return []
 
     @validate("selection")
     def _validate_selection(self, provided):
@@ -554,8 +563,6 @@ class _StructureDataBaseViewer(ipw.VBox):
     @staticmethod
     def _download(payload, filename):
         """Download payload as a file named as filename."""
-        from IPython.display import Javascript
-
         javas = Javascript(
             """
             var link = document.createElement('a');
@@ -572,8 +579,6 @@ class _StructureDataBaseViewer(ipw.VBox):
 
     def _prepare_payload(self, file_format=None):
         """Prepare binary information."""
-        from tempfile import NamedTemporaryFile
-
         file_format = file_format if file_format else self.file_format.value
         tmp = NamedTemporaryFile()
         self.structure.write(tmp.name, format=file_format)  # pylint: disable=no-member
@@ -600,8 +605,8 @@ class StructureDataViewer(_StructureDataBaseViewer):
         and can't be set outside of the class.
     """
 
-    structure = Union([Instance(Atoms), Instance(Node)], allow_none=True)
-    displayed_structure = Instance(Atoms, allow_none=True, read_only=True)
+    structure = Union([Instance(ase.Atoms), Instance(Node)], allow_none=True)
+    displayed_structure = Instance(ase.Atoms, allow_none=True, read_only=True)
 
     def __init__(self, structure=None, **kwargs):
         super().__init__(**kwargs)
@@ -621,7 +626,7 @@ class StructureDataViewer(_StructureDataBaseViewer):
         if structure is None:
             return None  # if no structure provided, the rest of the code can be skipped
 
-        if isinstance(structure, Atoms):
+        if isinstance(structure, ase.Atoms):
             return structure
         if isinstance(structure, Node):
             return structure.get_ase()
@@ -647,13 +652,13 @@ class StructureDataViewer(_StructureDataBaseViewer):
                 comp_id
             ) in self._viewer._ngl_component_ids:  # pylint: disable=protected-access
                 self._viewer.remove_component(comp_id)
-            self.selection = list()
+            self.selection = []
             if change["new"] is not None:
                 self._viewer.add_component(nglview.ASEStructure(change["new"]))
                 self._viewer.clear()
-                self._viewer.add_ball_and_stick(
+                self._viewer.add_ball_and_stick(  # pylint: disable=no-member
                     aspectRatio=4
-                )  # pylint: disable=no-member
+                )
                 self._viewer.add_unitcell()  # pylint: disable=no-member
 
     def d_from(self, operand):
@@ -935,8 +940,6 @@ class FolderDataViewer(ipw.VBox):
 
     def download(self, change=None):  # pylint: disable=unused-argument
         """Prepare for downloading."""
-        from IPython.display import Javascript
-
         payload = base64.b64encode(
             self._folder.get_object_content(self.files.value).encode()
         ).decode()
@@ -963,6 +966,7 @@ class BandsDataViewer(ipw.VBox):
     :type bands: BandsData"""
 
     def __init__(self, bands, **kwargs):
+        # pylint: disable=import-outside-toplevel
         from bokeh.io import output_notebook, show
         from bokeh.models import Span
         from bokeh.plotting import figure

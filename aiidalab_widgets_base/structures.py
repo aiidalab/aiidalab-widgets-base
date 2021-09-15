@@ -1,16 +1,13 @@
 """Module to provide functionality to import structures."""
-# pylint: disable=no-self-use
+# pylint: disable=no-self-use,import-outside-toplevel
 
 import datetime
 import io
 from collections import OrderedDict
 
-# ASE imports
 import ase
 import ipywidgets as ipw
 import numpy as np
-
-# AiiDA imports
 from aiida.engine import calcfunction
 from aiida.orm import (
     CalcFunctionNode,
@@ -21,21 +18,21 @@ from aiida.orm import (
     WorkChainNode,
 )
 from aiida.plugins import DataFactory
-from ase import Atom, Atoms
-from ase.data import chemical_symbols, covalent_radii
+from ase import Atoms
 from sklearn.decomposition import PCA
 from traitlets import Instance, Int, List, Unicode, Union, default, dlink, link, observe
 
-from .data import LigandSelectorWidget
-
 # Local imports
+from .data import LigandSelectorWidget
 from .utils import get_ase_from_file
 from .viewers import StructureDataViewer
 
 CifData = DataFactory("cif")  # pylint: disable=invalid-name
 StructureData = DataFactory("structure")  # pylint: disable=invalid-name
 
-SYMBOL_RADIUS = {key: covalent_radii[i] for i, key in enumerate(chemical_symbols)}
+SYMBOL_RADIUS = {
+    key: ase.data.covalent_radii[i] for i, key in enumerate(ase.data.chemical_symbols)
+}
 
 
 class StructureManagerWidget(ipw.VBox):
@@ -158,7 +155,7 @@ class StructureManagerWidget(ipw.VBox):
 
         # Otherwise making one tab per importer.
         importers_tab = ipw.Tab()
-        importers_tab.children = [i for i in importers]  # One importer per tab.
+        importers_tab.children = list(importers)  # One importer per tab.
         for i, importer in enumerate(importers):
             # Labeling tabs.
             importers_tab.set_title(i, importer.title)
@@ -173,9 +170,12 @@ class StructureManagerWidget(ipw.VBox):
                 link((editors[0], "selection"), (self.viewer, "selection"))
             if editors[0].has_trait("camera_orientation"):
                 dlink(
-                    (self.viewer._viewer, "_camera_orientation"),
+                    (
+                        self.viewer._viewer,  # pylint: disable=protected-access
+                        "_camera_orientation",
+                    ),
                     (editors[0], "camera_orientation"),
-                )  # pylint: disable=protected-access
+                )
             return editors[0]
 
         # If more than one editor was defined.
@@ -189,9 +189,12 @@ class StructureManagerWidget(ipw.VBox):
                     link((editor, "selection"), (self.viewer, "selection"))
                 if editor.has_trait("camera_orientation"):
                     dlink(
-                        (self.viewer._viewer, "_camera_orientation"),
+                        (
+                            self.viewer._viewer,
+                            "_camera_orientation",
+                        ),  # pylint: disable=protected-access
                         (editor, "camera_orientation"),
-                    )  # pylint: disable=protected-access
+                    )
             return editors_tab
         return None
 
@@ -615,9 +618,8 @@ class SmilesWidget(ipw.VBox):
         # pylint: disable=unused-import
         self.title = title
 
-        try:
-            from openbabel import openbabel  # noqa: F401
-            from openbabel import pybel  # noqa: F401
+        try:  # pylint: disable=import-outside-toplevel
+            from openbabel import openbabel, pybel  # noqa: F401
         except ImportError:
             super().__init__(
                 [
@@ -663,8 +665,8 @@ class SmilesWidget(ipw.VBox):
 
     def _pybel_opt(self, smile, steps):
         """Optimize a molecule using force field and pybel (needed for complex SMILES)."""
-        from openbabel import openbabel as ob
-        from openbabel import pybel as pb
+        from openbabel import openbabel as ob  # pylint: disable=import-outside-toplevel
+        from openbabel import pybel as pb  # pylint: disable=import-outside-toplevel
 
         obconversion = ob.OBConversion()
         obconversion.SetInFormat("smi")
@@ -681,21 +683,21 @@ class SmilesWidget(ipw.VBox):
         f_f.Setup(pbmol.OBMol)
         f_f.ConjugateGradients(steps, 1.0e-9)
         f_f.GetCoordinates(pbmol.OBMol)
-        species = [chemical_symbols[atm.atomicnum] for atm in pbmol.atoms]
+        species = [ase.data.chemical_symbols[atm.atomicnum] for atm in pbmol.atoms]
         positions = np.asarray([atm.coords for atm in pbmol.atoms])
         return self.make_ase(species, positions)
 
     def _rdkit_opt(self, smile, steps):
         """Optimize a molecule using force field and rdkit (needed for complex SMILES)."""
+        # pylint: disable=no-member
         from rdkit import Chem
-        from rdkit.Chem import AllChem
 
         smile = smile.replace("[", "").replace("]", "")
         mol = Chem.MolFromSmiles(smile)
         mol = Chem.AddHs(mol)
 
-        AllChem.EmbedMolecule(mol, maxAttempts=20, randomSeed=42)
-        AllChem.UFFOptimizeMolecule(mol, maxIters=steps)
+        Chem.AllChem.EmbedMolecule(mol, maxAttempts=20, randomSeed=42)
+        Chem.AllChem.UFFOptimizeMolecule(mol, maxIters=steps)
         positions = mol.GetConformer().GetPositions()
         natoms = mol.GetNumAtoms()
         species = [mol.GetAtomWithIdx(j).GetSymbol() for j in range(natoms)]
@@ -816,7 +818,7 @@ class BasicStructureEditor(ipw.VBox):  # pylint: disable=too-many-instance-attri
         # Atoms selection.
         self.element = ipw.Dropdown(
             description="Select element",
-            options=chemical_symbols[1:],
+            options=ase.data.chemical_symbols[1:],
             value="H",
             style={"description_width": "initial"},
             layout={"width": "initial"},
@@ -989,13 +991,13 @@ class BasicStructureEditor(ipw.VBox):  # pylint: disable=too-many-instance-attri
         """Define the action point."""
         self.point.value = self.vec2str(self.sel2com())
         if self.autoclear_selection.value:
-            self.selection = list()
+            self.selection = []
 
     def def_axis_p1(self, _=None):
         """Define the first point of axis."""
         self.axis_p1.value = self.vec2str(self.sel2com())
         if self.autoclear_selection.value:
-            self.selection = list()
+            self.selection = []
 
     def def_axis_p2(self, _=None):
         """Define the second point of axis."""
@@ -1006,7 +1008,7 @@ class BasicStructureEditor(ipw.VBox):  # pylint: disable=too-many-instance-attri
         )
         self.axis_p2.value = self.vec2str(com)
         if self.autoclear_selection.value:
-            self.selection = list()
+            self.selection = []
 
     def def_perpendicular_to_screen(self, _=None):
         """Define a normalized vector perpendicular to the screen."""
@@ -1136,7 +1138,7 @@ class BasicStructureEditor(ipw.VBox):  # pylint: disable=too-many-instance-attri
 
         if self.ligand.value == 0:
             for idx in self.selection:
-                new = Atom(self.element.value)
+                new = ase.Atom(self.element.value)
                 atoms[idx].mass = new.mass
                 atoms[idx].magmom = new.magmom
                 atoms[idx].momentum = new.momentum
@@ -1168,7 +1170,7 @@ class BasicStructureEditor(ipw.VBox):  # pylint: disable=too-many-instance-attri
         atoms += add_atoms
 
         self.structure = atoms
-        self.selection = [i for i in range(last_atom, last_atom + len(selection))]
+        self.selection = list(range(last_atom, last_atom + len(selection)))
 
     def add(self, _=None):
         """Add atoms."""
@@ -1176,7 +1178,7 @@ class BasicStructureEditor(ipw.VBox):  # pylint: disable=too-many-instance-attri
         selection = self.selection
 
         if self.ligand.value == 0:
-            initial_ligand = Atoms([Atom(self.element.value, [0, 0, 0])])
+            initial_ligand = Atoms([ase.Atom(self.element.value, [0, 0, 0])])
             rad = SYMBOL_RADIUS[self.element.value]
         else:
             initial_ligand = self.ligand.rotate(align_to=self.action_vector)

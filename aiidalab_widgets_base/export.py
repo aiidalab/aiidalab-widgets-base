@@ -1,7 +1,10 @@
 """Widgets to manage AiiDA export."""
+import base64
 import os
+import subprocess
+from tempfile import mkdtemp
 
-from IPython.display import display
+from IPython.display import Javascript, display
 from ipywidgets import Button
 
 
@@ -15,17 +18,11 @@ class ExportButtonWidget(Button):
         if "layout" not in kwargs:
             kwargs["layout"] = {}
         kwargs["layout"]["width"] = "initial"
-        super(ExportButtonWidget, self).__init__(**kwargs)
+        super().__init__(**kwargs)
         self.on_click(self.export_aiida_subgraph)
 
     def export_aiida_subgraph(self, change=None):  # pylint: disable=unused-argument
         """Perform export when the button is pressed"""
-        import base64
-        import subprocess
-        from tempfile import mkdtemp
-
-        from IPython.display import Javascript
-
         fname = os.path.join(mkdtemp(), "export.aiida")
         subprocess.call(
             ["verdi", "export", "create", fname, "-N", str(self.process.id)]
