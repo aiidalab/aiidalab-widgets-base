@@ -9,7 +9,9 @@ import ipywidgets as ipw
 import pexpect
 import shortuuid
 from aiida.common import NotExistent
-from aiida.orm import Computer, QueryBuilder, User
+from aiida.orm import AuthInfo, Computer, QueryBuilder, User
+from aiida.schedulers import Scheduler
+from aiida.transports import Transport
 from aiida.transports.plugins.ssh import parse_sshconfig
 from IPython.display import clear_output
 from traitlets import (
@@ -165,7 +167,7 @@ class SshComputerSetup(ipw.VBox):
             btn_setup_ssh,
             self._setup_ssh_out,
         ]
-        super(SshComputerSetup, self).__init__(children, **kwargs)
+        super().__init__(children, **kwargs)
 
     @staticmethod
     def _ssh_keygen():
@@ -207,7 +209,7 @@ class SshComputerSetup(ipw.VBox):
         hashes = check_output(
             proxycmd + ["ssh-keyscan", "-p", str(self.port), "-H", hostname]
         )
-        with open(fname, "a") as fobj:
+        with open(fname, "a", encoding="utf-8") as fobj:
             fobj.write(hashes.decode("utf-8"))
 
     def can_login(self, silent=False):
@@ -241,14 +243,15 @@ class SshComputerSetup(ipw.VBox):
         fname = path.expanduser("~/.ssh/config")
         if not path.exists(fname):
             return False
-        cfglines = open(fname).read().split("\n")
+        with open(fname, encoding="utf-8") as handle:
+            cfglines = handle.read().split("\n")
         return "Host " + self.hostname in cfglines
 
     def _write_ssh_config(self, proxycmd="", private_key_abs_fname=None):
         """Put host information into the config file."""
         fname = path.expanduser("~/.ssh/config")
         print(f"Adding section to {fname}")
-        with open(fname, "a") as file:
+        with open(fname, "a", encoding="utf-8") as file:
             file.write(f"Host {self.hostname} \n")
             file.write(f"User {self.username} \n")
             file.write(f"Port {self.port} \n")
@@ -283,8 +286,6 @@ class SshComputerSetup(ipw.VBox):
     @staticmethod
     def _send_pubkey(hostname, username, password, proxycmd=""):
         """Send a publick key to a remote host."""
-        from pexpect import TIMEOUT
-
         timeout = 10
         print("Sending public key to {}... ".format(hostname), end="")
         str_ssh = "ssh-copy-id {}@{}".format(username, hostname)
@@ -302,7 +303,7 @@ class SshComputerSetup(ipw.VBox):
                 ],
                 timeout=timeout,
             )  # final
-        except TIMEOUT:
+        except pexpect.TIMEOUT:
             print("Exceeded {} s timeout".format(timeout))
             return False
 
@@ -321,7 +322,7 @@ class SshComputerSetup(ipw.VBox):
             child.sendline(password)
             try:
                 child.expect("Now try logging into", timeout=5)
-            except TIMEOUT:
+            except pexpect.TIMEOUT:
                 print("Failed\nPlease check your username and/or password")
                 return False
             print("Ok")
@@ -579,9 +580,6 @@ class AiidaComputerSetup(ipw.VBox):
     safe_interval = Union([Unicode(), Float()])
 
     def __init__(self, **kwargs):
-        from aiida.schedulers import Scheduler
-        from aiida.transports import Transport
-
         # List of widgets to be displayed.
         inp_computer_name = ipw.Text(
             value="",
@@ -714,7 +712,7 @@ class AiidaComputerSetup(ipw.VBox):
             ipw.HBox([btn_setup_comp, btn_test]),
             ipw.HBox([self._setup_comp_out, self._test_out]),
         ]
-        super(AiidaComputerSetup, self).__init__(children, **kwargs)
+        super().__init__(children, **kwargs)
 
     def _configure_computer(self):
         """Create AuthInfo."""
@@ -747,7 +745,6 @@ class AiidaComputerSetup(ipw.VBox):
         if "proxycommand" in sshcfg:
             authparams["proxy_command"] = sshcfg["proxycommand"]
         aiidauser = User.objects.get_default()
-        from aiida.orm import AuthInfo
 
         authinfo = AuthInfo(
             computer=Computer.objects.get(name=self.label), user=aiidauser

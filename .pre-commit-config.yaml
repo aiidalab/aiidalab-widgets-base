@@ -24,3 +24,11 @@ repos:
     hooks:
       - id: isort
         args: ["--profile", "black", "--filter-files"]
+
+  - repo: local
+    hooks:
+    - id: pylint
+      name: pylint
+      entry: pylint
+      types: [python]
+      language: system
