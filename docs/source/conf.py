@@ -6,8 +6,9 @@ import os
 import subprocess
 import sys
 import time
+from pathlib import Path
 
-# Load the dummy profile to make sure the docs build suucceed even if the current
+# Load the dummy profile to make sure the docs build succeed even if the current
 # default profile of the AiiDA installation is not configured.
 from aiida.manage.configuration import load_documentation_profile
 
@@ -33,7 +34,10 @@ extensions = [
     "sphinx.ext.intersphinx",
     "sphinx.ext.viewcode",
     "sphinxcontrib.contentui",
+    "myst_nb",
 ]
+
+jupyter_execute_notebooks = "off"
 
 intersphinx_mapping = {
     "python": ("https://docs.python.org/3.7", None),
@@ -95,6 +99,22 @@ htmlhelp_basename = "aiidalab-widgets-base-doc"
 # This pattern also affects html_static_path and html_extra_path.
 exclude_patterns = []
 
+html_theme = "pydata_sphinx_theme"
+
+# -- Modifications for Readthedocs ----------------------------------------
+
+
+def symlink_example_notebooks(source_dir: Path):
+    """Symlink example Jupyter notebooks.
+
+    Symlinks example jupyter notebooks so that they can be
+    included into the documentation.
+    """
+    notebooks_dir = source_dir.parent.parent / "notebooks"
+    target_dir = source_dir / "widget-list" / "notebooks"
+    if not target_dir.exists():
+        target_dir.symlink_to(notebooks_dir, target_is_directory=True)
+
 
 def run_apidoc(_):
     """Runs sphinx-apidoc when building the documentation.
@@ -102,11 +122,11 @@ def run_apidoc(_):
     build on readthedocs.
     See also https://github.com/rtfd/readthedocs.org/issues/1139
     """
-    source_dir = os.path.abspath(os.path.dirname(__file__))
-    apidoc_dir = os.path.join(source_dir, "apidoc")
-    package_dir = os.path.join(
-        source_dir, os.pardir, os.pardir, "aiidalab_widgets_base"
-    )
+    source_dir = Path(__file__).resolve().parent
+    apidoc_dir = source_dir / "apidoc"
+    package_dir = source_dir.parent.parent / "aiidalab_widgets_base"
+
+    symlink_example_notebooks(source_dir)
 
     # In #1139, they suggest the route below, but this ended up
     # calling sphinx-build, not sphinx-apidoc

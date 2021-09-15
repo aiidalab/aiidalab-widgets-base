@@ -13,20 +13,20 @@ TEMPLATE = """
   <th style="text-align:center">Electronic Lab Notebook.</th>
 <tr>
   <td valign="top"><ul>
-    <li><a href="{appbase}/structures.ipynb" target="_blank">Dealing with one structure</a></li>
-    <li><a href="{appbase}/aiida_datatypes_viewers.ipynb" target="_blank">AiiDA datatypes viewers</a></li>
+    <li><a href="{appbase}/notebooks/structures.ipynb" target="_blank">Dealing with one structure</a></li>
+    <li><a href="{appbase}/notebooks/aiida_datatypes_viewers.ipynb" target="_blank">AiiDA datatypes viewers</a></li>
   </ul></td>
   <td valign="top"><ul>
-    <li><a href="{appbase}/setup_computer.ipynb" target="_blank">Setup computer</a></li>
-    <li><a href="{appbase}/setup_code.ipynb" target="_blank">Setup code</a></li>
-    <li><a href="{appbase}/codes_computers.ipynb" target="_blank">Dealing with codes and computers</a></li>
+    <li><a href="{appbase}/notebooks/setup_computer.ipynb" target="_blank">Setup computer</a></li>
+    <li><a href="{appbase}/notebooks/setup_code.ipynb" target="_blank">Setup code</a></li>
+    <li><a href="{appbase}/notebooks/codes_computers.ipynb" target="_blank">Dealing with codes and computers</a></li>
   </ul></td>
   <td valign="top"><ul>
-    <li><a href="{appbase}/process_list.ipynb" target="_blank">Process list</a></li>
-    <li><a href="{appbase}/process.ipynb" target="_blank">Follow a process</a></li>
+    <li><a href="{appbase}/notebooks/process_list.ipynb" target="_blank">Process list</a></li>
+    <li><a href="{appbase}/notebooks/process.ipynb" target="_blank">Follow a process</a></li>
   </ul></td>
   <td valign="top"><ul>
-    <li><a href="{appbase}/eln_configure.ipynb" target="_blank">Configure ELN</a></li>
+    <li><a href="{appbase}/notebooks/eln_configure.ipynb" target="_blank">Configure ELN</a></li>
   </ul></td>
 </tr>
 </table>
