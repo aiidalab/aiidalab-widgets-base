@@ -101,7 +101,7 @@ class CodeDropdown(ipw.VBox):
 
     @staticmethod
     def _full_code_label(code):
-        return f"{code.label}@{code.computer.name}"
+        return f"{code.label}@{code.computer.label}"
 
     def refresh(self, _=None):
         """Refresh available codes.
@@ -123,7 +123,7 @@ class CodeDropdown(ipw.VBox):
 
     @validate("selected_code")
     def _validate_selected_code(self, change):
-        """If code is provided, set it as it is. If code's name is provided,
+        """If code is provided, set it as it is. If code's label is provided,
         select the code and set it."""
         code = change["value"]
         self.output.value = ""
@@ -132,7 +132,7 @@ class CodeDropdown(ipw.VBox):
         if code is None:
             return None
 
-        # Check code by name.
+        # Check code by label.
         if isinstance(code, str):
             if code in self.codes:
                 return self.codes[code]
@@ -254,7 +254,7 @@ class AiiDACodeSetup(ipw.VBox):
                 print("You did not specify absolute path to the executable")
                 return
             if self.exists():
-                print(f"Code {self.label}@{self.computer.name} already exists")
+                print(f"Code {self.label}@{self.computer.label} already exists")
                 return
             code = Code(remote_computer_exec=(self.computer, self.remote_abs_path))
             code.label = self.label
@@ -264,7 +264,7 @@ class AiiDACodeSetup(ipw.VBox):
             code.set_append_text(self.append_text)
             code.store()
             code.reveal()
-            full_string = f"{self.label}@{self.computer.name}"
+            full_string = f"{self.label}@{self.computer.label}"
             print(check_output(["verdi", "code", "show", full_string]).decode("utf-8"))
 
     def exists(self):
@@ -272,7 +272,7 @@ class AiiDACodeSetup(ipw.VBox):
         from aiida.common import MultipleObjectsError, NotExistent
 
         try:
-            Code.get_from_string(f"{self.label}@{self.computer.name}")
+            Code.get_from_string(f"{self.label}@{self.computer.label}")
             return True
         except MultipleObjectsError:
             return True
