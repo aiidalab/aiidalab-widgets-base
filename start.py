@@ -4,8 +4,6 @@ import ipywidgets as ipw
 TEMPLATE = """
 <table>
 <tr>
-  <th style="text-align:center">Basic data objects.</th>
-  <th style="width:70px" rowspan=2></th>
   <th style="text-align:center">Codes and computers.</th>
   <th style="width:70px" rowspan=2></th>
   <th style="text-align:center">Processes.</th>
@@ -13,13 +11,8 @@ TEMPLATE = """
   <th style="text-align:center">Electronic Lab Notebook.</th>
 <tr>
   <td valign="top"><ul>
-    <li><a href="{appbase}/notebooks/structures.ipynb" target="_blank">Dealing with one structure</a></li>
-    <li><a href="{appbase}/notebooks/aiida_datatypes_viewers.ipynb" target="_blank">AiiDA datatypes viewers</a></li>
-  </ul></td>
-  <td valign="top"><ul>
     <li><a href="{appbase}/notebooks/setup_computer.ipynb" target="_blank">Setup computer</a></li>
     <li><a href="{appbase}/notebooks/setup_code.ipynb" target="_blank">Setup code</a></li>
-    <li><a href="{appbase}/notebooks/codes_computers.ipynb" target="_blank">Dealing with codes and computers</a></li>
   </ul></td>
   <td valign="top"><ul>
     <li><a href="{appbase}/notebooks/process_list.ipynb" target="_blank">Process list</a></li>
