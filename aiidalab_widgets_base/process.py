@@ -163,11 +163,11 @@ class SubmitButtonWidget(ipw.VBox):
 
             if self.append_output:
                 self.submit_out.value += f"""Submitted process {self.process}. Click
-                <a href={self.path_to_root}aiidalab-widgets-base/process.ipynb?id={self.process.pk}
+                <a href={self.path_to_root}aiidalab-widgets-base/notebooks/process.ipynb?id={self.process.pk}
                 target="_blank">here</a> to follow.<br>"""
             else:
                 self.submit_out.value = f"""Submitted process {self.process}. Click
-                <a href={self.path_to_root}aiidalab-widgets-base/process.ipynb?id={self.process.pk}
+                <a href={self.path_to_root}aiidalab-widgets-base/notebooks/process.ipynb?id={self.process.pk}
                 target="_blank">here</a> to follow."""
 
             for func in self._run_after_submitted:
@@ -378,7 +378,7 @@ class ProcessCallStackWidget(ipw.HTML):
             raise TypeError("Unknown type: {}".format(type(node)))
 
         process_state = node.process_state.value.capitalize()
-        pk = """<a#space#href={0}aiidalab-widgets-base/process.ipynb?id={1}#space#target="_blank">{1}</a>""".format(
+        pk = """<a#space#href={0}aiidalab-widgets-base/notebooks/process.ipynb?id={1}#space#target="_blank">{1}</a>""".format(
             self.path_to_root, node.pk
         )
 
@@ -659,7 +659,7 @@ class ProcessListWidget(ipw.VBox):
 
         # Add HTML links.
         dataf["PK"] = dataf["PK"].apply(
-            lambda x: """<a href={0}aiidalab-widgets-base/process.ipynb?id={1} target="_blank">{1}</a>""".format(
+            lambda x: """<a href={0}aiidalab-widgets-base/notebooks/process.ipynb?id={1} target="_blank">{1}</a>""".format(
                 self.path_to_root, x
             )
         )
