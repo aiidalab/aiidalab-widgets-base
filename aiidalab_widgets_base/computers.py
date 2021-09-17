@@ -750,7 +750,7 @@ class AiidaComputerSetup(ipw.VBox):
         from aiida.orm import AuthInfo
 
         authinfo = AuthInfo(
-            computer=Computer.objects.get(name=self.label), user=aiidauser
+            computer=Computer.objects.get(label=self.label), user=aiidauser
         )
         authinfo.set_auth_params(authparams)
         authinfo.store()
@@ -764,7 +764,7 @@ class AiidaComputerSetup(ipw.VBox):
                 print("Please specify the computer name (for AiiDA)")
                 return
             try:
-                computer = Computer.objects.get(name=self.label)
+                computer = Computer.objects.get(label=self.label)
                 print(f"A computer called {self.label} already exists.")
                 return
             except NotExistent:
@@ -772,7 +772,7 @@ class AiidaComputerSetup(ipw.VBox):
 
             print(f"Creating new computer with name '{self.label}'")
             computer = Computer(
-                name=self.label, hostname=self.hostname, description=self.description
+                label=self.label, hostname=self.hostname, description=self.description
             )
             computer.set_transport_type(self.transport)
             computer.set_scheduler_type(self.scheduler)
@@ -851,7 +851,7 @@ class ComputerDropdown(ipw.VBox):
         self.observe(self.refresh, names="allow_select_disabled")
 
         self._setup_another = ipw.HTML(
-            value=f"""<a href={path_to_root}aiidalab-widgets-base/setup_computer.ipynb target="_blank">
+            value=f"""<a href={path_to_root}aiidalab-widgets-base/notebooks/setup_computer.ipynb target="_blank">
             Setup new computer</a>"""
         )
 
@@ -869,7 +869,7 @@ class ComputerDropdown(ipw.VBox):
         user = User.objects.get_default()
 
         return {
-            c[0].name: c[0]
+            c[0].label: c[0]
             for c in QueryBuilder().append(Computer).all()
             if c[0].is_user_configured(user)
             and (self.allow_select_disabled or c[0].is_user_enabled(user))
@@ -890,7 +890,7 @@ class ComputerDropdown(ipw.VBox):
 
     @validate("selected_computer")
     def _validate_selected_computer(self, change):
-        """Select computer either by name or by class instance."""
+        """Select computer either by label or by class instance."""
         computer = change["value"]
         self.output.value = ""
         if not computer:
@@ -902,7 +902,7 @@ class ComputerDropdown(ipw.VBox):
             was found in your AiiDA database."""
 
         if isinstance(computer, Computer):
-            if computer.name in self.computers:
+            if computer.label in self.computers:
                 return computer
             self.output.value = f"""The computer instance '<span style="color:red">{computer}</span>'
             supplied was not found in your AiiDA database."""

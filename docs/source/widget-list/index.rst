@@ -18,7 +18,6 @@ See also the `corresponding git repository <https://github.com/aiidalab/aiidalab
     notebooks/process
     notebooks/process_list
     notebooks/structures
-    notebooks/structures_multi
     notebooks/wizard_apps
     notebooks/eln_configure
     notebooks/eln_import
