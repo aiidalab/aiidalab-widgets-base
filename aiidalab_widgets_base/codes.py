@@ -178,7 +178,9 @@ class AiiDACodeSetup(ipw.VBox):
         link((inp_label, "value"), (self, "label"))
 
         # Computer on which the code is installed. Two dlinks are needed to make sure we get a Computer instance.
-        inp_computer = ComputerDropdown(path_to_root=path_to_root, layout={"margin": "0px 0px 0px 125px"})
+        inp_computer = ComputerDropdown(
+            path_to_root=path_to_root, layout={"margin": "0px 0px 0px 125px"}
+        )
         dlink((inp_computer, "selected_computer"), (self, "computer"))
         dlink((self, "computer"), (inp_computer, "selected_computer"))
 
