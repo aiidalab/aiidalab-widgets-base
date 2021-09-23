@@ -165,7 +165,7 @@ class AiiDACodeSetup(ipw.VBox):
     prepend_text = Unicode()
     append_text = Unicode()
 
-    def __init__(self, **kwargs):
+    def __init__(self, path_to_root="../", **kwargs):
 
         style = {"description_width": "200px"}
 
@@ -178,7 +178,9 @@ class AiiDACodeSetup(ipw.VBox):
         link((inp_label, "value"), (self, "label"))
 
         # Computer on which the code is installed. Two dlinks are needed to make sure we get a Computer instance.
-        inp_computer = ComputerDropdown(layout={"margin": "0px 0px 0px 125px"})
+        inp_computer = ComputerDropdown(
+            path_to_root=path_to_root, layout={"margin": "0px 0px 0px 125px"}
+        )
         dlink((inp_computer, "selected_computer"), (self, "computer"))
         dlink((self, "computer"), (inp_computer, "selected_computer"))
 
@@ -250,13 +252,13 @@ class AiiDACodeSetup(ipw.VBox):
         with self._setup_code_out:
             clear_output()
             if self.label is None:
-                print("You did not specify code label")
+                print("You did not specify code label.")
                 return
             if not self.remote_abs_path:
-                print("You did not specify absolute path to the executable")
+                print("You did not specify absolute path to the executable.")
                 return
             if self.exists():
-                print(f"Code {self.label}@{self.computer.label} already exists")
+                print(f"Code {self.label}@{self.computer.label} already exists.")
                 return
             code = Code(remote_computer_exec=(self.computer, self.remote_abs_path))
             code.label = self.label
