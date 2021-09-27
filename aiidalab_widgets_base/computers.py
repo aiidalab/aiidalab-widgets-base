@@ -3,7 +3,7 @@
 import os
 from copy import copy
 from os import path
-from subprocess import call, check_output
+from subprocess import CalledProcessError, call, check_output
 
 import ipywidgets as ipw
 import pexpect
@@ -41,7 +41,7 @@ class SshComputerSetup(ipw.VBox):
 
     def __init__(self, **kwargs):
         computer_image = ipw.HTML(
-            '<img width="200px" src="./miscellaneous/images/computer.png">'
+            '<img width="200px" src="../miscellaneous/images/computer.png">'
         )
 
         # Username.
@@ -204,11 +204,16 @@ class SshComputerSetup(ipw.VBox):
         proxycmd = [] if proxycmd is None else proxycmd
         fname = path.expanduser("~/.ssh/known_hosts")
         print(f"Adding keys from {hostname} to {fname}")
-        hashes = check_output(
-            proxycmd + ["ssh-keyscan", "-p", str(self.port), "-H", hostname]
-        )
+        try:
+            hashes = check_output(
+                proxycmd + ["ssh-keyscan", "-p", str(self.port), "-H", hostname]
+            )
+        except CalledProcessError:
+            print(f"Couldn't add keys from {hostname} to {fname}. Aborting.")
+            return False
         with open(fname, "a") as fobj:
             fobj.write(hashes.decode("utf-8"))
+        return True
 
     def can_login(self, silent=False):
         """Check if it is possible to login into the remote host."""
@@ -369,13 +374,17 @@ class SshComputerSetup(ipw.VBox):
 
             # Make proxy server known.
             if not self.is_host_known(self.proxy_hostname):
-                self._make_host_known(self.proxy_hostname)
+                success = self._make_host_known(self.proxy_hostname)
+                if not success:
+                    return False, ""
 
             # Finally trying to connect.
             if self._send_pubkey(self.proxy_hostname, proxy_username, proxy_password):
                 return True, proxy_username + "@" + self.proxy_hostname
 
-            print(f"Could not send public key to {self.proxy_hostname} (proxy server).")
+            print(
+                f"Could not send public key to {self.proxy_hostname} (proxy server), sorry :-("
+            )
             return False, ""
 
         # If proxy is NOT required.
@@ -447,14 +456,16 @@ class SshComputerSetup(ipw.VBox):
 
         # make host known by ssh on the proxy server
         if not self.is_host_known():
-            self._make_host_known(
+            success = self._make_host_known(
                 self.hostname, ["ssh"] + [proxycmd] if proxycmd else []
             )
+            if not success:
+                return
 
         if mode == "password":
             # sending public key to the main host
             if not self._send_pubkey(self.hostname, self.username, password, proxycmd):
-                print("Could not send public key to {self.hostname}")
+                print("Could not send public key to {self.hostname}, sorry :-(")
                 return
 
         # modify the ssh config file if necessary
@@ -834,7 +845,6 @@ class ComputerDropdown(ipw.VBox):
         """
 
         self.output = ipw.HTML()
-
         self._dropdown = ipw.Dropdown(
             options={},
             value=None,
