@@ -546,9 +546,10 @@ class _StructureDataBaseViewer(ipw.VBox):
 
     def download(self, change=None):  # pylint: disable=unused-argument
         """Prepare a structure for downloading."""
+        pk = f"pk-{self.pk}" if self.pk else "not-stored"
         self._download(
             payload=self._prepare_payload(),
-            filename="structure." + self.file_format.value,
+            filename=f"structure-{pk}.{self.file_format.value}",
         )
 
     @staticmethod
@@ -602,6 +603,7 @@ class StructureDataViewer(_StructureDataBaseViewer):
 
     structure = Union([Instance(Atoms), Instance(Node)], allow_none=True)
     displayed_structure = Instance(Atoms, allow_none=True, read_only=True)
+    pk = Int(allow_none=True)
 
     def __init__(self, structure=None, **kwargs):
         super().__init__(**kwargs)
@@ -622,8 +624,10 @@ class StructureDataViewer(_StructureDataBaseViewer):
             return None  # if no structure provided, the rest of the code can be skipped
 
         if isinstance(structure, Atoms):
+            self.pk = None
             return structure
         if isinstance(structure, Node):
+            self.pk = structure.pk
             return structure.get_ase()
         raise ValueError(
             "Unsupported type {}, structure must be one of the following types: "
