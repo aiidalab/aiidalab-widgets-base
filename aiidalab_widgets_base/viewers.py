@@ -546,10 +546,9 @@ class _StructureDataBaseViewer(ipw.VBox):
 
     def download(self, change=None):  # pylint: disable=unused-argument
         """Prepare a structure for downloading."""
-        pk = f"pk-{self.pk}" if self.pk else "not-stored"
+        suffix = f"-pk-{self.pk}" if self.pk else ""
         self._download(
             payload=self._prepare_payload(),
-            suffix = f"-pk-{self.pk}" if self.pk else ""
             filename=f"structure{suffix}.{self.file_format.value}",
         )
 
