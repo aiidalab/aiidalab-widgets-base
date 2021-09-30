@@ -549,7 +549,8 @@ class _StructureDataBaseViewer(ipw.VBox):
         pk = f"pk-{self.pk}" if self.pk else "not-stored"
         self._download(
             payload=self._prepare_payload(),
-            filename=f"structure-{pk}.{self.file_format.value}",
+            suffix = f"-pk-{self.pk}" if self.pk else ""
+            filename=f"structure{suffix}.{self.file_format.value}",
         )
 
     @staticmethod
