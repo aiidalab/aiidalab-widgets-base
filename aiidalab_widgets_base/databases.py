@@ -181,6 +181,7 @@ class OptimadeQueryWidget(ipw.VBox):
         title: str = None,
         **kwargs,
     ) -> None:
+        providers_header = ipw.HTML("<h4>Select a provider</h4>")
         providers = OptimadeQueryProviderWidget(
             embedded=embedded,
             width_ratio=kwargs.pop("width_ratio", None),
@@ -207,7 +208,7 @@ class OptimadeQueryWidget(ipw.VBox):
         layout = kwargs.pop("layout", {"width": "auto", "height": "auto"})
 
         super().__init__(
-            children=(providers, filters),
+            children=(providers_header, providers, filters),
             layout=layout,
             **kwargs,
         )
