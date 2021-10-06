@@ -185,13 +185,13 @@ class AiiDACodeSetup(ipw.VBox):
         dlink((self, "computer"), (inp_computer, "selected_computer"))
 
         # Code plugin.
-        inp_code_plugin = ipw.Dropdown(
+        self.inp_code_plugin = ipw.Dropdown(
             options=sorted(get_entry_point_names("aiida.calculations")),
             description="Code plugin:",
             layout=ipw.Layout(width="500px"),
             style=style,
         )
-        link((inp_code_plugin, "value"), (self, "input_plugin"))
+        link((self.inp_code_plugin, "value"), (self, "input_plugin"))
 
         # Code description.
         inp_description = ipw.Text(
@@ -234,7 +234,7 @@ class AiiDACodeSetup(ipw.VBox):
                         [
                             inp_label,
                             inp_computer,
-                            inp_code_plugin,
+                            self.inp_code_plugin,
                             inp_description,
                             inp_abs_path,
                         ]
@@ -247,6 +247,14 @@ class AiiDACodeSetup(ipw.VBox):
         ]
         super(AiiDACodeSetup, self).__init__(children, **kwargs)
 
+    @validate("input_plugin")
+    def _validate_input_plugin(self, proposal):
+        plugin = proposal["value"]
+        if plugin in self.inp_code_plugin.options:
+            return plugin
+        else:
+            return None
+
     def _setup_code(self, _=None):
         """Setup an AiiDA code."""
         with self._setup_code_out:
@@ -257,6 +265,9 @@ class AiiDACodeSetup(ipw.VBox):
             if not self.remote_abs_path:
                 print("You did not specify absolute path to the executable.")
                 return
+            if self.computer:
+                print("Please specify a computer from your database.")
+                return False
             if self.exists():
                 print(f"Code {self.label}@{self.computer.label} already exists.")
                 return
@@ -274,6 +285,9 @@ class AiiDACodeSetup(ipw.VBox):
     def exists(self):
         """Returns True if the code exists, returns False otherwise."""
         from aiida.common import MultipleObjectsError, NotExistent
+
+        if not self.label:
+            return False
 
         try:
             Code.get_from_string(f"{self.label}@{self.computer.label}")
