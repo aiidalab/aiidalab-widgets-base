@@ -910,6 +910,7 @@ class ComputerDropdown(ipw.VBox):
                 return self.computers[computer]
             self.output.value = f"""No computer named '<span style="color:red">{computer}</span>'
             was found in your AiiDA database."""
+            return None
 
         if isinstance(computer, Computer):
             if computer.label in self.computers:
