@@ -250,10 +250,7 @@ class AiiDACodeSetup(ipw.VBox):
     @validate("input_plugin")
     def _validate_input_plugin(self, proposal):
         plugin = proposal["value"]
-        if plugin in self.inp_code_plugin.options:
-            return plugin
-        else:
-            return None
+        return plugin if plugin in self.inp_code_plugin.options else None
 
     def _setup_code(self, _=None):
         """Setup an AiiDA code."""
@@ -266,7 +263,7 @@ class AiiDACodeSetup(ipw.VBox):
                 print("You did not specify absolute path to the executable.")
                 return
             if self.computer:
-                print("Please specify a computer from your database.")
+                print("Please specify a computer that is configured in your AiiDA profile.")
                 return False
             if self.exists():
                 print(f"Code {self.label}@{self.computer.label} already exists.")
