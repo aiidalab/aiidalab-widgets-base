@@ -158,8 +158,7 @@ class AiiDACodeSetup(ipw.VBox):
 
     label = Unicode()
     computer = Unicode(allow_none=True)
-
-    input_plugin = Unicode()
+    input_plugin = Unicode(allow_none=True)
     description = Unicode()
     remote_abs_path = Unicode()
     prepend_text = Unicode()
