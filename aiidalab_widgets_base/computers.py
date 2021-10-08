@@ -908,8 +908,8 @@ class ComputerDropdown(ipw.VBox):
         if isinstance(computer, str):
             if computer in self.computers:
                 return self.computers[computer]
-            self.output.value = f"""No computer named '<span style="color:red">{computer}</span>'
-            was found in your AiiDA database."""
+            self.output.value = f"""Computer instance '<span style="color:red">{computer}</span>'
+            is not configured in your AiiDA profile."""
             return None
 
         if isinstance(computer, Computer):
