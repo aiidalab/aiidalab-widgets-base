@@ -15,30 +15,48 @@ ELN_CONFIG.parent.mkdir(
 
 
 def connect_to_eln(eln_instance=None, **kwargs):
+
+    # Assumming that the connection can only be established to the ELNs
+    # with the stored configuration.
     try:
         with open(ELN_CONFIG, "r") as file:
             config = json.load(file)
     except (FileNotFoundError, json.JSONDecodeError, KeyError):
-        return None
+        return (
+            None,
+            f"Can't open '{ELN_CONFIG}' (ELN configuration file). Instance: {eln_instance}",
+        )
 
+    # If no ELN instance was specified, trying the default one.
     if not eln_instance:
         eln_instance = config.pop("default", None)
 
-    if eln_instance:
+    if eln_instance:  # The ELN instance could be identified.
         if eln_instance in config:
             eln_config = config[eln_instance]
             eln_type = eln_config.pop("eln_type", None)
-        else:
-            eln_type = None
-        if not eln_type:
-            return None
-        eln = get_eln_connector(eln_type)(
-            eln_instance=eln_instance, **eln_config, **kwargs
-        )
-        eln.connect()
-        return eln
+        else:  # The selected instance is not present in the config.
+            return None, f"Didn't find configuration for the '{eln_instance}' instance."
 
-    return None
+        # If the ELN type cannot be identified - aborting.
+        if not eln_type:
+            return None, f"Can't identify the type of {eln_instance} ELN."
+
+        # Everything is alright, can populate the ELN connector
+        # with the required info.
+        try:
+            eln = get_eln_connector(eln_type)(
+                eln_instance=eln_instance, **eln_config, **kwargs
+            )
+        except NotImplementedError as err:
+            return None, str(err)
+        eln.connect()
+        return eln, None
+
+    return (
+        None,
+        "No ELN instance was provided, the default ELN instane is not configured either.",
+    )
 
 
 class ElnImportWidget(ipw.VBox):
@@ -52,11 +70,11 @@ class ElnImportWidget(ipw.VBox):
         error_message = ipw.HTML()
         super().__init__(children=[error_message], **kwargs)
 
-        eln = connect_to_eln(**kwargs)
+        eln, msg = connect_to_eln(**kwargs)
 
         if eln is None:
             url = f"{path_to_root}aiidalab-widgets-base/notebooks/eln_configure.ipynb"
-            error_message.value = f"""Warning! The access to ELN {kwargs['eln_instance']} is not configured. Please follow <a href="{url}" target="_blank">the link</a> to configure it."""
+            error_message.value = f"""Warning! The access to ELN is not configured. Please follow <a href="{url}" target="_blank">the link</a> to configure it.</br> More details: {msg}"""
             return
 
         traitlets.dlink((eln, "node"), (self, "node"))
@@ -93,13 +111,13 @@ class ElnExportWidget(ipw.VBox):
             self._output,
             self.message,
         ]
-        self.eln = connect_to_eln()
+        self.eln, msg = connect_to_eln()
         if self.eln:
             traitlets.dlink((self, "node"), (self.eln, "node"))
         else:
             self.modify_settings.disabled = True
             send_button.disabled = True
-            self.message.value = f"""Warning! The access to an ELN is not configured. Please follow <a href="{self.path_to_root}/aiidalab-widgets-base/notebooks/eln_configure.ipynb" target="_blank">the link</a> to configure it."""
+            self.message.value = f"""Warning! The access to ELN is not configured. Please follow <a href="{self.path_to_root}/aiidalab-widgets-base/notebooks/eln_configure.ipynb" target="_blank">the link</a> to configure it.</br> </br> More details: {msg}"""
 
         super().__init__(children=children, **kwargs)
 
@@ -261,7 +279,14 @@ class ElnConfigureWidget(ipw.VBox):
 
     def display_eln_config(self, value=None):
         """Display ELN configuration specific to the selected type of ELN."""
-        eln_class = get_eln_connector(self.eln_types.value)
+        try:
+            eln_class = get_eln_connector(self.eln_types.value)
+        except NotImplementedError as err:
+            with self._output:
+                clear_output()
+                display(ipw.HTML("&#10060;" + str(err)))
+                return
+
         self.eln = eln_class(
             eln_instance=self.eln_instance.label if self.eln_instance.value else "",
             **self.eln_instance.value,
