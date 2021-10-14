@@ -16,7 +16,7 @@ ELN_CONFIG.parent.mkdir(
 
 def connect_to_eln(eln_instance=None, **kwargs):
 
-    # Assumming that the connection can only be established to the ELNs
+    # assuming that the connection can only be established to the ELNs
     # with the stored configuration.
     try:
         with open(ELN_CONFIG, "r") as file:
