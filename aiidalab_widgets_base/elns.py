@@ -55,7 +55,7 @@ def connect_to_eln(eln_instance=None, **kwargs):
 
     return (
         None,
-        "No ELN instance was provided, the default ELN instane is not configured either.",
+        "No ELN instance was provided, the default ELN instance is not configured either. Set a default ELN or select an ELN instance.",
     )
 
 
