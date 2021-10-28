@@ -390,14 +390,12 @@ class StructureUploadWidget(ipw.VBox):
             if frmt == "cif":
                 self.structure = CifData(file=io.BytesIO(item["content"]))
             else:
-                with tempfile.NamedTemporaryFile(
-                    suffix=f".{frmt}", delete=False
-                ) as fptr:
-                    fptr.write(item["content"])
-                    fpath = fptr.name
-                self.structure = self._validate_and_fix_ase_cell(
-                    get_ase_from_file(fpath)
-                )
+                with tempfile.NamedTemporaryFile(suffix=f".{frmt}") as temp_file:
+                    temp_file.write(item["content"])
+                    temp_file.flush()
+                    self.structure = self._validate_and_fix_ase_cell(
+                        get_ase_from_file(temp_file.name)
+                    )
             self.file_upload.value.clear()
             break
 
