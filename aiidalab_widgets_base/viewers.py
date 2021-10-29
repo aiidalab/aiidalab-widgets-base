@@ -11,6 +11,7 @@ import numpy as np
 import traitlets
 from aiida.orm import Node
 from ase import Atoms, neighborlist
+from ase.cell import Cell
 from IPython.display import clear_output, display
 from matplotlib.colors import to_rgb
 from numpy.linalg import norm
@@ -162,6 +163,7 @@ class _StructureDataBaseViewer(ipw.VBox):
     selection = List(Int)
     selection_adv = Unicode()
     supercell = List(Int)
+    cell = Instance(Cell, allow_none=True)
     DEFAULT_SELECTION_OPACITY = 0.2
     DEFAULT_SELECTION_RADIUS = 6
     DEFAULT_SELECTION_COLOR = "green"
@@ -200,9 +202,10 @@ class _StructureDataBaseViewer(ipw.VBox):
             configuration_box.children = [
                 self._selection_tab(),
                 self._appearance_tab(),
+                self._cell_tab(),
                 self._download_tab(),
             ]
-            for i, title in enumerate(["Selection", "Appearance", "Download"]):
+            for i, title in enumerate(["Selection", "Appearance", "Cell", "Download"]):
                 configuration_box.set_title(i, title)
             children = [ipw.HBox([view_box, configuration_box])]
             view_box.layout = {"width": "60%"}
@@ -301,6 +304,94 @@ class _StructureDataBaseViewer(ipw.VBox):
         center_button.on_click(lambda c: self._viewer.center())
 
         return ipw.VBox([supercell_selector, background_color, center_button])
+
+    @observe("cell")
+    def _observe_cell(self, _=None):
+        if self.cell:
+            self.cell_a.value = "<i><b>a</b></i>: {:.4f} {:.4f} {:.4f}".format(
+                *self.cell.array[0]
+            )
+            self.cell_b.value = "<i><b>b</b></i>: {:.4f} {:.4f} {:.4f}".format(
+                *self.cell.array[1]
+            )
+            self.cell_c.value = "<i><b>c</b></i>: {:.4f} {:.4f} {:.4f}".format(
+                *self.cell.array[2]
+            )
+
+            self.cell_a_length.value = "|<i><b>a</b></i>|: {:.4f}".format(
+                self.cell.lengths()[0]
+            )
+            self.cell_b_length.value = "|<i><b>b</b></i>|: {:.4f}".format(
+                self.cell.lengths()[1]
+            )
+            self.cell_c_length.value = "|<i><b>c</b></i>|: {:.4f}".format(
+                self.cell.lengths()[2]
+            )
+
+            self.cell_alpha.value = "&alpha;: {:.4f}".format(self.cell.angles()[0])
+            self.cell_beta.value = "&beta;: {:.4f}".format(self.cell.angles()[1])
+            self.cell_gamma.value = "&gamma;: {:.4f}".format(self.cell.angles()[2])
+        else:
+            self.cell_a.value = "<i><b>a</b></i>:"
+            self.cell_b.value = "<i><b>b</b></i>:"
+            self.cell_c.value = "<i><b>c</b></i>:"
+
+            self.cell_a_length.value = "|<i><b>a</b></i>|:"
+            self.cell_b_length.value = "|<i><b>b</b></i>|:"
+            self.cell_c_length.value = "|<i><b>c</b></i>|:"
+
+            self.cell_alpha.value = "&alpha;:"
+            self.cell_beta.value = "&beta;:"
+            self.cell_gamma.value = "&gamma;:"
+
+    def _cell_tab(self):
+        self.cell_a = ipw.HTML()
+        self.cell_b = ipw.HTML()
+        self.cell_c = ipw.HTML()
+
+        self.cell_a_length = ipw.HTML()
+        self.cell_b_length = ipw.HTML()
+        self.cell_c_length = ipw.HTML()
+
+        self.cell_alpha = ipw.HTML()
+        self.cell_beta = ipw.HTML()
+        self.cell_gamma = ipw.HTML()
+
+        self._observe_cell()
+
+        return ipw.VBox(
+            [
+                ipw.HBox(
+                    [
+                        ipw.VBox(
+                            [
+                                ipw.HTML("Cell vectors:"),
+                                self.cell_a,
+                                self.cell_b,
+                                self.cell_c,
+                            ]
+                        ),
+                        ipw.VBox(
+                            [
+                                ipw.HTML("Сell vectors length:"),
+                                self.cell_a_length,
+                                self.cell_b_length,
+                                self.cell_c_length,
+                            ],
+                            layout={"margin": "0 0 0 50px"},
+                        ),
+                    ]
+                ),
+                ipw.VBox(
+                    [
+                        ipw.HTML("Angles:"),
+                        self.cell_alpha,
+                        self.cell_beta,
+                        self.cell_gamma,
+                    ]
+                ),
+            ]
+        )
 
     def _download_tab(self):
         """Defining the download tab."""
@@ -546,9 +637,10 @@ class _StructureDataBaseViewer(ipw.VBox):
 
     def download(self, change=None):  # pylint: disable=unused-argument
         """Prepare a structure for downloading."""
+        suffix = f"-pk-{self.pk}" if self.pk else ""
         self._download(
             payload=self._prepare_payload(),
-            filename="structure." + self.file_format.value,
+            filename=f"structure{suffix}.{self.file_format.value}",
         )
 
     @staticmethod
@@ -602,6 +694,7 @@ class StructureDataViewer(_StructureDataBaseViewer):
 
     structure = Union([Instance(Atoms), Instance(Node)], allow_none=True)
     displayed_structure = Instance(Atoms, allow_none=True, read_only=True)
+    pk = Int(allow_none=True)
 
     def __init__(self, structure=None, **kwargs):
         super().__init__(**kwargs)
@@ -622,8 +715,10 @@ class StructureDataViewer(_StructureDataBaseViewer):
             return None  # if no structure provided, the rest of the code can be skipped
 
         if isinstance(structure, Atoms):
+            self.pk = None
             return structure
         if isinstance(structure, Node):
+            self.pk = structure.pk
             return structure.get_ase()
         raise ValueError(
             "Unsupported type {}, structure must be one of the following types: "
@@ -631,13 +726,15 @@ class StructureDataViewer(_StructureDataBaseViewer):
         )
 
     @observe("structure")
-    def _update_displayed_structure(self, change):
+    def _observe_structure(self, change):
         """Update displayed_structure trait after the structure trait has been modified."""
         # Remove the current structure(s) from the viewer.
         if change["new"] is not None:
             self.set_trait("displayed_structure", change["new"].repeat(self.supercell))
+            self.set_trait("cell", change["new"].cell)
         else:
             self.set_trait("displayed_structure", None)
+            self.set_trait("cell", None)
 
     @observe("displayed_structure")
     def _update_structure_viewer(self, change):

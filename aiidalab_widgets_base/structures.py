@@ -3,6 +3,7 @@
 
 import datetime
 import io
+import tempfile
 from collections import OrderedDict
 
 # ASE imports
@@ -61,7 +62,7 @@ class StructureManagerWidget(ipw.VBox):
         editors=None,
         storable=True,
         node_class=None,
-        **kwargs
+        **kwargs,
     ):
         """
         Arguments:
@@ -389,11 +390,12 @@ class StructureUploadWidget(ipw.VBox):
             if frmt == "cif":
                 self.structure = CifData(file=io.BytesIO(item["content"]))
             else:
-                self.structure = self._validate_and_fix_ase_cell(
-                    get_ase_from_file(
-                        io.StringIO(item["content"].decode()), format=frmt
+                with tempfile.NamedTemporaryFile(suffix=f".{frmt}") as temp_file:
+                    temp_file.write(item["content"])
+                    temp_file.flush()
+                    self.structure = self._validate_and_fix_ase_cell(
+                        get_ase_from_file(temp_file.name)
                     )
-                )
             self.file_upload.value.clear()
             break
 

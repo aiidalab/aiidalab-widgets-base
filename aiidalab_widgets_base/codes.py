@@ -3,7 +3,7 @@
 from subprocess import check_output
 
 import ipywidgets as ipw
-from aiida.orm import Code, Computer, QueryBuilder, User
+from aiida.orm import Code, QueryBuilder, User
 from aiida.plugins.entry_point import get_entry_point_names
 from IPython.display import clear_output
 from traitlets import Bool, Dict, Instance, Unicode, Union, dlink, link, validate
@@ -157,9 +157,8 @@ class AiiDACodeSetup(ipw.VBox):
     """Class that allows to setup AiiDA code"""
 
     label = Unicode()
-    computer = Union([Unicode(), Instance(Computer)], allow_none=True)
-
-    input_plugin = Unicode()
+    computer = Unicode(allow_none=True)
+    input_plugin = Unicode(allow_none=True)
     description = Unicode()
     remote_abs_path = Unicode()
     prepend_text = Unicode()
@@ -178,20 +177,19 @@ class AiiDACodeSetup(ipw.VBox):
         link((inp_label, "value"), (self, "label"))
 
         # Computer on which the code is installed. Two dlinks are needed to make sure we get a Computer instance.
-        inp_computer = ComputerDropdown(
+        self.inp_computer = ComputerDropdown(
             path_to_root=path_to_root, layout={"margin": "0px 0px 0px 125px"}
         )
-        dlink((inp_computer, "selected_computer"), (self, "computer"))
-        dlink((self, "computer"), (inp_computer, "selected_computer"))
+        dlink((self, "computer"), (self.inp_computer, "selected_computer"))
 
         # Code plugin.
-        inp_code_plugin = ipw.Dropdown(
+        self.inp_code_plugin = ipw.Dropdown(
             options=sorted(get_entry_point_names("aiida.calculations")),
             description="Code plugin:",
             layout=ipw.Layout(width="500px"),
             style=style,
         )
-        link((inp_code_plugin, "value"), (self, "input_plugin"))
+        link((self.inp_code_plugin, "value"), (self, "input_plugin"))
 
         # Code description.
         inp_description = ipw.Text(
@@ -233,8 +231,8 @@ class AiiDACodeSetup(ipw.VBox):
                     ipw.VBox(
                         [
                             inp_label,
-                            inp_computer,
-                            inp_code_plugin,
+                            self.inp_computer,
+                            self.inp_code_plugin,
                             inp_description,
                             inp_abs_path,
                         ]
@@ -247,6 +245,11 @@ class AiiDACodeSetup(ipw.VBox):
         ]
         super(AiiDACodeSetup, self).__init__(children, **kwargs)
 
+    @validate("input_plugin")
+    def _validate_input_plugin(self, proposal):
+        plugin = proposal["value"]
+        return plugin if plugin in self.inp_code_plugin.options else None
+
     def _setup_code(self, _=None):
         """Setup an AiiDA code."""
         with self._setup_code_out:
@@ -257,10 +260,27 @@ class AiiDACodeSetup(ipw.VBox):
             if not self.remote_abs_path:
                 print("You did not specify absolute path to the executable.")
                 return
+            if not self.inp_computer.selected_computer:
+                print(
+                    "Please specify a computer that is configured in your AiiDA profile."
+                )
+                return False
+            if not self.input_plugin:
+                print(
+                    "Please specify an input plugin that is installed in your AiiDA environment."
+                )
+                return False
             if self.exists():
-                print(f"Code {self.label}@{self.computer.label} already exists.")
+                print(
+                    f"Code {self.label}@{self.inp_computer.selected_computer.label} already exists."
+                )
                 return
-            code = Code(remote_computer_exec=(self.computer, self.remote_abs_path))
+            code = Code(
+                remote_computer_exec=(
+                    self.inp_computer.selected_computer,
+                    self.remote_abs_path,
+                )
+            )
             code.label = self.label
             code.description = self.description
             code.set_input_plugin_name(self.input_plugin)
@@ -268,15 +288,19 @@ class AiiDACodeSetup(ipw.VBox):
             code.set_append_text(self.append_text)
             code.store()
             code.reveal()
-            full_string = f"{self.label}@{self.computer.label}"
+            full_string = f"{self.label}@{self.inp_computer.selected_computer.label}"
             print(check_output(["verdi", "code", "show", full_string]).decode("utf-8"))
 
     def exists(self):
         """Returns True if the code exists, returns False otherwise."""
         from aiida.common import MultipleObjectsError, NotExistent
 
+        if not self.label:
+            return False
         try:
-            Code.get_from_string(f"{self.label}@{self.computer.label}")
+            Code.get_from_string(
+                f"{self.label}@{self.inp_computer.selected_computer.label}"
+            )
             return True
         except MultipleObjectsError:
             return True
