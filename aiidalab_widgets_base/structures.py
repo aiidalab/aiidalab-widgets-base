@@ -265,7 +265,12 @@ class StructureManagerWidget(ipw.VBox):
 
         # If the input_structure trait is set to Atoms object, structure node must be created from it.
         if isinstance(structure, Atoms):
-            return structure_node_type(ase=structure)
+            # If the Atoms object was created by SmilesWidget,
+            # attach its SMILES code as an extra.
+            structure_node = structure_node_type(ase=structure)
+            if "smiles" in structure.info:
+                structure_node.set_extra("smiles", structure.info["smiles"])
+            return structure_node
 
         # If the input_structure trait is set to AiiDA node, check what type
         if isinstance(structure, Data):
@@ -653,17 +658,20 @@ class SmilesWidget(ipw.VBox):
 
         super().__init__([self.smiles, self.create_structure_btn, self.output])
 
-    def make_ase(self, species, positions):
+    def _make_ase(self, species, positions, smiles):
         """Create ase Atoms object."""
         # Get the principal axes and realign the molecule along z-axis.
         positions = PCA(n_components=3).fit_transform(positions)
         atoms = Atoms(species, positions=positions, pbc=True)
         atoms.cell = np.ptp(atoms.positions, axis=0) + 10
         atoms.center()
+        # We're attaching this info so that it
+        # can be later stored as an extra on AiiDA Structure node.
+        atoms.info["smiles"] = smiles
 
         return atoms
 
-    def _pybel_opt(self, smile, steps):
+    def _pybel_opt(self, smiles, steps):
         """Optimize a molecule using force field and pybel (needed for complex SMILES)."""
         from openbabel import openbabel as ob
         from openbabel import pybel as pb
@@ -671,7 +679,7 @@ class SmilesWidget(ipw.VBox):
         obconversion = ob.OBConversion()
         obconversion.SetInFormat("smi")
         obmol = ob.OBMol()
-        obconversion.ReadString(obmol, smile)
+        obconversion.ReadString(obmol, smiles)
 
         pbmol = pb.Molecule(obmol)
         pbmol.make3D(forcefield="uff", steps=50)
@@ -685,15 +693,15 @@ class SmilesWidget(ipw.VBox):
         f_f.GetCoordinates(pbmol.OBMol)
         species = [chemical_symbols[atm.atomicnum] for atm in pbmol.atoms]
         positions = np.asarray([atm.coords for atm in pbmol.atoms])
-        return self.make_ase(species, positions)
+        return self._make_ase(species, positions, smiles)
 
-    def _rdkit_opt(self, smile, steps):
+    def _rdkit_opt(self, smiles, steps):
         """Optimize a molecule using force field and rdkit (needed for complex SMILES)."""
         from rdkit import Chem
         from rdkit.Chem import AllChem
 
-        smile = smile.replace("[", "").replace("]", "")
-        mol = Chem.MolFromSmiles(smile)
+        smiles = smiles.replace("[", "").replace("]", "")
+        mol = Chem.MolFromSmiles(smiles)
         mol = Chem.AddHs(mol)
 
         AllChem.EmbedMolecule(mol, maxAttempts=20, randomSeed=42)
@@ -701,14 +709,14 @@ class SmilesWidget(ipw.VBox):
         positions = mol.GetConformer().GetPositions()
         natoms = mol.GetNumAtoms()
         species = [mol.GetAtomWithIdx(j).GetSymbol() for j in range(natoms)]
-        return self.make_ase(species, positions)
+        return self._make_ase(species, positions, smiles)
 
-    def mol_from_smiles(self, smile, steps=10000):
+    def _mol_from_smiles(self, smiles, steps=10000):
         """Convert SMILES to ase structure try rdkit then pybel"""
         try:
-            return self._rdkit_opt(smile, steps)
+            return self._rdkit_opt(smiles, steps)
         except ValueError:
-            return self._pybel_opt(smile, steps)
+            return self._pybel_opt(smiles, steps)
 
     def _on_button_pressed(self, change):  # pylint: disable=unused-argument
         """Convert SMILES to ase structure when button is pressed."""
@@ -719,7 +727,7 @@ class SmilesWidget(ipw.VBox):
         self.output.value = "Screening possible conformers {}".format(
             self.SPINNER
         )  # font-size:20em;
-        self.structure = self.mol_from_smiles(self.smiles.value)
+        self.structure = self._mol_from_smiles(self.smiles.value)
         self.output.value = ""
 
     @default("structure")
