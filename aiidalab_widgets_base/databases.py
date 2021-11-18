@@ -5,6 +5,7 @@ from aiida.tools.dbimporters.plugins.cod import CodDbImporter
 from ase import Atoms
 from optimade_client.query_filter import OptimadeQueryFilterWidget
 from optimade_client.query_provider import OptimadeQueryProviderWidget
+import traitlets
 from traitlets import Bool, Float, Instance, Int, Unicode, default, observe
 
 
@@ -303,28 +304,26 @@ class ComputerDatabaseWidget(ipw.HBox):
             self.proxy_hostname = hostname
 
 
-class CodeDatabaseWidget(ipw.HBox):
+class ComputationalResourcesDatabase(ipw.HBox):
     """Extract the setup of a known computer from the AiiDA code registry."""
 
-    label = Unicode()
-    description = Unicode()
-    input_plugin = Unicode()
-    on_computer = Bool()
-    remote_abs_path = Unicode()
-    computer = Unicode()
-    prepend_text = Unicode()
-    append_text = Unicode()
+    input_plugin = traitlets.Unicode()
+    computer_config = traitlets.Dict()
+    computer_setup = traitlets.Dict()
+    code_config = traitlets.Dict()
 
     def __init__(self, **kwargs):
-        self.database = {}
 
+        self.database = requests.get(
+            "https://aiidateam.github.io/aiida-code-registry/database.json"
+        ).json()
         # Select domain.
         self.inp_domain = ipw.Dropdown(
             options=[],
             description="Domain",
             disabled=False,
         )
-        self.inp_domain.observe(self.update_computers, names=["value", "options"])
+        self.inp_domain.observe(self.domain_changed, names=["value", "options"])
 
         # Select computer.
         self.inp_computer = ipw.Dropdown(
@@ -332,7 +331,7 @@ class CodeDatabaseWidget(ipw.HBox):
             description="Computer:",
             disable=False,
         )
-        self.inp_computer.observe(self.update_codes, names=["value", "options"])
+        self.inp_computer.observe(self.computer_changed, names=["value", "options"])
 
         # Select code.
         self.inp_code = ipw.Dropdown(
@@ -340,13 +339,12 @@ class CodeDatabaseWidget(ipw.HBox):
             description="Code:",
             disable=False,
         )
-        self.inp_code.observe(self.update_settings, names=["value", "options"])
+        self.inp_code.observe(self.code_changed, names=["value", "options"])
 
-        self.update_btn = ipw.Button(description="Pull database")
-        self.update_btn.on_click(self.update)
+        self.update()
+
         super().__init__(
             children=[
-                self.update_btn,
                 self.inp_domain,
                 self.inp_computer,
                 self.inp_code,
@@ -355,12 +353,10 @@ class CodeDatabaseWidget(ipw.HBox):
         )
 
     def update(self, _=None):
-        self.database = requests.get(
-            "https://aiidateam.github.io/aiida-code-registry/database.json"
-        ).json()
         self.inp_domain.options = self.database.keys()
+        
 
-    def update_computers(self, _=None):
+    def domain_changed(self, _=None):
         self.inp_computer.options = [
             key
             for key in self.database[self.inp_domain.value].keys()
@@ -369,7 +365,7 @@ class CodeDatabaseWidget(ipw.HBox):
         self.inp_computer.value = None  # This is a hack to make sure the selected computer appears as selected.
         self.inp_computer.value = self.database[self.inp_domain.value]["default"]
 
-    def update_codes(self, _=None):
+    def computer_changed(self, _=None):
         """Read settings from the YAML files and populate self.database with them."""
         if self.inp_domain.value is None or self.inp_computer.value is None:
             return
@@ -381,7 +377,7 @@ class CodeDatabaseWidget(ipw.HBox):
             if key not in ("computer-setup", "computer-configure")
         ]
 
-    def update_settings(self, _=None):
+    def code_changed(self, _=None):
         """Update code settings."""
         if (
             self.inp_domain.value is None
@@ -389,8 +385,7 @@ class CodeDatabaseWidget(ipw.HBox):
             or self.inp_code.value is None
         ):
             return
-        settings = self.database[self.inp_domain.value][self.inp_computer.value][
+        self.code_config = self.database[self.inp_domain.value][self.inp_computer.value][
             self.inp_code.value
         ]
-        for key, value in settings.items():
-            self.set_trait(key, value)
+

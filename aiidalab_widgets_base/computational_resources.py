@@ -1,43 +1,155 @@
-"""All functionality needed to setup a computer."""
-
-import os
-from copy import copy
-from os import path
-from subprocess import CalledProcessError, call, check_output
-
 import ipywidgets as ipw
-import pexpect
-import shortuuid
-from aiida.common import NotExistent
-from aiida.orm import Computer, QueryBuilder, User
-from aiida.transports.plugins.ssh import parse_sshconfig
-from IPython.display import clear_output
-from traitlets import (
-    Bool,
-    Dict,
-    Float,
-    Instance,
-    Int,
-    Unicode,
-    Union,
-    link,
-    observe,
-    validate,
-)
+import traitlets
+from aiida import orm
+from aiida import plugins
+from IPython.display import clear_output, display
+
+from .databases import ComputationalResourcesDatabase
 
 STYLE = {"description_width": "200px"}
 
+class ComputationalResources(ipw.VBox):
+    """Code selection widget.
+    Attributes:
+
+    selected_code(Unicode or Code): Trait that points to the selected Code instance.
+    It can be set either to an AiiDA Code instance or to a code label (will automatically
+    be replaced by the corresponding Code instance). It is linked to the 'value' trait of
+    the `self.dropdown` widget.
+
+    codes(Dict): Trait that contains a dictionary (label => Code instance) for all
+    codes found in the AiiDA database for the selected plugin. It is linked
+    to the 'options' trait of the `self.dropdown` widget.
+
+    allow_hidden_codes(Bool): Trait that defines whether to show hidden codes or not.
+
+    allow_disabled_computers(Bool): Trait that defines whether to show codes on disabled
+    computers.
+    """
+
+    selected_code = traitlets.Union([traitlets.Unicode(), traitlets.Instance(orm.Code)], allow_none=True)
+    codes = traitlets.Dict(allow_none=True)
+    allow_hidden_codes = traitlets.Bool(False)
+    allow_disabled_computers = traitlets.Bool(False)
+    input_plugin = traitlets.Unicode(allow_none=True)
+
+    def __init__(
+        self, description="Select code:", path_to_root="../", **kwargs
+    ):
+        """Dropdown for Codes for one input plugin.
+
+        description (str): Description to display before the dropdown.
+        """
+        self.output = ipw.HTML()
+
+        self.dropdown = ipw.Dropdown(description=description, disabled=True, value=None)
+        traitlets.link((self, "codes"), (self.dropdown, "options"))
+        traitlets.link((self.dropdown, "value"), (self, "selected_code"))
+
+        self.observe(
+            self.refresh, names=["allow_disabled_computers", "allow_hidden_codes"]
+        )
+
+        btn_setup_new_code = ipw.Button(description="Setup new code")
+        btn_setup_new_code.on_click(self.setup_new_code)
+        self.button_clicked = (
+            True  # Boolean to switch on and off the computational resources setup window.
+        )
+
+        self._setup_new_code_output = ipw.Output()
+
+        children = [
+            ipw.HBox([self.dropdown, btn_setup_new_code]),
+            self._setup_new_code_output,
+            self.output,
+        ]
+
+        self.comp_resources_database = ComputationalResourcesDatabase(input_plugin=self.input_plugin)
+        self.ssh_computer_setup = SshComputerSetup()
+        self.aiida_computer_setup = AiidaComputerSetup()
+        self.aiida_code_setup = AiiDACodeSetup()
+
+        super().__init__(children=children, **kwargs)
+
+        self.refresh()
+
+    def _get_codes(self):
+        """Query the list of available codes."""
+
+        user = orm.User.objects.get_default()
+
+        return {
+            self._full_code_label(c[0]): c[0]
+            for c in orm.QueryBuilder()
+            .append(orm.Code, filters={"attributes.input_plugin": self.input_plugin})
+            .all()
+            if c[0].computer.is_user_configured(user)
+            and (self.allow_hidden_codes or not c[0].hidden)
+            and (self.allow_disabled_computers or c[0].computer.is_user_enabled(user))
+        }
+
+    @staticmethod
+    def _full_code_label(code):
+        return f"{code.label}@{code.computer.label}"
+
+    def refresh(self, _=None):
+        """Refresh available codes.
+
+        The job of this function is to look in AiiDA database, find available codes and
+        put them in the dropdown attribute."""
+        self.output.value = ""
+
+        with self.hold_trait_notifications():
+            self.dropdown.options = self._get_codes()
+        if not self.dropdown.options:
+            self.output.value = (
+                f"No codes found for input plugin '{self.input_plugin}'."
+            )
+            self.dropdown.disabled = True
+        else:
+            self.dropdown.disabled = False
+        self.dropdown.value = None
+
+    @traitlets.validate("selected_code")
+    def _validate_selected_code(self, change):
+        """If code is provided, set it as it is. If code's label is provided,
+        select the code and set it."""
+        code = change["value"]
+        self.output.value = ""
+
+        # If code None, set value to None
+        if code is None:
+            return None
+
+        # Check code by label.
+        if isinstance(code, str):
+            if code in self.codes:
+                return self.codes[code]
+            self.output.value = f"""No code named '<span style="color:red">{code}</span>'
+            found in the AiiDA database."""
+
+        # Check code by value.
+        if isinstance(code, orm.Code):
+            label = self._full_code_label(code)
+            if label in self.codes:
+                return code
+            self.output.value = f"""The code instance '<span style="color:red">{code}</span>'
+            supplied was not found in the AiiDA database."""
+
+        # This place will never be reached, because the trait's type is checked.
+        return None
+    def setup_new_code(self, _=None):
+        with self._setup_new_code_output:
+            clear_output()
+            if self.button_clicked:
+                display(self.comp_resources_database, self.ssh_computer_setup, self.aiida_computer_setup, self.aiida_code_setup)
+
+        self.button_clicked = not self.button_clicked
 
 class SshComputerSetup(ipw.VBox):
     """Setup password-free access to a computer."""
 
-    setup_counter = Int(0)  # Traitlet to inform other widgets about changes
-    hostname = Unicode()
-    port = Union([Unicode(), Int()])
-    use_proxy = Bool()
-    username = Unicode()
-    proxy_hostname = Unicode()
-    proxy_username = Unicode()
+    ssh_config = traitlets.Dict()
 
     def __init__(self, **kwargs):
         computer_image = ipw.HTML(
@@ -48,7 +160,6 @@ class SshComputerSetup(ipw.VBox):
         inp_username = ipw.Text(
             description="SSH username:", layout=ipw.Layout(width="350px"), style=STYLE
         )
-        link((inp_username, "value"), (self, "username"))
 
         # Port.
         inp_port = ipw.IntText(
@@ -57,7 +168,6 @@ class SshComputerSetup(ipw.VBox):
             layout=ipw.Layout(width="350px"),
             style=STYLE,
         )
-        link((inp_port, "value"), (self, "port"))
 
         # Hostname.
         inp_computer_hostname = ipw.Text(
@@ -65,7 +175,6 @@ class SshComputerSetup(ipw.VBox):
             layout=ipw.Layout(width="350px"),
             style=STYLE,
         )
-        link((inp_computer_hostname, "value"), (self, "hostname"))
 
         # Upload private key directly.
         self._inp_password = ipw.Password(
@@ -97,14 +206,12 @@ class SshComputerSetup(ipw.VBox):
         # Proxy ssh settings.
         inp_use_proxy = ipw.Checkbox(value=False, description="Use proxy")
         inp_use_proxy.observe(self.on_use_proxy_change, names="value")
-        link((inp_use_proxy, "value"), (self, "use_proxy"))
 
         inp_proxy_hostname = ipw.Text(
             description="Proxy server address:",
             layout=ipw.Layout(width="350px"),
             style=STYLE,
         )
-        link((inp_proxy_hostname, "value"), (self, "proxy_hostname"))
 
         self._use_diff_proxy_username = ipw.Checkbox(
             value=False,
@@ -120,7 +227,6 @@ class SshComputerSetup(ipw.VBox):
             layout=ipw.Layout(width="350px"),
             style=STYLE,
         )
-        link((inp_proxy_username, "value"), (self, "proxy_username"))
 
         self._inp_proxy_password = ipw.Password(
             value="",
@@ -556,20 +662,20 @@ class SshComputerSetup(ipw.VBox):
             return fname, content
         return None, None
 
-    @observe("proxy_hostname")
+    @traitlets.observe("proxy_hostname")
     def _observe_proxy_hostname(self, _=None):
         """Enable 'use proxy' widget if proxy hostname is provided."""
         if self.proxy_hostname:
             self.use_proxy = True
 
-    @observe("proxy_username")
+    @traitlets.observe("proxy_username")
     def _observe_proxy_username(self, _=None):
         """Enable 'use proxy' and 'use different proxy username' widgets if proxy username is provided."""
         if self.proxy_username:
             self.use_proxy = True
             self._use_diff_proxy_username.value = True
 
-    @validate("port")
+    @traitlets.validate("port")
     def _validate_port(self, provided):  # pylint: disable=no-self-use
         return int(provided["value"])
 
@@ -577,17 +683,7 @@ class SshComputerSetup(ipw.VBox):
 class AiidaComputerSetup(ipw.VBox):
     """Inform AiiDA about a computer."""
 
-    label = Unicode()
-    hostname = Unicode()
-    description = Unicode()
-    work_dir = Unicode()
-    mpirun_command = Unicode()
-    mpiprocs_per_machine = Union([Unicode(), Int()])
-    prepend_text = Unicode()
-    append_text = Unicode()
-    transport = Unicode()
-    scheduler = Unicode()
-    safe_interval = Union([Unicode(), Float()])
+    computer_setup = traitlets.Dict(allow_none=True)
 
     def __init__(self, **kwargs):
         from aiida.schedulers import Scheduler
@@ -601,13 +697,11 @@ class AiidaComputerSetup(ipw.VBox):
             layout=ipw.Layout(width="500px"),
             style=STYLE,
         )
-        link((inp_computer_name, "value"), (self, "label"))
 
         # Hostname.
         inp_computer_hostname = ipw.Text(
             description="Hostname:", layout=ipw.Layout(width="500px"), style=STYLE
         )
-        link((inp_computer_hostname, "value"), (self, "hostname"))
 
         # Computer description.
         inp_computer_description = ipw.Text(
@@ -617,7 +711,6 @@ class AiidaComputerSetup(ipw.VBox):
             layout=ipw.Layout(width="500px"),
             style=STYLE,
         )
-        link((inp_computer_description, "value"), (self, "description"))
 
         # Directory where to run the simulations.
         inp_computer_workdir = ipw.Text(
@@ -626,7 +719,6 @@ class AiidaComputerSetup(ipw.VBox):
             layout=ipw.Layout(width="500px"),
             style=STYLE,
         )
-        link((inp_computer_workdir, "value"), (self, "work_dir"))
 
         # Mpirun command.
         inp_mpirun_cmd = ipw.Text(
@@ -635,7 +727,6 @@ class AiidaComputerSetup(ipw.VBox):
             layout=ipw.Layout(width="500px"),
             style=STYLE,
         )
-        link((inp_mpirun_cmd, "value"), (self, "mpirun_command"))
 
         # Number of CPUs per node.
         inp_computer_ncpus = ipw.IntText(
@@ -645,7 +736,6 @@ class AiidaComputerSetup(ipw.VBox):
             layout=ipw.Layout(width="270px"),
             style=STYLE,
         )
-        link((inp_computer_ncpus, "value"), (self, "mpiprocs_per_machine"))
 
         # Transport type.
         inp_transport_type = ipw.Dropdown(
@@ -654,7 +744,6 @@ class AiidaComputerSetup(ipw.VBox):
             description="Transport type:",
             style=STYLE,
         )
-        link((inp_transport_type, "value"), (self, "transport"))
 
         # Safe interval.
         inp_safe_interval = ipw.FloatText(
@@ -663,7 +752,6 @@ class AiidaComputerSetup(ipw.VBox):
             layout=ipw.Layout(width="270px"),
             style=STYLE,
         )
-        link((inp_safe_interval, "value"), (self, "safe_interval"))
 
         # Scheduler.
         inp_scheduler = ipw.Dropdown(
@@ -672,7 +760,6 @@ class AiidaComputerSetup(ipw.VBox):
             description="Scheduler:",
             style=STYLE,
         )
-        link((inp_scheduler, "value"), (self, "scheduler"))
 
         # Use login shell.
         self._use_login_shell = ipw.Checkbox(value=True, description="Use login shell")
@@ -683,7 +770,6 @@ class AiidaComputerSetup(ipw.VBox):
             description="Prepend text:",
             layout=ipw.Layout(width="400px"),
         )
-        link((inp_prepend_text, "value"), (self, "prepend_text"))
 
         # Append text.
         inp_append_text = ipw.Textarea(
@@ -691,7 +777,6 @@ class AiidaComputerSetup(ipw.VBox):
             description="Append text:",
             layout=ipw.Layout(width="400px"),
         )
-        link((inp_append_text, "value"), (self, "append_text"))
 
         # Buttons and outputs.
         btn_setup_comp = ipw.Button(description="Setup computer")
@@ -807,11 +892,11 @@ class AiidaComputerSetup(ipw.VBox):
                 ).decode("utf-8")
             )
 
-    @validate("mpiprocs_per_machine")
+    @traitlets.validate("mpiprocs_per_machine")
     def _validate_mpiprocs_per_machine(self, provided):  # pylint: disable=no-self-use
         return int(provided["value"])
 
-    @validate("safe_interval")
+    @traitlets.validate("safe_interval")
     def _validate_safe_interval(self, provided):  # pylint: disable=no-self-use
         return float(provided["value"])
 
@@ -832,9 +917,9 @@ class ComputerDropdown(ipw.VBox):
         allow_select_disabled(Bool):  Trait that defines whether to show disabled computers.
     """
 
-    selected_computer = Union([Unicode(), Instance(Computer)], allow_none=True)
-    computers = Dict(allow_none=True)
-    allow_select_disabled = Bool(False)
+    selected_computer = traitlets.Union([traitlets.Unicode(), traitlets.Instance(orm.Computer)], allow_none=True)
+    computers = traitlets.Dict(allow_none=True)
+    allow_select_disabled = traitlets.Bool(False)
 
     def __init__(self, description="Select computer:", path_to_root="../", **kwargs):
         """Dropdown for configured AiiDA Computers.
@@ -852,8 +937,8 @@ class ComputerDropdown(ipw.VBox):
             style={"description_width": "initial"},
             disabled=True,
         )
-        link((self, "computers"), (self._dropdown, "options"))
-        link((self._dropdown, "value"), (self, "selected_computer"))
+        traitlets.link((self, "computers"), (self._dropdown, "options"))
+        traitlets.link((self._dropdown, "value"), (self, "selected_computer"))
 
         btn_refresh = ipw.Button(description="Refresh", layout=ipw.Layout(width="70px"))
         btn_refresh.on_click(self.refresh)
@@ -876,11 +961,11 @@ class ComputerDropdown(ipw.VBox):
         """Get the list of available computers."""
 
         # Getting the current user.
-        user = User.objects.get_default()
+        user = orm.User.objects.get_default()
 
         return {
             c[0].label: c[0]
-            for c in QueryBuilder().append(Computer).all()
+            for c in orm.QueryBuilder().append(orm.Computer).all()
             if c[0].is_user_configured(user)
             and (self.allow_select_disabled or c[0].is_user_enabled(user))
         }
@@ -898,7 +983,7 @@ class ComputerDropdown(ipw.VBox):
 
         self._dropdown.value = None
 
-    @validate("selected_computer")
+    @traitlets.validate("selected_computer")
     def _validate_selected_computer(self, change):
         """Select computer either by label or by class instance."""
         computer = change["value"]
@@ -912,9 +997,151 @@ class ComputerDropdown(ipw.VBox):
             is not configured in your AiiDA profile."""
             return None
 
-        if isinstance(computer, Computer):
+        if isinstance(computer, orm.Computer):
             if computer.label in self.computers:
                 return computer
             self.output.value = f"""Computer instance '<span style="color:red">{computer.label}</span>'
             is not configured in your AiiDA profile."""
         return None
+
+
+class AiiDACodeSetup(ipw.VBox):
+    """Class that allows to setup AiiDA code"""
+
+    code_setup = traitlets.Dict(allow_none=True)
+
+    def __init__(self, path_to_root="../", **kwargs):
+
+        style = {"description_width": "200px"}
+
+        # Code label.
+        inp_label = ipw.Text(
+            description="AiiDA code label:",
+            layout=ipw.Layout(width="500px"),
+            style=style,
+        )
+
+        # Computer on which the code is installed. Two dlinks are needed to make sure we get a Computer instance.
+        self.inp_computer = ComputerDropdown(
+            path_to_root=path_to_root, layout={"margin": "0px 0px 0px 125px"}
+        )
+
+        # Code plugin.
+        self.inp_code_plugin = ipw.Dropdown(
+            options=sorted(plugins.entry_point.get_entry_point_names("aiida.calculations")),
+            description="Code plugin:",
+            layout=ipw.Layout(width="500px"),
+            style=style,
+        )
+
+        # Code description.
+        inp_description = ipw.Text(
+            placeholder="No description (yet)",
+            description="Code description:",
+            layout=ipw.Layout(width="500px"),
+            style=style,
+        )
+
+        inp_abs_path = ipw.Text(
+            placeholder="/path/to/executable",
+            description="Absolute path to executable:",
+            layout=ipw.Layout(width="500px"),
+            style=style,
+        )
+
+        inp_prepend_text = ipw.Textarea(
+            placeholder="Text to prepend to each command execution",
+            description="Prepend text:",
+            layout=ipw.Layout(width="400px"),
+        )
+
+        inp_append_text = ipw.Textarea(
+            placeholder="Text to append to each command execution",
+            description="Append text:",
+            layout=ipw.Layout(width="400px"),
+        )
+
+        btn_setup_code = ipw.Button(description="Setup code")
+        btn_setup_code.on_click(self._setup_code)
+        self._setup_code_out = ipw.Output()
+        children = [
+            ipw.HBox(
+                [
+                    ipw.VBox(
+                        [
+                            inp_label,
+                            self.inp_computer,
+                            self.inp_code_plugin,
+                            inp_description,
+                            inp_abs_path,
+                        ]
+                    ),
+                    ipw.VBox([inp_prepend_text, inp_append_text]),
+                ]
+            ),
+            btn_setup_code,
+            self._setup_code_out,
+        ]
+        super(AiiDACodeSetup, self).__init__(children, **kwargs)
+
+    @traitlets.validate("input_plugin")
+    def _validate_input_plugin(self, proposal):
+        plugin = proposal["value"]
+        return plugin if plugin in self.inp_code_plugin.options else None
+
+    def _setup_code(self, _=None):
+        """Setup an AiiDA code."""
+        with self._setup_code_out:
+            clear_output()
+            if self.label is None:
+                print("You did not specify code label.")
+                return
+            if not self.remote_abs_path:
+                print("You did not specify absolute path to the executable.")
+                return
+            if not self.inp_computer.selected_computer:
+                print(
+                    "Please specify a computer that is configured in your AiiDA profile."
+                )
+                return False
+            if not self.input_plugin:
+                print(
+                    "Please specify an input plugin that is installed in your AiiDA environment."
+                )
+                return False
+            if self.exists():
+                print(
+                    f"Code {self.label}@{self.inp_computer.selected_computer.label} already exists."
+                )
+                return
+            code = Code(
+                remote_computer_exec=(
+                    self.inp_computer.selected_computer,
+                    self.remote_abs_path,
+                )
+            )
+            code.label = self.label
+            code.description = self.description
+            code.set_input_plugin_name(self.input_plugin)
+            code.set_prepend_text(self.prepend_text)
+            code.set_append_text(self.append_text)
+            code.store()
+            code.reveal()
+            full_string = f"{self.label}@{self.inp_computer.selected_computer.label}"
+            print(check_output(["verdi", "code", "show", full_string]).decode("utf-8"))
+
+    def exists(self):
+        """Returns True if the code exists, returns False otherwise."""
+        from aiida.common import MultipleObjectsError, NotExistent
+
+        if not self.label:
+            return False
+        try:
+            Code.get_from_string(
+                f"{self.label}@{self.inp_computer.selected_computer.label}"
+            )
+            return True
+        except MultipleObjectsError:
+            return True
+        except NotExistent:
+            return False
