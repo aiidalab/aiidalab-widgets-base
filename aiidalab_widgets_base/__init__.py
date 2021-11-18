@@ -3,12 +3,9 @@ from aiida import load_profile
 
 load_profile()
 
-from .codes import AiiDACodeSetup, CodeDropdown
-from .computers import AiidaComputerSetup, ComputerDropdown, SshComputerSetup
+from .computational_resources import ComputationalResources
 from .databases import (
-    CodeDatabaseWidget,
     CodQueryWidget,
-    ComputerDatabaseWidget,
     OptimadeQueryWidget,
 )
 from .elns import ElnConfigureWidget, ElnExportWidget, ElnImportWidget
@@ -39,15 +36,11 @@ from .viewers import AiidaNodeViewWidget, register_viewer_widget, viewer
 from .wizard import WizardAppWidget, WizardAppWidgetStep
 
 __all__ = [
-    "AiiDACodeSetup",
     "AiidaComputerSetup",
     "AiidaNodeViewWidget",
     "BasicStructureEditor",
     "CodQueryWidget",
-    "CodeDatabaseWidget",
-    "CodeDropdown",
-    "ComputerDatabaseWidget",
-    "ComputerDropdown",
+    "ComputationalResources",
     "ElnConfigureWidget",
     "ElnExportWidget",
     "ElnImportWidget",
