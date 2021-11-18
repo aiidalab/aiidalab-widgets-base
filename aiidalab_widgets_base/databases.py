@@ -150,13 +150,12 @@ class OptimadeQueryWidget(ipw.VBox):
         "cod",
         "tcod",
         "nmd",
-        "omdb",
         "oqmd",
         "aflow",
         "matcloud",
-        "httk",
         "mpds",
         "necro",
+        "jarvis",
     ]
     _skip_databases = {"Materials Cloud": ["optimade-sample", "li-ion-conductors"]}
     _database_grouping = {
