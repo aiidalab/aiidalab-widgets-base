@@ -108,7 +108,7 @@ def _convert_ansi_codes_to_html(msg):
     return converter.produce_headers().strip() + converter.convert(msg, full=False)
 
 
-def _format_truncated_traceback(traceback, max_num_chars=3000):
+def _format_truncated_traceback(traceback, max_num_chars=2000):
     """Truncate the traceback to the given character length."""
     n = 0
     for i, line in enumerate(reversed(traceback)):
@@ -145,9 +145,9 @@ def install_create_github_issue_exception_handler(output, url, labels=None):
                     exception_type=str(exception_type.__name__)
                 ),
                 "body": BUG_REPORT_BODY.format(
-                    # Truncate the traceback to a maximum of 3000 characters
+                    # Truncate the traceback to a maximum of 2000 characters
                     # and strip all ansi control characters:
-                    traceback=_format_truncated_traceback(traceback, 3000),
+                    traceback=_format_truncated_traceback(traceback, 2000),
                     # Determine and format the environment fingerprint to be
                     # included with the bug report:
                     environment_fingerprint="\n".join(
