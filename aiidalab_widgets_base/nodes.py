@@ -3,6 +3,7 @@ import ipywidgets as ipw
 import traitlets
 from aiida.cmdline.utils.ascii_vis import calc_info
 from aiida.engine import ProcessState
+from aiida.common import AttributeDict
 from aiida.orm import (
     CalcFunctionNode,
     CalcJobNode,
@@ -102,6 +103,16 @@ class AiidaOutputsTreeNode(TreeNode):
     def __init__(self, name, parent_pk, **kwargs):
         self.parent_pk = parent_pk
         self.nodes_registry = dict()
+        super().__init__(name=name, **kwargs)
+        
+class AiidaNamespaceTreeNode(TreeNode):
+    icon = traitlets.Unicode("folder").tag(sync=True)
+    disabled = traitlets.Bool(True).tag(sync=True)
+
+    def __init__(self, name, parent_pk, namespace=None, **kwargs):
+        self.parent_pk = parent_pk
+        self.nodes_registry = dict()
+        self.namespace = namespace
         super().__init__(name=name, **kwargs)
 
 
@@ -207,9 +218,13 @@ class NodesTreeWidget(ipw.Output):
 
     @classmethod
     def _find_outputs(cls, root):
-        assert isinstance(root, AiidaOutputsTreeNode)
         process_node = load_node(root.parent_pk)
-        outputs = {k: process_node.outputs[k] for k in process_node.outputs}
+        if isinstance(root, AiidaNamespaceTreeNode):
+            outputs = process_node.outputs[root.namespace]
+        else:
+            outputs = process_node.outputs
+            
+        outputs = {key: outputs[key] for key in outputs if not isinstance(outputs[key], AttributeDict)}
         for key in sorted(outputs.keys(), key=lambda k: outputs[k].pk):
             output_node = outputs[key]
             if output_node.pk not in root.nodes_registry:
@@ -219,12 +234,24 @@ class NodesTreeWidget(ipw.Output):
             yield root.nodes_registry[output_node.pk]
 
     @classmethod
+    def _find_namespace(cls, root):
+        """find namespace from a output node"""
+        process_node = load_node(root.parent_pk)
+        outputs = {k: process_node.outputs[k] for k in process_node.outputs}
+        for key in outputs.keys():
+            if isinstance(outputs[key], AttributeDict):
+                yield AiidaNamespaceTreeNode(name=key, parent_pk=root.parent_pk, namespace=key)
+                
+    @classmethod
     def _find_children(cls, root):
         """Find all children of the provided AiiDA node."""
         if isinstance(root, AiidaProcessNodeTreeNode):
             yield root.outputs_node
             yield from cls._find_called(root)
         elif isinstance(root, AiidaOutputsTreeNode):
+            yield from cls._find_namespace(root)
+            yield from cls._find_outputs(root)
+        elif isinstance(root, AiidaNamespaceTreeNode):
             yield from cls._find_outputs(root)
 
     @classmethod
