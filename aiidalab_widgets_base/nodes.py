@@ -2,6 +2,7 @@
 import ipywidgets as ipw
 import traitlets
 from aiida.cmdline.utils.ascii_vis import calc_info
+from aiida.common import AttributeDict
 from aiida.engine import ProcessState
 from aiida.orm import (
     CalcFunctionNode,
@@ -99,9 +100,10 @@ class AiidaOutputsTreeNode(TreeNode):
     icon = traitlets.Unicode("folder").tag(sync=True)
     disabled = traitlets.Bool(True).tag(sync=True)
 
-    def __init__(self, name, parent_pk, **kwargs):
+    def __init__(self, name, parent_pk, namespace=None, **kwargs):
         self.parent_pk = parent_pk
         self.nodes_registry = dict()
+        self.namespace = namespace
         super().__init__(name=name, **kwargs)
 
 
@@ -207,16 +209,29 @@ class NodesTreeWidget(ipw.Output):
 
     @classmethod
     def _find_outputs(cls, root):
-        assert isinstance(root, AiidaOutputsTreeNode)
         process_node = load_node(root.parent_pk)
-        outputs = {k: process_node.outputs[k] for k in process_node.outputs}
-        for key in sorted(outputs.keys(), key=lambda k: outputs[k].pk):
-            output_node = outputs[key]
-            if output_node.pk not in root.nodes_registry:
-                root.nodes_registry[output_node.pk] = cls._to_tree_node(
-                    output_node, name=f"{key}<{output_node.pk}>"
+        if root.namespace:
+            outputs = process_node.outputs[root.namespace]
+        else:
+            outputs = process_node.outputs
+
+        output_nodes = {key: outputs[key] for key in outputs}
+
+        for key in sorted(
+            output_nodes.keys(), key=lambda k: getattr(outputs[k], "pk", -1)
+        ):
+            node = output_nodes[key]
+
+            if isinstance(node, AttributeDict):
+                yield AiidaOutputsTreeNode(
+                    name=key, parent_pk=root.parent_pk, namespace=key
                 )
-            yield root.nodes_registry[output_node.pk]
+            else:
+                if node.pk not in root.nodes_registry:
+                    root.nodes_registry[node.pk] = cls._to_tree_node(
+                        node, name=f"{key}<{node.pk}>"
+                    )
+                yield root.nodes_registry[node.pk]
 
     @classmethod
     def _find_children(cls, root):
