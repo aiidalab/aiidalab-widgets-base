@@ -107,17 +107,6 @@ class AiidaOutputsTreeNode(TreeNode):
         super().__init__(name=name, **kwargs)
 
 
-class AiidaNamespaceTreeNode(TreeNode):
-    icon = traitlets.Unicode("folder").tag(sync=True)
-    disabled = traitlets.Bool(True).tag(sync=True)
-
-    def __init__(self, name, parent_pk, namespace=None, **kwargs):
-        self.parent_pk = parent_pk
-        self.nodes_registry = dict()
-        self.namespace = namespace
-        super().__init__(name=name, **kwargs)
-
-
 class UnknownTypeTreeNode(AiidaNodeTreeNode):
     icon = traitlets.Unicode("file").tag(sync=True)
 
