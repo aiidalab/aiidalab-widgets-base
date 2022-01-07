@@ -226,28 +226,23 @@ class NodesTreeWidget(ipw.Output):
         else:
             outputs = process_node.outputs
 
-        output_nodes = {
-            key: outputs[key]
-            for key in outputs
-            if not isinstance(outputs[key], AttributeDict)
-        }
-        for key in sorted(output_nodes.keys(), key=lambda k: output_nodes[k].pk):
-            node = output_nodes[key]
-            if node.pk not in root.nodes_registry:
-                root.nodes_registry[node.pk] = cls._to_tree_node(
-                    node, name=f"{key}<{node.pk}>"
-                )
-            yield root.nodes_registry[node.pk]
+        output_nodes = {key: outputs[key] for key in outputs}
 
-        output_attributs = {
-            key: outputs[key]
-            for key in outputs
-            if isinstance(outputs[key], AttributeDict)
-        }
-        for key in output_attributs.keys():
-            yield AiidaOutputsTreeNode(
-                name=key, parent_pk=root.parent_pk, namespace=key
-            )
+        for key in sorted(
+            output_nodes.keys(), key=lambda k: getattr(outputs[k], "pk", -1)
+        ):
+            node = output_nodes[key]
+
+            if isinstance(node, AttributeDict):
+                yield AiidaOutputsTreeNode(
+                    name=key, parent_pk=root.parent_pk, namespace=key
+                )
+            else:
+                if node.pk not in root.nodes_registry:
+                    root.nodes_registry[node.pk] = cls._to_tree_node(
+                        node, name=f"{key}<{node.pk}>"
+                    )
+                yield root.nodes_registry[node.pk]
 
     @classmethod
     def _find_children(cls, root):
