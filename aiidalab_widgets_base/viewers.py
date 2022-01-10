@@ -982,7 +982,7 @@ class StructureDataViewer(_StructureDataBaseViewer):
 
     @observe("selection_adv")
     def _observe_selection_adv(self, _=None):
-        """ Apply the advanced boolean atom selection"""
+        """Apply the advanced boolean atom selection"""
         try:
             sel = self.parse_advanced_sel(condition=self.selection_adv)
             self._selected_atoms.value = list_to_string_range(sel, shift=1)
