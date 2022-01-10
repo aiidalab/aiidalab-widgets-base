@@ -135,7 +135,7 @@ class ReversePolishNotation:
         """Execute the provided expression."""
 
         def is_number(string):
-            """Check if string is a number. """
+            """Check if string is a number."""
             try:
                 float(string)
                 return True
