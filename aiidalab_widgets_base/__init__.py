@@ -3,11 +3,12 @@ from aiida import load_profile
 
 load_profile()
 
-from .computational_resources import ComputationalResources
-from .databases import (
-    CodQueryWidget,
-    OptimadeQueryWidget,
+from .computational_resources import (
+    CodeDropdown,
+    ComputationalResources,
+    ComputerDropdown,
 )
+from .databases import CodQueryWidget, OptimadeQueryWidget
 from .elns import ElnConfigureWidget, ElnExportWidget, ElnImportWidget
 from .export import ExportButtonWidget
 from .nodes import NodesTreeWidget, OpenAiidaNodeInAppWidget
@@ -39,8 +40,10 @@ __all__ = [
     "AiidaComputerSetup",
     "AiidaNodeViewWidget",
     "BasicStructureEditor",
+    "CodeDropdown",
     "CodQueryWidget",
     "ComputationalResources",
+    "ComputerDropdown",
     "ElnConfigureWidget",
     "ElnExportWidget",
     "ElnImportWidget",

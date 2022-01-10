@@ -1,12 +1,19 @@
+import os
+import subprocess
+from copy import copy
+from pathlib import Path
+
 import ipywidgets as ipw
+import pexpect
+import shortuuid
 import traitlets
-from aiida import orm
-from aiida import plugins
+from aiida import common, orm, plugins, schedulers, transports
 from IPython.display import clear_output, display
 
 from .databases import ComputationalResourcesDatabase
 
 STYLE = {"description_width": "200px"}
+
 
 class ComputationalResources(ipw.VBox):
     """Code selection widget.
@@ -27,15 +34,15 @@ class ComputationalResources(ipw.VBox):
     computers.
     """
 
-    selected_code = traitlets.Union([traitlets.Unicode(), traitlets.Instance(orm.Code)], allow_none=True)
+    selected_code = traitlets.Union(
+        [traitlets.Unicode(), traitlets.Instance(orm.Code)], allow_none=True
+    )
     codes = traitlets.Dict(allow_none=True)
     allow_hidden_codes = traitlets.Bool(False)
     allow_disabled_computers = traitlets.Bool(False)
     input_plugin = traitlets.Unicode(allow_none=True)
 
-    def __init__(
-        self, description="Select code:", path_to_root="../", **kwargs
-    ):
+    def __init__(self, description="Select code:", path_to_root="../", **kwargs):
         """Dropdown for Codes for one input plugin.
 
         description (str): Description to display before the dropdown.
@@ -52,9 +59,7 @@ class ComputationalResources(ipw.VBox):
 
         btn_setup_new_code = ipw.Button(description="Setup new code")
         btn_setup_new_code.on_click(self.setup_new_code)
-        self.button_clicked = (
-            True  # Boolean to switch on and off the computational resources setup window.
-        )
+        self.button_clicked = True  # Boolean to switch on and off the computational resources setup window.
 
         self._setup_new_code_output = ipw.Output()
 
@@ -64,7 +69,9 @@ class ComputationalResources(ipw.VBox):
             self.output,
         ]
 
-        self.comp_resources_database = ComputationalResourcesDatabase(input_plugin=self.input_plugin)
+        self.comp_resources_database = ComputationalResourcesDatabase(
+            input_plugin=self.input_plugin
+        )
         self.ssh_computer_setup = SshComputerSetup()
         self.aiida_computer_setup = AiidaComputerSetup()
         self.aiida_code_setup = AiiDACodeSetup()
@@ -138,13 +145,20 @@ class ComputationalResources(ipw.VBox):
 
         # This place will never be reached, because the trait's type is checked.
         return None
+
     def setup_new_code(self, _=None):
         with self._setup_new_code_output:
             clear_output()
             if self.button_clicked:
-                display(self.comp_resources_database, self.ssh_computer_setup, self.aiida_computer_setup, self.aiida_code_setup)
+                display(
+                    self.comp_resources_database,
+                    self.ssh_computer_setup,
+                    self.aiida_computer_setup,
+                    self.aiida_code_setup,
+                )
 
         self.button_clicked = not self.button_clicked
+
 
 class SshComputerSetup(ipw.VBox):
     """Setup password-free access to a computer."""
@@ -276,15 +290,15 @@ class SshComputerSetup(ipw.VBox):
     @staticmethod
     def _ssh_keygen():
         """Generate ssh key pair."""
-        fname = path.expanduser("~/.ssh/id_rsa")
-        if not path.exists(fname):
+        fpath = Path("~/.ssh/id_rsa").expanduser()
+        if not fpath.exists():
             print("Creating ssh key pair")
             # returns non-0 if the key pair already exists
-            call(
+            subprocess.call(
                 [
                     "ssh-keygen",
                     "-f",
-                    fname,
+                    fpath,
                     "-t",
                     "rsa",
                     "-b",
@@ -300,24 +314,24 @@ class SshComputerSetup(ipw.VBox):
         """Check if the host is known already."""
         if hostname is None:
             hostname = self.hostname
-        fname = path.expanduser("~/.ssh/known_hosts")
-        if not path.exists(fname):
+        fpath = Path("~/.ssh/known_hosts").expanduser()
+        if not fpath.exists():
             return False
-        return call(["ssh-keygen", "-F", hostname]) == 0
+        return subprocess.call(["ssh-keygen", "-F", hostname]) == 0
 
     def _make_host_known(self, hostname, proxycmd=None):
         """Add host information into known_hosts file."""
         proxycmd = [] if proxycmd is None else proxycmd
-        fname = path.expanduser("~/.ssh/known_hosts")
-        print(f"Adding keys from {hostname} to {fname}")
+        fpath = Path("~/.ssh/known_hosts").expanduser()
+        print(f"Adding keys from {hostname} to {fpath}")
         try:
-            hashes = check_output(
+            hashes = subprocess.check_output(
                 proxycmd + ["ssh-keyscan", "-p", str(self.port), "-H", hostname]
             )
-        except CalledProcessError:
-            print(f"Couldn't add keys from {hostname} to {fname}. Aborting.")
+        except subprocess.CalledProcessError:
+            print(f"Couldn't add keys from {hostname} to {fpath}. Aborting.")
             return False
-        with open(fname, "a") as fobj:
+        with open(fpath, "a") as fobj:
             fobj.write(hashes.decode("utf-8"))
         return True
 
@@ -330,7 +344,7 @@ class SshComputerSetup(ipw.VBox):
             print(f"Trying ssh {userhost} -p {self.port}... ", end="")
         # With BatchMode on, no password prompt or other interaction is attempted,
         # so a connect that requires a password will fail.
-        ret = call(
+        ret = subprocess.call(
             [
                 "ssh",
                 userhost,
@@ -349,17 +363,17 @@ class SshComputerSetup(ipw.VBox):
 
     def is_in_config(self):
         """Check if the config file contains host information."""
-        fname = path.expanduser("~/.ssh/config")
-        if not path.exists(fname):
+        fpath = Path("~/.ssh/config").expanduser()
+        if not fpath.exists():
             return False
-        cfglines = open(fname).read().split("\n")
+        cfglines = open(fpath).read().split("\n")
         return "Host " + self.hostname in cfglines
 
     def _write_ssh_config(self, proxycmd="", private_key_abs_fname=None):
         """Put host information into the config file."""
-        fname = path.expanduser("~/.ssh/config")
-        print(f"Adding section to {fname}")
-        with open(fname, "a") as file:
+        fpath = Path("~/.ssh/config").expanduser()
+        print(f"Adding section to {fpath}")
+        with open(fpath, "a") as file:
             file.write(f"Host {self.hostname} \n")
             file.write(f"User {self.username} \n")
             file.write(f"Port {self.port} \n")
@@ -375,21 +389,21 @@ class SshComputerSetup(ipw.VBox):
         param private_key_fname: string
         param private_key_content: bytes
         """
-        fname = path.expanduser(f"~/.ssh/{private_key_fname}")
-        if path.exists(fname):
+        fpath = Path(f"~/.ssh/{private_key_fname}").expanduser()
+        if fpath.exists():
             # if file already exist and have the same content
-            with open(fname, "rb") as file:
+            with open(fpath, "rb") as file:
                 content = file.read()
                 if content == private_key_content:
-                    return path.basename(fname)
+                    return fpath.name()
 
-            fname = fname + "_" + shortuuid.uuid()
-        with open(fname, "wb") as file:
+            fpath = fpath / "_" / shortuuid.uuid()
+        with open(fpath, "wb") as file:
             file.write(private_key_content)
 
-        os.chmod(fname, 0o600)
+        os.chmod(fpath, 0o600)
 
-        return fname
+        return fpath
 
     @staticmethod
     def _send_pubkey(hostname, username, password, proxycmd=""):
@@ -686,8 +700,6 @@ class AiidaComputerSetup(ipw.VBox):
     computer_setup = traitlets.Dict(allow_none=True)
 
     def __init__(self, **kwargs):
-        from aiida.schedulers import Scheduler
-        from aiida.transports import Transport
 
         # List of widgets to be displayed.
         inp_computer_name = ipw.Text(
@@ -740,7 +752,7 @@ class AiidaComputerSetup(ipw.VBox):
         # Transport type.
         inp_transport_type = ipw.Dropdown(
             value="ssh",
-            options=Transport.get_valid_transports(),
+            options=transports.Transport.get_valid_transports(),
             description="Transport type:",
             style=STYLE,
         )
@@ -756,7 +768,7 @@ class AiidaComputerSetup(ipw.VBox):
         # Scheduler.
         inp_scheduler = ipw.Dropdown(
             value="slurm",
-            options=Scheduler.get_valid_schedulers(),
+            options=schedulers.Scheduler.get_valid_schedulers(),
             description="Scheduler:",
             style=STYLE,
         )
@@ -815,7 +827,7 @@ class AiidaComputerSetup(ipw.VBox):
     def _configure_computer(self):
         """Create AuthInfo."""
         print("Configuring '{}'".format(self.label))
-        sshcfg = parse_sshconfig(self.hostname)
+        sshcfg = transports.plugins.ssh.parse_sshconfig(self.hostname)
         authparams = {
             "compress": True,
             "key_filename": os.path.expanduser(
@@ -842,15 +854,18 @@ class AiidaComputerSetup(ipw.VBox):
             return
         if "proxycommand" in sshcfg:
             authparams["proxy_command"] = sshcfg["proxycommand"]
-        aiidauser = User.objects.get_default()
-        from aiida.orm import AuthInfo
+        aiidauser = orm.User.objects.get_default()
 
-        authinfo = AuthInfo(
-            computer=Computer.objects.get(label=self.label), user=aiidauser
+        authinfo = orm.AuthInfo(
+            computer=orm.Computer.objects.get(label=self.label), user=aiidauser
         )
         authinfo.set_auth_params(authparams)
         authinfo.store()
-        print(check_output(["verdi", "computer", "show", self.label]).decode("utf-8"))
+        print(
+            subprocess.check_output(["verdi", "computer", "show", self.label]).decode(
+                "utf-8"
+            )
+        )
 
     def _on_setup_computer(self, _=None):
         """When setup computer button is pressed."""
@@ -860,14 +875,14 @@ class AiidaComputerSetup(ipw.VBox):
                 print("Please specify the computer name (for AiiDA)")
                 return
             try:
-                computer = Computer.objects.get(label=self.label)
+                computer = orm.Computer.objects.get(label=self.label)
                 print(f"A computer called {self.label} already exists.")
                 return
-            except NotExistent:
+            except common.NotExistent:
                 pass
 
             print(f"Creating new computer with name '{self.label}'")
-            computer = Computer(
+            computer = orm.Computer(
                 label=self.label, hostname=self.hostname, description=self.description
             )
             computer.set_transport_type(self.transport)
@@ -887,7 +902,7 @@ class AiidaComputerSetup(ipw.VBox):
         with self._test_out:
             clear_output()
             print(
-                check_output(
+                subprocess.check_output(
                     ["verdi", "computer", "test", "--print-traceback", self.label]
                 ).decode("utf-8")
             )
@@ -917,7 +932,9 @@ class ComputerDropdown(ipw.VBox):
         allow_select_disabled(Bool):  Trait that defines whether to show disabled computers.
     """
 
-    selected_computer = traitlets.Union([traitlets.Unicode(), traitlets.Instance(orm.Computer)], allow_none=True)
+    selected_computer = traitlets.Union(
+        [traitlets.Unicode(), traitlets.Instance(orm.Computer)], allow_none=True
+    )
     computers = traitlets.Dict(allow_none=True)
     allow_select_disabled = traitlets.Bool(False)
 
@@ -1028,7 +1045,9 @@ class AiiDACodeSetup(ipw.VBox):
 
         # Code plugin.
         self.inp_code_plugin = ipw.Dropdown(
-            options=sorted(plugins.entry_point.get_entry_point_names("aiida.calculations")),
+            options=sorted(
+                plugins.entry_point.get_entry_point_names("aiida.calculations")
+            ),
             description="Code plugin:",
             layout=ipw.Layout(width="500px"),
             style=style,
@@ -1114,7 +1133,7 @@ class AiiDACodeSetup(ipw.VBox):
                     f"Code {self.label}@{self.inp_computer.selected_computer.label} already exists."
                 )
                 return
-            code = Code(
+            code = orm.Code(
                 remote_computer_exec=(
                     self.inp_computer.selected_computer,
                     self.remote_abs_path,
@@ -1128,20 +1147,29 @@ class AiiDACodeSetup(ipw.VBox):
             code.store()
             code.reveal()
             full_string = f"{self.label}@{self.inp_computer.selected_computer.label}"
-            print(check_output(["verdi", "code", "show", full_string]).decode("utf-8"))
+            print(
+                subprocess.check_output(["verdi", "code", "show", full_string]).decode(
+                    "utf-8"
+                )
+            )
 
     def exists(self):
         """Returns True if the code exists, returns False otherwise."""
-        from aiida.common import MultipleObjectsError, NotExistent
-
         if not self.label:
             return False
         try:
-            Code.get_from_string(
+            orm.Code.get_from_string(
                 f"{self.label}@{self.inp_computer.selected_computer.label}"
             )
             return True
-        except MultipleObjectsError:
+        except common.MultipleObjectsError:
             return True
-        except NotExistent:
+        except common.NotExistent:
             return False
+
+
+def CodeDropdown(*args, **kwargs):
+    from warnings import warn
+
+    warn("'CodeDropdown' is deprecated, please use 'ComputationalResources' instead.")
+    return ComputationalResources(*args, **kwargs)
