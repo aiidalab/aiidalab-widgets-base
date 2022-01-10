@@ -1,11 +1,11 @@
 """Widgets that allow to query online databases."""
 import ipywidgets as ipw
 import requests
+import traitlets
 from aiida.tools.dbimporters.plugins.cod import CodDbImporter
 from ase import Atoms
 from optimade_client.query_filter import OptimadeQueryFilterWidget
 from optimade_client.query_provider import OptimadeQueryProviderWidget
-import traitlets
 from traitlets import Bool, Float, Instance, Int, Unicode, default, observe
 
 
@@ -354,7 +354,6 @@ class ComputationalResourcesDatabase(ipw.HBox):
 
     def update(self, _=None):
         self.inp_domain.options = self.database.keys()
-        
 
     def domain_changed(self, _=None):
         self.inp_computer.options = [
@@ -385,7 +384,6 @@ class ComputationalResourcesDatabase(ipw.HBox):
             or self.inp_code.value is None
         ):
             return
-        self.code_config = self.database[self.inp_domain.value][self.inp_computer.value][
-            self.inp_code.value
-        ]
-
+        self.code_config = self.database[self.inp_domain.value][
+            self.inp_computer.value
+        ][self.inp_code.value]
