@@ -5,7 +5,7 @@ load_profile()
 
 from .computational_resources import (
     CodeDropdown,
-    ComputationalResources,
+    ComputationalResourcesWidget,
     ComputerDropdown,
 )
 from .databases import CodQueryWidget, OptimadeQueryWidget
@@ -42,7 +42,7 @@ __all__ = [
     "BasicStructureEditor",
     "CodeDropdown",
     "CodQueryWidget",
-    "ComputationalResources",
+    "ComputationalResourcesWidget",
     "ComputerDropdown",
     "ElnConfigureWidget",
     "ElnExportWidget",

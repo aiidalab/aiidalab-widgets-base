@@ -304,11 +304,11 @@ class ComputerDatabaseWidget(ipw.HBox):
             self.proxy_hostname = hostname
 
 
-class ComputationalResourcesDatabase(ipw.HBox):
+class ComputationalResourcesDatabase(ipw.VBox):
     """Extract the setup of a known computer from the AiiDA code registry."""
 
     input_plugin = traitlets.Unicode()
-    computer_config = traitlets.Dict()
+    ssh_config = traitlets.Dict()
     computer_setup = traitlets.Dict()
     code_config = traitlets.Dict()
 
@@ -375,6 +375,11 @@ class ComputationalResourcesDatabase(ipw.HBox):
             ].keys()
             if key not in ("computer-setup", "computer-configure")
         ]
+
+        config = self.database[self.inp_domain.value][self.inp_computer.value][
+            "computer-setup"
+        ]
+        self.ssh_config = {"hostname": config["hostname"]}
 
     def code_changed(self, _=None):
         """Update code settings."""
