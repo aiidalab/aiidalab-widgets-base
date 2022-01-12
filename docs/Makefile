@@ -39,4 +39,3 @@ html:
 
 view:
 	xdg-open $(BUILDDIR)/html/index.html
-
