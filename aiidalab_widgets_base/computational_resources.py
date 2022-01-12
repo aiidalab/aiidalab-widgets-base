@@ -11,11 +11,13 @@ from aiida import common, orm, plugins, schedulers, transports
 from IPython.display import clear_output, display
 
 from .databases import ComputationalResourcesDatabase
+from .utils import yield_for_change
 
 STYLE = {"description_width": "200px"}
+LAYOUT = {"width": "350px"}
 
 
-class ComputationalResources(ipw.VBox):
+class ComputationalResourcesWidget(ipw.VBox):
     """Code selection widget.
     Attributes:
 
@@ -68,15 +70,29 @@ class ComputationalResources(ipw.VBox):
             self._setup_new_code_output,
             self.output,
         ]
+        super().__init__(children=children, **kwargs)
 
+        # Setting up codes and computers.
         self.comp_resources_database = ComputationalResourcesDatabase(
             input_plugin=self.input_plugin
         )
-        self.ssh_computer_setup = SshComputerSetup()
-        self.aiida_computer_setup = AiidaComputerSetup()
-        self.aiida_code_setup = AiiDACodeSetup()
 
-        super().__init__(children=children, **kwargs)
+        ssh_computer_setup = SshComputerSetup()
+        ipw.dlink(
+            (self.comp_resources_database, "ssh_config"),
+            (ssh_computer_setup, "ssh_config"),
+        )
+
+        self.output_accordion = ipw.Accordion(
+            children=[
+                ssh_computer_setup,
+                AiidaComputerSetup(),
+                AiiDACodeSetup(),
+            ]
+        )
+        self.output_accordion.set_title(0, "Set-up passwordless SSH connection")
+        self.output_accordion.set_title(1, "Set-up a computer in AiiDA")
+        self.output_accordion.set_title(2, "Set-up a code in AiiDA")
 
         self.refresh()
 
@@ -151,10 +167,9 @@ class ComputationalResources(ipw.VBox):
             clear_output()
             if self.button_clicked:
                 display(
+                    ipw.HTML("Please select the computer/code from a database."),
                     self.comp_resources_database,
-                    self.ssh_computer_setup,
-                    self.aiida_computer_setup,
-                    self.aiida_code_setup,
+                    self.output_accordion,
                 )
 
         self.button_clicked = not self.button_clicked
@@ -166,40 +181,36 @@ class SshComputerSetup(ipw.VBox):
     ssh_config = traitlets.Dict()
 
     def __init__(self, **kwargs):
-        computer_image = ipw.HTML(
-            '<img width="200px" src="../miscellaneous/images/computer.png">'
-        )
-
         # Username.
-        inp_username = ipw.Text(
-            description="SSH username:", layout=ipw.Layout(width="350px"), style=STYLE
+        self.username = ipw.Text(
+            description="SSH username:", layout=LAYOUT, style=STYLE
         )
 
         # Port.
-        inp_port = ipw.IntText(
+        self.port = ipw.IntText(
             description="SSH port:",
             value=22,
-            layout=ipw.Layout(width="350px"),
+            layout=LAYOUT,
             style=STYLE,
         )
 
         # Hostname.
-        inp_computer_hostname = ipw.Text(
+        self.hostname = ipw.Text(
             description="Computer hostname:",
-            layout=ipw.Layout(width="350px"),
+            layout=LAYOUT,
             style=STYLE,
         )
 
-        # Upload private key directly.
-        self._inp_password = ipw.Password(
-            description="SSH password:",
-            layout=ipw.Layout(width="150px"),
+        # ProxyJump.
+        self.proxy_jump = ipw.Text(
+            description="ProxyJump:",
+            layout=LAYOUT,
             style=STYLE,
-            disabled=False,
         )
+
         self._inp_private_key = ipw.FileUpload(
             accept="",
-            layout=ipw.Layout(width="350px"),
+            layout=LAYOUT,
             style=STYLE,
             description="Private key",
             multiple=False,
@@ -207,46 +218,18 @@ class SshComputerSetup(ipw.VBox):
         )
         self._verification_mode = ipw.Dropdown(
             options=["password", "private_key"],
-            layout=ipw.Layout(width="350px"),
+            layout=LAYOUT,
             style=STYLE,
             value="password",
-            description="verification mode:",
+            description="Verification mode:",
             disabled=False,
         )
         self._verification_mode.observe(
             self.on_use_verification_mode_change, names="value"
         )
 
-        # Proxy ssh settings.
-        inp_use_proxy = ipw.Checkbox(value=False, description="Use proxy")
-        inp_use_proxy.observe(self.on_use_proxy_change, names="value")
-
-        inp_proxy_hostname = ipw.Text(
-            description="Proxy server address:",
-            layout=ipw.Layout(width="350px"),
-            style=STYLE,
-        )
-
-        self._use_diff_proxy_username = ipw.Checkbox(
-            value=False,
-            description="Use different username and password",
-            layout={"width": "initial"},
-        )
-        self._use_diff_proxy_username.observe(
-            self.on_use_diff_proxy_username_change, names="value"
-        )
-        inp_proxy_username = ipw.Text(
-            value="",
-            description="Proxy server username:",
-            layout=ipw.Layout(width="350px"),
-            style=STYLE,
-        )
-
-        self._inp_proxy_password = ipw.Password(
-            value="",
-            description="Proxy server password:",
-            layout=ipw.Layout(width="138px"),
-            style=STYLE,
+        self._continue_button = ipw.ToggleButton(
+            description="Continue", style={"description_width": "initial"}, value=False
         )
 
         # Setup ssh button and output.
@@ -254,45 +237,23 @@ class SshComputerSetup(ipw.VBox):
         btn_setup_ssh.on_click(self.on_setup_ssh)
         self._setup_ssh_out = ipw.Output()
 
-        # Defining widgets positions.
-        computer_ssh_box = ipw.VBox(
-            [
-                inp_computer_hostname,
-                inp_port,
-                inp_username,
-                self._verification_mode,
-                self._inp_password,
-                self._inp_private_key,
-                inp_use_proxy,
-            ],
-            layout=ipw.Layout(width="400px"),
-        )
-        self._proxy_user_password_box = ipw.VBox(
-            [inp_proxy_username, self._inp_proxy_password],
-            layout={"visibility": "hidden"},
-        )
-        self._proxy_ssh_box = ipw.VBox(
-            [
-                inp_proxy_hostname,
-                self._use_diff_proxy_username,
-                self._proxy_user_password_box,
-            ],
-            layout={"visibility": "hidden", "width": "400px"},
-        )
-
         children = [
-            ipw.HBox([computer_image, computer_ssh_box, self._proxy_ssh_box]),
+            self.hostname,
+            self.port,
+            self.username,
+            self.proxy_jump,
+            self._verification_mode,
+            self._inp_private_key,
             btn_setup_ssh,
             self._setup_ssh_out,
         ]
-        super(SshComputerSetup, self).__init__(children, **kwargs)
+        super().__init__(children, **kwargs)
 
     @staticmethod
     def _ssh_keygen():
         """Generate ssh key pair."""
         fpath = Path("~/.ssh/id_rsa").expanduser()
         if not fpath.exists():
-            print("Creating ssh key pair")
             # returns non-0 if the key pair already exists
             subprocess.call(
                 [
@@ -307,49 +268,18 @@ class SshComputerSetup(ipw.VBox):
                     "PEM",
                     "-N",
                     "",
-                ]
+                ],
+                stdout=subprocess.DEVNULL,
             )
 
-    def is_host_known(self, hostname=None):
-        """Check if the host is known already."""
-        if hostname is None:
-            hostname = self.hostname
-        fpath = Path("~/.ssh/known_hosts").expanduser()
-        if not fpath.exists():
-            return False
-        return subprocess.call(["ssh-keygen", "-F", hostname]) == 0
-
-    def _make_host_known(self, hostname, proxycmd=None):
-        """Add host information into known_hosts file."""
-        proxycmd = [] if proxycmd is None else proxycmd
-        fpath = Path("~/.ssh/known_hosts").expanduser()
-        print(f"Adding keys from {hostname} to {fpath}")
-        try:
-            hashes = subprocess.check_output(
-                proxycmd + ["ssh-keyscan", "-p", str(self.port), "-H", hostname]
-            )
-        except subprocess.CalledProcessError:
-            print(f"Couldn't add keys from {hostname} to {fpath}. Aborting.")
-            return False
-        with open(fpath, "a") as fobj:
-            fobj.write(hashes.decode("utf-8"))
-        return True
-
-    def can_login(self, silent=False):
+    def can_login(self):
         """Check if it is possible to login into the remote host."""
-        if self.username is None:  # if I can't find the username - I must fail
-            return False
-        userhost = self.username + "@" + self.hostname
-        if not silent:
-            print(f"Trying ssh {userhost} -p {self.port}... ", end="")
         # With BatchMode on, no password prompt or other interaction is attempted,
         # so a connect that requires a password will fail.
         ret = subprocess.call(
             [
                 "ssh",
-                userhost,
-                "-p",
-                str(self.port),
+                self.hostname.value,
                 "-o",
                 "BatchMode=yes",
                 "-o",
@@ -357,8 +287,6 @@ class SshComputerSetup(ipw.VBox):
                 "true",
             ]
         )
-        if not silent:
-            print("Ok" if ret == 0 else "Failed")
         return ret == 0
 
     def is_in_config(self):
@@ -367,21 +295,21 @@ class SshComputerSetup(ipw.VBox):
         if not fpath.exists():
             return False
         cfglines = open(fpath).read().split("\n")
-        return "Host " + self.hostname in cfglines
+        return "Host " + self.hostname.value in cfglines
 
-    def _write_ssh_config(self, proxycmd="", private_key_abs_fname=None):
+    def _write_ssh_config(self, private_key_abs_fname=None):
         """Put host information into the config file."""
         fpath = Path("~/.ssh/config").expanduser()
         print(f"Adding section to {fpath}")
         with open(fpath, "a") as file:
-            file.write(f"Host {self.hostname} \n")
-            file.write(f"User {self.username} \n")
-            file.write(f"Port {self.port} \n")
+            file.write(f"Host {self.hostname.value}\n")
+            file.write(f"  User {self.username.value}\n")
+            file.write(f"  Port {self.port.value}\n")
+            if self.proxy_jump.value != "":
+                file.write(f"  ProxyJump {self.proxy_jump.value}\n")
             if private_key_abs_fname:
-                file.write(f"IdentityFile {private_key_abs_fname} \n")
-            if proxycmd:
-                file.write(f"ProxyCommand ssh -q -Y {proxycmd} netcat %h %p\n")
-            file.write("ServerAliveInterval 5\n")
+                file.write(f"  IdentityFile {private_key_abs_fname}\n")
+            file.write("  ServerAliveInterval 5\n")
 
     @staticmethod
     def _add_private_key(private_key_fname, private_key_content):
@@ -405,160 +333,35 @@ class SshComputerSetup(ipw.VBox):
 
         return fpath
 
-    @staticmethod
-    def _send_pubkey(hostname, username, password, proxycmd=""):
-        """Send a publick key to a remote host."""
-        from pexpect import TIMEOUT
-
-        timeout = 10
-        print("Sending public key to {}... ".format(hostname), end="")
-        str_ssh = "ssh-copy-id {}@{}".format(username, hostname)
-        if proxycmd:
-            str_ssh += ' -o "ProxyCommand ssh -q -Y ' + proxycmd + ' netcat %h %p\n"'
-        child = pexpect.spawn(str_ssh)
-        try:
-            index = child.expect(
-                [
-                    "s password:",  # 0
-                    "All keys were skipped because they already exist on the remote system",  # 1
-                    "ERROR: No identities found",  # 2
-                    "Could not resolve hostname",  # 3
-                    pexpect.EOF,
-                ],
-                timeout=timeout,
-            )  # final
-        except TIMEOUT:
-            print("Exceeded {} s timeout".format(timeout))
-            return False
-
-        possible_output = {
-            1: {
-                "message": "Keys are already present on the remote machine",
-                "status": True,
-            },
-            2: {
-                "message": "Failed\nLooks like the key pair is not present in ~/.ssh folder",
-                "status": False,
-            },
-            3: {"message": "Failed\nUnknown hostname", "status": False},
-        }
-        if index == 0:
-            child.sendline(password)
-            try:
-                child.expect("Now try logging into", timeout=5)
-            except TIMEOUT:
-                print("Failed\nPlease check your username and/or password")
-                return False
-            print("Ok")
-            child.close()
-            return True
-
-        if index in possible_output:
-            print(possible_output[index]["message"])
-            return possible_output[index]["status"]
-
-        print("Failed\nUnknown problem")
-        print(child.before, child.after)
-        child.close()
-        return False
-
-    def _configure_proxy(self, password, proxy_password):
-        """Configure proxy server."""
-
-        # If proxy IS required.
-        if self.use_proxy:
-            # Again, some standard checks whether proxy server parameters are provided.
-            if self.proxy_hostname is None:  # hostname
-                print("Please specify the proxy server hostname")
-                return False, ""
-
-            # If proxy username and password should be different from the main computer - they must be provided.
-            if self._use_diff_proxy_username.value:
-
-                # Check username.
-                if self.proxy_username is not None:
-                    proxy_username = self.proxy_username
-                else:
-                    print("Please specify the proxy server username")
-                    return False, ""
-
-                # Check password.
-                if not proxy_password.strip():
-                    print("Please specify the proxy server password")
-                    return False, ""
-
-            # If username and password are the same as for the main computer.
-            else:
-                proxy_username = self.username
-                proxy_password = password
-
-            # Make proxy server known.
-            if not self.is_host_known(self.proxy_hostname):
-                success = self._make_host_known(self.proxy_hostname)
-                if not success:
-                    return False, ""
-
-            # Finally trying to connect.
-            if self._send_pubkey(self.proxy_hostname, proxy_username, proxy_password):
-                return True, proxy_username + "@" + self.proxy_hostname
-
-            print(
-                f"Could not send public key to {self.proxy_hostname} (proxy server), sorry :-("
-            )
-            return False, ""
-
-        # If proxy is NOT required.
-        return True, ""
-
     def on_setup_ssh(self, change):
         """Setup ssh, password and private key are supported"""
         with self._setup_ssh_out:
             mode = self._verification_mode.value
             self._on_setup_ssh(mode, change)
 
-    def _on_setup_ssh(
-        self, mode, change
-    ):  # pylint: disable=unused-argument,too-many-return-statements,too-many-branches
+    def _on_setup_ssh(self, mode, change):
         """ATTENTION: modifying the order of operations in this function can lead to unexpected problems"""
         clear_output()
 
+        # Always start by generating a key pair if they are not present.
+        self._ssh_keygen()
+
         # If hostname is not provided - do not do anything.
-        if self.hostname is None:  # check hostname
+        if self.hostname.value == "":  # check hostname
             print("Please specify the computer hostname")
             return
 
-        # Check if password-free access was enabled earlier.
-        if self.can_login():
-            print("Password-free access is already enabled")
-            # It can still happen that password-free access is enabled
-            # but host is not present in the config file - fixing this.
-            if not self.is_in_config():
-                self._write_ssh_config()  # We do not use proxy here, because if computer
-                # can be accessed without any info in the config - proxy is not needed.
-                self.setup_counter += (
-                    1  # Only if config file has changed - increase setup_counter.
-                )
-            return
+        if not self.is_in_config():
+            self._write_ssh_config()
 
         # If couldn't login in the previous step, chek whether all required information is provided.
-        if self.username is None:  # check username
+        if self.username.value == "":  # check username
             print("Please enter your ssh username")
             return
 
-        if mode == "password":
-            self._ssh_keygen()
-            # Temporary passwords.
-            password = self.__password
-            proxy_password = self.__proxy_password
-            private_key_abs_fname = None
-            if not password.strip():  # check password
-                print("Please enter your ssh password")
-                return
         if mode == "private_key":
             # unwrap private key file and setting temporary private_key content
             private_key_fname, private_key_content = self.__private_key
-            proxy_password = self.__proxy_password
-            password = None
             if private_key_fname is None:  # check private key file
                 print("Please upload your private key file")
                 return
@@ -569,39 +372,86 @@ class SshComputerSetup(ipw.VBox):
                 private_key_fname, private_key_content
             )
 
-        # get the right commands to access the proxy server (if provided)
-        success, proxycmd = self._configure_proxy(password, proxy_password)
-        if not success:
-            return
-
-        # make host known by ssh on the proxy server
-        if not self.is_host_known():
-            success = self._make_host_known(
-                self.hostname, ["ssh"] + [proxycmd] if proxycmd else []
-            )
-            if not success:
-                return
-
-        if mode == "password":
+        elif mode == "password":
             # sending public key to the main host
-            if not self._send_pubkey(self.hostname, self.username, password, proxycmd):
-                print("Could not send public key to {self.hostname}, sorry :-(")
-                return
+            @yield_for_change(self._continue_button, "value")
+            def f():
+                timeout = 10
+                print(f"Sending public key to {self.hostname.value}... ", end="")
+                str_ssh = f"ssh-copy-id {self.hostname.value}"
+                child = pexpect.spawn(str_ssh)
 
-        # modify the ssh config file if necessary
-        if not self.is_in_config():
-            self._write_ssh_config(proxycmd, private_key_abs_fname)
+                expectations = [
+                    "assword:",  # 0
+                    "Now try logging into",  # 1
+                    "All keys were skipped because they already exist on the remote system",  # 2
+                    "Are you sure you want to continue connecting (yes/no)?",  # 3
+                    "ERROR: No identities found",  # 4
+                    "Could not resolve hostname",  # 5
+                    "Connection refused",  # 6
+                    pexpect.EOF,
+                ]
 
-        # FOR LATER: add a check if new config is different from the current one. If so
-        # infrom the user about it.
+                while True:
+                    try:
+                        index = child.expect(
+                            expectations,
+                            timeout=timeout,
+                        )  # final
 
-        # final check
-        if self.can_login():
-            self.setup_counter += 1
-            print("Automatic ssh setup successful :-)")
-            return
-        print("Automatic ssh setup failed, sorry :-(")
-        return
+                    except pexpect.TIMEOUT:
+                        print(f"Exceeded {timeout} s timeout")
+                        return False
+
+                    if index == 0:
+                        pwd = ipw.Password()
+                        display(
+                            ipw.HBox(
+                                [
+                                    ipw.HTML(
+                                        child.before.splitlines()[-1] + child.after
+                                    ),
+                                    pwd,
+                                    self._continue_button,
+                                ]
+                            )
+                        )
+                        yield
+                        child.sendline(pwd.value)
+
+                    elif index == 1:
+                        print("Success.")
+                        break
+
+                    elif index == 2:
+                        print("Keys are already present on the remote machine.")
+                        break
+
+                    elif index == 3:  # Adding a new host.
+                        child.sendline("yes")
+
+                    elif index == 4:
+                        print(
+                            "Failed\nLooks like the key pair is not present in ~/.ssh folder"
+                        )
+                        break
+
+                    elif index == 5:
+                        print("Failed\nUnknown hostname")
+                        break
+
+                    elif index == 6:
+                        print("Failed\nConnection refused.")
+                        break
+
+                    else:
+                        print("Failed\nUnknown problem")
+                        print(child.before, child.after)
+                        break
+                child.close()
+                yield
+
+            f()
 
     def on_use_verification_mode_change(
         self, change
@@ -614,57 +464,6 @@ class SshComputerSetup(ipw.VBox):
             self._inp_password.disabled = True
             self._inp_private_key.disabled = False
 
-    def on_use_proxy_change(self, change):
-        """If proxy check-box is clicked."""
-        if change["new"]:
-            self._proxy_ssh_box.layout.visibility = "visible"
-        else:
-            self._proxy_ssh_box.layout.visibility = "hidden"
-            self._use_diff_proxy_username.value = False
-
-    def on_use_diff_proxy_username_change(
-        self, change
-    ):  # pylint: disable=unused-argument
-        """If using different username for proxy check-box is clicked."""
-        if change["new"]:
-            self._proxy_user_password_box.layout.visibility = "visible"
-        else:
-            self._proxy_user_password_box.layout.visibility = "hidden"
-
-    # Keep this function only because it might be used later.
-    # What it does: looks inside .ssh/config file and loads computer setup from
-    # there (if present)
-    #     def _get_from_config(self, b):
-    #         config = parse_sshconfig(self.hostname)
-    #         if 'user' in config:
-    #             self._inp_username.value = config['user']
-    #         else:
-    #             self._inp_username.value = ''
-    #         if 'proxycommand' in config:
-    #             self._use_proxy.value = True
-    #             proxy = ''.join([ s for s in config['proxycommand'].split() if '@' in s])
-    #             username, hostname = proxy.split('@')
-    #             self._inp_proxy_address.value = hostname
-    #             if username != self.username:
-    #                 self._use_diff_proxy_username.value = True
-    #                 self.proxy_username = username
-    #         else:
-    #             self._use_proxy.value = False
-
-    @property
-    def __password(self):
-        """Returning the password and immediately destroying it"""
-        passwd = copy(self._inp_password.value)
-        self._inp_password.value = ""
-        return passwd
-
-    @property
-    def __proxy_password(self):
-        """Returning the password and immediately destroying it"""
-        passwd = copy(self._inp_proxy_password.value)
-        self._inp_proxy_password.value = ""
-        return passwd
-
     @property
     def __private_key(self):
         """unwrap private key file and setting filename and file content"""
@@ -676,22 +475,15 @@ class SshComputerSetup(ipw.VBox):
             return fname, content
         return None, None
 
-    @traitlets.observe("proxy_hostname")
+    @traitlets.observe("ssh_config")
     def _observe_proxy_hostname(self, _=None):
-        """Enable 'use proxy' widget if proxy hostname is provided."""
-        if self.proxy_hostname:
-            self.use_proxy = True
-
-    @traitlets.observe("proxy_username")
-    def _observe_proxy_username(self, _=None):
-        """Enable 'use proxy' and 'use different proxy username' widgets if proxy username is provided."""
-        if self.proxy_username:
-            self.use_proxy = True
-            self._use_diff_proxy_username.value = True
-
-    @traitlets.validate("port")
-    def _validate_port(self, provided):  # pylint: disable=no-self-use
-        return int(provided["value"])
+        """Pre-filling the input fields."""
+        if "hostname" in self.ssh_config:
+            self.hostname.value = self.ssh_config["hostname"]
+        if "port" in self.ssh_config:
+            self.port.value = int(self.ssh_config["port"])
+        if "proxy_jump" in self.ssh_config:
+            self.proxy_jump.value = int(self.ssh_config["proxy_jump"])
 
 
 class AiidaComputerSetup(ipw.VBox):
@@ -800,34 +592,28 @@ class AiidaComputerSetup(ipw.VBox):
 
         # Organize the widgets
         children = [
-            ipw.HBox(
-                [
-                    ipw.VBox(
-                        [
-                            inp_computer_name,
-                            inp_computer_hostname,
-                            inp_computer_description,
-                            inp_computer_workdir,
-                            inp_mpirun_cmd,
-                            inp_computer_ncpus,
-                            inp_transport_type,
-                            inp_safe_interval,
-                            inp_scheduler,
-                            self._use_login_shell,
-                        ]
-                    ),
-                    ipw.VBox([inp_prepend_text, inp_append_text]),
-                ]
-            ),
+            inp_computer_name,
+            inp_computer_hostname,
+            inp_computer_description,
+            inp_computer_workdir,
+            inp_mpirun_cmd,
+            inp_computer_ncpus,
+            inp_transport_type,
+            inp_safe_interval,
+            inp_scheduler,
+            self._use_login_shell,
+            inp_prepend_text,
+            inp_append_text,
             ipw.HBox([btn_setup_comp, btn_test]),
             ipw.HBox([self._setup_comp_out, self._test_out]),
         ]
-        super(AiidaComputerSetup, self).__init__(children, **kwargs)
+
+        super().__init__(children, **kwargs)
 
     def _configure_computer(self):
         """Create AuthInfo."""
         print("Configuring '{}'".format(self.label))
-        sshcfg = transports.plugins.ssh.parse_sshconfig(self.hostname)
+        sshcfg = transports.plugins.ssh.parse_sshconfig(self.hostname.value)
         authparams = {
             "compress": True,
             "key_filename": os.path.expanduser(
@@ -835,7 +621,7 @@ class AiidaComputerSetup(ipw.VBox):
             ),
             "gss_auth": False,
             "gss_deleg_creds": False,
-            "gss_host": self.hostname,
+            "gss_host": self.hostname.value,
             "gss_kex": False,
             "key_policy": "WarningPolicy",
             "load_system_host_keys": True,
@@ -883,7 +669,9 @@ class AiidaComputerSetup(ipw.VBox):
 
             print(f"Creating new computer with name '{self.label}'")
             computer = orm.Computer(
-                label=self.label, hostname=self.hostname, description=self.description
+                label=self.label,
+                hostname=self.hostname.value,
+                description=self.description,
             )
             computer.set_transport_type(self.transport)
             computer.set_scheduler_type(self.scheduler)
@@ -1084,24 +872,17 @@ class AiiDACodeSetup(ipw.VBox):
         btn_setup_code.on_click(self._setup_code)
         self._setup_code_out = ipw.Output()
         children = [
-            ipw.HBox(
-                [
-                    ipw.VBox(
-                        [
-                            inp_label,
-                            self.inp_computer,
-                            self.inp_code_plugin,
-                            inp_description,
-                            inp_abs_path,
-                        ]
-                    ),
-                    ipw.VBox([inp_prepend_text, inp_append_text]),
-                ]
-            ),
+            inp_label,
+            self.inp_computer,
+            self.inp_code_plugin,
+            inp_description,
+            inp_abs_path,
+            inp_prepend_text,
+            inp_append_text,
             btn_setup_code,
             self._setup_code_out,
         ]
-        super(AiiDACodeSetup, self).__init__(children, **kwargs)
+        super().__init__(children, **kwargs)
 
     @traitlets.validate("input_plugin")
     def _validate_input_plugin(self, proposal):
@@ -1171,5 +952,7 @@ class AiiDACodeSetup(ipw.VBox):
 def CodeDropdown(*args, **kwargs):
     from warnings import warn
 
-    warn("'CodeDropdown' is deprecated, please use 'ComputationalResources' instead.")
-    return ComputationalResources(*args, **kwargs)
+    warn(
+        "'CodeDropdown' is deprecated, please use 'ComputationalResourcesWidget' instead."
+    )
+    return ComputationalResourcesWidget(*args, **kwargs)
