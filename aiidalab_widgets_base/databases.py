@@ -307,16 +307,12 @@ class ComputerDatabaseWidget(ipw.HBox):
 class ComputationalResourcesDatabase(ipw.VBox):
     """Extract the setup of a known computer from the AiiDA code registry."""
 
-    input_plugin = traitlets.Unicode()
+    input_plugin = traitlets.Unicode(allow_none=True)
     ssh_config = traitlets.Dict()
     computer_setup = traitlets.Dict()
-    code_config = traitlets.Dict()
+    code_setup = traitlets.Dict()
 
     def __init__(self, **kwargs):
-
-        self.database = requests.get(
-            "https://aiidateam.github.io/aiida-code-registry/database.json"
-        ).json()
         # Select domain.
         self.inp_domain = ipw.Dropdown(
             options=[],
@@ -341,8 +337,6 @@ class ComputationalResourcesDatabase(ipw.VBox):
         )
         self.inp_code.observe(self.code_changed, names=["value", "options"])
 
-        self.update()
-
         super().__init__(
             children=[
                 self.inp_domain,
@@ -351,6 +345,44 @@ class ComputationalResourcesDatabase(ipw.VBox):
             ],
             **kwargs,
         )
+
+        database = requests.get(
+            "https://aiidateam.github.io/aiida-code-registry/database.json"
+        ).json()
+        self.database = (
+            self.clean_up_database(database, self.input_plugin)
+            if self.input_plugin
+            else database
+        )
+        self.update()
+
+    def clean_up_database(self, database, plugin):
+        for domain in list(database.keys()):
+            for computer in list(database[domain].keys() - set(["default"])):
+                for code in list(
+                    database[domain][computer].keys()
+                    - set(["computer-configure", "computer-setup"])
+                ):
+                    if plugin != database[domain][computer][code]["input_plugin"]:
+                        del database[domain][computer][code]
+                # If no codes remained that correspond to the chosen plugin, remove the computer.
+                if (
+                    len(
+                        database[domain][computer].keys()
+                        - set(["computer-configure", "computer-setup"])
+                    )
+                    == 0
+                ):
+                    del database[domain][computer]
+            # If no computers remained - remove the domain.
+            if len(database[domain].keys() - set(["default"])) == 0:
+                del database[domain]
+            # Making sure the 'default' key still points to an existing computer.
+            elif database[domain]["default"] not in database[domain]:
+                database[domain]["default"] = sorted(
+                    database[domain].keys() - set(["default"])
+                )[0]
+        return database
 
     def update(self, _=None):
         self.inp_domain.options = self.database.keys()
@@ -376,10 +408,17 @@ class ComputationalResourcesDatabase(ipw.VBox):
             if key not in ("computer-setup", "computer-configure")
         ]
 
-        config = self.database[self.inp_domain.value][self.inp_computer.value][
+        setup = self.database[self.inp_domain.value][self.inp_computer.value][
             "computer-setup"
         ]
-        self.ssh_config = {"hostname": config["hostname"]}
+        config = self.database[self.inp_domain.value][self.inp_computer.value][
+            "computer-configure"
+        ]
+        self.ssh_config = {"hostname": setup["hostname"]}
+        self.computer_setup = {
+            "setup": setup,
+            "configure": config,
+        }
 
     def code_changed(self, _=None):
         """Update code settings."""
@@ -392,3 +431,7 @@ class ComputationalResourcesDatabase(ipw.VBox):
         self.code_config = self.database[self.inp_domain.value][
             self.inp_computer.value
         ][self.inp_code.value]
+
+    @default("input_plugin")
+    def _default_input_plugin(self):
+        return None
