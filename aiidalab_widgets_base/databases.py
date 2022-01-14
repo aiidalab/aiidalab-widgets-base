@@ -428,9 +428,9 @@ class ComputationalResourcesDatabase(ipw.VBox):
             or self.inp_code.value is None
         ):
             return
-        self.code_config = self.database[self.inp_domain.value][
-            self.inp_computer.value
-        ][self.inp_code.value]
+        self.code_setup = self.database[self.inp_domain.value][self.inp_computer.value][
+            self.inp_code.value
+        ]
 
     @default("input_plugin")
     def _default_input_plugin(self):
