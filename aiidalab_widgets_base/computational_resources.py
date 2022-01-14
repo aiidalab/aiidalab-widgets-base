@@ -80,42 +80,65 @@ class ComputationalResourcesWidget(ipw.VBox):
             input_plugin=self.input_plugin
         )
 
-        ssh_computer_setup = SshComputerSetup()
+        self.ssh_computer_setup = SshComputerSetup()
         ipw.dlink(
             (self.comp_resources_database, "ssh_config"),
-            (ssh_computer_setup, "ssh_config"),
+            (self.ssh_computer_setup, "ssh_config"),
         )
 
-        aiida_computer_setup = AiidaComputerSetup()
+        self.aiida_computer_setup = AiidaComputerSetup()
         ipw.dlink(
             (self.comp_resources_database, "computer_setup"),
-            (aiida_computer_setup, "computer_setup"),
+            (self.aiida_computer_setup, "computer_setup"),
         )
 
-        aiida_code_setup = AiidaCodeSetup()
+        self.aiida_code_setup = AiidaCodeSetup()
         ipw.dlink(
             (self.comp_resources_database, "code_setup"),
-            (aiida_code_setup, "code_setup"),
+            (self.aiida_code_setup, "code_setup"),
         )
 
         def update_computers(_=None):
-            aiida_code_setup.computer.refresh()
-            aiida_code_setup.computer.value = aiida_computer_setup.label.value
+            self.aiida_code_setup.computer.refresh()
+            self.aiida_code_setup.computer.value = self.aiida_computer_setup.label.value
 
-        aiida_computer_setup.setup_button.on_click(update_computers)
+        self.aiida_computer_setup.setup_button.on_click(update_computers)
 
-        self.output_accordion = ipw.Accordion(
+        quick_setup_button = ipw.Button(description="Quick Setup")
+        quick_setup_button.on_click(self.quick_setup)
+        quick_setup = ipw.VBox(
             children=[
-                ssh_computer_setup,
-                aiida_computer_setup,
-                aiida_code_setup,
+                self.ssh_computer_setup.username,
+                quick_setup_button,
+                self.ssh_computer_setup.setup_ssh_out,
+                self.aiida_computer_setup.setup_compupter_out,
+                self.aiida_code_setup.setup_code_out,
             ]
         )
-        self.output_accordion.set_title(0, "Set-up passwordless SSH connection")
-        self.output_accordion.set_title(1, "Set-up a computer in AiiDA")
-        self.output_accordion.set_title(2, "Set-up a code in AiiDA")
+
+        detailed_setup = ipw.Accordion(
+            children=[
+                self.ssh_computer_setup,
+                self.aiida_computer_setup,
+                self.aiida_code_setup,
+            ]
+        )
+        detailed_setup.set_title(0, "Set-up passwordless SSH connection")
+        detailed_setup.set_title(1, "Set-up a computer in AiiDA")
+        detailed_setup.set_title(2, "Set-up a code in AiiDA")
+
+        self.output_tab = ipw.Tab(children=[quick_setup, detailed_setup])
+        self.output_tab.set_title(0, "Quick Setup")
+        self.output_tab.set_title(1, "Detailed Setup")
 
         self.refresh()
+
+    def quick_setup(self, _=None):
+        self.ssh_computer_setup.on_setup_ssh()
+        self.aiida_computer_setup.on_setup_computer()
+        self.aiida_code_setup.computer.refresh()
+        self.aiida_code_setup.computer.value = self.aiida_computer_setup.label.value
+        self.aiida_code_setup.on_setup_code()
 
     def _get_codes(self):
         """Query the list of available codes."""
@@ -190,7 +213,7 @@ class ComputationalResourcesWidget(ipw.VBox):
                 display(
                     ipw.HTML("Please select the computer/code from a database."),
                     self.comp_resources_database,
-                    self.output_accordion,
+                    self.output_tab,
                 )
 
         self.button_clicked = not self.button_clicked
@@ -262,7 +285,7 @@ class SshComputerSetup(ipw.VBox):
         # Setup ssh button and output.
         btn_setup_ssh = ipw.Button(description="Setup ssh")
         btn_setup_ssh.on_click(self.on_setup_ssh)
-        self._setup_ssh_out = ipw.Output()
+        self.setup_ssh_out = ipw.Output()
 
         children = [
             self.hostname,
@@ -273,7 +296,7 @@ class SshComputerSetup(ipw.VBox):
             self._verification_mode,
             self._inp_private_key,
             btn_setup_ssh,
-            self._setup_ssh_out,
+            self.setup_ssh_out,
         ]
         super().__init__(children, **kwargs)
 
@@ -367,13 +390,13 @@ class SshComputerSetup(ipw.VBox):
 
         return fpath
 
-    def on_setup_ssh(self, change):
+    def on_setup_ssh(self, _=None):
         """Setup ssh, password and private key are supported"""
-        with self._setup_ssh_out:
+        with self.setup_ssh_out:
             mode = self._verification_mode.value
-            self._on_setup_ssh(mode, change)
+            self._on_setup_ssh(mode)
 
-    def _on_setup_ssh(self, mode, change):
+    def _on_setup_ssh(self, mode):
         clear_output()
 
         # Always start by generating a key pair if they are not present.
@@ -627,10 +650,10 @@ class AiidaComputerSetup(ipw.VBox):
 
         # Buttons and outputs.
         self.setup_button = ipw.Button(description="Setup computer")
-        self.setup_button.on_click(self._on_setup_computer)
+        self.setup_button.on_click(self.on_setup_computer)
         test_button = ipw.Button(description="Test computer")
         test_button.on_click(self.test)
-        self._setup_comp_out = ipw.Output(layout=LAYOUT)
+        self.setup_compupter_out = ipw.Output(layout=LAYOUT)
         self._test_out = ipw.Output(layout=LAYOUT)
 
         # Organize the widgets
@@ -649,7 +672,7 @@ class AiidaComputerSetup(ipw.VBox):
             self.prepend_text,
             self.append_text,
             self.setup_button,
-            self._setup_comp_out,
+            self.setup_compupter_out,
             test_button,
             self._test_out,
         ]
@@ -696,9 +719,9 @@ class AiidaComputerSetup(ipw.VBox):
         authinfo.store()
         return True
 
-    def _on_setup_computer(self, _=None):
+    def on_setup_computer(self, _=None):
         """Create a new computer."""
-        with self._setup_comp_out:
+        with self.setup_compupter_out:
             clear_output()
 
             if self.label.value == "":  # check hostname
@@ -829,8 +852,8 @@ class AiidaCodeSetup(ipw.VBox):
         )
 
         btn_setup_code = ipw.Button(description="Setup code")
-        btn_setup_code.on_click(self._setup_code)
-        self._setup_code_out = ipw.Output()
+        btn_setup_code.on_click(self.on_setup_code)
+        self.setup_code_out = ipw.Output()
 
         children = [
             self.label,
@@ -841,7 +864,7 @@ class AiidaCodeSetup(ipw.VBox):
             self.prepend_text,
             self.append_text,
             btn_setup_code,
-            self._setup_code_out,
+            self.setup_code_out,
         ]
         super().__init__(children, **kwargs)
 
@@ -850,9 +873,9 @@ class AiidaCodeSetup(ipw.VBox):
         plugin = proposal["value"]
         return plugin if plugin in self.input_plugin.options else None
 
-    def _setup_code(self, _=None):
+    def on_setup_code(self, _=None):
         """Setup an AiiDA code."""
-        with self._setup_code_out:
+        with self.setup_code_out:
             clear_output()
             items_to_configure = [
                 "label",
