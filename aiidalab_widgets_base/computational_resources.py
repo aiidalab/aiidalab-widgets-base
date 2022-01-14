@@ -16,8 +16,8 @@ from IPython.display import clear_output, display
 from .databases import ComputationalResourcesDatabase
 from .utils import yield_for_change
 
-STYLE = {"description_width": "200px"}
-LAYOUT = {"width": "350px"}
+STYLE = {"description_width": "180px"}
+LAYOUT = {"width": "400px"}
 
 
 class ComputationalResourcesWidget(ipw.VBox):
@@ -97,6 +97,12 @@ class ComputationalResourcesWidget(ipw.VBox):
             (self.comp_resources_database, "code_setup"),
             (aiida_code_setup, "code_setup"),
         )
+
+        def update_computers(_=None):
+            aiida_code_setup.computer.refresh()
+            aiida_code_setup.computer.value = aiida_computer_setup.label.value
+
+        aiida_computer_setup.setup_button.on_click(update_computers)
 
         self.output_accordion = ipw.Accordion(
             children=[
@@ -222,6 +228,12 @@ class SshComputerSetup(ipw.VBox):
             layout=LAYOUT,
             style=STYLE,
         )
+        # ProxyJump.
+        self.proxy_command = ipw.Text(
+            description="ProxyCommand:",
+            layout=LAYOUT,
+            style=STYLE,
+        )
 
         self._inp_private_key = ipw.FileUpload(
             accept="",
@@ -257,6 +269,7 @@ class SshComputerSetup(ipw.VBox):
             self.port,
             self.username,
             self.proxy_jump,
+            self.proxy_command,
             self._verification_mode,
             self._inp_private_key,
             btn_setup_ssh,
@@ -321,7 +334,13 @@ class SshComputerSetup(ipw.VBox):
             file.write(f"  User {self.username.value}\n")
             file.write(f"  Port {self.port.value}\n")
             if self.proxy_jump.value != "":
-                file.write(f"  ProxyJump {self.proxy_jump.value}\n")
+                file.write(
+                    f"  ProxyJump {self.proxy_jump.value.format(username=self.username.value)}\n"
+                )
+            if self.proxy_command.value != "":
+                file.write(
+                    f"  ProxyCommand {self.proxy_command.value.format(username=self.username.value)}\n"
+                )
             if private_key_abs_fname:
                 file.write(f"  IdentityFile {private_key_abs_fname}\n")
             file.write("  ServerAliveInterval 5\n")
@@ -360,18 +379,17 @@ class SshComputerSetup(ipw.VBox):
         # Always start by generating a key pair if they are not present.
         self._ssh_keygen()
 
-        # If hostname is not provided - do not do anything.
+        # If hostname & username are not provided - do not do anything.
         if self.hostname.value == "":  # check hostname
-            print("Please specify the computer hostname")
+            print("Please specify the computer hostname.")
+            return
+
+        if self.username.value == "":  # check username
+            print("Please specify your SSH username.")
             return
 
         if not self.is_in_config():
             self._write_ssh_config()
-
-        # If couldn't login in the previous step, chek whether all required information is provided.
-        if self.username.value == "":  # check username
-            print("Please enter your ssh username")
-            return
 
         if mode == "private_key":
             # unwrap private key file and setting temporary private_key content
@@ -465,7 +483,11 @@ class SshComputerSetup(ipw.VBox):
                 child.close()
                 yield
 
-            f()
+            try:
+                f()
+            except StopIteration:
+                print(f"Unsecessful attempt to connect to {self.hostname.value}.")
+                return
 
     def on_use_verification_mode_change(
         self, change
@@ -497,7 +519,9 @@ class SshComputerSetup(ipw.VBox):
         if "port" in self.ssh_config:
             self.port.value = int(self.ssh_config["port"])
         if "proxy_jump" in self.ssh_config:
-            self.proxy_jump.value = int(self.ssh_config["proxy_jump"])
+            self.proxy_jump.value = self.ssh_config["proxy_jump"]
+        if "proxy_command" in self.ssh_config:
+            self.proxy_command.value = self.ssh_config["proxy_command"]
 
 
 class AiidaComputerSetup(ipw.VBox):
@@ -511,22 +535,20 @@ class AiidaComputerSetup(ipw.VBox):
         self.label = ipw.Text(
             value="",
             placeholder="Will only be used within AiiDA",
-            description="AiiDA computer name:",
-            layout=ipw.Layout(width="500px"),
+            description="Computer name:",
+            layout=LAYOUT,
             style=STYLE,
         )
 
         # Hostname.
-        self.hostname = ipw.Text(
-            description="Hostname:", layout=ipw.Layout(width="500px"), style=STYLE
-        )
+        self.hostname = ipw.Text(description="Hostname:", layout=LAYOUT, style=STYLE)
 
         # Computer description.
         self.description = ipw.Text(
             value="",
             placeholder="No description (yet)",
             description="Computer description:",
-            layout=ipw.Layout(width="500px"),
+            layout=LAYOUT,
             style=STYLE,
         )
 
@@ -534,7 +556,7 @@ class AiidaComputerSetup(ipw.VBox):
         self.work_dir = ipw.Text(
             value="/scratch/{username}/aiida_run",
             description="Workdir:",
-            layout=ipw.Layout(width="500px"),
+            layout=LAYOUT,
             style=STYLE,
         )
 
@@ -542,7 +564,7 @@ class AiidaComputerSetup(ipw.VBox):
         self.mpirun_command = ipw.Text(
             value="mpirun -n {tot_num_mpiprocs}",
             description="Mpirun command:",
-            layout=ipw.Layout(width="500px"),
+            layout=LAYOUT,
             style=STYLE,
         )
 
@@ -550,8 +572,8 @@ class AiidaComputerSetup(ipw.VBox):
         self.mpiprocs_per_machine = ipw.IntText(
             value=8,
             step=1,
-            description="Number of CPU(s) per node:",
-            layout=ipw.Layout(width="270px"),
+            description="#CPU(s) per node:",
+            layout=LAYOUT,
             style=STYLE,
         )
 
@@ -567,7 +589,7 @@ class AiidaComputerSetup(ipw.VBox):
         self.safe_interval = ipw.FloatText(
             value=30.0,
             description="Min. connection interval (sec):",
-            layout=ipw.Layout(width="270px"),
+            layout=LAYOUT,
             style=STYLE,
         )
 
@@ -582,7 +604,7 @@ class AiidaComputerSetup(ipw.VBox):
         self.shebang = ipw.Text(
             value="#!/usr/bin/env bash",
             description="Shebang:",
-            layout=ipw.Layout(width="500px"),
+            layout=LAYOUT,
             style=STYLE,
         )
 
@@ -593,23 +615,23 @@ class AiidaComputerSetup(ipw.VBox):
         self.prepend_text = ipw.Textarea(
             placeholder="Text to prepend to each command execution",
             description="Prepend text:",
-            layout=ipw.Layout(width="400px"),
+            layout=LAYOUT,
         )
 
         # Append text.
         self.append_text = ipw.Textarea(
             placeholder="Text to append to each command execution",
             description="Append text:",
-            layout=ipw.Layout(width="400px"),
+            layout=LAYOUT,
         )
 
         # Buttons and outputs.
-        btn_setup_comp = ipw.Button(description="Setup computer")
-        btn_setup_comp.on_click(self._on_setup_computer)
-        btn_test = ipw.Button(description="Test computer")
-        btn_test.on_click(self.test)
-        self._setup_comp_out = ipw.Output(layout=ipw.Layout(width="500px"))
-        self._test_out = ipw.Output(layout=ipw.Layout(width="500px"))
+        self.setup_button = ipw.Button(description="Setup computer")
+        self.setup_button.on_click(self._on_setup_computer)
+        test_button = ipw.Button(description="Test computer")
+        test_button.on_click(self.test)
+        self._setup_comp_out = ipw.Output(layout=LAYOUT)
+        self._test_out = ipw.Output(layout=LAYOUT)
 
         # Organize the widgets
         children = [
@@ -626,9 +648,9 @@ class AiidaComputerSetup(ipw.VBox):
             self.use_login_shell,
             self.prepend_text,
             self.append_text,
-            btn_setup_comp,
+            self.setup_button,
             self._setup_comp_out,
-            btn_test,
+            test_button,
             self._test_out,
         ]
 
@@ -636,7 +658,6 @@ class AiidaComputerSetup(ipw.VBox):
 
     def _configure_computer(self):
         """Create AuthInfo."""
-        print(f"Configuring '{self.label.value}'")
         sshcfg = parse_sshconfig(self.hostname.value)
         authparams = {
             "compress": True,
@@ -661,7 +682,7 @@ class AiidaComputerSetup(ipw.VBox):
                 f"SSH username is not provided, please run `verdi computer configure {self.label.value}` "
                 "from the command line."
             )
-            return
+            return False
         if "proxycommand" in sshcfg:
             authparams["proxy_command"] = sshcfg["proxycommand"]
         elif "proxyjump" in sshcfg:
@@ -673,11 +694,7 @@ class AiidaComputerSetup(ipw.VBox):
         )
         authinfo.set_auth_params(authparams)
         authinfo.store()
-        print(
-            subprocess.check_output(
-                ["verdi", "computer", "show", self.label.value]
-            ).decode("utf-8")
-        )
+        return True
 
     def _on_setup_computer(self, _=None):
         """Create a new computer."""
@@ -720,15 +737,16 @@ class AiidaComputerSetup(ipw.VBox):
                 common.exceptions.ValidationError,
             ) as err:
                 print(f"{type(err).__name__}: {err}")
+                return
 
             try:
                 computer.store()
             except common.exceptions.ValidationError as err:
-                print(f"unable to store the computer: {err}.")
-            else:
-                print(f"Computer<{computer.pk}> {computer.label} created")
+                print(f"Unable to store the computer: {err}.")
+                return
 
-        self._configure_computer()
+            if self._configure_computer():
+                print(f"Computer<{computer.pk}> {computer.label} created")
 
     def test(self, _=None):
         with self._test_out:
@@ -758,18 +776,16 @@ class AiidaCodeSetup(ipw.VBox):
 
     def __init__(self, path_to_root="../", **kwargs):
 
-        style = {"description_width": "200px"}
-
         # Code label.
         self.label = ipw.Text(
             description="AiiDA code label:",
-            layout=ipw.Layout(width="500px"),
-            style=style,
+            layout=LAYOUT,
+            style=STYLE,
         )
 
         # Computer on which the code is installed. Two dlinks are needed to make sure we get a Computer instance.
         self.computer = ComputerDropdown(
-            path_to_root=path_to_root, layout={"margin": "0px 0px 0px 125px"}
+            path_to_root=path_to_root,
         )
 
         # Code plugin.
@@ -781,35 +797,35 @@ class AiidaCodeSetup(ipw.VBox):
                 ]
             ),
             description="Code plugin:",
-            layout=ipw.Layout(width="500px"),
-            style=style,
+            layout=LAYOUT,
+            style=STYLE,
         )
 
         # Code description.
         self.description = ipw.Text(
             placeholder="No description (yet)",
             description="Code description:",
-            layout=ipw.Layout(width="500px"),
-            style=style,
+            layout=LAYOUT,
+            style=STYLE,
         )
 
         self.remote_abs_path = ipw.Text(
             placeholder="/path/to/executable",
             description="Absolute path to executable:",
-            layout=ipw.Layout(width="500px"),
-            style=style,
+            layout=LAYOUT,
+            style=STYLE,
         )
 
         self.prepend_text = ipw.Textarea(
             placeholder="Text to prepend to each command execution",
             description="Prepend text:",
-            layout=ipw.Layout(width="400px"),
+            layout=LAYOUT,
         )
 
         self.append_text = ipw.Textarea(
             placeholder="Text to append to each command execution",
             description="Append text:",
-            layout=ipw.Layout(width="400px"),
+            layout=LAYOUT,
         )
 
         btn_setup_code = ipw.Button(description="Setup code")
@@ -915,24 +931,21 @@ class ComputerDropdown(ipw.VBox):
             options={},
             value=None,
             description=description,
-            style={"description_width": "initial"},
+            style=STYLE,
+            layout=LAYOUT,
             disabled=True,
         )
         traitlets.link((self, "computers"), (self._dropdown, "options"))
         traitlets.link((self._dropdown, "value"), (self, "value"))
 
-        btn_refresh = ipw.Button(description="Refresh", layout=ipw.Layout(width="70px"))
-        btn_refresh.on_click(self.refresh)
-
         self.observe(self.refresh, names="allow_select_disabled")
 
-        self._setup_another = ipw.HTML(
-            value=f"""<a href={path_to_root}aiidalab-widgets-base/notebooks/setup_computer.ipynb target="_blank">
-            Setup new computer</a>"""
-        )
-
         children = [
-            ipw.HBox([self._dropdown, btn_refresh, self._setup_another]),
+            ipw.HBox(
+                [
+                    self._dropdown,
+                ]
+            ),
             self.output,
         ]
         self.refresh()

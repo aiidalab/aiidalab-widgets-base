@@ -328,11 +328,20 @@ class ComputationalResourcesDatabase(ipw.VBox):
         config = self.database[self.inp_domain.value][self.inp_computer.value][
             "computer-configure"
         ]
-        self.ssh_config = {"hostname": setup["hostname"]}
+        ssh_config = {"hostname": setup["hostname"]}
+        if "proxy_command" in config:
+            ssh_config["proxy_command"] = config["proxy_command"]
+        if "proxy_jump" in config:
+            ssh_config["proxy_jump"] = config["proxy_jump"]
+
+        self.ssh_config = ssh_config  # To notify the trait change
+
         self.computer_setup = {
             "setup": setup,
             "configure": config,
         }
+
+        self.code_changed()
 
     def code_changed(self, _=None):
         """Update code settings."""
@@ -342,9 +351,21 @@ class ComputationalResourcesDatabase(ipw.VBox):
             or self.inp_code.value is None
         ):
             return
-        self.code_setup = self.database[self.inp_domain.value][self.inp_computer.value][
+        code_setup = self.database[self.inp_domain.value][self.inp_computer.value][
             self.inp_code.value
         ]
+
+        if (
+            "label"
+            in self.database[self.inp_domain.value][self.inp_computer.value][
+                "computer-setup"
+            ]
+        ):
+            code_setup["computer"] = self.database[self.inp_domain.value][
+                self.inp_computer.value
+            ]["computer-setup"]["label"]
+
+        self.code_setup = code_setup
 
     @default("input_plugin")
     def _default_input_plugin(self):
