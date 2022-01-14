@@ -8,6 +8,7 @@ import pexpect
 import shortuuid
 import traitlets
 from aiida import common, orm, plugins, schedulers, transports
+from aiida.orm.utils.builders.code import CodeBuilder
 from aiida.orm.utils.builders.computer import ComputerBuilder
 from aiida.transports.plugins.ssh import parse_sshconfig
 from IPython.display import clear_output, display
@@ -354,7 +355,6 @@ class SshComputerSetup(ipw.VBox):
             self._on_setup_ssh(mode, change)
 
     def _on_setup_ssh(self, mode, change):
-        """ATTENTION: modifying the order of operations in this function can lead to unexpected problems"""
         clear_output()
 
         # Always start by generating a key pair if they are not present.
@@ -411,7 +411,7 @@ class SshComputerSetup(ipw.VBox):
                         index = child.expect(
                             expectations,
                             timeout=timeout,
-                        )  # final
+                        )
 
                     except pexpect.TIMEOUT:
                         print(f"Exceeded {timeout} s timeout")
@@ -708,6 +708,9 @@ class AiidaComputerSetup(ipw.VBox):
                 "shebang",
             ]
             kwargs = {key: getattr(self, key).value for key in items_to_configure}
+            kwargs = {
+                key: value for key, value in kwargs.items() if value
+            }  # Remove empty items.
 
             computer_builder = ComputerBuilder(**kwargs)
             try:
@@ -758,21 +761,24 @@ class AiidaCodeSetup(ipw.VBox):
         style = {"description_width": "200px"}
 
         # Code label.
-        inp_label = ipw.Text(
+        self.label = ipw.Text(
             description="AiiDA code label:",
             layout=ipw.Layout(width="500px"),
             style=style,
         )
 
         # Computer on which the code is installed. Two dlinks are needed to make sure we get a Computer instance.
-        self.inp_computer = ComputerDropdown(
+        self.computer = ComputerDropdown(
             path_to_root=path_to_root, layout={"margin": "0px 0px 0px 125px"}
         )
 
         # Code plugin.
-        self.inp_code_plugin = ipw.Dropdown(
+        self.input_plugin = ipw.Dropdown(
             options=sorted(
-                plugins.entry_point.get_entry_point_names("aiida.calculations")
+                [
+                    (ep.name, ep)
+                    for ep in plugins.entry_point.get_entry_points("aiida.calculations")
+                ]
             ),
             description="Code plugin:",
             layout=ipw.Layout(width="500px"),
@@ -780,14 +786,14 @@ class AiidaCodeSetup(ipw.VBox):
         )
 
         # Code description.
-        inp_description = ipw.Text(
+        self.description = ipw.Text(
             placeholder="No description (yet)",
             description="Code description:",
             layout=ipw.Layout(width="500px"),
             style=style,
         )
 
-        inp_abs_path = ipw.Text(
+        self.remote_abs_path = ipw.Text(
             placeholder="/path/to/executable",
             description="Absolute path to executable:",
             layout=ipw.Layout(width="500px"),
@@ -809,12 +815,13 @@ class AiidaCodeSetup(ipw.VBox):
         btn_setup_code = ipw.Button(description="Setup code")
         btn_setup_code.on_click(self._setup_code)
         self._setup_code_out = ipw.Output()
+
         children = [
-            inp_label,
-            self.inp_computer,
-            self.inp_code_plugin,
-            inp_description,
-            inp_abs_path,
+            self.label,
+            self.computer,
+            self.input_plugin,
+            self.description,
+            self.remote_abs_path,
             self.prepend_text,
             self.append_text,
             btn_setup_code,
@@ -825,70 +832,52 @@ class AiidaCodeSetup(ipw.VBox):
     @traitlets.validate("input_plugin")
     def _validate_input_plugin(self, proposal):
         plugin = proposal["value"]
-        return plugin if plugin in self.inp_code_plugin.options else None
+        return plugin if plugin in self.input_plugin.options else None
 
     def _setup_code(self, _=None):
         """Setup an AiiDA code."""
         with self._setup_code_out:
             clear_output()
-            if self.label is None:
-                print("You did not specify code label.")
-                return
-            if not self.remote_abs_path:
-                print("You did not specify absolute path to the executable.")
-                return
-            if not self.inp_computer.selected_computer:
-                print(
-                    "Please specify a computer that is configured in your AiiDA profile."
-                )
-                return False
-            if not self.input_plugin:
-                print(
-                    "Please specify an input plugin that is installed in your AiiDA environment."
-                )
-                return False
-            if self.exists():
-                print(
-                    f"Code {self.label}@{self.inp_computer.selected_computer.label} already exists."
-                )
-                return
-            code = orm.Code(
-                remote_computer_exec=(
-                    self.inp_computer.selected_computer,
-                    self.remote_abs_path,
-                )
-            )
-            code.label = self.label
-            code.description = self.description
-            code.set_input_plugin_name(self.input_plugin)
-            code.set_prepend_text(self.prepend_text)
-            code.set_append_text(self.append_text)
-            code.store()
-            code.reveal()
-            full_string = f"{self.label}@{self.inp_computer.selected_computer.label}"
-            print(
-                subprocess.check_output(["verdi", "code", "show", full_string]).decode(
-                    "utf-8"
-                )
-            )
+            items_to_configure = [
+                "label",
+                "computer",
+                "description",
+                "input_plugin",
+                "remote_abs_path",
+                "prepend_text",
+                "append_text",
+            ]
 
-    def exists(self):
-        """Returns True if the code exists, returns False otherwise."""
-        if not self.label:
-            return False
-        try:
-            orm.Code.get_from_string(
-                f"{self.label}@{self.inp_computer.selected_computer.label}"
-            )
-            return True
-        except common.MultipleObjectsError:
-            return True
-        except common.NotExistent:
-            return False
+            kwargs = {key: getattr(self, key).value for key in items_to_configure}
+            kwargs = {
+                key: value for key, value in kwargs.items() if value
+            }  # Remove empty items.
+            kwargs["code_type"] = CodeBuilder.CodeType.ON_COMPUTER
+
+            try:
+                code = CodeBuilder(**kwargs).new()
+            except (common.exceptions.InputValidationError, KeyError) as exception:
+                print(f"Invalid inputs: {exception}")
+                return
+
+            try:
+                code.store()
+                code.reveal()
+            except common.exceptions.ValidationError as exception:
+                print(f"Unable to store the Code: {exception}")
+                return
+
+            print(f"Code<{code.pk}> {code.full_label} created")
 
     @traitlets.observe("code_setup")
     def _observe_code_setup(self, _=None):
-        pass
+        # Setup.
+        for key, value in self.code_setup.items():
+            if hasattr(self, key):
+                if key == "input_plugin":
+                    getattr(self, key).label = value
+                else:
+                    getattr(self, key).value = value
 
 
 class ComputerDropdown(ipw.VBox):
@@ -907,7 +896,7 @@ class ComputerDropdown(ipw.VBox):
         allow_select_disabled(Bool):  Trait that defines whether to show disabled computers.
     """
 
-    selected_computer = traitlets.Union(
+    value = traitlets.Union(
         [traitlets.Unicode(), traitlets.Instance(orm.Computer)], allow_none=True
     )
     computers = traitlets.Dict(allow_none=True)
@@ -930,7 +919,7 @@ class ComputerDropdown(ipw.VBox):
             disabled=True,
         )
         traitlets.link((self, "computers"), (self._dropdown, "options"))
-        traitlets.link((self._dropdown, "value"), (self, "selected_computer"))
+        traitlets.link((self._dropdown, "value"), (self, "value"))
 
         btn_refresh = ipw.Button(description="Refresh", layout=ipw.Layout(width="70px"))
         btn_refresh.on_click(self.refresh)
@@ -975,8 +964,8 @@ class ComputerDropdown(ipw.VBox):
 
         self._dropdown.value = None
 
-    @traitlets.validate("selected_computer")
-    def _validate_selected_computer(self, change):
+    @traitlets.validate("value")
+    def _validate_value(self, change):
         """Select computer either by label or by class instance."""
         computer = change["value"]
         self.output.value = ""
