@@ -783,13 +783,15 @@ class AiidaComputerSetup(ipw.VBox):
     @traitlets.observe("computer_setup")
     def _observe_computer_setup(self, _=None):
         # Setup.
-        for key, value in self.computer_setup["setup"].items():
-            if hasattr(self, key):
-                getattr(self, key).value = value
+        if "setup" in self.computer_setup:
+            for key, value in self.computer_setup["setup"].items():
+                if hasattr(self, key):
+                    getattr(self, key).value = value
         # Configure.
-        for key, value in self.computer_setup["configure"].items():
-            if hasattr(self, key):
-                getattr(self, key).value = value
+        if "configure" in self.computer_setup:
+            for key, value in self.computer_setup["configure"].items():
+                if hasattr(self, key):
+                    getattr(self, key).value = value
 
 
 class AiidaCodeSetup(ipw.VBox):
