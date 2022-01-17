@@ -1,3 +1,4 @@
+---
 max-line-length: 120
 
 ignore-paths:
@@ -7,13 +8,13 @@ ignore-paths:
     - utils
 
 pylint:
-  run: true
+    run: true
 
 pyflakes:
-  run: false
+    run: false
 
 pep8:
-  run: false
+    run: false
 
 mccabe:
-  run: false
+    run: false
