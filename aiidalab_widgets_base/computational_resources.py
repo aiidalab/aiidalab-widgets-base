@@ -62,14 +62,13 @@ class ComputationalResourcesWidget(ipw.VBox):
             self.refresh, names=["allow_disabled_computers", "allow_hidden_codes"]
         )
 
-        btn_setup_new_code = ipw.Button(description="Setup new code")
-        btn_setup_new_code.on_click(self.setup_new_code)
-        self.button_clicked = True  # Boolean to switch on and off the computational resources setup window.
+        self.btn_setup_new_code = ipw.ToggleButton(description="Setup new code")
+        self.btn_setup_new_code.observe(self.setup_new_code, 'value')
 
-        self._setup_new_code_output = ipw.Output()
+        self._setup_new_code_output = ipw.Output(layout = {"width": "500px"})
 
         children = [
-            ipw.HBox([self.dropdown, btn_setup_new_code]),
+            ipw.HBox([self.dropdown, self.btn_setup_new_code]),
             self._setup_new_code_output,
             self.output,
         ]
@@ -209,14 +208,15 @@ class ComputationalResourcesWidget(ipw.VBox):
     def setup_new_code(self, _=None):
         with self._setup_new_code_output:
             clear_output()
-            if self.button_clicked:
+            if self.btn_setup_new_code.value:
+                self._setup_new_code_output.layout = {"width": "500px", "border": "1px solid gray"}
                 display(
-                    ipw.HTML("Please select the computer/code from a database."),
+                    ipw.HTML("""Please select the computer/code from a database."""),
                     self.comp_resources_database,
                     self.output_tab,
                 )
-
-        self.button_clicked = not self.button_clicked
+            else:
+                self._setup_new_code_output.layout = {"width": "500px", "border": "none"}
 
 
 class SshComputerSetup(ipw.VBox):
