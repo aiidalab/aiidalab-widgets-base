@@ -63,9 +63,9 @@ class ComputationalResourcesWidget(ipw.VBox):
         )
 
         self.btn_setup_new_code = ipw.ToggleButton(description="Setup new code")
-        self.btn_setup_new_code.observe(self.setup_new_code, 'value')
+        self.btn_setup_new_code.observe(self.setup_new_code, "value")
 
-        self._setup_new_code_output = ipw.Output(layout = {"width": "500px"})
+        self._setup_new_code_output = ipw.Output(layout={"width": "500px"})
 
         children = [
             ipw.HBox([self.dropdown, self.btn_setup_new_code]),
@@ -209,14 +209,20 @@ class ComputationalResourcesWidget(ipw.VBox):
         with self._setup_new_code_output:
             clear_output()
             if self.btn_setup_new_code.value:
-                self._setup_new_code_output.layout = {"width": "500px", "border": "1px solid gray"}
+                self._setup_new_code_output.layout = {
+                    "width": "500px",
+                    "border": "1px solid gray",
+                }
                 display(
                     ipw.HTML("""Please select the computer/code from a database."""),
                     self.comp_resources_database,
                     self.output_tab,
                 )
             else:
-                self._setup_new_code_output.layout = {"width": "500px", "border": "none"}
+                self._setup_new_code_output.layout = {
+                    "width": "500px",
+                    "border": "none",
+                }
 
 
 class SshComputerSetup(ipw.VBox):
