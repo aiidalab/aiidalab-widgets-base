@@ -1164,7 +1164,9 @@ class BasicStructureEditor(ipw.VBox):  # pylint: disable=too-many-instance-attri
                 lgnd = initial_ligand.copy()
                 lgnd.translate(position)
                 atoms += lgnd
-            new_selection = [i for i in range(last_atom, last_atom + len(selection)*len(lgnd))]
+            new_selection = [
+                i for i in range(last_atom, last_atom + len(selection) * len(lgnd))
+            ]
 
         self.structure = atoms
         self.selection = new_selection
@@ -1213,7 +1215,9 @@ class BasicStructureEditor(ipw.VBox):  # pylint: disable=too-many-instance-attri
             atoms += lgnd
 
         self.structure = atoms
-        self.selection = [i for i in range(last_atom, last_atom + len(selection)*len(lgnd))]
+        self.selection = [
+            i for i in range(last_atom, last_atom + len(selection) * len(lgnd))
+        ]
 
     def remove(self, _):
         """Remove selected atoms."""
