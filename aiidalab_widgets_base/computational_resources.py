@@ -127,9 +127,9 @@ class ComputationalResourcesWidget(ipw.VBox):
                 self.aiida_code_setup,
             ]
         )
-        detailed_setup.set_title(0, "Set-up passwordless SSH connection")
-        detailed_setup.set_title(1, "Set-up a computer in AiiDA")
-        detailed_setup.set_title(2, "Set-up a code in AiiDA")
+        detailed_setup.set_title(0, "Set up password-less SSH connection")
+        detailed_setup.set_title(1, "Set up a computer in AiiDA")
+        detailed_setup.set_title(2, "Set up a code in AiiDA")
 
         self.output_tab = ipw.Tab(children=[quick_setup, detailed_setup])
         self.output_tab.set_title(0, "Quick Setup")
@@ -385,19 +385,16 @@ class SshComputerSetup(ipw.VBox):
         param private_key_fname: string
         param private_key_content: bytes
         """
-        fpath = Path(f"~/.ssh/{private_key_fname}").expanduser()
+        fpath = Path.home().joinpath(".ssh", private_key_fname)
         if fpath.exists():
-            # if file already exist and have the same content
-            with open(fpath, "rb") as file:
-                content = file.read()
-                if content == private_key_content:
+            # if file already exist and has the same content
+            if fpath.read_bytes() == private_key_content:
                     return fpath.name()
 
             fpath = fpath / "_" / shortuuid.uuid()
-        with open(fpath, "wb") as file:
-            file.write(private_key_content)
+        fpath.write_bytes(private_key_content)
 
-        os.chmod(fpath, 0o600)
+        fpath.chmod(0o600)
 
         return fpath
 
