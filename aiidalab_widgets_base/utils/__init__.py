@@ -90,6 +90,8 @@ def string_range_to_list(strng, shift=-1):
 def yield_for_change(widget, attribute):
     """Pause a generator to wait for a widget change event.
 
+    Taken from: https://ipywidgets.readthedocs.io/en/7.6.5/examples/Widget%20Asynchronous.html#Generator-approach
+
     This is a decorator for a generator function which pauses the generator on yield
     until the given widget attribute changes. The new value of the attribute is
     sent to the generator and is the value of the yield.
