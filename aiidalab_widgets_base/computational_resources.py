@@ -91,17 +91,22 @@ class ComputationalResourcesWidget(ipw.VBox):
             (self.aiida_computer_setup, "computer_setup"),
         )
 
+        def update_computers():
+            self.aiida_code_setup.computer.refresh()
+            self.aiida_code_setup.computer.value = self.aiida_computer_setup.label.value
+
+        self.aiida_computer_setup.on_success = update_computers
+
         self.aiida_code_setup = AiidaCodeSetup()
         ipw.dlink(
             (self.comp_resources_database, "code_setup"),
             (self.aiida_code_setup, "code_setup"),
         )
 
-        def update_computers(_=None):
-            self.aiida_code_setup.computer.refresh()
-            self.aiida_code_setup.computer.value = self.aiida_computer_setup.label.value
+        def update_codes():
+            self.refresh()
 
-        self.aiida_computer_setup.setup_button.on_click(update_computers)
+        self.aiida_code_setup.on_success = update_codes
 
         quick_setup_button = ipw.Button(description="Quick Setup")
         quick_setup_button.on_click(self.quick_setup)
@@ -133,11 +138,11 @@ class ComputationalResourcesWidget(ipw.VBox):
         self.refresh()
 
     def quick_setup(self, _=None):
-        self.ssh_computer_setup.on_setup_ssh()
-        self.aiida_computer_setup.on_setup_computer()
-        self.aiida_code_setup.computer.refresh()
-        self.aiida_code_setup.computer.value = self.aiida_computer_setup.label.value
-        self.aiida_code_setup.on_setup_code()
+        def f():
+            self.aiida_computer_setup.on_setup_computer()
+            self.aiida_code_setup.on_setup_code()
+
+        self.ssh_computer_setup.on_setup_ssh(run_on_success=f)
 
     def _get_codes(self):
         """Query the list of available codes."""
@@ -285,7 +290,7 @@ class SshComputerSetup(ipw.VBox):
         )
 
         self._continue_button = ipw.ToggleButton(
-            description="Continue", style={"description_width": "initial"}, value=False
+            description="Continue", layout={"width": "100px"}, value=False
         )
 
         # Setup ssh button and output.
@@ -396,13 +401,13 @@ class SshComputerSetup(ipw.VBox):
 
         return fpath
 
-    def on_setup_ssh(self, _=None):
+    def on_setup_ssh(self, _=None, run_on_success=None):
         """Setup ssh, password and private key are supported"""
         with self.setup_ssh_out:
             mode = self._verification_mode.value
-            self._on_setup_ssh(mode)
+            self._on_setup_ssh(mode, run_on_success=run_on_success)
 
-    def _on_setup_ssh(self, mode):
+    def _on_setup_ssh(self, mode, run_on_success=None):
         clear_output()
 
         # Always start by generating a key pair if they are not present.
@@ -437,7 +442,7 @@ class SshComputerSetup(ipw.VBox):
             # sending public key to the main host
             @yield_for_change(self._continue_button, "value")
             def f():
-                timeout = 10
+                timeout = 30
                 print(f"Sending public key to {self.hostname.value}... ", end="")
                 str_ssh = f"ssh-copy-id {self.hostname.value}"
                 child = pexpect.spawn(str_ssh)
@@ -453,6 +458,7 @@ class SshComputerSetup(ipw.VBox):
                     pexpect.EOF,
                 ]
 
+                previous_message, message = None, None
                 while True:
                     try:
                         index = child.expect(
@@ -465,27 +471,32 @@ class SshComputerSetup(ipw.VBox):
                         return False
 
                     if index == 0:
-                        pwd = ipw.Password()
-                        display(
-                            ipw.HBox(
-                                [
-                                    ipw.HTML(
-                                        child.before.splitlines()[-1] + child.after
-                                    ),
-                                    pwd,
-                                    self._continue_button,
-                                ]
+                        message = child.before.splitlines()[-1] + child.after
+                        if previous_message != message:
+                            previous_message = message
+                            pwd = ipw.Password(layout={"width": "100px"})
+                            display(
+                                ipw.HBox(
+                                    [
+                                        ipw.HTML(message),
+                                        pwd,
+                                        self._continue_button,
+                                    ]
+                                )
                             )
-                        )
-                        yield
+                            yield
                         child.sendline(pwd.value)
 
                     elif index == 1:
                         print("Success.")
+                        if run_on_success:
+                            run_on_success()
                         break
 
                     elif index == 2:
                         print("Keys are already present on the remote machine.")
+                        if run_on_success:
+                            run_on_success()
                         break
 
                     elif index == 3:  # Adding a new host.
@@ -559,6 +570,8 @@ class AiidaComputerSetup(ipw.VBox):
     computer_setup = traitlets.Dict(allow_none=True)
 
     def __init__(self, **kwargs):
+
+        self.on_success = None
 
         # List of widgets to be displayed.
         self.label = ipw.Text(
@@ -775,6 +788,8 @@ class AiidaComputerSetup(ipw.VBox):
                 return
 
             if self._configure_computer():
+                if self.on_success:
+                    self.on_success()
                 print(f"Computer<{computer.pk}> {computer.label} created")
 
     def test(self, _=None):
@@ -806,6 +821,8 @@ class AiidaCodeSetup(ipw.VBox):
     code_setup = traitlets.Dict(allow_none=True)
 
     def __init__(self, path_to_root="../", **kwargs):
+
+        self.on_success = None
 
         # Code label.
         self.label = ipw.Text(
@@ -901,6 +918,20 @@ class AiidaCodeSetup(ipw.VBox):
             }  # Remove empty items.
             kwargs["code_type"] = CodeBuilder.CodeType.ON_COMPUTER
 
+            # Checking if the code with this name already exists
+            qb = orm.QueryBuilder()
+            qb.append(
+                orm.Computer, filters={"uuid": kwargs["computer"].uuid}, tag="computer"
+            )
+            qb.append(
+                orm.Code, with_computer="computer", filters={"label": kwargs["label"]}
+            )
+            if qb.count() > 0:
+                print(
+                    f"Code {kwargs['label']}@{kwargs['computer'].label} already exists."
+                )
+                return
+
             try:
                 code = CodeBuilder(**kwargs).new()
             except (common.exceptions.InputValidationError, KeyError) as exception:
@@ -913,6 +944,9 @@ class AiidaCodeSetup(ipw.VBox):
             except common.exceptions.ValidationError as exception:
                 print(f"Unable to store the Code: {exception}")
                 return
+
+            if self.on_success:
+                self.on_success()
 
             print(f"Code<{code.pk}> {code.full_label} created")
 
