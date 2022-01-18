@@ -315,24 +315,21 @@ class SshComputerSetup(ipw.VBox):
     def _ssh_keygen():
         """Generate ssh key pair."""
         fpath = Path("~/.ssh/id_rsa").expanduser()
+        keygen_cmd = [
+            "ssh-keygen",
+            "-f",
+            fpath,
+            "-t",
+            "rsa",
+            "-b",
+            "4096",
+            "-m",
+            "PEM",
+            "-N",
+            "",
+        ]
         if not fpath.exists():
-            # returns non-0 if the key pair already exists
-            subprocess.call(
-                [
-                    "ssh-keygen",
-                    "-f",
-                    fpath,
-                    "-t",
-                    "rsa",
-                    "-b",
-                    "4096",
-                    "-m",
-                    "PEM",
-                    "-N",
-                    "",
-                ],
-                stdout=subprocess.DEVNULL,
-            )
+            subprocess.run(keygen_cmd, capture_output=True)
 
     def can_login(self):
         """Check if it is possible to login into the remote host."""
@@ -424,7 +421,7 @@ class SshComputerSetup(ipw.VBox):
 
         if mode == "private_key":
             # unwrap private key file and setting temporary private_key content
-            private_key_fname, private_key_content = self.__private_key
+            private_key_fname, private_key_content = self._private_key
             if private_key_fname is None:  # check private key file
                 print("Please upload your private key file")
                 return
@@ -526,9 +523,7 @@ class SshComputerSetup(ipw.VBox):
                 print(f"Unsecessful attempt to connect to {self.hostname.value}.")
                 return
 
-    def on_use_verification_mode_change(
-        self, change
-    ):  # pylint: disable=unused-argument
+    def on_use_verification_mode_change(self, change):
         """which verification mode is chosen."""
         if self._verification_mode.value == "password":
             self._inp_password.disabled = False
@@ -538,7 +533,7 @@ class SshComputerSetup(ipw.VBox):
             self._inp_private_key.disabled = False
 
     @property
-    def __private_key(self):
+    def _private_key(self):
         """unwrap private key file and setting filename and file content"""
         if self._inp_private_key.value:
             (fname, _value), *_ = self._inp_private_key.value.items()
