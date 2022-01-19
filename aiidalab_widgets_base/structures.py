@@ -1142,6 +1142,7 @@ class BasicStructureEditor(ipw.VBox):  # pylint: disable=too-many-instance-attri
     def mod_element(self, _=None):
         """Modify selected atoms into the given element."""
         atoms = self.structure.copy()
+        last_atom = atoms.get_global_number_of_atoms()
         selection = self.selection
 
         if self.ligand.value == 0:
@@ -1153,6 +1154,7 @@ class BasicStructureEditor(ipw.VBox):  # pylint: disable=too-many-instance-attri
                 atoms[idx].symbol = new.symbol
                 atoms[idx].tag = new.tag
                 atoms[idx].charge = new.charge
+            new_selection = selection
         else:
             initial_ligand = self.ligand.rotate(
                 align_to=self.action_vector, remove_anchor=True
@@ -1162,9 +1164,12 @@ class BasicStructureEditor(ipw.VBox):  # pylint: disable=too-many-instance-attri
                 lgnd = initial_ligand.copy()
                 lgnd.translate(position)
                 atoms += lgnd
+            new_selection = [
+                i for i in range(last_atom, last_atom + len(selection) * len(lgnd))
+            ]
 
         self.structure = atoms
-        self.selection = selection
+        self.selection = new_selection
 
     def copy_sel(self, _=None):
         """Copy selected atoms and shift by 1.0 A along X-axis."""
@@ -1183,6 +1188,7 @@ class BasicStructureEditor(ipw.VBox):  # pylint: disable=too-many-instance-attri
     def add(self, _=None):
         """Add atoms."""
         atoms = self.structure.copy()
+        last_atom = atoms.get_global_number_of_atoms()
         selection = self.selection
 
         if self.ligand.value == 0:
@@ -1209,7 +1215,9 @@ class BasicStructureEditor(ipw.VBox):  # pylint: disable=too-many-instance-attri
             atoms += lgnd
 
         self.structure = atoms
-        self.selection = selection
+        self.selection = [
+            i for i in range(last_atom, last_atom + len(selection) * len(lgnd))
+        ]
 
     def remove(self, _):
         """Remove selected atoms."""
