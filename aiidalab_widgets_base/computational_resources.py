@@ -127,15 +127,16 @@ class ComputationalResourcesWidget(ipw.VBox):
         self.refresh()
 
     def quick_setup(self, _=None):
-        def setup_codes():
+        def setup_code():
             self.aiida_code_setup.computer.refresh()
             self.aiida_code_setup.computer.value = self.aiida_computer_setup.label.value
             self.aiida_code_setup.on_setup_code(on_success=self.refresh)
 
-        def setup_codes_and_computers():
-            self.aiida_computer_setup.on_setup_computer(on_success=setup_codes)
+        def setup_code_and_computer():
+            self.aiida_computer_setup.on_setup_computer(on_success=setup_code)
 
-        self.ssh_computer_setup.on_setup_ssh(on_success=setup_codes_and_computers)
+        with self.hold_trait_notifications():
+            self.ssh_computer_setup.on_setup_ssh(on_success=setup_code_and_computer)
 
     def _get_codes(self):
         """Query the list of available codes."""
@@ -165,14 +166,14 @@ class ComputationalResourcesWidget(ipw.VBox):
 
         with self.hold_trait_notifications():
             self.dropdown.options = self._get_codes()
-        if not self.dropdown.options:
-            self.output.value = (
-                f"No codes found for input plugin '{self.input_plugin}'."
-            )
-            self.dropdown.disabled = True
-        else:
-            self.dropdown.disabled = False
-        self.dropdown.value = None
+            if not self.dropdown.options:
+                self.output.value = (
+                    f"No codes found for input plugin '{self.input_plugin}'."
+                )
+                self.dropdown.disabled = True
+            else:
+                self.dropdown.disabled = False
+            self.dropdown.value = None
 
     @traitlets.validate("selected_code")
     def _validate_selected_code(self, change):
@@ -1012,15 +1013,15 @@ class ComputerDropdown(ipw.VBox):
     def refresh(self, _=None):
         """Refresh the list of configured computers."""
         self.output.value = ""
-        with self.hold_trait_notifications():  # pylint: disable=not-context-manager
+        with self.hold_trait_notifications():
             self._dropdown.options = self._get_computers()
-        if not self.computers:
-            self.output.value = "No computers found."
-            self._dropdown.disabled = True
-        else:
-            self._dropdown.disabled = False
+            if not self.computers:
+                self.output.value = "No computers found."
+                self._dropdown.disabled = True
+            else:
+                self._dropdown.disabled = False
 
-        self._dropdown.value = None
+            self._dropdown.value = None
 
     @traitlets.validate("value")
     def _validate_value(self, change):
