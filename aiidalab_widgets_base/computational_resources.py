@@ -269,19 +269,21 @@ class SshComputerSetup(ipw.VBox):
             style=STYLE,
             description="Private key",
             multiple=False,
-            disabled=True,
         )
         self._verification_mode = ipw.Dropdown(
-            options=["password", "private_key"],
+            options=[
+                ("Password", "password"),
+                ("Use custom private key", "private_key"),
+                ("Download public key", "public_key"),
+            ],
             layout=LAYOUT,
             style=STYLE,
             value="password",
             description="Verification mode:",
             disabled=False,
         )
-        self._verification_mode.observe(
-            self.on_use_verification_mode_change, names="value"
-        )
+        self._verification_mode.observe(self.on_verification_mode_change, names="value")
+        self._verification_mode_output = ipw.Output()
 
         self._continue_button = ipw.ToggleButton(
             description="Continue", layout={"width": "100px"}, value=False
@@ -299,7 +301,7 @@ class SshComputerSetup(ipw.VBox):
             self.proxy_jump,
             self.proxy_command,
             self._verification_mode,
-            self._inp_private_key,
+            self._verification_mode_output,
             btn_setup_ssh,
             self.setup_ssh_out,
         ]
@@ -370,6 +372,158 @@ class SshComputerSetup(ipw.VBox):
                 file.write(f"  IdentityFile {private_key_abs_fname}\n")
             file.write("  ServerAliveInterval 5\n")
 
+    def on_setup_ssh(self, _=None, on_success=None):
+        """Setup ssh, password and private key are supported"""
+        with self.setup_ssh_out:
+            self._on_setup_ssh(on_success=on_success)
+
+    def _on_setup_ssh(self, on_success=None):
+        clear_output()
+
+        # Always start by generating a key pair if they are not present.
+        self._ssh_keygen()
+
+        # If hostname & username are not provided - do not do anything.
+        if self.hostname.value == "":  # check hostname
+            print("Please specify the computer hostname.")
+            return
+
+        if self.username.value == "":  # check username
+            print("Please specify your SSH username.")
+            return
+
+        private_key_abs_fname = None
+        if self._verification_mode.value == "private_key":
+            # unwrap private key file and setting temporary private_key content
+            private_key_abs_fname, private_key_content = self._private_key
+            if private_key_abs_fname is None:  # check private key file
+                print("Please upload your private key file.")
+                return
+
+            # write private key in ~/.ssh/ and use the name of upload file,
+            # if exist, generate random string and append to filename then override current name.
+            self._add_private_key(private_key_abs_fname, private_key_content)
+
+        if not self.is_in_config():
+            self._write_ssh_config(private_key_abs_fname=private_key_abs_fname)
+
+        # sending public key to the main host
+        @yield_for_change(self._continue_button, "value")
+        def ssh_copy_id():
+            timeout = 30
+            print(f"Sending public key to {self.hostname.value}... ", end="")
+            str_ssh = f"ssh-copy-id {self.hostname.value}"
+            child = pexpect.spawn(str_ssh)
+
+            expectations = [
+                "assword:",  # 0
+                "Now try logging into",  # 1
+                "All keys were skipped because they already exist on the remote system",  # 2
+                "Are you sure you want to continue connecting (yes/no)?",  # 3
+                "ERROR: No identities found",  # 4
+                "Could not resolve hostname",  # 5
+                "Connection refused",  # 6
+                pexpect.EOF,
+            ]
+
+            previous_message, message = None, None
+            while True:
+                try:
+                    index = child.expect(
+                        expectations,
+                        timeout=timeout,
+                    )
+
+                except pexpect.TIMEOUT:
+                    print(f"Exceeded {timeout} s timeout")
+                    return False
+
+                if index == 0:
+                    message = child.before.splitlines()[-1] + child.after
+                    if previous_message != message:
+                        previous_message = message
+                        pwd = ipw.Password(layout={"width": "100px"})
+                        display(
+                            ipw.HBox(
+                                [
+                                    ipw.HTML(message),
+                                    pwd,
+                                    self._continue_button,
+                                ]
+                            )
+                        )
+                        yield
+                    child.sendline(pwd.value)
+
+                elif index == 1:
+                    print("Success.")
+                    if on_success:
+                        on_success()
+                    break
+
+                elif index == 2:
+                    print("Keys are already present on the remote machine.")
+                    if on_success:
+                        on_success()
+                    break
+
+                elif index == 3:  # Adding a new host.
+                    child.sendline("yes")
+
+                elif index == 4:
+                    print(
+                        "Failed\nLooks like the key pair is not present in ~/.ssh folder."
+                    )
+                    break
+
+                elif index == 5:
+                    print("Failed\nUnknown hostname.")
+                    break
+
+                elif index == 6:
+                    print("Failed\nConnection refused.")
+                    break
+
+                else:
+                    print("Failed\nUnknown problem.")
+                    print(child.before, child.after)
+                    break
+            child.close()
+            yield
+
+        try:
+            ssh_copy_id()
+        except StopIteration:
+            print(f"Unsuccessful attempt to connect to {self.hostname.value}.")
+            return
+
+    def on_verification_mode_change(self, change):
+        """which verification mode is chosen."""
+        with self._verification_mode_output:
+            clear_output()
+            if self._verification_mode.value == "private_key":
+                display(self._inp_private_key)
+            elif self._verification_mode.value == "public_key":
+                public_key = Path("~/.ssh/id_rsa.pub").expanduser()
+                if public_key.exists():
+                    display(
+                        ipw.HTML(
+                            f"""<pre style="background-color: #253239; color: #cdd3df; line-height: normal; custom=test">{public_key.read_text()}</pre>""",
+                            layout={"width": "100%"},
+                        )
+                    )
+
+    @property
+    def _private_key(self):
+        """unwrap private key file and setting filename and file content"""
+        if self._inp_private_key.value:
+            (fname, _value), *_ = self._inp_private_key.value.items()
+            content = copy(_value["content"])
+            self._inp_private_key.value.clear()
+            self._inp_private_key._counter = 0  # pylint: disable=protected-access
+            return fname, content
+        return None, None
+
     @staticmethod
     def _add_private_key(private_key_fname, private_key_content):
         """
@@ -388,152 +542,6 @@ class SshComputerSetup(ipw.VBox):
         fpath.chmod(0o600)
 
         return fpath
-
-    def on_setup_ssh(self, _=None, on_success=None):
-        """Setup ssh, password and private key are supported"""
-        with self.setup_ssh_out:
-            mode = self._verification_mode.value
-            self._on_setup_ssh(mode, on_success=on_success)
-
-    def _on_setup_ssh(self, mode, on_success=None):
-        clear_output()
-
-        # Always start by generating a key pair if they are not present.
-        self._ssh_keygen()
-
-        # If hostname & username are not provided - do not do anything.
-        if self.hostname.value == "":  # check hostname
-            print("Please specify the computer hostname.")
-            return
-
-        if self.username.value == "":  # check username
-            print("Please specify your SSH username.")
-            return
-
-        if not self.is_in_config():
-            self._write_ssh_config()
-
-        if mode == "private_key":
-            # unwrap private key file and setting temporary private_key content
-            private_key_fname, private_key_content = self._private_key
-            if private_key_fname is None:  # check private key file
-                print("Please upload your private key file")
-                return
-
-            # write private key in ~/.ssh/ and use the name of upload file,
-            # if exist, generate random string and append to filename then override current name.
-            self._add_private_key(private_key_fname, private_key_content)
-
-        elif mode == "password":
-            # sending public key to the main host
-            @yield_for_change(self._continue_button, "value")
-            def f():
-                timeout = 30
-                print(f"Sending public key to {self.hostname.value}... ", end="")
-                str_ssh = f"ssh-copy-id {self.hostname.value}"
-                child = pexpect.spawn(str_ssh)
-
-                expectations = [
-                    "assword:",  # 0
-                    "Now try logging into",  # 1
-                    "All keys were skipped because they already exist on the remote system",  # 2
-                    "Are you sure you want to continue connecting (yes/no)?",  # 3
-                    "ERROR: No identities found",  # 4
-                    "Could not resolve hostname",  # 5
-                    "Connection refused",  # 6
-                    pexpect.EOF,
-                ]
-
-                previous_message, message = None, None
-                while True:
-                    try:
-                        index = child.expect(
-                            expectations,
-                            timeout=timeout,
-                        )
-
-                    except pexpect.TIMEOUT:
-                        print(f"Exceeded {timeout} s timeout")
-                        return False
-
-                    if index == 0:
-                        message = child.before.splitlines()[-1] + child.after
-                        if previous_message != message:
-                            previous_message = message
-                            pwd = ipw.Password(layout={"width": "100px"})
-                            display(
-                                ipw.HBox(
-                                    [
-                                        ipw.HTML(message),
-                                        pwd,
-                                        self._continue_button,
-                                    ]
-                                )
-                            )
-                            yield
-                        child.sendline(pwd.value)
-
-                    elif index == 1:
-                        print("Success.")
-                        if on_success:
-                            on_success()
-                        break
-
-                    elif index == 2:
-                        print("Keys are already present on the remote machine.")
-                        if on_success:
-                            on_success()
-                        break
-
-                    elif index == 3:  # Adding a new host.
-                        child.sendline("yes")
-
-                    elif index == 4:
-                        print(
-                            "Failed\nLooks like the key pair is not present in ~/.ssh folder"
-                        )
-                        break
-
-                    elif index == 5:
-                        print("Failed\nUnknown hostname")
-                        break
-
-                    elif index == 6:
-                        print("Failed\nConnection refused.")
-                        break
-
-                    else:
-                        print("Failed\nUnknown problem")
-                        print(child.before, child.after)
-                        break
-                child.close()
-                yield
-
-            try:
-                f()
-            except StopIteration:
-                print(f"Unsecessful attempt to connect to {self.hostname.value}.")
-                return
-
-    def on_use_verification_mode_change(self, change):
-        """which verification mode is chosen."""
-        if self._verification_mode.value == "password":
-            self._inp_password.disabled = False
-            self._inp_private_key.disabled = True
-        if self._verification_mode.value == "private_key":
-            self._inp_password.disabled = True
-            self._inp_private_key.disabled = False
-
-    @property
-    def _private_key(self):
-        """unwrap private key file and setting filename and file content"""
-        if self._inp_private_key.value:
-            (fname, _value), *_ = self._inp_private_key.value.items()
-            content = copy(_value["content"])
-            self._inp_private_key.value.clear()
-            self._inp_private_key._counter = 0  # pylint: disable=protected-access
-            return fname, content
-        return None, None
 
     @traitlets.observe("ssh_config")
     def _observe_ssh_config(self, _=None):
