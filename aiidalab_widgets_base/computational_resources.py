@@ -91,22 +91,11 @@ class ComputationalResourcesWidget(ipw.VBox):
             (self.aiida_computer_setup, "computer_setup"),
         )
 
-        def update_computers():
-            self.aiida_code_setup.computer.refresh()
-            self.aiida_code_setup.computer.value = self.aiida_computer_setup.label.value
-
-        self.aiida_computer_setup.on_success = update_computers
-
         self.aiida_code_setup = AiidaCodeSetup()
         ipw.dlink(
             (self.comp_resources_database, "code_setup"),
             (self.aiida_code_setup, "code_setup"),
         )
-
-        def update_codes():
-            self.refresh()
-
-        self.aiida_code_setup.on_success = update_codes
 
         quick_setup_button = ipw.Button(description="Quick Setup")
         quick_setup_button.on_click(self.quick_setup)
@@ -138,11 +127,15 @@ class ComputationalResourcesWidget(ipw.VBox):
         self.refresh()
 
     def quick_setup(self, _=None):
-        def f():
-            self.aiida_computer_setup.on_setup_computer()
-            self.aiida_code_setup.on_setup_code()
+        def setup_codes():
+            self.aiida_code_setup.computer.refresh()
+            self.aiida_code_setup.computer.value = self.aiida_computer_setup.label.value
+            self.aiida_code_setup.on_setup_code(on_success=self.refresh)
 
-        self.ssh_computer_setup.on_setup_ssh(run_on_success=f)
+        def setup_codes_and_computers():
+            self.aiida_computer_setup.on_setup_computer(on_success=setup_codes)
+
+        self.ssh_computer_setup.on_setup_ssh(on_success=setup_codes_and_computers)
 
     def _get_codes(self):
         """Query the list of available codes."""
@@ -395,13 +388,13 @@ class SshComputerSetup(ipw.VBox):
 
         return fpath
 
-    def on_setup_ssh(self, _=None, run_on_success=None):
+    def on_setup_ssh(self, _=None, on_success=None):
         """Setup ssh, password and private key are supported"""
         with self.setup_ssh_out:
             mode = self._verification_mode.value
-            self._on_setup_ssh(mode, run_on_success=run_on_success)
+            self._on_setup_ssh(mode, on_success=on_success)
 
-    def _on_setup_ssh(self, mode, run_on_success=None):
+    def _on_setup_ssh(self, mode, on_success=None):
         clear_output()
 
         # Always start by generating a key pair if they are not present.
@@ -428,9 +421,7 @@ class SshComputerSetup(ipw.VBox):
 
             # write private key in ~/.ssh/ and use the name of upload file,
             # if exist, generate random string and append to filename then override current name.
-            private_key_abs_fname = self._add_private_key(
-                private_key_fname, private_key_content
-            )
+            self._add_private_key(private_key_fname, private_key_content)
 
         elif mode == "password":
             # sending public key to the main host
@@ -483,14 +474,14 @@ class SshComputerSetup(ipw.VBox):
 
                     elif index == 1:
                         print("Success.")
-                        if run_on_success:
-                            run_on_success()
+                        if on_success:
+                            on_success()
                         break
 
                     elif index == 2:
                         print("Keys are already present on the remote machine.")
-                        if run_on_success:
-                            run_on_success()
+                        if on_success:
+                            on_success()
                         break
 
                     elif index == 3:  # Adding a new host.
@@ -562,8 +553,6 @@ class AiidaComputerSetup(ipw.VBox):
     computer_setup = traitlets.Dict(allow_none=True)
 
     def __init__(self, **kwargs):
-
-        self.on_success = None
 
         # List of widgets to be displayed.
         self.label = ipw.Text(
@@ -730,7 +719,7 @@ class AiidaComputerSetup(ipw.VBox):
         authinfo.store()
         return True
 
-    def on_setup_computer(self, _=None):
+    def on_setup_computer(self, _=None, on_success=None):
         """Create a new computer."""
         with self.setup_compupter_out:
             clear_output()
@@ -741,6 +730,8 @@ class AiidaComputerSetup(ipw.VBox):
             try:
                 computer = orm.Computer.objects.get(label=self.label.value)
                 print(f"A computer called {self.label.value} already exists.")
+                if on_success:
+                    on_success()
                 return
             except common.NotExistent:
                 pass
@@ -759,9 +750,6 @@ class AiidaComputerSetup(ipw.VBox):
                 "shebang",
             ]
             kwargs = {key: getattr(self, key).value for key in items_to_configure}
-            kwargs = {
-                key: value for key, value in kwargs.items() if value
-            }  # Remove empty items.
 
             computer_builder = ComputerBuilder(**kwargs)
             try:
@@ -780,8 +768,8 @@ class AiidaComputerSetup(ipw.VBox):
                 return
 
             if self._configure_computer():
-                if self.on_success:
-                    self.on_success()
+                if on_success:
+                    on_success()
                 print(f"Computer<{computer.pk}> {computer.label} created")
 
     def test(self, _=None):
@@ -813,8 +801,6 @@ class AiidaCodeSetup(ipw.VBox):
     code_setup = traitlets.Dict(allow_none=True)
 
     def __init__(self, path_to_root="../", **kwargs):
-
-        self.on_success = None
 
         # Code label.
         self.label = ipw.Text(
@@ -890,10 +876,15 @@ class AiidaCodeSetup(ipw.VBox):
         plugin = proposal["value"]
         return plugin if plugin in self.input_plugin.options else None
 
-    def on_setup_code(self, _=None):
+    def on_setup_code(self, _=None, on_success=None):
         """Setup an AiiDA code."""
         with self.setup_code_out:
             clear_output()
+
+            if not self.computer.value:
+                print("Please select an existing computer.")
+                return
+
             items_to_configure = [
                 "label",
                 "computer",
@@ -905,9 +896,6 @@ class AiidaCodeSetup(ipw.VBox):
             ]
 
             kwargs = {key: getattr(self, key).value for key in items_to_configure}
-            kwargs = {
-                key: value for key, value in kwargs.items() if value
-            }  # Remove empty items.
             kwargs["code_type"] = CodeBuilder.CodeType.ON_COMPUTER
 
             # Checking if the code with this name already exists
@@ -937,8 +925,8 @@ class AiidaCodeSetup(ipw.VBox):
                 print(f"Unable to store the Code: {exception}")
                 return
 
-            if self.on_success:
-                self.on_success()
+            if on_success:
+                on_success()
 
             print(f"Code<{code.pk}> {code.full_label} created")
 
