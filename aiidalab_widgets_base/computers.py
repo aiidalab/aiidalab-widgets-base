@@ -5,6 +5,7 @@ from copy import copy
 from os import path
 from subprocess import CalledProcessError, call, check_output
 
+import deprecation
 import ipywidgets as ipw
 import pexpect
 import shortuuid
@@ -28,6 +29,11 @@ from traitlets import (
 STYLE = {"description_width": "200px"}
 
 
+@deprecation.deprecated(
+    deprecated_in="1.3",
+    removed_in="2.0",
+    details="Use the ComputationalResourcesWidget instead.",
+)
 class SshComputerSetup(ipw.VBox):
     """Setup password-free access to a computer."""
 
@@ -574,6 +580,11 @@ class SshComputerSetup(ipw.VBox):
         return int(provided["value"])
 
 
+@deprecation.deprecated(
+    deprecated_in="1.3",
+    removed_in="2.0",
+    details="Use the ComputationalResourcesWidget instead.",
+)
 class AiidaComputerSetup(ipw.VBox):
     """Inform AiiDA about a computer."""
 
@@ -816,6 +827,11 @@ class AiidaComputerSetup(ipw.VBox):
         return float(provided["value"])
 
 
+@deprecation.deprecated(
+    deprecated_in="1.3",
+    removed_in="2.0",
+    details="Use the ComputerDropdownWidget instead.",
+)
 class ComputerDropdown(ipw.VBox):
     """Widget to select a configured computer.
 

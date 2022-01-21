@@ -1,4 +1,5 @@
 """Widgets that allow to query online databases."""
+import deprecation
 import ipywidgets as ipw
 import requests
 import traitlets
@@ -218,6 +219,11 @@ class OptimadeQueryWidget(ipw.VBox):
         self.structure = change["new"].as_ase if change["new"] else None
 
 
+@deprecation.deprecated(
+    deprecated_in="1.3",
+    removed_in="2.0",
+    details="Use the ComputationalResourcesDatabaseWidget instead.",
+)
 class ComputerDatabaseWidget(ipw.HBox):
     """Extract the setup of a known computer from the AiiDA code registry."""
 
@@ -304,6 +310,11 @@ class ComputerDatabaseWidget(ipw.HBox):
             self.proxy_hostname = hostname
 
 
+@deprecation.deprecated(
+    deprecated_in="1.3",
+    removed_in="2.0",
+    details="Use the ComputationalResourcesDatabaseWidget instead.",
+)
 class CodeDatabaseWidget(ipw.HBox):
     """Extract the setup of a known computer from the AiiDA code registry."""
 

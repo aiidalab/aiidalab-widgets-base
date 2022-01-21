@@ -2,6 +2,7 @@
 
 from subprocess import check_output
 
+import deprecation
 import ipywidgets as ipw
 from aiida.orm import Code, QueryBuilder, User
 from aiida.plugins.entry_point import get_entry_point_names
@@ -11,6 +12,11 @@ from traitlets import Bool, Dict, Instance, Unicode, Union, dlink, link, validat
 from .computers import ComputerDropdown
 
 
+@deprecation.deprecated(
+    deprecated_in="1.3",
+    removed_in="2.0",
+    details="Use the ComputationalResourcesWidget instead.",
+)
 class CodeDropdown(ipw.VBox):
     """Code selection widget.
     Attributes:
@@ -153,6 +159,11 @@ class CodeDropdown(ipw.VBox):
         return None
 
 
+@deprecation.deprecated(
+    deprecated_in="1.3",
+    removed_in="2.0",
+    details="Use the ComputationalResourcesWidget instead.",
+)
 class AiiDACodeSetup(ipw.VBox):
     """Class that allows to setup AiiDA code"""
 
