@@ -13,7 +13,7 @@ from aiida.orm.utils.builders.computer import ComputerBuilder
 from aiida.transports.plugins.ssh import parse_sshconfig
 from IPython.display import clear_output, display
 
-from .databases import ComputationalResourcesDatabase
+from .databases import ComputationalResourcesDatabaseWidget
 from .utils import yield_for_change
 
 STYLE = {"description_width": "180px"}
@@ -75,7 +75,7 @@ class ComputationalResourcesWidget(ipw.VBox):
         super().__init__(children=children, **kwargs)
 
         # Setting up codes and computers.
-        self.comp_resources_database = ComputationalResourcesDatabase(
+        self.comp_resources_database = ComputationalResourcesDatabaseWidget(
             input_plugin=self.input_plugin
         )
 
@@ -819,7 +819,7 @@ class AiidaCodeSetup(ipw.VBox):
         )
 
         # Computer on which the code is installed. Two dlinks are needed to make sure we get a Computer instance.
-        self.computer = ComputerDropdown(
+        self.computer = ComputerDropdownWidget(
             path_to_root=path_to_root,
         )
 
@@ -950,7 +950,7 @@ class AiidaCodeSetup(ipw.VBox):
                     getattr(self, key).value = value
 
 
-class ComputerDropdown(ipw.VBox):
+class ComputerDropdownWidget(ipw.VBox):
     """Widget to select a configured computer.
 
     Attributes:
@@ -1051,12 +1051,3 @@ class ComputerDropdown(ipw.VBox):
             self.output.value = f"""Computer instance '<span style="color:red">{computer.label}</span>'
             is not configured in your AiiDA profile."""
         return None
-
-
-def CodeDropdown(*args, **kwargs):
-    from warnings import warn
-
-    warn(
-        "'CodeDropdown' is deprecated, please use 'ComputationalResourcesWidget' instead."
-    )
-    return ComputationalResourcesWidget(*args, **kwargs)
