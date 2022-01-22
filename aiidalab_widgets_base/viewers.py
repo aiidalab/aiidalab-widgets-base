@@ -157,8 +157,14 @@ class DictViewer(ipw.VBox):
 class _StructureDataBaseViewer(ipw.VBox):
     """Base viewer class for AiiDA structure or trajectory objects.
 
-    :param configure_view: If True, add configuration tabs
-    :type configure_view: bool"""
+    :param configure_view: If True, add configuration tabs (deprecated)
+    :type configure_view: bool
+    :param configuration_tabs: List of configuration tabs (default: ["Selection", "Appearance", "Cell", "Download"])
+    :type configure_view: list
+    :param default_camera: default camera (orthographic|perspective), can be changed in the Appearance tab
+    :type default_camera: string
+
+    """
 
     selection = List(Int)
     selection_adv = Unicode()
@@ -168,44 +174,48 @@ class _StructureDataBaseViewer(ipw.VBox):
     DEFAULT_SELECTION_RADIUS = 6
     DEFAULT_SELECTION_COLOR = "green"
 
-    def __init__(self, configure_view=True, **kwargs):
+    def __init__(
+        self,
+        configure_view=True,
+        configuration_tabs=["Selection", "Appearance", "Cell", "Download"],
+        default_camera="orthographic",
+        **kwargs,
+    ):
         # Defining viewer box.
 
-        # 1. Nglviwer
+        # Nglviwer
         self._viewer = nglview.NGLWidget()
-        self._viewer.camera = "orthographic"
+        self._viewer.camera = default_camera
         self._viewer.observe(self._on_atom_click, names="picked")
         self._viewer.stage.set_parameters(mouse_preset="pymol")
 
-        # 2. Camera type.
-        camera_type = ipw.ToggleButtons(
-            options={"Orthographic": "orthographic", "Perspective": "perspective"},
-            description="Camera type:",
-            value="orthographic",
-            layout={"align_self": "flex-end"},
-            style={"button_width": "115.5px"},
-            orientation="vertical",
-        )
+        view_box = ipw.VBox([self._viewer])
 
-        def change_camera(change):
+        configuration_tabs_map = {
+            "Selection": self._selection_tab(),
+            "Appearance": self._appearance_tab(),
+            "Cell": self._cell_tab(),
+            "Download": self._download_tab(),
+        }
 
-            self._viewer.camera = change["new"]
-
-        camera_type.observe(change_camera, names="value")
-        view_box = ipw.VBox([self._viewer, camera_type])
+        if configure_view is not True:
+            warnings.warn(
+                "`configure_view` is deprecated, please use `configuration_tabs` instead.",
+                DeprecationWarning,
+            )
+            if not configure_view:
+                configuration_tabs.clear()
 
         # Constructing configuration box
-        if configure_view:
+        if len(configuration_tabs) != 0:
             configuration_box = ipw.Tab(
                 layout=ipw.Layout(flex="1 1 auto", width="auto")
             )
             configuration_box.children = [
-                self._selection_tab(),
-                self._appearance_tab(),
-                self._cell_tab(),
-                self._download_tab(),
+                configuration_tabs_map[tab_title] for tab_title in configuration_tabs
             ]
-            for i, title in enumerate(["Selection", "Appearance", "Cell", "Download"]):
+
+            for i, title in enumerate(configuration_tabs):
                 configuration_box.set_title(i, title)
             children = [ipw.HBox([view_box, configuration_box])]
             view_box.layout = {"width": "60%"}
@@ -299,11 +309,29 @@ class _StructureDataBaseViewer(ipw.VBox):
         link((background_color, "value"), (self._viewer, "background"))
         background_color.value = "white"
 
-        # 3. Center button.
-        center_button = ipw.Button(description="Center")
+        # 3. Camera switcher
+        camera_type = ipw.ToggleButtons(
+            options={"Orthographic": "orthographic", "Perspective": "perspective"},
+            description="Camera type:",
+            value=self._viewer.camera,
+            layout={"align_self": "flex-start"},
+            style={"button_width": "115.5px"},
+            orientation="vertical",
+        )
+
+        def change_camera(change):
+
+            self._viewer.camera = change["new"]
+
+        camera_type.observe(change_camera, names="value")
+
+        # 4. Center button.
+        center_button = ipw.Button(description="Center molecule")
         center_button.on_click(lambda c: self._viewer.center())
 
-        return ipw.VBox([supercell_selector, background_color, center_button])
+        return ipw.VBox(
+            [supercell_selector, background_color, camera_type, center_button]
+        )
 
     @observe("cell")
     def _observe_cell(self, _=None):
