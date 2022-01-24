@@ -4,6 +4,10 @@ from aiida import load_profile
 load_profile()
 
 from .codes import AiiDACodeSetup, CodeDropdown
+from .computational_resources import (
+    ComputationalResourcesWidget,
+    ComputerDropdownWidget,
+)
 from .computers import AiidaComputerSetup, ComputerDropdown, SshComputerSetup
 from .databases import (
     CodeDatabaseWidget,
@@ -43,11 +47,13 @@ __all__ = [
     "AiidaComputerSetup",
     "AiidaNodeViewWidget",
     "BasicStructureEditor",
-    "CodQueryWidget",
     "CodeDatabaseWidget",
     "CodeDropdown",
+    "CodQueryWidget",
     "ComputerDatabaseWidget",
+    "ComputationalResourcesWidget",
     "ComputerDropdown",
+    "ComputerDropdownWidget",
     "ElnConfigureWidget",
     "ElnExportWidget",
     "ElnImportWidget",
