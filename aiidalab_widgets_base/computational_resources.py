@@ -24,7 +24,7 @@ class ComputationalResourcesWidget(ipw.VBox):
     """Code selection widget.
     Attributes:
 
-    selected_code(Unicode or Code): Trait that points to the selected Code instance.
+    value(Unicode or Code): Trait that points to the selected Code instance.
     It can be set either to an AiiDA Code instance or to a code label (will automatically
     be replaced by the corresponding Code instance). It is linked to the 'value' trait of
     the `self.code_select_dropdown` widget.
@@ -39,7 +39,7 @@ class ComputationalResourcesWidget(ipw.VBox):
     computers.
     """
 
-    selected_code = traitlets.Union(
+    value = traitlets.Union(
         [traitlets.Unicode(), traitlets.Instance(orm.Code)], allow_none=True
     )
     codes = traitlets.Dict(allow_none=True)
@@ -58,7 +58,7 @@ class ComputationalResourcesWidget(ipw.VBox):
             description=description, disabled=True, value=None
         )
         traitlets.link((self, "codes"), (self.code_select_dropdown, "options"))
-        traitlets.link((self.code_select_dropdown, "value"), (self, "selected_code"))
+        traitlets.link((self.code_select_dropdown, "value"), (self, "value"))
 
         self.observe(
             self.refresh, names=["allow_disabled_computers", "allow_hidden_codes"]
@@ -177,8 +177,8 @@ class ComputationalResourcesWidget(ipw.VBox):
                 self.code_select_dropdown.disabled = False
             self.code_select_dropdown.value = None
 
-    @traitlets.validate("selected_code")
-    def _validate_selected_code(self, change):
+    @traitlets.validate("value")
+    def _validate_value(self, change):
         """If code is provided, set it as it is. If code's label is provided,
         select the code and set it."""
         code = change["value"]
@@ -212,7 +212,9 @@ class ComputationalResourcesWidget(ipw.VBox):
                     "border": "1px solid gray",
                 }
                 display(
-                    ipw.HTML("""Please select the computer/code from a database."""),
+                    ipw.HTML(
+                        """Please select the computer/code from a database to pre-fill the fields below."""
+                    ),
                     self.comp_resources_database,
                     self.output_tab,
                 )
@@ -311,7 +313,7 @@ class SshComputerSetup(ipw.VBox):
     @staticmethod
     def _ssh_keygen():
         """Generate ssh key pair."""
-        fpath = Path("~/.ssh/id_rsa").expanduser()
+        fpath = Path.home() / ".ssh" / "id_rsa"
         keygen_cmd = [
             "ssh-keygen",
             "-f",
@@ -347,7 +349,7 @@ class SshComputerSetup(ipw.VBox):
 
     def _is_in_config(self):
         """Check if the config file contains host information."""
-        fpath = Path("~/.ssh/config").expanduser()
+        fpath = Path.home() / ".ssh" / "config"
         if not fpath.exists():
             return False
         cfglines = open(fpath).read().split("\n")
@@ -355,7 +357,7 @@ class SshComputerSetup(ipw.VBox):
 
     def _write_ssh_config(self, private_key_abs_fname=None):
         """Put host information into the config file."""
-        fpath = Path("~/.ssh/config").expanduser()
+        fpath = Path.home() / ".ssh" / "config"
         print(f"Adding section to {fpath}")
         with open(fpath, "a") as file:
             file.write(f"Host {self.hostname.value}\n")
@@ -501,7 +503,7 @@ class SshComputerSetup(ipw.VBox):
             if self._verification_mode.value == "private_key":
                 display(self._inp_private_key)
             elif self._verification_mode.value == "public_key":
-                public_key = Path("~/.ssh/id_rsa.pub").expanduser()
+                public_key = Path.home() / ".ssh" / "id_rsa.pub"
                 if public_key.exists():
                     display(
                         ipw.HTML(
@@ -527,7 +529,7 @@ class SshComputerSetup(ipw.VBox):
         param private_key_fname: string
         param private_key_content: bytes
         """
-        fpath = Path.home().joinpath(".ssh", private_key_fname)
+        fpath = Path.home() / ".ssh" / private_key_fname
         if fpath.exists():
             # if file already exist and has the same content
             if fpath.read_bytes() == private_key_content:
@@ -540,9 +542,19 @@ class SshComputerSetup(ipw.VBox):
 
         return fpath
 
+    def _reset(self):
+        self.hostname.value = ""
+        self.port.value = 22
+        self.username.value = ""
+        self.proxy_jump.value = ""
+        self.proxy_command.value = ""
+
     @traitlets.observe("ssh_config")
     def _observe_ssh_config(self, _=None):
         """Pre-filling the input fields."""
+        if not self.ssh_config:
+            self._reset()
+
         if "hostname" in self.ssh_config:
             self.hostname.value = self.ssh_config["hostname"]
         if "port" in self.ssh_config:
@@ -599,7 +611,7 @@ class AiidaComputerSetup(ipw.VBox):
 
         # Number of CPUs per node.
         self.mpiprocs_per_machine = ipw.IntText(
-            value=8,
+            value=1,
             step=1,
             description="#CPU(s) per node:",
             layout=LAYOUT,
@@ -787,9 +799,27 @@ class AiidaComputerSetup(ipw.VBox):
                 ).decode("utf-8")
             )
 
+    def _reset(self):
+        self.label.value = ""
+        self.hostname.value = ""
+        self.description.value = ""
+        self.work_dir.value = ""
+        self.mpirun_command.value = "mpirun -n {tot_num_mpiprocs}"
+        self.mpiprocs_per_machine.value = 1
+        self.transport.value = "ssh"
+        self.safe_interval.value = 30.0
+        self.scheduler.value = "slurm"
+        self.shebang.value = "#!/usr/bin/env bash"
+        self.use_login_shell.value = True
+        self.prepend_text.value = ""
+        self.append_text.value = ""
+
     @traitlets.observe("computer_setup")
     def _observe_computer_setup(self, _=None):
         # Setup.
+        if not self.computer_setup:
+            self._reset()
+            return
         if "setup" in self.computer_setup:
             for key, value in self.computer_setup["setup"].items():
                 if hasattr(self, key):
@@ -936,9 +966,19 @@ class AiidaCodeSetup(ipw.VBox):
 
             print(f"Code<{code.pk}> {code.full_label} created")
 
+    def _reset(self):
+        self.label.value = ""
+        self.computer.value = ""
+        self.description.value = ""
+        self.remote_abs_path.value = ""
+        self.prepend_text.value = ""
+        self.append_text.value = ""
+
     @traitlets.observe("code_setup")
     def _observe_code_setup(self, _=None):
         # Setup.
+        if not self.code_setup:
+            self._reset()
         for key, value in self.code_setup.items():
             if hasattr(self, key):
                 if key == "input_plugin":

@@ -415,6 +415,7 @@ class ComputationalResourcesDatabaseWidget(ipw.VBox):
     ssh_config = traitlets.Dict()
     computer_setup = traitlets.Dict()
     code_setup = traitlets.Dict()
+    database = traitlets.Dict()
 
     def __init__(self, **kwargs):
         # Select domain.
@@ -423,7 +424,7 @@ class ComputationalResourcesDatabaseWidget(ipw.VBox):
             description="Domain",
             disabled=False,
         )
-        self.inp_domain.observe(self.domain_changed, names=["value", "options"])
+        self.inp_domain.observe(self._domain_changed, names=["value", "options"])
 
         # Select computer.
         self.inp_computer = ipw.Dropdown(
@@ -431,7 +432,7 @@ class ComputationalResourcesDatabaseWidget(ipw.VBox):
             description="Computer:",
             disable=False,
         )
-        self.inp_computer.observe(self.computer_changed, names=["value", "options"])
+        self.inp_computer.observe(self._computer_changed, names=["value", "options"])
 
         # Select code.
         self.inp_code = ipw.Dropdown(
@@ -439,26 +440,25 @@ class ComputationalResourcesDatabaseWidget(ipw.VBox):
             description="Code:",
             disable=False,
         )
-        self.inp_code.observe(self.code_changed, names=["value", "options"])
+        self.inp_code.observe(self._code_changed, names=["value", "options"])
+
+        btn_reset = ipw.Button(description="Reset")
+        btn_reset.on_click(self._reset)
 
         super().__init__(
             children=[
                 self.inp_domain,
                 self.inp_computer,
                 self.inp_code,
+                btn_reset,
             ],
             **kwargs,
         )
-
-        database = requests.get(
-            "https://aiidateam.github.io/aiida-code-registry/database.json"
-        ).json()
-        self.database = (
-            self.clean_up_database(database, self.input_plugin)
-            if self.input_plugin
-            else database
-        )
         self.update()
+        self._reset()
+
+    def _reset(self, _=None):
+        self.inp_domain.value = None
 
     def clean_up_database(self, database, plugin):
         for domain in list(database.keys()):
@@ -489,73 +489,96 @@ class ComputationalResourcesDatabaseWidget(ipw.VBox):
         return database
 
     def update(self, _=None):
+        with self.hold_trait_notifications():
+            database = requests.get(
+                "https://aiidateam.github.io/aiida-code-registry/database.json"
+            ).json()
+            self.database = (
+                self.clean_up_database(database, self.input_plugin)
+                if self.input_plugin
+                else database
+            )
+
+    @traitlets.observe("database")
+    def _observer_database_change(self, _=None):
         self.inp_domain.options = self.database.keys()
+        self._reset()
 
-    def domain_changed(self, _=None):
-        self.inp_computer.options = [
-            key
-            for key in self.database[self.inp_domain.value].keys()
-            if key != "default"
-        ]
-        self.inp_computer.value = None  # This is a hack to make sure the selected computer appears as selected.
-        self.inp_computer.value = self.database[self.inp_domain.value]["default"]
+    def _domain_changed(self, _=None):
+        with self.hold_trait_notifications():
+            self.inp_computer.value = None
+            try:
+                self.inp_computer.options = [
+                    key
+                    for key in self.database[self.inp_domain.value].keys()
+                    if key != "default"
+                ]
+                self.inp_computer.value = self.database[self.inp_domain.value][
+                    "default"
+                ]
+            except KeyError:
+                self.inp_computer.options = []
+                return
 
-    def computer_changed(self, _=None):
+    def _computer_changed(self, _=None):
         """Read settings from the YAML files and populate self.database with them."""
-        if self.inp_domain.value is None or self.inp_computer.value is None:
-            return
-        self.inp_code.options = [
-            key
-            for key in self.database[self.inp_domain.value][
-                self.inp_computer.value
-            ].keys()
-            if key not in ("computer-setup", "computer-configure")
-        ]
 
-        setup = self.database[self.inp_domain.value][self.inp_computer.value][
-            "computer-setup"
-        ]
-        config = self.database[self.inp_domain.value][self.inp_computer.value][
-            "computer-configure"
-        ]
-        ssh_config = {"hostname": setup["hostname"]}
-        if "proxy_command" in config:
-            ssh_config["proxy_command"] = config["proxy_command"]
-        if "proxy_jump" in config:
-            ssh_config["proxy_jump"] = config["proxy_jump"]
+        with self.hold_trait_notifications():
+            if self.inp_computer.value is None:
+                self.inp_code.options = []
+                self.inp_code.value = None
+                self.ssh_config = {}
+                self.computer_setup = {}
+                return
 
-        self.ssh_config = ssh_config  # To notify the trait change
+            self.inp_code.options = [
+                key
+                for key in self.database[self.inp_domain.value][
+                    self.inp_computer.value
+                ].keys()
+                if key not in ("computer-setup", "computer-configure")
+            ]
 
-        self.computer_setup = {
-            "setup": setup,
-            "configure": config,
-        }
-
-        self.code_changed()
-
-    def code_changed(self, _=None):
-        """Update code settings."""
-        if (
-            self.inp_domain.value is None
-            or self.inp_computer.value is None
-            or self.inp_code.value is None
-        ):
-            return
-        code_setup = self.database[self.inp_domain.value][self.inp_computer.value][
-            self.inp_code.value
-        ]
-
-        if (
-            "label"
-            in self.database[self.inp_domain.value][self.inp_computer.value][
+            setup = self.database[self.inp_domain.value][self.inp_computer.value][
                 "computer-setup"
             ]
-        ):
-            code_setup["computer"] = self.database[self.inp_domain.value][
-                self.inp_computer.value
-            ]["computer-setup"]["label"]
+            config = self.database[self.inp_domain.value][self.inp_computer.value][
+                "computer-configure"
+            ]
+            ssh_config = {"hostname": setup["hostname"]}
+            if "proxy_command" in config:
+                ssh_config["proxy_command"] = config["proxy_command"]
+            if "proxy_jump" in config:
+                ssh_config["proxy_jump"] = config["proxy_jump"]
 
-        self.code_setup = code_setup
+            self.ssh_config = ssh_config  # To notify the trait change
+
+            self.computer_setup = {
+                "setup": setup,
+                "configure": config,
+            }
+
+    def _code_changed(self, _=None):
+        """Update code settings."""
+        with self.hold_trait_notifications():
+            if self.inp_code.value is None:
+                self.code_setup = {}
+                return
+            code_setup = self.database[self.inp_domain.value][self.inp_computer.value][
+                self.inp_code.value
+            ]
+
+            if (
+                "label"
+                in self.database[self.inp_domain.value][self.inp_computer.value][
+                    "computer-setup"
+                ]
+            ):
+                code_setup["computer"] = self.database[self.inp_domain.value][
+                    self.inp_computer.value
+                ]["computer-setup"]["label"]
+
+            self.code_setup = code_setup
 
     @default("input_plugin")
     def _default_input_plugin(self):
