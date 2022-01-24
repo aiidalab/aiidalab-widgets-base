@@ -27,11 +27,11 @@ class ComputationalResourcesWidget(ipw.VBox):
     selected_code(Unicode or Code): Trait that points to the selected Code instance.
     It can be set either to an AiiDA Code instance or to a code label (will automatically
     be replaced by the corresponding Code instance). It is linked to the 'value' trait of
-    the `self.dropdown` widget.
+    the `self.code_select_dropdown` widget.
 
     codes(Dict): Trait that contains a dictionary (label => Code instance) for all
     codes found in the AiiDA database for the selected plugin. It is linked
-    to the 'options' trait of the `self.dropdown` widget.
+    to the 'options' trait of the `self.code_select_dropdown` widget.
 
     allow_hidden_codes(Bool): Trait that defines whether to show hidden codes or not.
 
@@ -54,21 +54,23 @@ class ComputationalResourcesWidget(ipw.VBox):
         """
         self.output = ipw.HTML()
 
-        self.dropdown = ipw.Dropdown(description=description, disabled=True, value=None)
-        traitlets.link((self, "codes"), (self.dropdown, "options"))
-        traitlets.link((self.dropdown, "value"), (self, "selected_code"))
+        self.code_select_dropdown = ipw.Dropdown(
+            description=description, disabled=True, value=None
+        )
+        traitlets.link((self, "codes"), (self.code_select_dropdown, "options"))
+        traitlets.link((self.code_select_dropdown, "value"), (self, "selected_code"))
 
         self.observe(
             self.refresh, names=["allow_disabled_computers", "allow_hidden_codes"]
         )
 
         self.btn_setup_new_code = ipw.ToggleButton(description="Setup new code")
-        self.btn_setup_new_code.observe(self.setup_new_code, "value")
+        self.btn_setup_new_code.observe(self._setup_new_code, "value")
 
         self._setup_new_code_output = ipw.Output(layout={"width": "500px"})
 
         children = [
-            ipw.HBox([self.dropdown, self.btn_setup_new_code]),
+            ipw.HBox([self.code_select_dropdown, self.btn_setup_new_code]),
             self._setup_new_code_output,
             self.output,
         ]
@@ -161,19 +163,19 @@ class ComputationalResourcesWidget(ipw.VBox):
         """Refresh available codes.
 
         The job of this function is to look in AiiDA database, find available codes and
-        put them in the dropdown attribute."""
+        put them in the code_select_dropdown widget."""
         self.output.value = ""
 
         with self.hold_trait_notifications():
-            self.dropdown.options = self._get_codes()
-            if not self.dropdown.options:
+            self.code_select_dropdown.options = self._get_codes()
+            if not self.code_select_dropdown.options:
                 self.output.value = (
                     f"No codes found for input plugin '{self.input_plugin}'."
                 )
-                self.dropdown.disabled = True
+                self.code_select_dropdown.disabled = True
             else:
-                self.dropdown.disabled = False
-            self.dropdown.value = None
+                self.code_select_dropdown.disabled = False
+            self.code_select_dropdown.value = None
 
     @traitlets.validate("selected_code")
     def _validate_selected_code(self, change):
@@ -182,19 +184,16 @@ class ComputationalResourcesWidget(ipw.VBox):
         code = change["value"]
         self.output.value = ""
 
-        # If code None, set value to None
+        # If code None, set value to None.
         if code is None:
             return None
 
-        # Check code by label.
-        if isinstance(code, str):
+        if isinstance(code, str):  # Check code by label.
             if code in self.codes:
                 return self.codes[code]
             self.output.value = f"""No code named '<span style="color:red">{code}</span>'
             found in the AiiDA database."""
-
-        # Check code by value.
-        if isinstance(code, orm.Code):
+        elif isinstance(code, orm.Code):  # Check code by value.
             label = self._full_code_label(code)
             if label in self.codes:
                 return code
@@ -204,7 +203,7 @@ class ComputationalResourcesWidget(ipw.VBox):
         # This place will never be reached, because the trait's type is checked.
         return None
 
-    def setup_new_code(self, _=None):
+    def _setup_new_code(self, _=None):
         with self._setup_new_code_output:
             clear_output()
             if self.btn_setup_new_code.value:
@@ -282,7 +281,9 @@ class SshComputerSetup(ipw.VBox):
             description="Verification mode:",
             disabled=False,
         )
-        self._verification_mode.observe(self.on_verification_mode_change, names="value")
+        self._verification_mode.observe(
+            self._on_verification_mode_change, names="value"
+        )
         self._verification_mode_output = ipw.Output()
 
         self._continue_button = ipw.ToggleButton(
@@ -327,7 +328,7 @@ class SshComputerSetup(ipw.VBox):
         if not fpath.exists():
             subprocess.run(keygen_cmd, capture_output=True)
 
-    def can_login(self):
+    def _can_login(self):
         """Check if it is possible to login into the remote host."""
         # With BatchMode on, no password prompt or other interaction is attempted,
         # so a connect that requires a password will fail.
@@ -344,7 +345,7 @@ class SshComputerSetup(ipw.VBox):
         )
         return ret == 0
 
-    def is_in_config(self):
+    def _is_in_config(self):
         """Check if the config file contains host information."""
         fpath = Path("~/.ssh/config").expanduser()
         if not fpath.exists():
@@ -372,132 +373,128 @@ class SshComputerSetup(ipw.VBox):
                 file.write(f"  IdentityFile {private_key_abs_fname}\n")
             file.write("  ServerAliveInterval 5\n")
 
-    def on_setup_ssh(self, _=None, on_success=None):
-        """Setup ssh, password and private key are supported"""
+    def on_setup_ssh(self, on_success=None):
         with self.setup_ssh_out:
-            self._on_setup_ssh(on_success=on_success)
+            clear_output()
 
-    def _on_setup_ssh(self, on_success=None):
-        clear_output()
+            # Always start by generating a key pair if they are not present.
+            self._ssh_keygen()
 
-        # Always start by generating a key pair if they are not present.
-        self._ssh_keygen()
-
-        # If hostname & username are not provided - do not do anything.
-        if self.hostname.value == "":  # check hostname
-            print("Please specify the computer hostname.")
-            return
-
-        if self.username.value == "":  # check username
-            print("Please specify your SSH username.")
-            return
-
-        private_key_abs_fname = None
-        if self._verification_mode.value == "private_key":
-            # unwrap private key file and setting temporary private_key content
-            private_key_abs_fname, private_key_content = self._private_key
-            if private_key_abs_fname is None:  # check private key file
-                print("Please upload your private key file.")
+            # If hostname & username are not provided - do not do anything.
+            if self.hostname.value == "":  # check hostname
+                print("Please specify the computer hostname.")
                 return
 
-            # write private key in ~/.ssh/ and use the name of upload file,
-            # if exist, generate random string and append to filename then override current name.
-            self._add_private_key(private_key_abs_fname, private_key_content)
+            if self.username.value == "":  # check username
+                print("Please specify your SSH username.")
+                return
 
-        if not self.is_in_config():
-            self._write_ssh_config(private_key_abs_fname=private_key_abs_fname)
+            private_key_abs_fname = None
+            if self._verification_mode.value == "private_key":
+                # unwrap private key file and setting temporary private_key content
+                private_key_abs_fname, private_key_content = self._private_key
+                if private_key_abs_fname is None:  # check private key file
+                    print("Please upload your private key file.")
+                    return
 
-        # sending public key to the main host
-        @yield_for_change(self._continue_button, "value")
-        def ssh_copy_id():
-            timeout = 30
-            print(f"Sending public key to {self.hostname.value}... ", end="")
-            str_ssh = f"ssh-copy-id {self.hostname.value}"
-            child = pexpect.spawn(str_ssh)
+                # write private key in ~/.ssh/ and use the name of upload file,
+                # if exist, generate random string and append to filename then override current name.
+                self._add_private_key(private_key_abs_fname, private_key_content)
 
-            expectations = [
-                "assword:",  # 0
-                "Now try logging into",  # 1
-                "All keys were skipped because they already exist on the remote system",  # 2
-                "Are you sure you want to continue connecting (yes/no)?",  # 3
-                "ERROR: No identities found",  # 4
-                "Could not resolve hostname",  # 5
-                "Connection refused",  # 6
-                pexpect.EOF,
-            ]
+            if not self._is_in_config():
+                self._write_ssh_config(private_key_abs_fname=private_key_abs_fname)
 
-            previous_message, message = None, None
-            while True:
-                try:
-                    index = child.expect(
-                        expectations,
-                        timeout=timeout,
-                    )
+            # sending public key to the main host
+            @yield_for_change(self._continue_button, "value")
+            def ssh_copy_id():
+                timeout = 30
+                print(f"Sending public key to {self.hostname.value}... ", end="")
+                str_ssh = f"ssh-copy-id {self.hostname.value}"
+                child = pexpect.spawn(str_ssh)
 
-                except pexpect.TIMEOUT:
-                    print(f"Exceeded {timeout} s timeout")
-                    return False
+                expectations = [
+                    "assword:",  # 0
+                    "Now try logging into",  # 1
+                    "All keys were skipped because they already exist on the remote system",  # 2
+                    "Are you sure you want to continue connecting (yes/no)?",  # 3
+                    "ERROR: No identities found",  # 4
+                    "Could not resolve hostname",  # 5
+                    "Connection refused",  # 6
+                    pexpect.EOF,
+                ]
 
-                if index == 0:
-                    message = child.before.splitlines()[-1] + child.after
-                    if previous_message != message:
-                        previous_message = message
-                        pwd = ipw.Password(layout={"width": "100px"})
-                        display(
-                            ipw.HBox(
-                                [
-                                    ipw.HTML(message),
-                                    pwd,
-                                    self._continue_button,
-                                ]
-                            )
+                previous_message, message = None, None
+                while True:
+                    try:
+                        index = child.expect(
+                            expectations,
+                            timeout=timeout,
                         )
-                        yield
-                    child.sendline(pwd.value)
 
-                elif index == 1:
-                    print("Success.")
-                    if on_success:
-                        on_success()
-                    break
+                    except pexpect.TIMEOUT:
+                        print(f"Exceeded {timeout} s timeout")
+                        return False
 
-                elif index == 2:
-                    print("Keys are already present on the remote machine.")
-                    if on_success:
-                        on_success()
-                    break
+                    if index == 0:
+                        message = child.before.splitlines()[-1] + child.after
+                        if previous_message != message:
+                            previous_message = message
+                            pwd = ipw.Password(layout={"width": "100px"})
+                            display(
+                                ipw.HBox(
+                                    [
+                                        ipw.HTML(message),
+                                        pwd,
+                                        self._continue_button,
+                                    ]
+                                )
+                            )
+                            yield
+                        child.sendline(pwd.value)
 
-                elif index == 3:  # Adding a new host.
-                    child.sendline("yes")
+                    elif index == 1:
+                        print("Success.")
+                        if on_success:
+                            on_success()
+                        break
 
-                elif index == 4:
-                    print(
-                        "Failed\nLooks like the key pair is not present in ~/.ssh folder."
-                    )
-                    break
+                    elif index == 2:
+                        print("Keys are already present on the remote machine.")
+                        if on_success:
+                            on_success()
+                        break
 
-                elif index == 5:
-                    print("Failed\nUnknown hostname.")
-                    break
+                    elif index == 3:  # Adding a new host.
+                        child.sendline("yes")
 
-                elif index == 6:
-                    print("Failed\nConnection refused.")
-                    break
+                    elif index == 4:
+                        print(
+                            "Failed\nLooks like the key pair is not present in ~/.ssh folder."
+                        )
+                        break
 
-                else:
-                    print("Failed\nUnknown problem.")
-                    print(child.before, child.after)
-                    break
-            child.close()
-            yield
+                    elif index == 5:
+                        print("Failed\nUnknown hostname.")
+                        break
 
-        try:
-            ssh_copy_id()
-        except StopIteration:
-            print(f"Unsuccessful attempt to connect to {self.hostname.value}.")
-            return
+                    elif index == 6:
+                        print("Failed\nConnection refused.")
+                        break
 
-    def on_verification_mode_change(self, change):
+                    else:
+                        print("Failed\nUnknown problem.")
+                        print(child.before, child.after)
+                        break
+                child.close()
+                yield
+
+            try:
+                ssh_copy_id()
+            except StopIteration:
+                print(f"Unsuccessful attempt to connect to {self.hostname.value}.")
+                return
+
+    def _on_verification_mode_change(self, change):
         """which verification mode is chosen."""
         with self._verification_mode_output:
             clear_output()
