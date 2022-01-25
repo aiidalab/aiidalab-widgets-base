@@ -375,7 +375,7 @@ class SshComputerSetup(ipw.VBox):
                 file.write(f"  IdentityFile {private_key_abs_fname}\n")
             file.write("  ServerAliveInterval 5\n")
 
-    def on_setup_ssh(self, on_success=None):
+    def on_setup_ssh(self, _=None, on_success=None):
         with self.setup_ssh_out:
             clear_output()
 
