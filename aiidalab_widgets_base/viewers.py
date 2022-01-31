@@ -799,7 +799,7 @@ class StructureDataViewer(_StructureDataBaseViewer):
             return opa / opb
 
         def power(opa, opb):
-            return opa ** opb
+            return opa**opb
 
         def greater(opa, opb):
             return np.where(opa > opb)[0]
