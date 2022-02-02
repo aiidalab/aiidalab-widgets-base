@@ -705,9 +705,18 @@ class SmilesWidget(ipw.VBox):
 
         smiles = smiles.replace("[", "").replace("]", "")
         mol = Chem.MolFromSmiles(smiles)
+        if mol is None:
+            # Something is seriously wrong with the SMILES code,
+            # just return None and don't attempt anything else.
+            self.output.value = "ERROR: Invalid SMILES string"
+            return None
         mol = Chem.AddHs(mol)
 
         AllChem.EmbedMolecule(mol, maxAttempts=20, randomSeed=42)
+        if not AllChem.UFFHasAllMoleculeParams(mol):
+            msg = "WARNING: Missing UFF parameters"
+            raise ValueError(msg)
+
         AllChem.UFFOptimizeMolecule(mol, maxIters=steps)
         positions = mol.GetConformer().GetPositions()
         natoms = mol.GetNumAtoms()
@@ -718,7 +727,8 @@ class SmilesWidget(ipw.VBox):
         """Convert SMILES to ase structure try rdkit then pybel"""
         try:
             return self._rdkit_opt(smiles, steps)
-        except ValueError:
+        except ValueError as e:
+            self.output.value = str(e)
             return self._pybel_opt(smiles, steps)
 
     def _on_button_pressed(self, change):  # pylint: disable=unused-argument
@@ -727,11 +737,14 @@ class SmilesWidget(ipw.VBox):
 
         if not self.smiles.value:
             return
-        self.output.value = "Screening possible conformers {}".format(
+        spiner = "Screening possible conformers {}".format(
             self.SPINNER
         )  # font-size:20em;
+        self.output.value = spiner
         self.structure = self._mol_from_smiles(self.smiles.value)
-        self.output.value = ""
+        # Don't overwrite possible error/warning messages
+        if self.output.value == spiner:
+            self.output.value = ""
 
     @default("structure")
     def _default_structure(self):
