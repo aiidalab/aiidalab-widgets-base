@@ -669,8 +669,8 @@ class SmilesWidget(ipw.VBox):
             atoms = Atoms(species, positions=positions, pbc=False)
         except KeyError:
             # https://github.com/aiidalab/aiidalab-widgets-base/issues/270
-            self.output.value = "ERROR: Invalid atom name"
-            return None
+            msg = "ERROR: Invalid atom name"
+            raise ValueError(msg)
         atoms.cell = np.ptp(atoms.positions, axis=0) + 10
         atoms.center()
         # We're attaching this info so that it
@@ -687,7 +687,8 @@ class SmilesWidget(ipw.VBox):
         obconversion = ob.OBConversion()
         obconversion.SetInFormat("smi")
         obmol = ob.OBMol()
-        obconversion.ReadString(obmol, smiles)
+        if not obconversion.ReadString(obmol, smiles):
+            raise ValueError("OpenBabel: Invalid SMILES")
 
         pbmol = pb.Molecule(obmol)
         pbmol.make3D(forcefield="uff", steps=50)
@@ -696,9 +697,13 @@ class SmilesWidget(ipw.VBox):
         pbmol.localopt(forcefield="mmff94", steps=100)
 
         f_f = pb._forcefields["uff"]  # pylint: disable=protected-access
-        f_f.Setup(pbmol.OBMol)
+        if not f_f.Setup(pbmol.OBMol):
+            raise ValueError("OpenBabel: Missing UFF parameters")
+
         f_f.ConjugateGradients(steps, 1.0e-9)
-        f_f.GetCoordinates(pbmol.OBMol)
+        if not f_f.GetCoordinates(pbmol.OBMol):
+            raise ValueError("OpenBabel: Optimization failed")
+
         species = [chemical_symbols[atm.atomicnum] for atm in pbmol.atoms]
         positions = np.asarray([atm.coords for atm in pbmol.atoms])
         return self._make_ase(species, positions, smiles)
@@ -711,30 +716,47 @@ class SmilesWidget(ipw.VBox):
         smiles = smiles.replace("[", "").replace("]", "")
         mol = Chem.MolFromSmiles(smiles)
         if mol is None:
-            # Something is seriously wrong with the SMILES code,
-            # just return None and don't attempt anything else.
-            self.output.value = "ERROR: Invalid SMILES string"
+            self.output.value = (
+                "WARNING: RDKit failed to parse SMILES, trying OpenBabel."
+            )
             return None
         mol = Chem.AddHs(mol)
 
-        AllChem.EmbedMolecule(mol, maxAttempts=20, randomSeed=42)
+        params = AllChem.ETKDG()
+        params.randomSeed = 42
+        params.maxAttempts = 20
+        conf_id = AllChem.EmbedMolecule(mol, params=params)
+        if conf_id == -1:
+            # useRandomCoords might be more robust for larger molecules
+            # https://sourceforge.net/p/rdkit/mailman/message/21776083/
+            params.useRandomCoords = True
+            conf_id = AllChem.EmbedMolecule(mol, params=params)
+        if conf_id == -1:
+            msg = "WARNING: RDkit embedding failed, trying OpenBabel"
+            self.output.value = msg
+            return None
+
         if not AllChem.UFFHasAllMoleculeParams(mol):
-            msg = "WARNING: Missing UFF parameters"
-            raise ValueError(msg)
+            msg = "WARNING: RDKit is missing UFF parameters, trying OpenBabel"
+            self.output.value = msg
+            return None
 
         AllChem.UFFOptimizeMolecule(mol, maxIters=steps)
-        positions = mol.GetConformer().GetPositions()
+        positions = mol.GetConformer(id=conf_id).GetPositions()
         natoms = mol.GetNumAtoms()
         species = [mol.GetAtomWithIdx(j).GetSymbol() for j in range(natoms)]
         return self._make_ase(species, positions, smiles)
 
-    def _mol_from_smiles(self, smiles, steps=10000):
+    def _mol_from_smiles(self, smiles, steps=1000):
         """Convert SMILES to ase structure try rdkit then pybel"""
         try:
-            return self._rdkit_opt(smiles, steps)
+            struct = self._rdkit_opt(smiles, steps)
+            if struct is None:
+                struct = self._pybel_opt(smiles, steps)
+            return struct
         except ValueError as e:
             self.output.value = str(e)
-            return self._pybel_opt(smiles, steps)
+            return None
 
     def _on_button_pressed(self, change):  # pylint: disable=unused-argument
         """Convert SMILES to ase structure when button is pressed."""
