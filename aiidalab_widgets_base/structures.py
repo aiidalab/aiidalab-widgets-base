@@ -41,11 +41,11 @@ SYMBOL_RADIUS = {key: covalent_radii[i] for i, key in enumerate(chemical_symbols
 
 
 class StructureManagerWidget(ipw.VBox):
-    """Upload a structure and store it in AiiDA database.
+    """Upload/Generate/Manipulate a structure and store it in AiiDA database.
 
     Attributes:
         structure(Atoms): trait that contains the selected structure. 'None' if no structure is selected.
-        structure_node(StructureData, CifData): trait that contains AiiDA structure object
+        structure_node(StructureData, CifData, TrajectoryData): trait that contains AiiDA structure object
         node_class(str): trait that contains structure_node type (as string).
     """
 
@@ -54,7 +54,11 @@ class StructureManagerWidget(ipw.VBox):
     structure_node = Instance(Data, allow_none=True, read_only=True)
     node_class = Unicode()
 
-    SUPPORTED_DATA_FORMATS = {"CifData": "cif", "StructureData": "structure"}
+    SUPPORTED_DATA_FORMATS = {
+        "CifData": "cif",
+        "StructureData": "structure",
+        "TrajectoryData": "array.trajectory",
+    }
 
     def __init__(
         self,
@@ -69,12 +73,16 @@ class StructureManagerWidget(ipw.VBox):
         Arguments:
             importers(list): list of tuples each containing the displayed name of importer and the
                 importer object. Each object should contain 'structure' trait pointing to the imported
-                structure. The trait will be linked to 'structure' trait of this class.
+                structure. The trait will be linked to 'input_structure' trait of this class.
+
+            editors(list): list of tuples each containing the displayed name of structure editor and the
+                editor object. Each object should contain 'structure' trait pointing to the structure
+                being edited. The trait will be linked to the 'structure' trait of this class.
 
             storable(bool): Whether to provide Store button (together with Store format)
 
             node_class(str): AiiDA node class for storing the structure.
-                Possible values: 'StructureData', 'CifData' or None (let the user decide).
+                Possible values: 'StructureData', 'CifData', 'TrajectoryData' or None (let the user decide).
                 Note: If your workflows require a specific node class, better fix it here.
         """
 
@@ -94,7 +102,11 @@ class StructureManagerWidget(ipw.VBox):
             self.viewer = viewer
         else:
             self.viewer = StructureDataViewer(**kwargs)
-        dlink((self, "structure_node"), (self.viewer, "structure"))
+
+        if node_class == "TrajectoryData":
+            dlink((self, "structure_node"), (self.viewer, "trajectory"))
+        else:
+            dlink((self, "structure_node"), (self.viewer, "structure"))
 
         # Store button.
         self.btn_store = ipw.Button(description="Store in AiiDA", disabled=True)
@@ -169,6 +181,11 @@ class StructureManagerWidget(ipw.VBox):
 
     def _structure_editors(self, editors):
         """Preparing structure editors."""
+        if editors and self.node_class == "TrajectoryData":
+            raise ValueError(
+                "Cannot use structure editors with TrajectoryData node class"
+            )
+
         if editors and len(editors) == 1:
             link((editors[0], "structure"), (self, "structure"))
             if editors[0].has_trait("selection"):
@@ -266,18 +283,34 @@ class StructureManagerWidget(ipw.VBox):
 
         # If the input_structure trait is set to Atoms object, structure node must be created from it.
         if isinstance(structure, Atoms):
+            if structure_node_type == TrajectoryData:
+                structure_node = structure_node_type(
+                    structurelist=(StructureData(ase=structure),)
+                )
+            else:
+                structure_node = structure_node_type(ase=structure)
+
             # If the Atoms object was created by SmilesWidget,
             # attach its SMILES code as an extra.
-            structure_node = structure_node_type(ase=structure)
             if "smiles" in structure.info:
                 structure_node.set_extra("smiles", structure.info["smiles"])
             return structure_node
 
         # If the input_structure trait is set to AiiDA node, check what type
-        if isinstance(structure, Data):
+        elif isinstance(structure, Data):
             # Transform the structure to the structure_node_type if needed.
             if isinstance(structure, structure_node_type):
                 return structure
+            # TrajectoryData cannot be created from Atoms object
+            if structure_node_type == TrajectoryData:
+                if isinstance(structure, StructureData):
+                    return structure_node_type(structurelist=(structure,))
+                if isinstance(structure, CifData):
+                    return structure_node_type(
+                        structurelist=(StructureData(ase=structure.get_ase()),)
+                    )
+                else:
+                    raise ValueError(f"Unexpected node type {type(structure)}")
 
         # Using self.structure, as it was already converted to the ASE Atoms object.
         return structure_node_type(ase=self.structure)
@@ -301,7 +334,7 @@ class StructureManagerWidget(ipw.VBox):
             self.structure_description.disabled = True
         else:
             self.btn_store.disabled = False
-            self.structure_label.value = self.structure.get_chemical_formula()
+            self.structure_label.value = get_formula(struct)
             self.structure_label.disabled = False
             self.structure_description.value = ""
             self.structure_description.disabled = False
@@ -326,6 +359,13 @@ class StructureManagerWidget(ipw.VBox):
             )
         elif isinstance(change["new"], StructureData):
             self.structure = change["new"].get_ase()
+
+        elif isinstance(change["new"], TrajectoryData):
+            # self.structure is essentially used for editing purposes.
+            # We're currently not allowing editing TrajectoryData,
+            # so we don't even attempt to set self.structure,
+            # instead we update the structure_node directly here
+            self.set_trait("structure_node", change["new"])
 
         else:
             self.structure = None
