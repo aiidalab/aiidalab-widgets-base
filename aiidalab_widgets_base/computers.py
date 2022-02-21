@@ -171,7 +171,7 @@ class SshComputerSetup(ipw.VBox):
             btn_setup_ssh,
             self._setup_ssh_out,
         ]
-        super(SshComputerSetup, self).__init__(children, **kwargs)
+        super().__init__(children, **kwargs)
 
     @staticmethod
     def _ssh_keygen():
@@ -736,7 +736,7 @@ class AiidaComputerSetup(ipw.VBox):
             ipw.HBox([btn_setup_comp, btn_test]),
             ipw.HBox([self._setup_comp_out, self._test_out]),
         ]
-        super(AiidaComputerSetup, self).__init__(children, **kwargs)
+        super().__init__(children, **kwargs)
 
     def _configure_computer(self):
         """Create AuthInfo."""

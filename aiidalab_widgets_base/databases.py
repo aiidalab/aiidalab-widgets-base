@@ -66,7 +66,7 @@ class CodQueryWidget(ipw.VBox):
             self.query_message,
             ipw.HBox([self.drop_structure, self.link]),
         ]
-        super(CodQueryWidget, self).__init__(children=children, **kwargs)
+        super().__init__(children=children, **kwargs)
 
     @staticmethod
     def _query(idn=None, formula=None):

@@ -15,7 +15,7 @@ class ExportButtonWidget(Button):
         if "layout" not in kwargs:
             kwargs["layout"] = {}
         kwargs["layout"]["width"] = "initial"
-        super(ExportButtonWidget, self).__init__(**kwargs)
+        super().__init__(**kwargs)
         self.on_click(self.export_aiida_subgraph)
 
     def export_aiida_subgraph(self, change=None):  # pylint: disable=unused-argument
