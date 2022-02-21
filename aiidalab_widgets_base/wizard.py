@@ -83,9 +83,7 @@ class WizardAppWidget(ipw.VBox):
         """Return the icon set and return animated icons based on the current time stamp."""
         t = time()
         return {
-            key: item
-            if isinstance(item, str)
-            else item[int((t * len(item) % len(item)))]
+            key: item if isinstance(item, str) else item[int(t * len(item) % len(item))]
             for key, item in cls.ICONS.items()
         }
 

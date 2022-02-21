@@ -853,10 +853,8 @@ class AiidaCodeSetup(ipw.VBox):
         # Code plugin.
         self.input_plugin = ipw.Dropdown(
             options=sorted(
-                [
-                    (ep.name, ep)
-                    for ep in plugins.entry_point.get_entry_points("aiida.calculations")
-                ]
+                (ep.name, ep)
+                for ep in plugins.entry_point.get_entry_points("aiida.calculations")
             ),
             description="Code plugin:",
             layout=LAYOUT,

@@ -19,7 +19,7 @@ def connect_to_eln(eln_instance=None, **kwargs):
     # assuming that the connection can only be established to the ELNs
     # with the stored configuration.
     try:
-        with open(ELN_CONFIG, "r") as file:
+        with open(ELN_CONFIG) as file:
             config = json.load(file)
     except (FileNotFoundError, json.JSONDecodeError, KeyError):
         return (
@@ -235,7 +235,7 @@ class ElnConfigureWidget(ipw.VBox):
 
     def get_config(self):
         try:
-            with open(ELN_CONFIG, "r") as file:
+            with open(ELN_CONFIG) as file:
                 return json.load(file)
         except (FileNotFoundError, json.JSONDecodeError, KeyError):
             return {}

@@ -11,11 +11,11 @@ class ExportButtonWidget(Button):
     def __init__(self, process, **kwargs):
         self.process = process
         if "description" not in kwargs:
-            kwargs["description"] = "Export workflow ({})".format(self.process.id)
+            kwargs["description"] = f"Export workflow ({self.process.id})"
         if "layout" not in kwargs:
             kwargs["layout"] = {}
         kwargs["layout"]["width"] = "initial"
-        super(ExportButtonWidget, self).__init__(**kwargs)
+        super().__init__(**kwargs)
         self.on_click(self.export_aiida_subgraph)
 
     def export_aiida_subgraph(self, change=None):  # pylint: disable=unused-argument
@@ -42,7 +42,7 @@ class ExportButtonWidget(Button):
             link.click();
             document.body.removeChild(link);
             """.format(
-                payload=payload, filename="export_{}.aiida".format(self.process.id)
+                payload=payload, filename=f"export_{self.process.id}.aiida"
             )
         )
         display(javas)

@@ -63,9 +63,7 @@ def viewer(obj, downloadable=True, **kwargs):
 
     Returns the object itself if the viewer wasn't found."""
     if not isinstance(obj, Node):  # only working with AiiDA nodes
-        warnings.warn(
-            "This viewer works only with AiiDA objects, got {}".format(type(obj))
-        )
+        warnings.warn(f"This viewer works only with AiiDA objects, got {type(obj)}")
         return obj
 
     try:
@@ -146,7 +144,7 @@ class DictViewer(ipw.VBox):
         # this is used to setup table's appearance using CSS
         if downloadable:
             payload = base64.b64encode(dataf.to_csv(index=False).encode()).decode()
-            fname = "{}.csv".format(parameter.pk)
+            fname = f"{parameter.pk}.csv"
             to_add = """Download table in csv format: <a download="{filename}"
             href="data:text/csv;base64,{payload}" target="_blank">{title}</a>"""
             self.value += to_add.format(filename=fname, payload=payload, title=fname)
@@ -356,9 +354,9 @@ class _StructureDataBaseViewer(ipw.VBox):
                 self.cell.lengths()[2]
             )
 
-            self.cell_alpha.value = "&alpha;: {:.4f}".format(self.cell.angles()[0])
-            self.cell_beta.value = "&beta;: {:.4f}".format(self.cell.angles()[1])
-            self.cell_gamma.value = "&gamma;: {:.4f}".format(self.cell.angles()[2])
+            self.cell_alpha.value = f"&alpha;: {self.cell.angles()[0]:.4f}"
+            self.cell_beta.value = f"&beta;: {self.cell.angles()[1]:.4f}"
+            self.cell_gamma.value = f"&gamma;: {self.cell.angles()[2]:.4f}"
         else:
             self.cell_a.value = "<i><b>a</b></i>:"
             self.cell_b.value = "<i><b>b</b></i>:"
@@ -1103,7 +1101,7 @@ class BandsDataViewer(ipw.VBox):
             x_data = [plot_info["x"] for i in range(len(y_data))]
             labels = plot_info["labels"]
             # Create the figure
-            plot = figure(y_axis_label="Dispersion ({})".format(bands.units))
+            plot = figure(y_axis_label=f"Dispersion ({bands.units})")
             plot.multi_line(
                 x_data, y_data, line_width=2, line_color="red"
             )  # pylint: disable=too-many-function-args

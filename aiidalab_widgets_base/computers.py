@@ -171,7 +171,7 @@ class SshComputerSetup(ipw.VBox):
             btn_setup_ssh,
             self._setup_ssh_out,
         ]
-        super(SshComputerSetup, self).__init__(children, **kwargs)
+        super().__init__(children, **kwargs)
 
     @staticmethod
     def _ssh_keygen():
@@ -297,8 +297,8 @@ class SshComputerSetup(ipw.VBox):
         from pexpect import TIMEOUT
 
         timeout = 10
-        print("Sending public key to {}... ".format(hostname), end="")
-        str_ssh = "ssh-copy-id {}@{}".format(username, hostname)
+        print(f"Sending public key to {hostname}... ", end="")
+        str_ssh = f"ssh-copy-id {username}@{hostname}"
         if proxycmd:
             str_ssh += ' -o "ProxyCommand ssh -q -Y ' + proxycmd + ' netcat %h %p\n"'
         child = pexpect.spawn(str_ssh)
@@ -314,7 +314,7 @@ class SshComputerSetup(ipw.VBox):
                 timeout=timeout,
             )  # final
         except TIMEOUT:
-            print("Exceeded {} s timeout".format(timeout))
+            print(f"Exceeded {timeout} s timeout")
             return False
 
         possible_output = {
@@ -736,11 +736,11 @@ class AiidaComputerSetup(ipw.VBox):
             ipw.HBox([btn_setup_comp, btn_test]),
             ipw.HBox([self._setup_comp_out, self._test_out]),
         ]
-        super(AiidaComputerSetup, self).__init__(children, **kwargs)
+        super().__init__(children, **kwargs)
 
     def _configure_computer(self):
         """Create AuthInfo."""
-        print("Configuring '{}'".format(self.label))
+        print(f"Configuring '{self.label}'")
         sshcfg = parse_sshconfig(self.hostname)
         authparams = {
             "compress": True,
