@@ -66,7 +66,7 @@ class CodQueryWidget(ipw.VBox):
             self.query_message,
             ipw.HBox([self.drop_structure, self.link]),
         ]
-        super(CodQueryWidget, self).__init__(children=children, **kwargs)
+        super().__init__(children=children, **kwargs)
 
     @staticmethod
     def _query(idn=None, formula=None):
@@ -106,7 +106,7 @@ class CodQueryWidget(ipw.VBox):
             )
             structures.append(entry_add)
 
-        self.query_message.value += "{} structures found".format(len(structures) - 1)
+        self.query_message.value += f"{len(structures) - 1} structures found"
         self.drop_structure.options = structures
 
     def _on_select_structure(self, change):
@@ -462,10 +462,10 @@ class ComputationalResourcesDatabaseWidget(ipw.VBox):
 
     def clean_up_database(self, database, plugin):
         for domain in list(database.keys()):
-            for computer in list(database[domain].keys() - set(["default"])):
+            for computer in list(database[domain].keys() - {"default"}):
                 for code in list(
                     database[domain][computer].keys()
-                    - set(["computer-configure", "computer-setup"])
+                    - {"computer-configure", "computer-setup"}
                 ):
                     if plugin != database[domain][computer][code]["input_plugin"]:
                         del database[domain][computer][code]
@@ -473,18 +473,18 @@ class ComputationalResourcesDatabaseWidget(ipw.VBox):
                 if (
                     len(
                         database[domain][computer].keys()
-                        - set(["computer-configure", "computer-setup"])
+                        - {"computer-configure", "computer-setup"}
                     )
                     == 0
                 ):
                     del database[domain][computer]
             # If no computers remained - remove the domain.
-            if len(database[domain].keys() - set(["default"])) == 0:
+            if len(database[domain].keys() - {"default"}) == 0:
                 del database[domain]
             # Making sure the 'default' key still points to an existing computer.
             elif database[domain]["default"] not in database[domain]:
                 database[domain]["default"] = sorted(
-                    database[domain].keys() - set(["default"])
+                    database[domain].keys() - {"default"}
                 )[0]
         return database
 

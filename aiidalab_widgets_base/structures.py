@@ -223,7 +223,7 @@ class StructureManagerWidget(ipw.VBox):
 
         else:
             structure_node = self.structure_node.store()
-        self.output.value = "Stored in AiiDA [{}]".format(structure_node)
+        self.output.value = f"Stored in AiiDA [{structure_node}]"
 
     def undo(self, _):
         """Undo modifications."""
@@ -594,10 +594,10 @@ class StructureBrowserWidget(ipw.VBox):
         matches = sorted(matches, reverse=True, key=lambda n: n.ctime)
 
         options = OrderedDict()
-        options["Select a Structure ({} found)".format(len(matches))] = False
+        options[f"Select a Structure ({len(matches)} found)"] = False
 
         for mch in matches:
-            label = "PK: {}".format(mch.id)
+            label = f"PK: {mch.id}"
             label += " | " + mch.ctime.strftime("%Y-%m-%d %H:%M")
             label += " | " + mch.get_extra("formula")
             label += " | " + mch.node_type.split(".")[-2]

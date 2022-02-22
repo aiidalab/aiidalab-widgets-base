@@ -210,7 +210,7 @@ class ProcessInputsWidget(ipw.VBox):
             clear_output()
             if change["new"]:
                 selected_input = self.process.inputs[change["new"]]
-                self.info.value = "PK: {}".format(selected_input.id)
+                self.info.value = f"PK: {selected_input.id}"
                 display(viewer(selected_input))
 
 
@@ -247,7 +247,7 @@ class ProcessOutputsWidget(ipw.VBox):
             clear_output()
             if change["new"]:
                 selected_output = self.process.outputs[change["new"]]
-                self.info.value = "PK: {}".format(selected_output.id)
+                self.info.value = f"PK: {selected_output.id}"
                 display(viewer(selected_output))
 
 
@@ -278,7 +278,7 @@ class ProcessFollowerWidget(ipw.VBox):
                 self.followers.append(
                     ipw.VBox(
                         [
-                            ipw.HTML("<h2><b>{}</b></h2>".format(follower.title)),
+                            ipw.HTML(f"<h2><b>{follower.title}</b></h2>"),
                             follower,
                         ]
                     )
@@ -347,7 +347,7 @@ class ProcessReportWidget(ipw.HTML):
         elif isinstance(self.process, (CalcFunctionNode, WorkFunctionNode)):
             string = get_process_function_report(self.process)
         else:
-            string = "Nothing to show for node type {}".format(self.process.__class__)
+            string = f"Nothing to show for node type {self.process.__class__}"
         self.value = string.replace("\n", "<br/>")
 
 
@@ -375,7 +375,7 @@ class ProcessCallStackWidget(ipw.HTML):
         """Return a string with the summary of the state of a CalculationNode."""
 
         if not isinstance(node, ProcessNode):
-            raise TypeError("Unknown type: {}".format(type(node)))
+            raise TypeError(f"Unknown type: {type(node)}")
 
         process_state = node.process_state.value.capitalize()
         pk = """<a#space#href={0}aiidalab-widgets-base/notebooks/process.ipynb?id={1}#space#target="_blank">{1}</a>""".format(
@@ -387,10 +387,10 @@ class ProcessCallStackWidget(ipw.HTML):
                 node.process_label, pk, process_state, node.exit_status
             )
         else:
-            string = "{}<{}> {}".format(node.process_label, pk, process_state)
+            string = f"{node.process_label}<{pk}> {process_state}"
 
         if isinstance(node, WorkChainNode) and node.stepper_state_info:
-            string += " [{}]".format(node.stepper_state_info)
+            string += f" [{node.stepper_state_info}]"
         return string
 
 
@@ -655,7 +655,7 @@ class ProcessListWidget(ipw.VBox):
         if self.description_contains:
             dataf = dataf[dataf.Description.str.contains(self.description_contains)]
 
-        self.output.value = "{} processes shown".format(len(dataf))
+        self.output.value = f"{len(dataf)} processes shown"
 
         # Add HTML links.
         dataf["PK"] = dataf["PK"].apply(

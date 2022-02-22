@@ -254,7 +254,7 @@ class AiiDACodeSetup(ipw.VBox):
             btn_setup_code,
             self._setup_code_out,
         ]
-        super(AiiDACodeSetup, self).__init__(children, **kwargs)
+        super().__init__(children, **kwargs)
 
     @validate("input_plugin")
     def _validate_input_plugin(self, proposal):

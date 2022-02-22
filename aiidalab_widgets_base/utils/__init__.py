@@ -24,7 +24,7 @@ def predefine_settings(obj, **kwargs):
         if hasattr(obj, key):
             setattr(obj, key, value)
         else:
-            raise AttributeError("'{}' object has no attirubte '{}'".format(obj, key))
+            raise AttributeError(f"'{obj}' object has no attirubte '{key}'")
 
 
 def get_ase_from_file(fname, format=None):  # pylint: disable=redefined-builtin
@@ -34,14 +34,12 @@ def get_ase_from_file(fname, format=None):  # pylint: disable=redefined-builtin
     else:
         traj = read(fname, format=format, index=":")
     if not traj:
-        print(("Could not read any information from the file {}".format(fname)))
+        print(f"Could not read any information from the file {fname}")
         return False
     if len(traj) > 1:
         print(
-            (
-                "Warning: Uploaded file {} contained more than one structure. Selecting the first one.".format(
-                    fname
-                )
+            "Warning: Uploaded file {} contained more than one structure. Selecting the first one.".format(
+                fname
             )
         )
     return traj[0]
