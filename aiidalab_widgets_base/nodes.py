@@ -1,4 +1,7 @@
 """Widgets to work with AiiDA nodes."""
+import functools
+from typing import Tuple
+
 import ipywidgets as ipw
 import traitlets
 from aiida.cmdline.utils.ascii_vis import calc_info
@@ -100,10 +103,12 @@ class AiidaOutputsTreeNode(TreeNode):
     icon = traitlets.Unicode("folder").tag(sync=True)
     disabled = traitlets.Bool(True).tag(sync=True)
 
-    def __init__(self, name, parent_pk, namespace=None, **kwargs):
+    def __init__(
+        self, name, parent_pk, namespaces: Tuple[str, ...] = tuple(), **kwargs
+    ):
         self.parent_pk = parent_pk
         self.nodes_registry = dict()
-        self.namespace = namespace
+        self.namespaces = namespaces
         super().__init__(name=name, **kwargs)
 
 
@@ -210,22 +215,30 @@ class NodesTreeWidget(ipw.Output):
     @classmethod
     def _find_outputs(cls, root):
         process_node = load_node(root.parent_pk)
-        if root.namespace:
-            outputs = process_node.outputs[root.namespace]
-        else:
-            outputs = process_node.outputs
 
+        outputs = process_node.outputs
+        # if output tree node is from namespace node
+        namespaces = root.namespaces
+        if namespaces:
+            outputs = functools.reduce(
+                lambda d, namespace: d[namespace], namespaces, process_node.outputs
+            )
+
+        # convert aiida LinkManager to type dict
         output_nodes = {key: outputs[key] for key in outputs}
 
         for key in sorted(
             output_nodes.keys(), key=lambda k: getattr(outputs[k], "pk", -1)
         ):
             node = output_nodes[key]
-
             if isinstance(node, AttributeDict):
+                # for namespace tree node attach label and continue recursively
                 yield AiidaOutputsTreeNode(
-                    name=key, parent_pk=root.parent_pk, namespace=key
+                    name=key,
+                    parent_pk=root.parent_pk,
+                    namespaces=(*namespaces, key),
                 )
+
             else:
                 if node.pk not in root.nodes_registry:
                     root.nodes_registry[node.pk] = cls._to_tree_node(
