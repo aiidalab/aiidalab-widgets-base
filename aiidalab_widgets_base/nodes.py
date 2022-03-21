@@ -216,15 +216,14 @@ class NodesTreeWidget(ipw.Output):
     def _find_outputs(cls, root):
         process_node = load_node(root.parent_pk)
 
-        outputs = process_node.outputs
-        # if output tree node is from namespace node
-        namespaces = root.namespaces
-        if namespaces:
-            outputs = functools.reduce(
-                lambda d, namespace: d[namespace], namespaces, process_node.outputs
-            )
+        # Gather outputs from node and its namespaces (if present):
+        outputs = functools.reduce(
+            lambda d, namespace: d[namespace],
+            root.namespaces or [],
+            process_node.outputs,
+        )
 
-        # convert aiida LinkManager to type dict
+        # Convert aiida.orm.LinkManager to dict
         output_nodes = {key: outputs[key] for key in outputs}
 
         for key in sorted(
@@ -236,7 +235,7 @@ class NodesTreeWidget(ipw.Output):
                 yield AiidaOutputsTreeNode(
                     name=key,
                     parent_pk=root.parent_pk,
-                    namespaces=(*namespaces, key),
+                    namespaces=(*root.namespaces, key),
                 )
 
             else:
