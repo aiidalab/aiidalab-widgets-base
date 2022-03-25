@@ -214,16 +214,22 @@ class NodesTreeWidget(ipw.Output):
 
     @classmethod
     def _find_outputs(cls, root):
+        """
+        A generator for all namespace and output nodes from the output root.
+        If a namespace encountered it generate a AiidaOutputsTreeNode with
+        the namespaces path stored so it can be accessed by root node and namespaces tuple
+        in walk tree breadth-first search.
+        """
         process_node = load_node(root.parent_pk)
 
-        # Gather outputs from node and its namespaces (if present):
+        # Gather outputs from node and its namespaces:
         outputs = functools.reduce(
-            lambda d, namespace: d[namespace],
+            lambda attr_dict, namespace: attr_dict[namespace],
             root.namespaces or [],
             process_node.outputs,
         )
 
-        # Convert aiida.orm.LinkManager to dict
+        # Convert aiida.orm.LinkManager or AttributDict (if namespace presented) to dict
         output_nodes = {key: outputs[key] for key in outputs}
 
         for key in sorted(
@@ -235,7 +241,7 @@ class NodesTreeWidget(ipw.Output):
                 yield AiidaOutputsTreeNode(
                     name=key,
                     parent_pk=root.parent_pk,
-                    namespaces=(*root.namespaces, key),
+                    namespaces=(*root.namespaces, key),  # attach nested namespace name
                 )
 
             else:
