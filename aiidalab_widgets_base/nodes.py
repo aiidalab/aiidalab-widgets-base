@@ -1,4 +1,7 @@
 """Widgets to work with AiiDA nodes."""
+import functools
+from typing import Tuple
+
 import ipywidgets as ipw
 import traitlets
 from aiida.cmdline.utils.ascii_vis import calc_info
@@ -100,10 +103,12 @@ class AiidaOutputsTreeNode(TreeNode):
     icon = traitlets.Unicode("folder").tag(sync=True)
     disabled = traitlets.Bool(True).tag(sync=True)
 
-    def __init__(self, name, parent_pk, namespace=None, **kwargs):
+    def __init__(
+        self, name, parent_pk, namespaces: Tuple[str, ...] = tuple(), **kwargs
+    ):
         self.parent_pk = parent_pk
         self.nodes_registry = dict()
-        self.namespace = namespace
+        self.namespaces = namespaces
         super().__init__(name=name, **kwargs)
 
 
@@ -209,23 +214,37 @@ class NodesTreeWidget(ipw.Output):
 
     @classmethod
     def _find_outputs(cls, root):
-        process_node = load_node(root.parent_pk)
-        if root.namespace:
-            outputs = process_node.outputs[root.namespace]
-        else:
-            outputs = process_node.outputs
+        """
+        A generator for all (including nested) output nodes.
 
+        Generates an AiidaOutputsTreeNode when encountering a namespace,
+        keeping track of the full namespace path to make it accessible via the
+        root node in form of a breadth-first search.
+        """
+        process_node = load_node(root.parent_pk)
+
+        # Gather outputs from node and its namespaces:
+        outputs = functools.reduce(
+            lambda attr_dict, namespace: attr_dict[namespace],
+            root.namespaces or [],
+            process_node.outputs,
+        )
+
+        # Convert aiida.orm.LinkManager or AttributDict (if namespace presented) to dict
         output_nodes = {key: outputs[key] for key in outputs}
 
         for key in sorted(
             output_nodes.keys(), key=lambda k: getattr(outputs[k], "pk", -1)
         ):
             node = output_nodes[key]
-
             if isinstance(node, AttributeDict):
+                # for namespace tree node attach label and continue recursively
                 yield AiidaOutputsTreeNode(
-                    name=key, parent_pk=root.parent_pk, namespace=key
+                    name=key,
+                    parent_pk=root.parent_pk,
+                    namespaces=(*root.namespaces, key),  # attach nested namespace name
                 )
+
             else:
                 if node.pk not in root.nodes_registry:
                     root.nodes_registry[node.pk] = cls._to_tree_node(
