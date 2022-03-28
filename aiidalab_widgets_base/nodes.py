@@ -216,7 +216,7 @@ class NodesTreeWidget(ipw.Output):
     def _find_outputs(cls, root):
         """
         A generator for all (including nested) output nodes.
-        
+
         Generates an AiidaOutputsTreeNode when encountering a namespace,
         keeping track of the full namespace path to make it accessible via the
         root node in form of a breadth-first search.
