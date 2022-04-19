@@ -101,18 +101,13 @@ class ComputationalResourcesWidget(ipw.VBox):
         )
         self.aiida_code_setup.on_setup_code_success.append(self.refresh)
 
-        # After a successfull computer setup the list of computers should be refreshed.
+        # After a successfull computer setup the codes widget should be refreshed.
+        # E.g. the list of available computers needs to be updated.
         self.aiida_computer_setup.on_setup_computer_success.append(
-            self.aiida_code_setup.computer.refresh
+            self.aiida_code_setup.refresh
         )
 
-        def select_latest_configured_computer():
-            self.aiida_code_setup.computer.value = self.aiida_computer_setup.label.value
-
-        self.aiida_computer_setup.on_setup_computer_success.append(
-            select_latest_configured_computer
-        )
-
+        # Quick setup.
         quick_setup_button = ipw.Button(description="Quick Setup")
         quick_setup_button.on_click(self.quick_setup)
         quick_setup = ipw.VBox(
@@ -125,6 +120,7 @@ class ComputationalResourcesWidget(ipw.VBox):
             ]
         )
 
+        # Detailed setup.
         detailed_setup = ipw.Accordion(
             children=[
                 self.ssh_computer_setup,
@@ -386,7 +382,7 @@ class SshComputerSetup(ipw.VBox):
                 file.write(f"  IdentityFile {private_key_abs_fname}\n")
             file.write("  ServerAliveInterval 5\n")
 
-    def on_setup_ssh(self, _=None, on_success=None):
+    def on_setup_ssh(self, _=None):
         with self.setup_ssh_out:
             clear_output()
 
@@ -443,11 +439,8 @@ class SshComputerSetup(ipw.VBox):
                             expectations,
                             timeout=timeout,
                         )
-
                     except pexpect.TIMEOUT:
-                        print(f"Exceeded {timeout} s timeout")
-                        return False
-
+                        raise RuntimeError(f"Exceeded {timeout} s timeout")
                     if index == 0:
                         message = child.before.splitlines()[-1] + child.after
                         if previous_message != message:
@@ -464,47 +457,35 @@ class SshComputerSetup(ipw.VBox):
                             )
                             yield
                         child.sendline(pwd.value)
-
                     elif index == 1:
                         print("Success.")
-                        if on_success:
-                            on_success()
                         break
-
                     elif index == 2:
                         print("Keys are already present on the remote machine.")
-                        if on_success:
-                            on_success()
                         break
-
                     elif index == 3:  # Adding a new host.
                         child.sendline("yes")
-
                     elif index == 4:
-                        print(
+                        raise RuntimeError(
                             "Failed\nLooks like the key pair is not present in ~/.ssh folder."
                         )
-                        break
-
                     elif index == 5:
-                        print("Failed\nUnknown hostname.")
-                        break
-
+                        raise RuntimeError("Failed\nUnknown hostname.")
                     elif index == 6:
-                        print("Failed\nConnection refused.")
-                        break
-
+                        raise RuntimeError("Failed\nConnection refused.")
                     else:
-                        print("Failed\nUnknown problem.")
-                        print(child.before, child.after)
-                        break
+                        raise RuntimeError(
+                            f"Failed\nUnknown problem.\n{child.before}\n{child.after}"
+                        )
                 child.close()
                 yield
 
             try:
                 ssh_copy_id()
-            except StopIteration:
-                print(f"Unsuccessful attempt to connect to {self.hostname.value}.")
+            except (StopIteration, RuntimeError) as err:
+                print(
+                    f"{err}\nUnsuccessful attempt to connect to {self.hostname.value}."
+                )
                 return False
 
             return True
@@ -527,7 +508,7 @@ class SshComputerSetup(ipw.VBox):
 
     @property
     def _private_key(self):
-        """unwrap private key file and setting filename and file content"""
+        """Unwrap private key file and setting filename and file content."""
         if self._inp_private_key.value:
             (fname, _value), *_ = self._inp_private_key.value.items()
             content = copy(_value["content"])
@@ -802,7 +783,8 @@ class AiidaComputerSetup(ipw.VBox):
             if self._configure_computer(computer):
                 for function in self.on_setup_computer_success:
                     function()
-                print(f"Computer<{computer.pk}> {computer.label} created")
+            print(f"Computer<{computer.pk}> {computer.label} created")
+            return True
 
     def test(self, _=None):
         with self._test_out:
@@ -989,6 +971,10 @@ class AiidaCodeSetup(ipw.VBox):
         self.remote_abs_path.value = ""
         self.prepend_text.value = ""
         self.append_text.value = ""
+
+    def refresh(self):
+        self.computer.refresh()
+        self._observe_code_setup()
 
     @traitlets.observe("code_setup")
     def _observe_code_setup(self, _=None):
