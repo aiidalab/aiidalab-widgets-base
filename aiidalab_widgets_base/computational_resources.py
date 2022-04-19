@@ -697,22 +697,26 @@ class AiidaComputerSetup(ipw.VBox):
 
         super().__init__(children, **kwargs)
 
-    def _configure_computer(self):
-        """Create AuthInfo."""
+    def _configure_computer(self, computer):
+        """Configure the computer"""
         sshcfg = parse_sshconfig(self.hostname.value)
         authparams = {
-            "compress": True,
+            "port": int(sshcfg.get("port", 22)),
+            "look_for_keys": True,
             "key_filename": os.path.expanduser(
                 sshcfg.get("identityfile", ["~/.ssh/id_rsa"])[0]
             ),
+            "timeout": 60,
+            "allow_agent": True,
+            "proxy_jump": "",
+            "proxy_command": "",
+            "compress": True,
             "gss_auth": False,
+            "gss_kex": False,
             "gss_deleg_creds": False,
             "gss_host": self.hostname.value,
-            "gss_kex": False,
-            "key_policy": "WarningPolicy",
             "load_system_host_keys": True,
-            "port": sshcfg.get("port", 22),
-            "timeout": 60,
+            "key_policy": "WarningPolicy",
             "use_login_shell": self.use_login_shell.value,
             "safe_interval": self.safe_interval.value,
         }
@@ -728,13 +732,8 @@ class AiidaComputerSetup(ipw.VBox):
             authparams["proxy_command"] = sshcfg["proxycommand"]
         elif "proxyjump" in sshcfg:
             authparams["proxy_jump"] = sshcfg["proxyjump"]
-        aiidauser = orm.User.objects.get_default()
 
-        authinfo = orm.AuthInfo(
-            computer=orm.Computer.objects.get(label=self.label.value), user=aiidauser
-        )
-        authinfo.set_auth_params(authparams)
-        authinfo.store()
+        computer.configure(**authparams)
         return True
 
     def on_setup_computer(self, _=None, on_success=None):
@@ -785,7 +784,7 @@ class AiidaComputerSetup(ipw.VBox):
                 print(f"Unable to store the computer: {err}.")
                 return
 
-            if self._configure_computer():
+            if self._configure_computer(computer):
                 if on_success:
                     on_success()
                 print(f"Computer<{computer.pk}> {computer.label} created")
