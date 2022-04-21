@@ -143,9 +143,8 @@ class ComputationalResourcesWidget(ipw.VBox):
         with self.hold_trait_notifications():
             success = self.ssh_computer_setup.on_setup_ssh()
             if success:
-                success = self.aiida_computer_setup.on_setup_computer()
-            if success:
-                self.aiida_code_setup.on_setup_code()
+                if self.aiida_computer_setup.on_setup_computer():
+                    self.aiida_code_setup.on_setup_code()
 
     def _get_codes(self):
         """Query the list of available codes."""
