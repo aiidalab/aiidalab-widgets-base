@@ -99,11 +99,11 @@ class ComputationalResourcesWidget(ipw.VBox):
             (self.comp_resources_database, "code_setup"),
             (self.aiida_code_setup, "code_setup"),
         )
-        self.aiida_code_setup.on_setup_code_success.append(self.refresh)
+        self.aiida_code_setup.on_setup_code_success(self.refresh)
 
         # After a successfull computer setup the codes widget should be refreshed.
         # E.g. the list of available computers needs to be updated.
-        self.aiida_computer_setup.on_setup_computer_success.append(
+        self.aiida_computer_setup.on_setup_computer_success(
             self.aiida_code_setup.refresh
         )
 
@@ -565,7 +565,7 @@ class AiidaComputerSetup(ipw.VBox):
 
     def __init__(self, **kwargs):
 
-        self.on_setup_computer_success = []
+        self._on_setup_computer_success = []
 
         # List of widgets to be displayed.
         self.label = ipw.Text(
@@ -742,7 +742,7 @@ class AiidaComputerSetup(ipw.VBox):
             try:
                 computer = orm.Computer.objects.get(label=self.label.value)
                 print(f"A computer called {self.label.value} already exists.")
-                for function in self.on_setup_computer_success:
+                for function in self._on_setup_computer_success:
                     function()
                 return True
             except common.NotExistent:
@@ -780,10 +780,13 @@ class AiidaComputerSetup(ipw.VBox):
                 return False
 
             if self._configure_computer(computer):
-                for function in self.on_setup_computer_success:
+                for function in self._on_setup_computer_success:
                     function()
             print(f"Computer<{computer.pk}> {computer.label} created")
             return True
+
+    def on_setup_computer_success(self, function):
+        self._on_setup_computer_success.append(function)
 
     def test(self, _=None):
         with self._test_out:
@@ -833,7 +836,7 @@ class AiidaCodeSetup(ipw.VBox):
 
     def __init__(self, path_to_root="../", **kwargs):
 
-        self.on_setup_code_success = []
+        self._on_setup_code_success = []
 
         # Code label.
         self.label = ipw.Text(
@@ -956,12 +959,15 @@ class AiidaCodeSetup(ipw.VBox):
                 print(f"Unable to store the Code: {exception}")
                 return False
 
-            for function in self.on_setup_code_success:
+            for function in self._on_setup_code_success:
                 function()
 
             print(f"Code<{code.pk}> {code.full_label} created")
 
             return True
+
+    def on_setup_code_success(self, function):
+        self._on_setup_code_success.append(function)
 
     def _reset(self):
         self.label.value = ""
