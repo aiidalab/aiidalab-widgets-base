@@ -141,8 +141,7 @@ class ComputationalResourcesWidget(ipw.VBox):
     def quick_setup(self, _=None):
         """Go through all the setup steps automatically."""
         with self.hold_trait_notifications():
-            success = self.ssh_computer_setup.on_setup_ssh()
-            if success:
+            if self.ssh_computer_setup.on_setup_ssh():
                 if self.aiida_computer_setup.on_setup_computer():
                     self.aiida_code_setup.on_setup_code()
 
