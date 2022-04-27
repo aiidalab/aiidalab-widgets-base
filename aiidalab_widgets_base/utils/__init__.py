@@ -1,5 +1,4 @@
 """Some utility functions used acrross the repository."""
-from functools import wraps
 
 import more_itertools as mit
 import numpy as np
@@ -84,36 +83,6 @@ def string_range_to_list(strng, shift=-1):
         except ValueError:
             return list(), False
     return singles, True
-
-
-def yield_for_change(widget, attribute):
-    """Pause a generator to wait for a widget change event.
-
-    Taken from: https://ipywidgets.readthedocs.io/en/7.6.5/examples/Widget%20Asynchronous.html#Generator-approach
-
-    This is a decorator for a generator function which pauses the generator on yield
-    until the given widget attribute changes. The new value of the attribute is
-    sent to the generator and is the value of the yield.
-    """
-
-    def f(iterator):
-        @wraps(iterator)
-        def inner():
-            i = iterator()
-
-            def next_i(change):
-                try:
-                    i.send(change.new)
-                except StopIteration:
-                    widget.unobserve(next_i, attribute)
-
-            widget.observe(next_i, attribute)
-            # start the generator
-            next(i)
-
-        return inner
-
-    return f
 
 
 class PinholeCamera:

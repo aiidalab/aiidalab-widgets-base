@@ -1,5 +1,7 @@
+import enum
 import os
 import subprocess
+import threading
 from copy import copy
 from pathlib import Path
 
@@ -14,7 +16,6 @@ from aiida.transports.plugins.ssh import parse_sshconfig
 from IPython.display import clear_output, display
 
 from .databases import ComputationalResourcesDatabaseWidget
-from .utils import yield_for_change
 
 STYLE = {"description_width": "180px"}
 LAYOUT = {"width": "400px"}
@@ -141,9 +142,9 @@ class ComputationalResourcesWidget(ipw.VBox):
     def quick_setup(self, _=None):
         """Go through all the setup steps automatically."""
         with self.hold_trait_notifications():
-            if self.ssh_computer_setup.on_setup_ssh():
-                if self.aiida_computer_setup.on_setup_computer():
-                    self.aiida_code_setup.on_setup_code()
+            self.ssh_computer_setup.on_setup_ssh()
+            if self.aiida_computer_setup.on_setup_computer():
+                self.aiida_code_setup.on_setup_code()
 
     def _get_codes(self):
         """Query the list of available codes."""
@@ -230,12 +231,41 @@ class ComputationalResourcesWidget(ipw.VBox):
                 }
 
 
+class SshConnectionState(enum.Enum):
+    waiting_for_input = -1
+    enter_password = 0
+    success = 1
+    keys_already_present = 2
+    do_you_want_to_continue = 3
+    no_keys = 4
+    unknown_hostname = 5
+    connection_refused = 6
+    end_of_file = 7
+
+
 class SshComputerSetup(ipw.VBox):
     """Setup password-free access to a computer."""
 
     ssh_config = traitlets.Dict()
+    ssh_connection_state = traitlets.UseEnum(
+        SshConnectionState, allow_none=True, default_value=None
+    )
+    SSH_POSSIBLE_RESPONSES = [
+        "assword:",  # 0
+        "Now try logging into",  # 1
+        "All keys were skipped because they already exist on the remote system",  # 2
+        "Are you sure you want to continue connecting (yes/no)?",  # 3
+        "ERROR: No identities found",  # 4
+        "Could not resolve hostname",  # 5
+        "Connection refused",  # 6
+        pexpect.EOF,  # 7
+    ]
 
     def __init__(self, **kwargs):
+
+        self._ssh_connection_message = None
+        self._ssh_password = None
+
         # Username.
         self.username = ipw.Text(
             description="SSH username:", layout=LAYOUT, style=STYLE
@@ -390,11 +420,11 @@ class SshComputerSetup(ipw.VBox):
             # If hostname & username are not provided - do not do anything.
             if self.hostname.value == "":  # check hostname
                 print("Please specify the computer hostname.")
-                return False
+                return
 
             if self.username.value == "":  # check username
                 print("Please specify your SSH username.")
-                return False
+                return
 
             private_key_abs_fname = None
             if self._verification_mode.value == "private_key":
@@ -402,91 +432,110 @@ class SshComputerSetup(ipw.VBox):
                 private_key_abs_fname, private_key_content = self._private_key
                 if private_key_abs_fname is None:  # check private key file
                     print("Please upload your private key file.")
-                    return False
+                    return
 
-                # write private key in ~/.ssh/ and use the name of upload file,
+                # Write private key in ~/.ssh/ and use the name of upload file,
                 # if exist, generate random string and append to filename then override current name.
                 self._add_private_key(private_key_abs_fname, private_key_content)
 
             if not self._is_in_config():
                 self._write_ssh_config(private_key_abs_fname=private_key_abs_fname)
 
-            # sending public key to the main host
-            @yield_for_change(self._continue_button, "value")
-            def ssh_copy_id():
-                timeout = 30
-                print(f"Sending public key to {self.hostname.value}... ", end="")
-                str_ssh = f"ssh-copy-id {self.hostname.value}"
-                child = pexpect.spawn(str_ssh)
+            # Copy public key on the remote computer.
+            ssh_connection_thread = threading.Thread(target=self._ssh_copy_id)
+            ssh_connection_thread.start()
 
-                expectations = [
-                    "assword:",  # 0
-                    "Now try logging into",  # 1
-                    "All keys were skipped because they already exist on the remote system",  # 2
-                    "Are you sure you want to continue connecting (yes/no)?",  # 3
-                    "ERROR: No identities found",  # 4
-                    "Could not resolve hostname",  # 5
-                    "Connection refused",  # 6
-                    pexpect.EOF,
-                ]
-
-                previous_message, message = None, None
-                while True:
-                    try:
-                        index = child.expect(
-                            expectations,
-                            timeout=timeout,
-                        )
-                    except pexpect.TIMEOUT:
-                        raise RuntimeError(f"Exceeded {timeout} s timeout")
-                    if index == 0:
-                        message = child.before.splitlines()[-1] + child.after
-                        if previous_message != message:
-                            previous_message = message
-                            pwd = ipw.Password(layout={"width": "100px"})
-                            display(
-                                ipw.HBox(
-                                    [
-                                        ipw.HTML(message),
-                                        pwd,
-                                        self._continue_button,
-                                    ]
-                                )
-                            )
-                            yield
-                        child.sendline(pwd.value)
-                    elif index == 1:
-                        print("Success.")
-                        break
-                    elif index == 2:
-                        print("Keys are already present on the remote machine.")
-                        break
-                    elif index == 3:  # Adding a new host.
-                        child.sendline("yes")
-                    elif index == 4:
-                        raise RuntimeError(
-                            "Failed\nLooks like the key pair is not present in ~/.ssh folder."
-                        )
-                    elif index == 5:
-                        raise RuntimeError("Failed\nUnknown hostname.")
-                    elif index == 6:
-                        raise RuntimeError("Failed\nConnection refused.")
-                    else:
-                        raise RuntimeError(
-                            f"Failed\nUnknown problem.\n{child.before}\n{child.after}"
-                        )
-                child.close()
-                yield
-
+    def _ssh_copy_id(self):
+        """Run the ssh-copy-id command and follow it until it is completed."""
+        timeout = 30
+        print(f"Sending public key to {self.hostname.value}... ", end="")
+        self._ssh_connection_process = pexpect.spawn(
+            f"ssh-copy-id {self.hostname.value}"
+        )
+        while True:
             try:
-                ssh_copy_id()
-            except (StopIteration, RuntimeError) as err:
-                print(
-                    f"{err}\nUnsuccessful attempt to connect to {self.hostname.value}."
+                self.ssh_connection_state = self._ssh_connection_process.expect(
+                    self.SSH_POSSIBLE_RESPONSES,
+                    timeout=timeout,
                 )
-                return False
+            except pexpect.TIMEOUT:
+                raise RuntimeError(f"Exceeded {timeout} s timeout")
 
-            return True
+            # Terminating the process when nothing else can be done.
+            if self.ssh_connection_state in (
+                SshConnectionState.success,
+                SshConnectionState.keys_already_present,
+                SshConnectionState.no_keys,
+                SshConnectionState.unknown_hostname,
+                SshConnectionState.connection_refused,
+                SshConnectionState.end_of_file,
+            ):
+                break
+
+        self._ssh_connection_message = None
+        self._ssh_connection_process = None
+
+    @traitlets.observe("ssh_connection_state")
+    def _observe_ssh_connnection_state(self, _=None):
+        """Observe the ssh connection state and act according to the changes."""
+        if self.ssh_connection_state == SshConnectionState.waiting_for_input:
+            return
+        if self.ssh_connection_state == SshConnectionState.success:
+            print("Success.")
+            return
+        if self.ssh_connection_state == SshConnectionState.keys_already_present:
+            print("Success\nKeys are already present on the remote machine.")
+            return
+        if self.ssh_connection_state == SshConnectionState.no_keys:
+            print("Failed\nLooks like the key pair is not present in ~/.ssh folder.")
+            return
+        if self.ssh_connection_state == SshConnectionState.unknown_hostname:
+            print("Failed\nUnknown hostname.")
+            return
+        if self.ssh_connection_state == SshConnectionState.connection_refused:
+            print("Failed\nConnection refused.")
+            return
+        if self.ssh_connection_state == SshConnectionState.end_of_file:
+            print("End of output.")
+            return
+        if self.ssh_connection_state == SshConnectionState.enter_password:
+            self._handle_ssh_password()
+        elif self.ssh_connection_state == SshConnectionState.do_you_want_to_continue:
+            self._ssh_connection_process.sendline("yes")
+
+        self.ssh_connection_state = SshConnectionState.waiting_for_input
+
+    def _handle_ssh_password(self):
+        """Send a password to a remote computer."""
+        message = (
+            self._ssh_connection_process.before.splitlines()[-1]
+            + self._ssh_connection_process.after
+        )
+        if self._ssh_connection_message == message:
+            self._ssh_connection_process.sendline(self._ssh_password)
+        else:
+            self._ssh_connection_message = message
+
+            def send_password(_=None):
+                pwd.disabled = True
+                btn.disabled = True
+                self._ssh_password = pwd.value
+                self._ssh_connection_process.sendline(self._ssh_password)
+
+            pwd = ipw.Password(layout={"width": "100px"})
+            btn = ipw.Button(
+                description="Continue", layout={"width": "100px"}, value=False
+            )
+            btn.on_click(send_password)
+            display(
+                ipw.HBox(
+                    [
+                        ipw.HTML(message),
+                        pwd,
+                        btn,
+                    ]
+                )
+            )
 
     def _on_verification_mode_change(self, change):
         """which verification mode is chosen."""
