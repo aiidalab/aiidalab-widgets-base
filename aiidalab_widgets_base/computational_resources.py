@@ -16,6 +16,7 @@ from aiida.transports.plugins.ssh import parse_sshconfig
 from IPython.display import clear_output, display
 
 from .databases import ComputationalResourcesDatabaseWidget
+from .utils import StatusHTML
 
 STYLE = {"description_width": "180px"}
 LAYOUT = {"width": "400px"}
@@ -54,7 +55,7 @@ class ComputationalResourcesWidget(ipw.VBox):
         description (str): Description to display before the dropdown.
         """
         self.output = ipw.HTML()
-
+        self.setup_message = StatusHTML()
         self.code_select_dropdown = ipw.Dropdown(
             description=description, disabled=True, value=None
         )
@@ -84,11 +85,20 @@ class ComputationalResourcesWidget(ipw.VBox):
 
         self.ssh_computer_setup = SshComputerSetup()
         ipw.dlink(
+            (self.ssh_computer_setup, "message"),
+            (self.setup_message, "message"),
+        )
+
+        ipw.dlink(
             (self.comp_resources_database, "ssh_config"),
             (self.ssh_computer_setup, "ssh_config"),
         )
 
         self.aiida_computer_setup = AiidaComputerSetup()
+        ipw.dlink(
+            (self.aiida_computer_setup, "message"),
+            (self.setup_message, "message"),
+        )
         ipw.dlink(
             (self.comp_resources_database, "computer_setup"),
             (self.aiida_computer_setup, "computer_setup"),
@@ -96,6 +106,10 @@ class ComputationalResourcesWidget(ipw.VBox):
 
         # Set up AiiDA code.
         self.aiida_code_setup = AiidaCodeSetup()
+        ipw.dlink(
+            (self.aiida_code_setup, "message"),
+            (self.setup_message, "message"),
+        )
         ipw.dlink(
             (self.comp_resources_database, "code_setup"),
             (self.aiida_code_setup, "code_setup"),
@@ -115,8 +129,6 @@ class ComputationalResourcesWidget(ipw.VBox):
             children=[
                 self.ssh_computer_setup.username,
                 quick_setup_button,
-                self.ssh_computer_setup.setup_ssh_out,
-                self.aiida_computer_setup.setup_compupter_out,
                 self.aiida_code_setup.setup_code_out,
             ]
         )
@@ -142,7 +154,7 @@ class ComputationalResourcesWidget(ipw.VBox):
     def quick_setup(self, _=None):
         """Go through all the setup steps automatically."""
         with self.hold_trait_notifications():
-            self.ssh_computer_setup.on_setup_ssh()
+            self.ssh_computer_setup._on_setup_ssh_button_pressed()
             if self.aiida_computer_setup.on_setup_computer():
                 self.aiida_code_setup.on_setup_code()
 
@@ -222,6 +234,8 @@ class ComputationalResourcesWidget(ipw.VBox):
                         """Please select the computer/code from a database to pre-fill the fields below."""
                     ),
                     self.comp_resources_database,
+                    self.setup_message,
+                    self.ssh_computer_setup.password_box,
                     self.output_tab,
                 )
             else:
@@ -244,7 +258,7 @@ class SshConnectionState(enum.Enum):
 
 
 class SshComputerSetup(ipw.VBox):
-    """Setup password-free access to a computer."""
+    """Setup a passwordless access to a computer."""
 
     ssh_config = traitlets.Dict()
     ssh_connection_state = traitlets.UseEnum(
@@ -260,11 +274,26 @@ class SshComputerSetup(ipw.VBox):
         "Connection refused",  # 6
         pexpect.EOF,  # 7
     ]
+    message = traitlets.Unicode()
+    password_message = traitlets.Unicode("The passwordless enabling log.")
 
     def __init__(self, **kwargs):
 
         self._ssh_connection_message = None
-        self._ssh_password = None
+        self._password_message = ipw.HTML()
+        ipw.dlink((self, "password_message"), (self._password_message, "value"))
+        self._ssh_password = ipw.Password(layout={"width": "150px"}, disabled=True)
+        self._continue_with_password_button = ipw.Button(
+            description="Continue", layout={"width": "100px"}, disabled=True
+        )
+        self._continue_with_password_button.on_click(self._send_password)
+
+        self.password_box = ipw.VBox(
+            [
+                self._password_message,
+                ipw.HBox([self._ssh_password, self._continue_with_password_button]),
+            ]
+        )
 
         # Username.
         self.username = ipw.Text(
@@ -329,8 +358,7 @@ class SshComputerSetup(ipw.VBox):
 
         # Setup ssh button and output.
         btn_setup_ssh = ipw.Button(description="Setup ssh")
-        btn_setup_ssh.on_click(self.on_setup_ssh)
-        self.setup_ssh_out = ipw.Output()
+        btn_setup_ssh.on_click(self._on_setup_ssh_button_pressed)
 
         children = [
             self.hostname,
@@ -341,13 +369,12 @@ class SshComputerSetup(ipw.VBox):
             self._verification_mode,
             self._verification_mode_output,
             btn_setup_ssh,
-            self.setup_ssh_out,
         ]
         super().__init__(children, **kwargs)
 
-    @staticmethod
-    def _ssh_keygen():
+    def _ssh_keygen(self):
         """Generate ssh key pair."""
+        self.message = "Generating SSH key pair."
         fpath = Path.home() / ".ssh" / "id_rsa"
         keygen_cmd = [
             "ssh-keygen",
@@ -393,7 +420,7 @@ class SshComputerSetup(ipw.VBox):
     def _write_ssh_config(self, private_key_abs_fname=None):
         """Put host information into the config file."""
         fpath = Path.home() / ".ssh" / "config"
-        print(f"Adding section to {fpath}")
+        self.message = f"Adding {self.hostname.value} section to {fpath}"
         with open(fpath, "a") as file:
             file.write(f"Host {self.hostname.value}\n")
             file.write(f"  User {self.username.value}\n")
@@ -410,45 +437,42 @@ class SshComputerSetup(ipw.VBox):
                 file.write(f"  IdentityFile {private_key_abs_fname}\n")
             file.write("  ServerAliveInterval 5\n")
 
-    def on_setup_ssh(self, _=None):
-        with self.setup_ssh_out:
-            clear_output()
+    def _on_setup_ssh_button_pressed(self, _=None):
+        # Always start by generating a key pair if they are not present.
+        self._ssh_keygen()
 
-            # Always start by generating a key pair if they are not present.
-            self._ssh_keygen()
+        # If hostname & username are not provided - do not do anything.
+        if self.hostname.value == "":  # check hostname
+            self.message = "Please specify the computer hostname."
+            return False
 
-            # If hostname & username are not provided - do not do anything.
-            if self.hostname.value == "":  # check hostname
-                print("Please specify the computer hostname.")
-                return
+        if self.username.value == "":  # check username
+            self.message = "Please specify your SSH username."
+            return False
 
-            if self.username.value == "":  # check username
-                print("Please specify your SSH username.")
-                return
+        private_key_abs_fname = None
+        if self._verification_mode.value == "private_key":
+            # unwrap private key file and setting temporary private_key content
+            private_key_abs_fname, private_key_content = self._private_key
+            if private_key_abs_fname is None:  # check private key file
+                self.message = "Please upload your private key file."
+                return False
 
-            private_key_abs_fname = None
-            if self._verification_mode.value == "private_key":
-                # unwrap private key file and setting temporary private_key content
-                private_key_abs_fname, private_key_content = self._private_key
-                if private_key_abs_fname is None:  # check private key file
-                    print("Please upload your private key file.")
-                    return
+            # Write private key in ~/.ssh/ and use the name of upload file,
+            # if exist, generate random string and append to filename then override current name.
+            self._add_private_key(private_key_abs_fname, private_key_content)
 
-                # Write private key in ~/.ssh/ and use the name of upload file,
-                # if exist, generate random string and append to filename then override current name.
-                self._add_private_key(private_key_abs_fname, private_key_content)
+        if not self._is_in_config():
+            self._write_ssh_config(private_key_abs_fname=private_key_abs_fname)
 
-            if not self._is_in_config():
-                self._write_ssh_config(private_key_abs_fname=private_key_abs_fname)
-
-            # Copy public key on the remote computer.
-            ssh_connection_thread = threading.Thread(target=self._ssh_copy_id)
-            ssh_connection_thread.start()
+        # Copy public key on the remote computer.
+        ssh_connection_thread = threading.Thread(target=self._ssh_copy_id)
+        ssh_connection_thread.start()
 
     def _ssh_copy_id(self):
         """Run the ssh-copy-id command and follow it until it is completed."""
         timeout = 30
-        print(f"Sending public key to {self.hostname.value}... ", end="")
+        self.password_message = f"Sending public key to {self.hostname.value}... "
         self._ssh_connection_process = pexpect.spawn(
             f"ssh-copy-id {self.hostname.value}"
         )
@@ -459,7 +483,12 @@ class SshComputerSetup(ipw.VBox):
                     timeout=timeout,
                 )
             except pexpect.TIMEOUT:
-                raise RuntimeError(f"Exceeded {timeout} s timeout")
+                self._ssh_password.disabled = True
+                self._continue_with_password_button.disabled = True
+                self.password_message = (
+                    f"Exceeded {timeout} s timeout. Please start again."
+                )
+                break
 
             # Terminating the process when nothing else can be done.
             if self.ssh_connection_state in (
@@ -475,28 +504,39 @@ class SshComputerSetup(ipw.VBox):
         self._ssh_connection_message = None
         self._ssh_connection_process = None
 
+    def _send_password(self, _=None):
+        self._ssh_password.disabled = True
+        self._continue_with_password_button.disabled = True
+        self._ssh_connection_process.sendline(self._ssh_password.value)
+
     @traitlets.observe("ssh_connection_state")
     def _observe_ssh_connnection_state(self, _=None):
         """Observe the ssh connection state and act according to the changes."""
         if self.ssh_connection_state == SshConnectionState.waiting_for_input:
             return
         if self.ssh_connection_state == SshConnectionState.success:
-            print("Success.")
+            self.password_message = (
+                "The passwordless connection has been set up successfully."
+            )
             return
         if self.ssh_connection_state == SshConnectionState.keys_already_present:
-            print("Success\nKeys are already present on the remote machine.")
+            self.password_message = "The passwordless connection has already been setup. Nothing to be done."
             return
         if self.ssh_connection_state == SshConnectionState.no_keys:
-            print("Failed\nLooks like the key pair is not present in ~/.ssh folder.")
+            self.password_message = (
+                " Failed\nLooks like the key pair is not present in ~/.ssh folder."
+            )
             return
         if self.ssh_connection_state == SshConnectionState.unknown_hostname:
-            print("Failed\nUnknown hostname.")
+            self.password_message = "Failed\nUnknown hostname."
             return
         if self.ssh_connection_state == SshConnectionState.connection_refused:
-            print("Failed\nConnection refused.")
+            self.password_message = "Failed\nConnection refused."
             return
         if self.ssh_connection_state == SshConnectionState.end_of_file:
-            print("End of output.")
+            self.password_message = (
+                "Didn't manage to connect. Please check your username/password."
+            )
             return
         if self.ssh_connection_state == SshConnectionState.enter_password:
             self._handle_ssh_password()
@@ -512,30 +552,16 @@ class SshComputerSetup(ipw.VBox):
             + self._ssh_connection_process.after
         )
         if self._ssh_connection_message == message:
-            self._ssh_connection_process.sendline(self._ssh_password)
+            self._ssh_connection_process.sendline(self._ssh_password.value)
         else:
+            self.password_message = (
+                f"Please enter {self.username.value}@{self.hostname.value}'s password:"
+                if message == b"Password:"
+                else f"Please enter {message.decode('utf-8')}"
+            )
+            self._ssh_password.disabled = False
+            self._continue_with_password_button.disabled = False
             self._ssh_connection_message = message
-
-            def send_password(_=None):
-                pwd.disabled = True
-                btn.disabled = True
-                self._ssh_password = pwd.value
-                self._ssh_connection_process.sendline(self._ssh_password)
-
-            pwd = ipw.Password(layout={"width": "100px"})
-            btn = ipw.Button(
-                description="Continue", layout={"width": "100px"}, value=False
-            )
-            btn.on_click(send_password)
-            display(
-                ipw.HBox(
-                    [
-                        ipw.HTML(message),
-                        pwd,
-                        btn,
-                    ]
-                )
-            )
 
     def _on_verification_mode_change(self, change):
         """which verification mode is chosen."""
@@ -610,6 +636,7 @@ class AiidaComputerSetup(ipw.VBox):
     """Inform AiiDA about a computer."""
 
     computer_setup = traitlets.Dict(allow_none=True)
+    message = traitlets.Unicode()
 
     def __init__(self, **kwargs):
 
@@ -714,7 +741,6 @@ class AiidaComputerSetup(ipw.VBox):
         self.setup_button.on_click(self.on_setup_computer)
         test_button = ipw.Button(description="Test computer")
         test_button.on_click(self.test)
-        self.setup_compupter_out = ipw.Output(layout=LAYOUT)
         self._test_out = ipw.Output(layout=LAYOUT)
 
         # Organize the widgets
@@ -733,7 +759,6 @@ class AiidaComputerSetup(ipw.VBox):
             self.prepend_text,
             self.append_text,
             self.setup_button,
-            self.setup_compupter_out,
             test_button,
             self._test_out,
         ]
@@ -781,57 +806,54 @@ class AiidaComputerSetup(ipw.VBox):
 
     def on_setup_computer(self, _=None):
         """Create a new computer."""
-        with self.setup_compupter_out:
-            clear_output()
-
-            if self.label.value == "":  # check hostname
-                print("Please specify the computer name (for AiiDA)")
-                return False
-            try:
-                computer = orm.Computer.objects.get(label=self.label.value)
-                print(f"A computer called {self.label.value} already exists.")
-                for function in self._on_setup_computer_success:
-                    function()
-                return True
-            except common.NotExistent:
-                pass
-
-            items_to_configure = [
-                "label",
-                "hostname",
-                "description",
-                "work_dir",
-                "mpirun_command",
-                "mpiprocs_per_machine",
-                "transport",
-                "scheduler",
-                "prepend_text",
-                "append_text",
-                "shebang",
-            ]
-            kwargs = {key: getattr(self, key).value for key in items_to_configure}
-
-            computer_builder = ComputerBuilder(**kwargs)
-            try:
-                computer = computer_builder.new()
-            except (
-                ComputerBuilder.ComputerValidationError,
-                common.exceptions.ValidationError,
-            ) as err:
-                print(f"{type(err).__name__}: {err}")
-                return False
-
-            try:
-                computer.store()
-            except common.exceptions.ValidationError as err:
-                print(f"Unable to store the computer: {err}.")
-                return False
-
-            if self._configure_computer(computer):
-                for function in self._on_setup_computer_success:
-                    function()
-            print(f"Computer<{computer.pk}> {computer.label} created")
+        if self.label.value == "":  # check hostname
+            self.message = "Please specify the computer name (for AiiDA)"
+            return False
+        try:
+            computer = orm.Computer.objects.get(label=self.label.value)
+            self.message = f"A computer called {self.label.value} already exists."
+            for function in self._on_setup_computer_success:
+                function()
             return True
+        except common.NotExistent:
+            pass
+
+        items_to_configure = [
+            "label",
+            "hostname",
+            "description",
+            "work_dir",
+            "mpirun_command",
+            "mpiprocs_per_machine",
+            "transport",
+            "scheduler",
+            "prepend_text",
+            "append_text",
+            "shebang",
+        ]
+        kwargs = {key: getattr(self, key).value for key in items_to_configure}
+
+        computer_builder = ComputerBuilder(**kwargs)
+        try:
+            computer = computer_builder.new()
+        except (
+            ComputerBuilder.ComputerValidationError,
+            common.exceptions.ValidationError,
+        ) as err:
+            self.message = f"{type(err).__name__}: {err}"
+            return False
+
+        try:
+            computer.store()
+        except common.exceptions.ValidationError as err:
+            self.message = f"Unable to store the computer: {err}."
+            return False
+
+        if self._configure_computer(computer):
+            for function in self._on_setup_computer_success:
+                function()
+        self.message = f"Computer<{computer.pk}> {computer.label} created"
+        return True
 
     def on_setup_computer_success(self, function):
         self._on_setup_computer_success.append(function)
@@ -881,6 +903,7 @@ class AiidaCodeSetup(ipw.VBox):
     """Class that allows to setup AiiDA code"""
 
     code_setup = traitlets.Dict(allow_none=True)
+    message = traitlets.Unicode()
 
     def __init__(self, path_to_root="../", **kwargs):
 
@@ -964,7 +987,7 @@ class AiidaCodeSetup(ipw.VBox):
             clear_output()
 
             if not self.computer.value:
-                print("Please select an existing computer.")
+                self.message = "Please select an existing computer."
                 return False
 
             items_to_configure = [
@@ -989,7 +1012,7 @@ class AiidaCodeSetup(ipw.VBox):
                 orm.Code, with_computer="computer", filters={"label": kwargs["label"]}
             )
             if qb.count() > 0:
-                print(
+                self.message = (
                     f"Code {kwargs['label']}@{kwargs['computer'].label} already exists."
                 )
                 return False
@@ -997,20 +1020,20 @@ class AiidaCodeSetup(ipw.VBox):
             try:
                 code = CodeBuilder(**kwargs).new()
             except (common.exceptions.InputValidationError, KeyError) as exception:
-                print(f"Invalid inputs: {exception}")
+                self.message = f"Invalid inputs: {exception}"
                 return False
 
             try:
                 code.store()
                 code.reveal()
             except common.exceptions.ValidationError as exception:
-                print(f"Unable to store the Code: {exception}")
+                self.message = f"Unable to store the Code: {exception}"
                 return False
 
             for function in self._on_setup_code_success:
                 function()
 
-            print(f"Code<{code.pk}> {code.full_label} created")
+            self.message = f"Code<{code.pk}> {code.full_label} created"
 
             return True
 
