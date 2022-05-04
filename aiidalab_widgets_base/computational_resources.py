@@ -265,7 +265,9 @@ class SshComputerSetup(ipw.VBox):
         SshConnectionState, allow_none=True, default_value=None
     )
     SSH_POSSIBLE_RESPONSES = [
-        "assword:",  # 0
+        # order matters! the index will return by pexpect and compare 
+        # with SshConnectionState
+        "[Pp]assword:",  # 0
         "Now try logging into",  # 1
         "All keys were skipped because they already exist on the remote system",  # 2
         "Are you sure you want to continue connecting (yes/no)?",  # 3
@@ -478,10 +480,11 @@ class SshComputerSetup(ipw.VBox):
         )
         while True:
             try:
-                self.ssh_connection_state = self._ssh_connection_process.expect(
+                idx = self._ssh_connection_process.expect(
                     self.SSH_POSSIBLE_RESPONSES,
                     timeout=timeout,
                 )
+                self.ssh_connection_state = SshConnectionState(idx)
             except pexpect.TIMEOUT:
                 self._ssh_password.disabled = True
                 self._continue_with_password_button.disabled = True
@@ -512,35 +515,35 @@ class SshComputerSetup(ipw.VBox):
     @traitlets.observe("ssh_connection_state")
     def _observe_ssh_connnection_state(self, _=None):
         """Observe the ssh connection state and act according to the changes."""
-        if self.ssh_connection_state == SshConnectionState.waiting_for_input:
+        if self.ssh_connection_state is SshConnectionState.waiting_for_input:
             return
-        if self.ssh_connection_state == SshConnectionState.success:
+        if self.ssh_connection_state is SshConnectionState.success:
             self.password_message = (
                 "The passwordless connection has been set up successfully."
             )
             return
-        if self.ssh_connection_state == SshConnectionState.keys_already_present:
+        if self.ssh_connection_state is SshConnectionState.keys_already_present:
             self.password_message = "The passwordless connection has already been setup. Nothing to be done."
             return
-        if self.ssh_connection_state == SshConnectionState.no_keys:
+        if self.ssh_connection_state is SshConnectionState.no_keys:
             self.password_message = (
                 " Failed\nLooks like the key pair is not present in ~/.ssh folder."
             )
             return
-        if self.ssh_connection_state == SshConnectionState.unknown_hostname:
+        if self.ssh_connection_state is SshConnectionState.unknown_hostname:
             self.password_message = "Failed\nUnknown hostname."
             return
-        if self.ssh_connection_state == SshConnectionState.connection_refused:
+        if self.ssh_connection_state is SshConnectionState.connection_refused:
             self.password_message = "Failed\nConnection refused."
             return
-        if self.ssh_connection_state == SshConnectionState.end_of_file:
+        if self.ssh_connection_state is SshConnectionState.end_of_file:
             self.password_message = (
                 "Didn't manage to connect. Please check your username/password."
             )
             return
-        if self.ssh_connection_state == SshConnectionState.enter_password:
+        if self.ssh_connection_state is SshConnectionState.enter_password:
             self._handle_ssh_password()
-        elif self.ssh_connection_state == SshConnectionState.do_you_want_to_continue:
+        elif self.ssh_connection_state is SshConnectionState.do_you_want_to_continue:
             self._ssh_connection_process.sendline("yes")
 
         self.ssh_connection_state = SshConnectionState.waiting_for_input
