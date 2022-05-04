@@ -1,6 +1,4 @@
 """Some utility functions used acrross the repository."""
-
-# +
 import threading
 
 import ipywidgets as ipw
@@ -8,8 +6,6 @@ import more_itertools as mit
 import numpy as np
 import traitlets
 from ase.io import read
-
-# -
 
 
 def valid_arguments(arguments, valid_args):
@@ -109,7 +105,6 @@ class PinholeCamera:
         return np.linalg.inv(self.matrix)
 
 
-# +
 class _StatusWidgetMixin(traitlets.HasTraits):
     """Show temporary messages for example for status updates.
     This is a mixin class that is meant to be part of an inheritance
