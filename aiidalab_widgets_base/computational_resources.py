@@ -265,7 +265,7 @@ class SshComputerSetup(ipw.VBox):
         SshConnectionState, allow_none=True, default_value=None
     )
     SSH_POSSIBLE_RESPONSES = [
-        # order matters! the index will return by pexpect and compare 
+        # order matters! the index will return by pexpect and compare
         # with SshConnectionState
         "[Pp]assword:",  # 0
         "Now try logging into",  # 1
