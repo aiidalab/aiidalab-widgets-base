@@ -265,7 +265,7 @@ class SshComputerSetup(ipw.VBox):
         SshConnectionState, allow_none=True, default_value=None
     )
     SSH_POSSIBLE_RESPONSES = [
-        # order matters! the index will return by pexpect and compare
+        # order matters! the index will return by pexpect and compare 
         # with SshConnectionState
         "[Pp]assword:",  # 0
         "Now try logging into",  # 1
@@ -546,8 +546,6 @@ class SshComputerSetup(ipw.VBox):
         elif self.ssh_connection_state is SshConnectionState.do_you_want_to_continue:
             self._ssh_connection_process.sendline("yes")
 
-        self.ssh_connection_state = SshConnectionState.waiting_for_input
-
     def _handle_ssh_password(self):
         """Send a password to a remote computer."""
         message = (
@@ -565,6 +563,8 @@ class SshComputerSetup(ipw.VBox):
             self._ssh_password.disabled = False
             self._continue_with_password_button.disabled = False
             self._ssh_connection_message = message
+
+        self.ssh_connection_state = SshConnectionState.waiting_for_input
 
     def _on_verification_mode_change(self, change):
         """which verification mode is chosen."""
