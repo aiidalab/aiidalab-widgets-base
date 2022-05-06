@@ -1,8 +1,10 @@
 """Some utility functions used acrross the repository."""
-from functools import wraps
+import threading
 
+import ipywidgets as ipw
 import more_itertools as mit
 import numpy as np
+import traitlets
 from ase.io import read
 
 
@@ -86,36 +88,6 @@ def string_range_to_list(strng, shift=-1):
     return singles, True
 
 
-def yield_for_change(widget, attribute):
-    """Pause a generator to wait for a widget change event.
-
-    Taken from: https://ipywidgets.readthedocs.io/en/7.6.5/examples/Widget%20Asynchronous.html#Generator-approach
-
-    This is a decorator for a generator function which pauses the generator on yield
-    until the given widget attribute changes. The new value of the attribute is
-    sent to the generator and is the value of the yield.
-    """
-
-    def f(iterator):
-        @wraps(iterator)
-        def inner():
-            i = iterator()
-
-            def next_i(change):
-                try:
-                    i.send(change.new)
-                except StopIteration:
-                    widget.unobserve(next_i, attribute)
-
-            widget.observe(next_i, attribute)
-            # start the generator
-            next(i)
-
-        return inner
-
-    return f
-
-
 class PinholeCamera:
     def __init__(self, matrix):
         self.matrix = np.reshape(matrix, (4, 4)).transpose()
@@ -131,3 +103,46 @@ class PinholeCamera:
     @property
     def inverse_matrix(self):
         return np.linalg.inv(self.matrix)
+
+
+class _StatusWidgetMixin(traitlets.HasTraits):
+    """Show temporary messages for example for status updates.
+    This is a mixin class that is meant to be part of an inheritance
+    tree of an actual widget with a 'value' traitlet that is used
+    to convey a status message. See the non-private classes below
+    for examples.
+    """
+
+    message = traitlets.Unicode(default_value="", allow_none=True)
+
+    def __init__(self, *args, **kwargs):
+        self._clear_timer = None
+        self._message_stack = []
+        super().__init__(*args, **kwargs)
+
+    def _clear_value(self):
+        """Set widget .value to be an empty string."""
+        if self._message_stack:
+            self._message_stack.pop(0)
+            self.value = "<br>".join(self._message_stack)
+        else:
+            self.value = ""
+
+    def show_temporary_message(self, value, clear_after=3):
+        """Show a temporary message and clear it after the given interval."""
+        self._message_stack.append(value)
+        self.value = "<br>".join(self._message_stack)
+
+        # Start new timer that will clear the value after the specified interval.
+        self._clear_timer = threading.Timer(clear_after, self._clear_value)
+        self._clear_timer.start()
+
+
+class StatusHTML(_StatusWidgetMixin, ipw.HTML):
+    """Show temporary HTML messages for example for status updates."""
+
+    # This method should be part of _StatusWidgetMixin, but that does not work
+    # for an unknown reason.
+    @traitlets.observe("message")
+    def _observe_message(self, change):
+        self.show_temporary_message(change["new"])

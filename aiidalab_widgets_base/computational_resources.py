@@ -1,5 +1,7 @@
+import enum
 import os
 import subprocess
+import threading
 from copy import copy
 from pathlib import Path
 
@@ -14,7 +16,7 @@ from aiida.transports.plugins.ssh import parse_sshconfig
 from IPython.display import clear_output, display
 
 from .databases import ComputationalResourcesDatabaseWidget
-from .utils import yield_for_change
+from .utils import StatusHTML
 
 STYLE = {"description_width": "180px"}
 LAYOUT = {"width": "400px"}
@@ -53,7 +55,7 @@ class ComputationalResourcesWidget(ipw.VBox):
         description (str): Description to display before the dropdown.
         """
         self.output = ipw.HTML()
-
+        self.setup_message = StatusHTML()
         self.code_select_dropdown = ipw.Dropdown(
             description=description, disabled=True, value=None
         )
@@ -83,34 +85,55 @@ class ComputationalResourcesWidget(ipw.VBox):
 
         self.ssh_computer_setup = SshComputerSetup()
         ipw.dlink(
+            (self.ssh_computer_setup, "message"),
+            (self.setup_message, "message"),
+        )
+
+        ipw.dlink(
             (self.comp_resources_database, "ssh_config"),
             (self.ssh_computer_setup, "ssh_config"),
         )
 
         self.aiida_computer_setup = AiidaComputerSetup()
         ipw.dlink(
+            (self.aiida_computer_setup, "message"),
+            (self.setup_message, "message"),
+        )
+        ipw.dlink(
             (self.comp_resources_database, "computer_setup"),
             (self.aiida_computer_setup, "computer_setup"),
         )
 
+        # Set up AiiDA code.
         self.aiida_code_setup = AiidaCodeSetup()
+        ipw.dlink(
+            (self.aiida_code_setup, "message"),
+            (self.setup_message, "message"),
+        )
         ipw.dlink(
             (self.comp_resources_database, "code_setup"),
             (self.aiida_code_setup, "code_setup"),
         )
+        self.aiida_code_setup.on_setup_code_success(self.refresh)
 
+        # After a successfull computer setup the codes widget should be refreshed.
+        # E.g. the list of available computers needs to be updated.
+        self.aiida_computer_setup.on_setup_computer_success(
+            self.aiida_code_setup.refresh
+        )
+
+        # Quick setup.
         quick_setup_button = ipw.Button(description="Quick Setup")
         quick_setup_button.on_click(self.quick_setup)
         quick_setup = ipw.VBox(
             children=[
                 self.ssh_computer_setup.username,
                 quick_setup_button,
-                self.ssh_computer_setup.setup_ssh_out,
-                self.aiida_computer_setup.setup_compupter_out,
                 self.aiida_code_setup.setup_code_out,
             ]
         )
 
+        # Detailed setup.
         detailed_setup = ipw.Accordion(
             children=[
                 self.ssh_computer_setup,
@@ -129,16 +152,11 @@ class ComputationalResourcesWidget(ipw.VBox):
         self.refresh()
 
     def quick_setup(self, _=None):
-        def setup_code():
-            self.aiida_code_setup.computer.refresh()
-            self.aiida_code_setup.computer.value = self.aiida_computer_setup.label.value
-            self.aiida_code_setup.on_setup_code(on_success=self.refresh)
-
-        def setup_code_and_computer():
-            self.aiida_computer_setup.on_setup_computer(on_success=setup_code)
-
+        """Go through all the setup steps automatically."""
         with self.hold_trait_notifications():
-            self.ssh_computer_setup.on_setup_ssh(on_success=setup_code_and_computer)
+            self.ssh_computer_setup._on_setup_ssh_button_pressed()
+            if self.aiida_computer_setup.on_setup_computer():
+                self.aiida_code_setup.on_setup_code()
 
     def _get_codes(self):
         """Query the list of available codes."""
@@ -216,6 +234,8 @@ class ComputationalResourcesWidget(ipw.VBox):
                         """Please select the computer/code from a database to pre-fill the fields below."""
                     ),
                     self.comp_resources_database,
+                    self.setup_message,
+                    self.ssh_computer_setup.password_box,
                     self.output_tab,
                 )
             else:
@@ -225,12 +245,58 @@ class ComputationalResourcesWidget(ipw.VBox):
                 }
 
 
+class SshConnectionState(enum.Enum):
+    waiting_for_input = -1
+    enter_password = 0
+    success = 1
+    keys_already_present = 2
+    do_you_want_to_continue = 3
+    no_keys = 4
+    unknown_hostname = 5
+    connection_refused = 6
+    end_of_file = 7
+
+
 class SshComputerSetup(ipw.VBox):
-    """Setup password-free access to a computer."""
+    """Setup a passwordless access to a computer."""
 
     ssh_config = traitlets.Dict()
+    ssh_connection_state = traitlets.UseEnum(
+        SshConnectionState, allow_none=True, default_value=None
+    )
+    SSH_POSSIBLE_RESPONSES = [
+        # order matters! the index will return by pexpect and compare
+        # with SshConnectionState
+        "[Pp]assword:",  # 0
+        "Now try logging into",  # 1
+        "All keys were skipped because they already exist on the remote system",  # 2
+        "Are you sure you want to continue connecting (yes/no)?",  # 3
+        "ERROR: No identities found",  # 4
+        "Could not resolve hostname",  # 5
+        "Connection refused",  # 6
+        pexpect.EOF,  # 7
+    ]
+    message = traitlets.Unicode()
+    password_message = traitlets.Unicode("The passwordless enabling log.")
 
     def __init__(self, **kwargs):
+
+        self._ssh_connection_message = None
+        self._password_message = ipw.HTML()
+        ipw.dlink((self, "password_message"), (self._password_message, "value"))
+        self._ssh_password = ipw.Password(layout={"width": "150px"}, disabled=True)
+        self._continue_with_password_button = ipw.Button(
+            description="Continue", layout={"width": "100px"}, disabled=True
+        )
+        self._continue_with_password_button.on_click(self._send_password)
+
+        self.password_box = ipw.VBox(
+            [
+                self._password_message,
+                ipw.HBox([self._ssh_password, self._continue_with_password_button]),
+            ]
+        )
+
         # Username.
         self.username = ipw.Text(
             description="SSH username:", layout=LAYOUT, style=STYLE
@@ -294,8 +360,7 @@ class SshComputerSetup(ipw.VBox):
 
         # Setup ssh button and output.
         btn_setup_ssh = ipw.Button(description="Setup ssh")
-        btn_setup_ssh.on_click(self.on_setup_ssh)
-        self.setup_ssh_out = ipw.Output()
+        btn_setup_ssh.on_click(self._on_setup_ssh_button_pressed)
 
         children = [
             self.hostname,
@@ -306,13 +371,12 @@ class SshComputerSetup(ipw.VBox):
             self._verification_mode,
             self._verification_mode_output,
             btn_setup_ssh,
-            self.setup_ssh_out,
         ]
         super().__init__(children, **kwargs)
 
-    @staticmethod
-    def _ssh_keygen():
+    def _ssh_keygen(self):
         """Generate ssh key pair."""
+        self.message = "Generating SSH key pair."
         fpath = Path.home() / ".ssh" / "id_rsa"
         keygen_cmd = [
             "ssh-keygen",
@@ -358,7 +422,7 @@ class SshComputerSetup(ipw.VBox):
     def _write_ssh_config(self, private_key_abs_fname=None):
         """Put host information into the config file."""
         fpath = Path.home() / ".ssh" / "config"
-        print(f"Adding section to {fpath}")
+        self.message = f"Adding {self.hostname.value} section to {fpath}"
         with open(fpath, "a") as file:
             file.write(f"Host {self.hostname.value}\n")
             file.write(f"  User {self.username.value}\n")
@@ -375,126 +439,132 @@ class SshComputerSetup(ipw.VBox):
                 file.write(f"  IdentityFile {private_key_abs_fname}\n")
             file.write("  ServerAliveInterval 5\n")
 
-    def on_setup_ssh(self, _=None, on_success=None):
-        with self.setup_ssh_out:
-            clear_output()
+    def _on_setup_ssh_button_pressed(self, _=None):
+        # Always start by generating a key pair if they are not present.
+        self._ssh_keygen()
 
-            # Always start by generating a key pair if they are not present.
-            self._ssh_keygen()
+        # If hostname & username are not provided - do not do anything.
+        if self.hostname.value == "":  # check hostname
+            self.message = "Please specify the computer hostname."
+            return False
 
-            # If hostname & username are not provided - do not do anything.
-            if self.hostname.value == "":  # check hostname
-                print("Please specify the computer hostname.")
-                return
+        if self.username.value == "":  # check username
+            self.message = "Please specify your SSH username."
+            return False
 
-            if self.username.value == "":  # check username
-                print("Please specify your SSH username.")
-                return
+        private_key_abs_fname = None
+        if self._verification_mode.value == "private_key":
+            # unwrap private key file and setting temporary private_key content
+            private_key_abs_fname, private_key_content = self._private_key
+            if private_key_abs_fname is None:  # check private key file
+                self.message = "Please upload your private key file."
+                return False
 
-            private_key_abs_fname = None
-            if self._verification_mode.value == "private_key":
-                # unwrap private key file and setting temporary private_key content
-                private_key_abs_fname, private_key_content = self._private_key
-                if private_key_abs_fname is None:  # check private key file
-                    print("Please upload your private key file.")
-                    return
+            # Write private key in ~/.ssh/ and use the name of upload file,
+            # if exist, generate random string and append to filename then override current name.
+            self._add_private_key(private_key_abs_fname, private_key_content)
 
-                # write private key in ~/.ssh/ and use the name of upload file,
-                # if exist, generate random string and append to filename then override current name.
-                self._add_private_key(private_key_abs_fname, private_key_content)
+        if not self._is_in_config():
+            self._write_ssh_config(private_key_abs_fname=private_key_abs_fname)
 
-            if not self._is_in_config():
-                self._write_ssh_config(private_key_abs_fname=private_key_abs_fname)
+        # Copy public key on the remote computer.
+        ssh_connection_thread = threading.Thread(target=self._ssh_copy_id)
+        ssh_connection_thread.start()
 
-            # sending public key to the main host
-            @yield_for_change(self._continue_button, "value")
-            def ssh_copy_id():
-                timeout = 30
-                print(f"Sending public key to {self.hostname.value}... ", end="")
-                str_ssh = f"ssh-copy-id {self.hostname.value}"
-                child = pexpect.spawn(str_ssh)
-
-                expectations = [
-                    "assword:",  # 0
-                    "Now try logging into",  # 1
-                    "All keys were skipped because they already exist on the remote system",  # 2
-                    "Are you sure you want to continue connecting (yes/no)?",  # 3
-                    "ERROR: No identities found",  # 4
-                    "Could not resolve hostname",  # 5
-                    "Connection refused",  # 6
-                    pexpect.EOF,
-                ]
-
-                previous_message, message = None, None
-                while True:
-                    try:
-                        index = child.expect(
-                            expectations,
-                            timeout=timeout,
-                        )
-
-                    except pexpect.TIMEOUT:
-                        print(f"Exceeded {timeout} s timeout")
-                        return False
-
-                    if index == 0:
-                        message = child.before.splitlines()[-1] + child.after
-                        if previous_message != message:
-                            previous_message = message
-                            pwd = ipw.Password(layout={"width": "100px"})
-                            display(
-                                ipw.HBox(
-                                    [
-                                        ipw.HTML(message),
-                                        pwd,
-                                        self._continue_button,
-                                    ]
-                                )
-                            )
-                            yield
-                        child.sendline(pwd.value)
-
-                    elif index == 1:
-                        print("Success.")
-                        if on_success:
-                            on_success()
-                        break
-
-                    elif index == 2:
-                        print("Keys are already present on the remote machine.")
-                        if on_success:
-                            on_success()
-                        break
-
-                    elif index == 3:  # Adding a new host.
-                        child.sendline("yes")
-
-                    elif index == 4:
-                        print(
-                            "Failed\nLooks like the key pair is not present in ~/.ssh folder."
-                        )
-                        break
-
-                    elif index == 5:
-                        print("Failed\nUnknown hostname.")
-                        break
-
-                    elif index == 6:
-                        print("Failed\nConnection refused.")
-                        break
-
-                    else:
-                        print("Failed\nUnknown problem.")
-                        print(child.before, child.after)
-                        break
-                child.close()
-                yield
-
+    def _ssh_copy_id(self):
+        """Run the ssh-copy-id command and follow it until it is completed."""
+        timeout = 30
+        self.password_message = f"Sending public key to {self.hostname.value}... "
+        self._ssh_connection_process = pexpect.spawn(
+            f"ssh-copy-id {self.hostname.value}"
+        )
+        while True:
             try:
-                ssh_copy_id()
-            except StopIteration:
-                print(f"Unsuccessful attempt to connect to {self.hostname.value}.")
-                return
+                idx = self._ssh_connection_process.expect(
+                    self.SSH_POSSIBLE_RESPONSES,
+                    timeout=timeout,
+                )
+                self.ssh_connection_state = SshConnectionState(idx)
+            except pexpect.TIMEOUT:
+                self._ssh_password.disabled = True
+                self._continue_with_password_button.disabled = True
+                self.password_message = (
+                    f"Exceeded {timeout} s timeout. Please start again."
+                )
+                break
+
+            # Terminating the process when nothing else can be done.
+            if self.ssh_connection_state in (
+                SshConnectionState.success,
+                SshConnectionState.keys_already_present,
+                SshConnectionState.no_keys,
+                SshConnectionState.unknown_hostname,
+                SshConnectionState.connection_refused,
+                SshConnectionState.end_of_file,
+            ):
+                break
+
+        self._ssh_connection_message = None
+        self._ssh_connection_process = None
+
+    def _send_password(self, _=None):
+        self._ssh_password.disabled = True
+        self._continue_with_password_button.disabled = True
+        self._ssh_connection_process.sendline(self._ssh_password.value)
+
+    @traitlets.observe("ssh_connection_state")
+    def _observe_ssh_connnection_state(self, _=None):
+        """Observe the ssh connection state and act according to the changes."""
+        if self.ssh_connection_state is SshConnectionState.waiting_for_input:
+            return
+        if self.ssh_connection_state is SshConnectionState.success:
+            self.password_message = (
+                "The passwordless connection has been set up successfully."
+            )
+            return
+        if self.ssh_connection_state is SshConnectionState.keys_already_present:
+            self.password_message = "The passwordless connection has already been setup. Nothing to be done."
+            return
+        if self.ssh_connection_state is SshConnectionState.no_keys:
+            self.password_message = (
+                " Failed\nLooks like the key pair is not present in ~/.ssh folder."
+            )
+            return
+        if self.ssh_connection_state is SshConnectionState.unknown_hostname:
+            self.password_message = "Failed\nUnknown hostname."
+            return
+        if self.ssh_connection_state is SshConnectionState.connection_refused:
+            self.password_message = "Failed\nConnection refused."
+            return
+        if self.ssh_connection_state is SshConnectionState.end_of_file:
+            self.password_message = (
+                "Didn't manage to connect. Please check your username/password."
+            )
+            return
+        if self.ssh_connection_state is SshConnectionState.enter_password:
+            self._handle_ssh_password()
+        elif self.ssh_connection_state is SshConnectionState.do_you_want_to_continue:
+            self._ssh_connection_process.sendline("yes")
+
+    def _handle_ssh_password(self):
+        """Send a password to a remote computer."""
+        message = (
+            self._ssh_connection_process.before.splitlines()[-1]
+            + self._ssh_connection_process.after
+        )
+        if self._ssh_connection_message == message:
+            self._ssh_connection_process.sendline(self._ssh_password.value)
+        else:
+            self.password_message = (
+                f"Please enter {self.username.value}@{self.hostname.value}'s password:"
+                if message == b"Password:"
+                else f"Please enter {message.decode('utf-8')}"
+            )
+            self._ssh_password.disabled = False
+            self._continue_with_password_button.disabled = False
+            self._ssh_connection_message = message
+
+        self.ssh_connection_state = SshConnectionState.waiting_for_input
 
     def _on_verification_mode_change(self, change):
         """which verification mode is chosen."""
@@ -514,7 +584,7 @@ class SshComputerSetup(ipw.VBox):
 
     @property
     def _private_key(self):
-        """unwrap private key file and setting filename and file content"""
+        """Unwrap private key file and setting filename and file content."""
         if self._inp_private_key.value:
             (fname, _value), *_ = self._inp_private_key.value.items()
             content = copy(_value["content"])
@@ -569,8 +639,11 @@ class AiidaComputerSetup(ipw.VBox):
     """Inform AiiDA about a computer."""
 
     computer_setup = traitlets.Dict(allow_none=True)
+    message = traitlets.Unicode()
 
     def __init__(self, **kwargs):
+
+        self._on_setup_computer_success = []
 
         # List of widgets to be displayed.
         self.label = ipw.Text(
@@ -671,7 +744,6 @@ class AiidaComputerSetup(ipw.VBox):
         self.setup_button.on_click(self.on_setup_computer)
         test_button = ipw.Button(description="Test computer")
         test_button.on_click(self.test)
-        self.setup_compupter_out = ipw.Output(layout=LAYOUT)
         self._test_out = ipw.Output(layout=LAYOUT)
 
         # Organize the widgets
@@ -690,7 +762,6 @@ class AiidaComputerSetup(ipw.VBox):
             self.prepend_text,
             self.append_text,
             self.setup_button,
-            self.setup_compupter_out,
             test_button,
             self._test_out,
         ]
@@ -736,58 +807,59 @@ class AiidaComputerSetup(ipw.VBox):
         computer.configure(**authparams)
         return True
 
-    def on_setup_computer(self, _=None, on_success=None):
+    def on_setup_computer(self, _=None):
         """Create a new computer."""
-        with self.setup_compupter_out:
-            clear_output()
+        if self.label.value == "":  # check hostname
+            self.message = "Please specify the computer name (for AiiDA)"
+            return False
+        try:
+            computer = orm.Computer.objects.get(label=self.label.value)
+            self.message = f"A computer called {self.label.value} already exists."
+            for function in self._on_setup_computer_success:
+                function()
+            return True
+        except common.NotExistent:
+            pass
 
-            if self.label.value == "":  # check hostname
-                print("Please specify the computer name (for AiiDA)")
-                return
-            try:
-                computer = orm.Computer.objects.get(label=self.label.value)
-                print(f"A computer called {self.label.value} already exists.")
-                if on_success:
-                    on_success()
-                return
-            except common.NotExistent:
-                pass
+        items_to_configure = [
+            "label",
+            "hostname",
+            "description",
+            "work_dir",
+            "mpirun_command",
+            "mpiprocs_per_machine",
+            "transport",
+            "scheduler",
+            "prepend_text",
+            "append_text",
+            "shebang",
+        ]
+        kwargs = {key: getattr(self, key).value for key in items_to_configure}
 
-            items_to_configure = [
-                "label",
-                "hostname",
-                "description",
-                "work_dir",
-                "mpirun_command",
-                "mpiprocs_per_machine",
-                "transport",
-                "scheduler",
-                "prepend_text",
-                "append_text",
-                "shebang",
-            ]
-            kwargs = {key: getattr(self, key).value for key in items_to_configure}
+        computer_builder = ComputerBuilder(**kwargs)
+        try:
+            computer = computer_builder.new()
+        except (
+            ComputerBuilder.ComputerValidationError,
+            common.exceptions.ValidationError,
+        ) as err:
+            self.message = f"{type(err).__name__}: {err}"
+            return False
 
-            computer_builder = ComputerBuilder(**kwargs)
-            try:
-                computer = computer_builder.new()
-            except (
-                ComputerBuilder.ComputerValidationError,
-                common.exceptions.ValidationError,
-            ) as err:
-                print(f"{type(err).__name__}: {err}")
-                return
+        try:
+            computer.store()
+        except common.exceptions.ValidationError as err:
+            self.message = f"Unable to store the computer: {err}."
+            return False
 
-            try:
-                computer.store()
-            except common.exceptions.ValidationError as err:
-                print(f"Unable to store the computer: {err}.")
-                return
+        if self._configure_computer(computer):
+            for function in self._on_setup_computer_success:
+                function()
+        self.message = f"Computer<{computer.pk}> {computer.label} created"
+        return True
 
-            if self._configure_computer(computer):
-                if on_success:
-                    on_success()
-                print(f"Computer<{computer.pk}> {computer.label} created")
+    def on_setup_computer_success(self, function):
+        self._on_setup_computer_success.append(function)
 
     def test(self, _=None):
         with self._test_out:
@@ -834,8 +906,11 @@ class AiidaCodeSetup(ipw.VBox):
     """Class that allows to setup AiiDA code"""
 
     code_setup = traitlets.Dict(allow_none=True)
+    message = traitlets.Unicode()
 
     def __init__(self, path_to_root="../", **kwargs):
+
+        self._on_setup_code_success = []
 
         # Code label.
         self.label = ipw.Text(
@@ -909,14 +984,14 @@ class AiidaCodeSetup(ipw.VBox):
         plugin = proposal["value"]
         return plugin if plugin in self.input_plugin.options else None
 
-    def on_setup_code(self, _=None, on_success=None):
+    def on_setup_code(self, _=None):
         """Setup an AiiDA code."""
         with self.setup_code_out:
             clear_output()
 
             if not self.computer.value:
-                print("Please select an existing computer.")
-                return
+                self.message = "Please select an existing computer."
+                return False
 
             items_to_configure = [
                 "label",
@@ -940,28 +1015,33 @@ class AiidaCodeSetup(ipw.VBox):
                 orm.Code, with_computer="computer", filters={"label": kwargs["label"]}
             )
             if qb.count() > 0:
-                print(
+                self.message = (
                     f"Code {kwargs['label']}@{kwargs['computer'].label} already exists."
                 )
-                return
+                return False
 
             try:
                 code = CodeBuilder(**kwargs).new()
             except (common.exceptions.InputValidationError, KeyError) as exception:
-                print(f"Invalid inputs: {exception}")
-                return
+                self.message = f"Invalid inputs: {exception}"
+                return False
 
             try:
                 code.store()
                 code.reveal()
             except common.exceptions.ValidationError as exception:
-                print(f"Unable to store the Code: {exception}")
-                return
+                self.message = f"Unable to store the Code: {exception}"
+                return False
 
-            if on_success:
-                on_success()
+            for function in self._on_setup_code_success:
+                function()
 
-            print(f"Code<{code.pk}> {code.full_label} created")
+            self.message = f"Code<{code.pk}> {code.full_label} created"
+
+            return True
+
+    def on_setup_code_success(self, function):
+        self._on_setup_code_success.append(function)
 
     def _reset(self):
         self.label.value = ""
@@ -970,6 +1050,10 @@ class AiidaCodeSetup(ipw.VBox):
         self.remote_abs_path.value = ""
         self.prepend_text.value = ""
         self.append_text.value = ""
+
+    def refresh(self):
+        self.computer.refresh()
+        self._observe_code_setup()
 
     @traitlets.observe("code_setup")
     def _observe_code_setup(self, _=None):
