@@ -757,7 +757,13 @@ def register_operator(operator):
             """
             return
         else:
-            return operator(ref, *args, **kwargs)
+            ref.atoms = ref.structure.copy()
+            selection = ref.selection.copy()
+
+            operator(ref, *args, **kwargs)
+            
+            ref.structure = ref.atoms
+            ref.selection = selection
 
     return inner
 
@@ -1119,8 +1125,8 @@ class BasicStructureEditor(ipw.VBox):  # pylint: disable=too-many-instance-attri
     def mirror(self, _=None, norm=None, point=None):
         """Mirror atoms on the plane perpendicular to the action vector."""
 
-        selection = self.selection
-        atoms = self.structure.copy()
+        # selection = self.selection
+        # self.atoms = self.structure.copy()
 
         # The action.
 
@@ -1133,7 +1139,7 @@ class BasicStructureEditor(ipw.VBox):  # pylint: disable=too-many-instance-attri
             return
 
         # Define vectors from p_point that point to the atoms which are to be moved.
-        mirror_subset = atoms.positions[selection] - p_point
+        mirror_subset = self.atoms.positions[self.selection] - p_point
 
         # Project vectors onto the plane normal.
         projections = (
@@ -1143,10 +1149,10 @@ class BasicStructureEditor(ipw.VBox):  # pylint: disable=too-many-instance-attri
         )
 
         # Mirror atoms.
-        atoms.positions[selection] -= 2 * projections
+        self.atoms.positions[self.selection] -= 2 * projections
 
-        self.structure = atoms
-        self.selection = selection
+        # self.structure = self.atoms
+        # self.selection = selection
 
     @register_operator
     def mirror_3p(self, _=None):
