@@ -301,7 +301,7 @@ class _AppIcon:
 
         name = app["name"]
         app_object = _AiidaLabApp.from_id(name)
-        self.logo = app_object.logo
+        self.logo = app_object.metadata["logo"]
         if app_object.is_installed():
             self.link = f"{path_to_root}{app['name']}/{app['notebook']}?{app['parameter_name']}={node.uuid}"
         else:
