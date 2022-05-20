@@ -130,17 +130,16 @@ class _StatusWidgetMixin(traitlets.HasTraits):
         else:
             self.value = ""
 
-    def show_temporary_message(self, value, clear_after=None):
+    def show_temporary_message(self, value):
         """Show a temporary message and clear it after the given interval."""
         clear_after = clear_after or self._clear_after
         if value:
             self._message_stack.append(value)
             self.value = self.new_line.join(self._message_stack)
 
-            # Start new timer that will clear the value after the specified interval.
-            self._clear_timer = threading.Timer(self._clear_after, self._clear_value)
-            self._clear_timer.start()
-            self.message = None
+        # Start new timer that will clear the value after the specified interval.
+        self._clear_timer = threading.Timer(self._clear_after, self._clear_value)
+        self._clear_timer.start()
 
 
 class StatusHTML(_StatusWidgetMixin, ipw.HTML):

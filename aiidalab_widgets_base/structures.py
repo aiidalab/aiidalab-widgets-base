@@ -31,7 +31,7 @@ from traitlets import Instance, Int, List, Unicode, Union, default, dlink, link,
 from .data import LigandSelectorWidget
 
 # Local imports
-from .utils import get_ase_from_file
+from .utils import StatusHTML, get_ase_from_file
 from .viewers import StructureDataViewer
 
 CifData = DataFactory("cif")  # pylint: disable=invalid-name
@@ -745,14 +745,14 @@ def register_operator(operator):
     def inner(ref, *args, **kwargs):
 
         if not ref.structure:
-            ref._operation_blocker_messages.value = """
+            ref._status_message.message = """
             <div class="alert alert-info">
             <strong>Please choose a structure first.</strong>
             </div>
             """
             return None, None
         elif not ref.selection:
-            ref._operation_blocker_messages.value = """
+            ref._status_message.message = """
             <div class="alert alert-info">
             <strong>Please select atoms first.</strong>
             </div>
@@ -773,7 +773,6 @@ class BasicStructureEditor(ipw.VBox):  # pylint: disable=too-many-instance-attri
     structure = Instance(Atoms, allow_none=True)
     selection = List(Int)
     camera_orientation = List()
-    message = Unicode(allow_none=True)
 
     def __init__(self, title=""):
 
@@ -917,7 +916,7 @@ class BasicStructureEditor(ipw.VBox):  # pylint: disable=too-many-instance-attri
             style={"description_width": "initial"},
         )
 
-        self._operation_blocker_messages = ipw.HTML()
+        self._status_message = StatusHTML(clear_after=5)
 
         super().__init__(
             children=[
@@ -1000,7 +999,7 @@ class BasicStructureEditor(ipw.VBox):  # pylint: disable=too-many-instance-attri
                     layout={"margin": "0px 0px 0px 20px"},
                 ),
                 ipw.HBox([btn_remove], layout={"margin": "0px 0px 0px 20px"}),
-                self._operation_blocker_messages,
+                self._status_message,
             ]
         )
 
@@ -1046,7 +1045,7 @@ class BasicStructureEditor(ipw.VBox):  # pylint: disable=too-many-instance-attri
     def def_axis_p2(self, _=None):
         """Define the second point of axis."""
         if not self.selection:
-            self._operation_blocker_messages.value = """
+            self._status_message.message = """
             <div class="alert alert-info">
             <strong>Please select atoms first.</strong>
             </div>
