@@ -735,12 +735,14 @@ class SmilesWidget(ipw.VBox):
     def _default_structure(self):
         return None
 
+
 def register_operator(operator):
     """
     check if the operation can process.
     If not valid, the decorated method should not be executed but
     pop up a warning message asking for doing the prerequisites.
     """
+
     @functools.wraps(operator)
     def inner(ref, *args, **kwargs):
 
@@ -760,12 +762,18 @@ def register_operator(operator):
             return None, None
 
         else:
-            ref.structure, ref.selection = operator(ref, *args, **kwargs, atoms=ref.structure.copy(),
-                                           selection=ref.selection.copy())
+            ref.structure, ref.selection = operator(
+                ref,
+                *args,
+                **kwargs,
+                atoms=ref.structure.copy(),
+                selection=ref.selection.copy(),
+            )
 
         return ref.structure, ref.selection
 
     return inner
+
 
 class BasicStructureEditor(ipw.VBox):  # pylint: disable=too-many-instance-attributes
     """Widget that allows for the basic structure editing."""
@@ -1147,7 +1155,6 @@ class BasicStructureEditor(ipw.VBox):  # pylint: disable=too-many-instance-attri
         normal = normal / np.linalg.norm(normal)
         self.mirror(norm=normal, point=pt3)
 
-
     @register_operator
     def align(self, _=None, atoms=None, selection=None):
         """Rotate atoms to align action vector with XYZ vector."""
@@ -1244,5 +1251,5 @@ class BasicStructureEditor(ipw.VBox):  # pylint: disable=too-many-instance-attri
     def remove(self, _, atoms=None, selection=None):
         """Remove selected atoms."""
         del [atoms[selection]]
-        
+
         return atoms, selection
