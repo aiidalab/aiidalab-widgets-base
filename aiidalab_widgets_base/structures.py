@@ -27,11 +27,12 @@ from ase import Atom, Atoms
 from ase.data import chemical_symbols, covalent_radii
 from sklearn.decomposition import PCA
 from traitlets import Instance, Int, List, Unicode, Union, default, dlink, link, observe
+from aiidalab_widgets_base.utils import StatusHTML
 
 from .data import LigandSelectorWidget
 
 # Local imports
-from .utils import StatusHTML, get_ase_from_file
+from .utils import get_ase_from_file
 from .viewers import StructureDataViewer
 
 CifData = DataFactory("cif")  # pylint: disable=invalid-name
@@ -925,6 +926,7 @@ class BasicStructureEditor(ipw.VBox):  # pylint: disable=too-many-instance-attri
         )
 
         self._status_message = StatusHTML(clear_after=5)
+        self._status_message.new_line = ''
 
         super().__init__(
             children=[
