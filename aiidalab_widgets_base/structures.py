@@ -921,8 +921,7 @@ class BasicStructureEditor(ipw.VBox):  # pylint: disable=too-many-instance-attri
             style={"description_width": "initial"},
         )
 
-        self._status_message = StatusHTML(clear_after=5)
-        self._status_message.new_line = ""
+        self._status_message = StatusHTML()
 
         super().__init__(
             children=[
@@ -1129,7 +1128,7 @@ class BasicStructureEditor(ipw.VBox):  # pylint: disable=too-many-instance-attri
         if np.isnan(p_normal).any() or np.linalg.norm(p_normal) < 1e-4:
             self._status_message.message = """
             <div class="alert alert-info">
-            <strong>Please select atoms first.</strong>
+            <strong>Norm vector not makes sense.</strong>
             </div>
             """
             return
