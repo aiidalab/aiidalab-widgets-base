@@ -131,8 +131,8 @@ class _StatusWidgetMixin(traitlets.HasTraits):
             self.value = ""
 
     def show_temporary_message(self, value, clear_after=None):
-        clear_after = clear_after or self._clear_after
         """Show a temporary message and clear it after the given interval."""
+        clear_after = clear_after or self._clear_after
         if value:
             self._message_stack.append(value)
             self.value = self.new_line.join(self._message_stack)
