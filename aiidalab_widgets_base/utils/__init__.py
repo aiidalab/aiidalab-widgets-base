@@ -140,7 +140,7 @@ class _StatusWidgetMixin(traitlets.HasTraits):
             # Start new timer that will clear the value after the specified interval.
             self._clear_timer = threading.Timer(self._clear_after, self._clear_value)
             self._clear_timer.start()
-            self.message = ""
+            self.message = None
 
 
 class StatusHTML(_StatusWidgetMixin, ipw.HTML):
