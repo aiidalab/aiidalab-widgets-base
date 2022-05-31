@@ -741,7 +741,7 @@ class SmilesWidget(ipw.VBox):
 def _register_operator(operator):
     """
     Decorator for methods that manipulate (operate on) the selected structure.
-    
+
     Checks whether a structure and selection is set and ensures that the
     arguments for structure and selection are passed by copy rather than
     reference. A pop-up warning message is shown in case that neither a
