@@ -116,8 +116,9 @@ class _StatusWidgetMixin(traitlets.HasTraits):
     message = traitlets.Unicode(default_value="", allow_none=True)
     new_line = "\n"
 
-    def __init__(self, *args, **kwargs):
+    def __init__(self, clear_after=3, *args, **kwargs):
         self._clear_timer = None
+        self._clear_after = clear_after
         self._message_stack = []
         super().__init__(*args, **kwargs)
 
@@ -129,16 +130,17 @@ class _StatusWidgetMixin(traitlets.HasTraits):
         else:
             self.value = ""
 
-    def show_temporary_message(self, value, clear_after=3):
+    def show_temporary_message(self, value, clear_after=None):
         """Show a temporary message and clear it after the given interval."""
         clear_after = clear_after or self._clear_after
         if value:
             self._message_stack.append(value)
             self.value = self.new_line.join(self._message_stack)
 
-        # Start new timer that will clear the value after the specified interval.
-        self._clear_timer = threading.Timer(clear_after, self._clear_value)
-        self._clear_timer.start()
+            # Start new timer that will clear the value after the specified interval.
+            self._clear_timer = threading.Timer(self._clear_after, self._clear_value)
+            self._clear_timer.start()
+            self.message = None
 
 
 class StatusHTML(_StatusWidgetMixin, ipw.HTML):

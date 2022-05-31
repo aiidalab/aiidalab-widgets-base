@@ -740,9 +740,12 @@ class SmilesWidget(ipw.VBox):
 
 def _register_operator(operator):
     """
-    check if the operation can process.
-    If not valid, the decorated method should not be executed but
-    pop up a warning message asking for doing the prerequisites.
+    Decorator for methods that manipulate (operate on) the selected structure.
+    
+    Checks whether a structure and selection is set and ensures that the
+    arguments for structure and selection are passed by copy rather than
+    reference. A pop-up warning message is shown in case that neither a
+    structure or selection are set.
     """
 
     @functools.wraps(operator)
