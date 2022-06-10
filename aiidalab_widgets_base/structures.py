@@ -2,6 +2,7 @@
 # pylint: disable=no-self-use
 
 import datetime
+import functools
 import io
 import tempfile
 from collections import OrderedDict
@@ -26,6 +27,8 @@ from ase import Atom, Atoms
 from ase.data import chemical_symbols, covalent_radii
 from sklearn.decomposition import PCA
 from traitlets import Instance, Int, List, Unicode, Union, default, dlink, link, observe
+
+from aiidalab_widgets_base.utils import StatusHTML
 
 from .data import LigandSelectorWidget
 
@@ -735,6 +738,43 @@ class SmilesWidget(ipw.VBox):
         return None
 
 
+def _register_operator(operator):
+    """
+    Decorator for methods that manipulate (operate on) the selected structure.
+
+    Checks whether a structure and selection is set and ensures that the
+    arguments for structure and selection are passed by copy rather than
+    reference. A pop-up warning message is shown in case that neither a
+    structure or selection are set.
+    """
+
+    @functools.wraps(operator)
+    def inner(ref, *args, **kwargs):
+
+        if not ref.structure:
+            ref._status_message.message = """
+            <div class="alert alert-info">
+            <strong>Please choose a structure first.</strong>
+            </div>
+            """
+        elif not ref.selection:
+            ref._status_message.message = """
+            <div class="alert alert-info">
+            <strong>Please select atoms first.</strong>
+            </div>
+            """
+        else:
+            operator(
+                ref,
+                *args,
+                **kwargs,
+                atoms=ref.structure.copy(),
+                selection=ref.selection.copy(),
+            )
+
+    return inner
+
+
 class BasicStructureEditor(ipw.VBox):  # pylint: disable=too-many-instance-attributes
     """Widget that allows for the basic structure editing."""
 
@@ -884,6 +924,8 @@ class BasicStructureEditor(ipw.VBox):  # pylint: disable=too-many-instance-attri
             style={"description_width": "initial"},
         )
 
+        self._status_message = StatusHTML()
+
         super().__init__(
             children=[
                 ipw.HTML(
@@ -965,6 +1007,7 @@ class BasicStructureEditor(ipw.VBox):  # pylint: disable=too-many-instance-attri
                     layout={"margin": "0px 0px 0px 20px"},
                 ),
                 ipw.HBox([btn_remove], layout={"margin": "0px 0px 0px 20px"}),
+                self._status_message,
             ]
         )
 
@@ -1009,14 +1052,21 @@ class BasicStructureEditor(ipw.VBox):  # pylint: disable=too-many-instance-attri
 
     def def_axis_p2(self, _=None):
         """Define the second point of axis."""
-        com = (
-            np.average(self.structure[self.selection].get_positions(), axis=0)
-            if self.selection
-            else [0, 0, 1]
-        )
-        self.axis_p2.value = self.vec2str(com)
-        if self.autoclear_selection.value:
-            self.selection = list()
+        if not self.selection:
+            self._status_message.message = """
+            <div class="alert alert-info">
+            <strong>Please select atoms first.</strong>
+            </div>
+            """
+        else:
+            com = (
+                np.average(self.structure[self.selection].get_positions(), axis=0)
+                if self.selection
+                else [0, 0, 1]
+            )
+            self.axis_p2.value = self.vec2str(com)
+            if self.autoclear_selection.value:
+                self.selection = list()
 
     def def_perpendicular_to_screen(self, _=None):
         """Define a normalized vector perpendicular to the screen."""
@@ -1028,47 +1078,37 @@ class BasicStructureEditor(ipw.VBox):  # pylint: disable=too-many-instance-attri
             )
             self.axis_p2.value = self.vec2str(versor.tolist())
 
-    def translate_dr(self, _=None):
+    @_register_operator
+    def translate_dr(self, _=None, atoms=None, selection=None):
         """Translate by dr along the selected vector."""
-        atoms = self.structure.copy()
-
-        selection = self.selection
 
         atoms.positions[self.selection] += np.array(
             self.action_vector * self.displacement.value
         )
 
-        self.structure = atoms
-        self.selection = selection
+        self.structure, self.selection = atoms, selection
 
-    def translate_dxdydz(self, _=None):
+    @_register_operator
+    def translate_dxdydz(self, _=None, atoms=None, selection=None):
         """Translate by the selected XYZ delta."""
-        selection = self.selection
-        atoms = self.structure.copy()
 
         # The action.
         atoms.positions[self.selection] += np.array(self.str2vec(self.dxyz.value))
 
-        self.structure = atoms
-        self.selection = selection
+        self.structure, self.selection = atoms, selection
 
-    def translate_to_xyz(self, _=None):
+    @_register_operator
+    def translate_to_xyz(self, _=None, atoms=None, selection=None):
         """Translate to the selected XYZ position."""
-        selection = self.selection
-        atoms = self.structure.copy()
-
         # The action.
         geo_center = np.average(self.structure[self.selection].get_positions(), axis=0)
         atoms.positions[self.selection] += self.str2vec(self.dxyz.value) - geo_center
 
-        self.structure = atoms
-        self.selection = selection
+        self.structure, self.selection = atoms, selection
 
-    def rotate(self, _=None):
+    @_register_operator
+    def rotate(self, _=None, atoms=None, selection=None):
         """Rotate atoms around selected point in space and vector."""
-
-        selection = self.selection
-        atoms = self.structure.copy()
 
         # The action.
         rotated_subset = atoms[self.selection]
@@ -1077,23 +1117,23 @@ class BasicStructureEditor(ipw.VBox):  # pylint: disable=too-many-instance-attri
         rotated_subset.rotate(self.phi.value, v=vec, center=center, rotate_cell=False)
         atoms.positions[list(self.selection)] = rotated_subset.positions
 
-        self.structure = atoms
-        self.selection = selection
+        self.structure, self.selection = atoms, selection
 
-    def mirror(self, _=None, norm=None, point=None):
+    @_register_operator
+    def mirror(self, _=None, norm=None, point=None, atoms=None, selection=None):
         """Mirror atoms on the plane perpendicular to the action vector."""
-
-        selection = self.selection
-        atoms = self.structure.copy()
-
         # The action.
-
         # Vector and point define the mirrorring surface.
         p_normal = norm if norm is not None else self.action_vector
         p_point = point if point is not None else self.str2vec(self.point.value)
 
         # Check if norm vector makes sense.
         if np.isnan(p_normal).any() or np.linalg.norm(p_normal) < 1e-4:
+            self._status_message.message = """
+            <div class="alert alert-info">
+            <strong>Norm vector not makes sense.</strong>
+            </div>
+            """
             return
 
         # Define vectors from p_point that point to the atoms which are to be moved.
@@ -1109,8 +1149,7 @@ class BasicStructureEditor(ipw.VBox):  # pylint: disable=too-many-instance-attri
         # Mirror atoms.
         atoms.positions[selection] -= 2 * projections
 
-        self.structure = atoms
-        self.selection = selection
+        self.structure, self.selection = atoms, selection
 
     def mirror_3p(self, _=None):
         """Mirror atoms on the plane containing action vector and action point."""
@@ -1121,12 +1160,9 @@ class BasicStructureEditor(ipw.VBox):  # pylint: disable=too-many-instance-attri
         normal = normal / np.linalg.norm(normal)
         self.mirror(norm=normal, point=pt3)
 
-    def align(self, _=None):
+    @_register_operator
+    def align(self, _=None, atoms=None, selection=None):
         """Rotate atoms to align action vector with XYZ vector."""
-
-        atoms = self.structure.copy()
-        selection = self.selection
-
         if not self.selection:
             return
 
@@ -1136,14 +1172,12 @@ class BasicStructureEditor(ipw.VBox):  # pylint: disable=too-many-instance-attri
         subset.rotate(self.action_vector, self.str2vec(self.dxyz.value), center=center)
         atoms.positions[selection] = subset.positions
 
-        self.structure = atoms
-        self.selection = selection
+        self.structure, self.selection = atoms, selection
 
-    def mod_element(self, _=None):
+    @_register_operator
+    def mod_element(self, _=None, atoms=None, selection=None):
         """Modify selected atoms into the given element."""
-        atoms = self.structure.copy()
         last_atom = atoms.get_global_number_of_atoms()
-        selection = self.selection
 
         if self.ligand.value == 0:
             for idx in self.selection:
@@ -1168,28 +1202,26 @@ class BasicStructureEditor(ipw.VBox):  # pylint: disable=too-many-instance-attri
                 i for i in range(last_atom, last_atom + len(selection) * len(lgnd))
             ]
 
-        self.structure = atoms
-        self.selection = new_selection
+        self.structure, self.selection = atoms, new_selection
 
-    def copy_sel(self, _=None):
+    @_register_operator
+    def copy_sel(self, _=None, atoms=None, selection=None):
         """Copy selected atoms and shift by 1.0 A along X-axis."""
-        atoms = self.structure.copy()
         last_atom = atoms.get_global_number_of_atoms()
-        selection = self.selection
 
         # The action
         add_atoms = atoms[self.selection].copy()
         add_atoms.translate([1.0, 0, 0])
         atoms += add_atoms
 
-        self.structure = atoms
-        self.selection = [i for i in range(last_atom, last_atom + len(selection))]
+        new_selection = [i for i in range(last_atom, last_atom + len(selection))]
 
-    def add(self, _=None):
+        self.structure, self.selection = atoms, new_selection
+
+    @_register_operator
+    def add(self, _=None, atoms=None, selection=None):
         """Add atoms."""
-        atoms = self.structure.copy()
         last_atom = atoms.get_global_number_of_atoms()
-        selection = self.selection
 
         if self.ligand.value == 0:
             initial_ligand = Atoms([Atom(self.element.value, [0, 0, 0])])
@@ -1214,13 +1246,15 @@ class BasicStructureEditor(ipw.VBox):  # pylint: disable=too-many-instance-attri
 
             atoms += lgnd
 
-        self.structure = atoms
-        self.selection = [
+        new_selection = [
             i for i in range(last_atom, last_atom + len(selection) * len(lgnd))
         ]
 
-    def remove(self, _):
+        self.structure, self.selection = atoms, new_selection
+
+    @_register_operator
+    def remove(self, _, atoms=None, selection=None):
         """Remove selected atoms."""
-        atoms = self.structure.copy()
-        del [atoms[self.selection]]
-        self.structure = atoms
+        del [atoms[selection]]
+
+        self.structure, self.selection = atoms, selection

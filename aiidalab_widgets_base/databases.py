@@ -558,6 +558,8 @@ class ComputationalResourcesDatabaseWidget(ipw.VBox):
                 "configure": config,
             }
 
+            self._code_changed()
+
     def _code_changed(self, _=None):
         """Update code settings."""
         with self.hold_trait_notifications():

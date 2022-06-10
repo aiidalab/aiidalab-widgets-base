@@ -1,7 +1,7 @@
 ---
 repos:
     - repo: https://github.com/pre-commit/pre-commit-hooks
-      rev: v4.1.0
+      rev: v4.2.0
       hooks:
           - id: check-json
           - id: check-yaml
@@ -10,12 +10,12 @@ repos:
             exclude: miscellaneous/structures
 
     - repo: https://github.com/jumanjihouse/pre-commit-hook-yamlfmt
-      rev: 0.1.0
+      rev: 0.2.1
       hooks:
           - id: yamlfmt
 
     - repo: https://github.com/psf/black
-      rev: 22.1.0
+      rev: 22.3.0
       hooks:
           - id: black
             language_version: python3 # Should be a command that runs python3.6+
@@ -33,17 +33,17 @@ repos:
             args: [--profile, black, --filter-files]
 
     - repo: https://github.com/asottile/setup-cfg-fmt
-      rev: v1.20.0
+      rev: v1.20.1
       hooks:
           - id: setup-cfg-fmt
 
     - repo: https://github.com/sirosen/check-jsonschema
-      rev: 0.13.0
+      rev: 0.16.0
       hooks:
           - id: check-github-workflows
 
     - repo: https://github.com/asottile/pyupgrade
-      rev: v2.31.0
+      rev: v2.32.1
       hooks:
           - id: pyupgrade
             args: [--py37-plus]

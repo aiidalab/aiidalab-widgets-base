@@ -467,7 +467,7 @@ class _StructureDataBaseViewer(ipw.VBox):
         zfactor = norm(omat[0, 0:3])
         omat[0:3, 0:3] = omat[0:3, 0:3] / zfactor
 
-        bb = deepcopy(self.structure)
+        bb = deepcopy(self.structure.repeat(self.supercell))
         bb.pbc = (False, False, False)
 
         for i in bb:
