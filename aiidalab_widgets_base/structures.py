@@ -665,7 +665,7 @@ class SmilesWidget(ipw.VBox):
         """Create ase Atoms object."""
         # Get the principal axes and realign the molecule along z-axis.
         positions = PCA(n_components=3).fit_transform(positions)
-        atoms = Atoms(species, positions=positions, pbc=True)
+        atoms = Atoms(species, positions=positions, pbc=False)
         atoms.cell = np.ptp(atoms.positions, axis=0) + 10
         atoms.center()
         # We're attaching this info so that it
