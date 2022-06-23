@@ -703,7 +703,6 @@ class SmilesWidget(ipw.VBox):
         from rdkit import Chem
         from rdkit.Chem import AllChem
 
-        smiles = smiles.replace("[", "").replace("]", "")
         mol = Chem.MolFromSmiles(smiles)
         if mol is None:
             # Something is seriously wrong with the SMILES code,
@@ -728,7 +727,7 @@ class SmilesWidget(ipw.VBox):
             return self._rdkit_opt(smiles, steps)
         except ValueError as e:
             self.output.value = str(e)
-            self.output.value += " Trying OpebBabel..."
+            self.output.value += " Trying OpenBabel..."
             return self._pybel_opt(smiles, steps)
 
     def _on_button_pressed(self, change):  # pylint: disable=unused-argument
