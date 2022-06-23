@@ -737,7 +737,7 @@ class SmilesWidget(ipw.VBox):
 
         if not self.smiles.value:
             return
-        spinner = f"Screening possible conformers {self.SPINNER}" # font-size:20em;
+        spinner = f"Screening possible conformers {self.SPINNER}"  # font-size:20em;
         self.output.value = spinner
         self.structure = self._mol_from_smiles(self.smiles.value)
         # Don't overwrite possible error/warning messages
