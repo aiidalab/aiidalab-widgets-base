@@ -708,14 +708,13 @@ class SmilesWidget(ipw.VBox):
         if mol is None:
             # Something is seriously wrong with the SMILES code,
             # just return None and don't attempt anything else.
-            self.output.value = "ERROR: Invalid SMILES string"
+            self.output.value = "RDKit ERROR: Invalid SMILES string"
             return None
         mol = Chem.AddHs(mol)
 
         AllChem.EmbedMolecule(mol, maxAttempts=20, randomSeed=42)
         if not AllChem.UFFHasAllMoleculeParams(mol):
-            msg = "WARNING: Missing UFF parameters"
-            raise ValueError(msg)
+            raise ValueError("RDKit ERROR: Missing UFF parameters")
 
         AllChem.UFFOptimizeMolecule(mol, maxIters=steps)
         positions = mol.GetConformer().GetPositions()
@@ -723,12 +722,13 @@ class SmilesWidget(ipw.VBox):
         species = [mol.GetAtomWithIdx(j).GetSymbol() for j in range(natoms)]
         return self._make_ase(species, positions, smiles)
 
-    def _mol_from_smiles(self, smiles, steps=10000):
+    def _mol_from_smiles(self, smiles, steps=1000):
         """Convert SMILES to ase structure try rdkit then pybel"""
         try:
             return self._rdkit_opt(smiles, steps)
         except ValueError as e:
             self.output.value = str(e)
+            self.output.value += " Trying OpebBabel..."
             return self._pybel_opt(smiles, steps)
 
     def _on_button_pressed(self, change):  # pylint: disable=unused-argument
@@ -737,13 +737,11 @@ class SmilesWidget(ipw.VBox):
 
         if not self.smiles.value:
             return
-        spiner = "Screening possible conformers {}".format(
-            self.SPINNER
-        )  # font-size:20em;
-        self.output.value = spiner
+        spinner = f"Screening possible conformers {self.SPINNER}" # font-size:20em;
+        self.output.value = spinner
         self.structure = self._mol_from_smiles(self.smiles.value)
         # Don't overwrite possible error/warning messages
-        if self.output.value == spiner:
+        if self.output.value == spinner:
             self.output.value = ""
 
     @default("structure")
