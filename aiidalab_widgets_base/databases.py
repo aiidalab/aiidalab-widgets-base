@@ -5,14 +5,14 @@ import requests
 import traitlets
 from aiida.tools.dbimporters.plugins.cod import CodDbImporter
 from ase import Atoms
+from optimade_client.parameters import (
+    DISABLE_PROVIDERS,
+    PROVIDER_DATABASE_GROUPINGS,
+    SKIP_DATABASE,
+    SKIP_PROVIDERS,
+)
 from optimade_client.query_filter import OptimadeQueryFilterWidget
 from optimade_client.query_provider import OptimadeQueryProviderWidget
-from optimade_client.parameters import (
-    PROVIDER_DATABASE_GROUPINGS, 
-    SKIP_DATABASE, 
-    SKIP_PROVIDERS, 
-    DISABLE_PROVIDERS,
-)
 from traitlets import Bool, Float, Instance, Int, Unicode, default, observe
 
 
