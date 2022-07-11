@@ -7,6 +7,12 @@ from aiida.tools.dbimporters.plugins.cod import CodDbImporter
 from ase import Atoms
 from optimade_client.query_filter import OptimadeQueryFilterWidget
 from optimade_client.query_provider import OptimadeQueryProviderWidget
+from optimade_client.parameters import (
+    PROVIDER_DATABASE_GROUPINGS, 
+    SKIP_DATABASE, 
+    SKIP_PROVIDERS, 
+    DISABLE_PROVIDERS,
+)
 from traitlets import Bool, Float, Instance, Int, Unicode, default, observe
 
 
@@ -148,32 +154,10 @@ class OptimadeQueryWidget(ipw.VBox):
 
     structure = Instance(Atoms, allow_none=True)
 
-    _disable_providers = [
-        "cod",
-        "tcod",
-        "nmd",
-        "oqmd",
-        "aflow",
-        "matcloud",
-        "mpds",
-        "necro",
-        "jarvis",
-        "ccpnc",
-    ]
-    _skip_databases = {"Materials Cloud": ["optimade-sample", "li-ion-conductors", "threedd", "sssp"]}
-    _database_grouping = {
-        "Materials Cloud": {
-            "Main Projects": ["mc3d-structures", "2dstructures"],
-            "Contributed Projects": [
-                "2dtopo",
-                "pyrene-mofs",
-                "scdm",
-                "stoceriaitf",
-                "tc-applicability",
-                "tin-antimony-sulfoiodide",
-                "curated-cofs",
-            ]}
-    }
+    _disable_providers = DISABLE_PROVIDERS
+    _skip_databases = SKIP_DATABASE
+    _skip_providers = SKIP_PROVIDERS
+    _database_grouping = PROVIDER_DATABASE_GROUPINGS
 
     def __init__(
         self,
@@ -189,6 +173,7 @@ class OptimadeQueryWidget(ipw.VBox):
             database_limit=kwargs.pop("database_limit", None),
             disable_providers=kwargs.pop("disable_providers", self._disable_providers),
             skip_databases=kwargs.pop("skip_databases", self._skip_databases),
+            skip_provider=kwargs.pop("skip_databases", self._skip_providers),
             provider_database_groupings=kwargs.pop(
                 "provider_database_groupings", self._database_grouping
             ),
