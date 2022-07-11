@@ -138,8 +138,8 @@ class OptimadeQueryWidget(ipw.VBox):
 
     :param embedded: Whether or not to show extra database and provider information.
         When set to `True`, the extra information will be hidden, this is useful
-        in situations where the widget is used in a Tab or similar, e.g., for the
-        :class:`aiidalab_widgets_base.structures.StructureManagerWidget`.
+        in situations where the widget is used in a Tab or similar, e.g., can be used
+        for the :class:`aiidalab_widgets_base.structures.StructureManagerWidget`.
     :type embedded: bool
     :param title: Title used for Tab header if employed in
         :class:`aiidalab_widgets_base.structures.StructureManagerWidget`.
@@ -158,22 +158,21 @@ class OptimadeQueryWidget(ipw.VBox):
         "mpds",
         "necro",
         "jarvis",
+        "ccpnc",
     ]
-    _skip_databases = {"Materials Cloud": ["optimade-sample", "li-ion-conductors"]}
+    _skip_databases = {"Materials Cloud": ["optimade-sample", "li-ion-conductors", "threedd", "sssp"]}
     _database_grouping = {
         "Materials Cloud": {
-            "General": ["curated-cofs"],
-            "Projects": [
-                "2dstructures",
+            "Main Projects": ["mc3d-structures", "2dstructures"],
+            "Contributed Projects": [
                 "2dtopo",
                 "pyrene-mofs",
                 "scdm",
-                "sssp",
                 "stoceriaitf",
                 "tc-applicability",
-                "threedd",
-            ],
-        },
+                "tin-antimony-sulfoiodide",
+                "curated-cofs",
+            ]}
     }
 
     def __init__(
