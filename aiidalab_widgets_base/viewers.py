@@ -9,6 +9,8 @@ from copy import deepcopy
 import ipywidgets as ipw
 import nglview
 import numpy as np
+
+# import spglib
 import traitlets
 from aiida.cmdline.utils.common import get_workchain_report
 from aiida.orm import Node
@@ -159,7 +161,7 @@ class _StructureDataBaseViewer(ipw.VBox):
 
     :param configure_view: If True, add configuration tabs (deprecated)
     :type configure_view: bool
-    :param configuration_tabs: List of configuration tabs (default: ["Selection", "Appearance", "Cell", "Download"])
+    :param configuration_tabs: List of configuration tabs (default: ["Cell", "Selection", "Cell", "Download"])
     :type configure_view: list
     :param default_camera: default camera (orthographic|perspective), can be changed in the Appearance tab
     :type default_camera: string
@@ -177,7 +179,7 @@ class _StructureDataBaseViewer(ipw.VBox):
     def __init__(
         self,
         configure_view=True,
-        configuration_tabs=["Selection", "Appearance", "Cell", "Download"],
+        configuration_tabs=["Cell", "Selection", "Appearance", "Download"],
         default_camera="orthographic",
         **kwargs,
     ):
@@ -192,9 +194,9 @@ class _StructureDataBaseViewer(ipw.VBox):
         view_box = ipw.VBox([self._viewer])
 
         configuration_tabs_map = {
+            "Cell": self._cell_tab(),
             "Selection": self._selection_tab(),
             "Appearance": self._appearance_tab(),
-            "Cell": self._cell_tab(),
             "Download": self._download_tab(),
         }
 
@@ -226,6 +228,94 @@ class _StructureDataBaseViewer(ipw.VBox):
             children += kwargs.pop("children")
 
         super().__init__(children, **kwargs)
+
+    @observe("cell")
+    def _observe_cell(self, _=None):
+        if self.cell:
+            self.cell_a.value = "<i><b>a</b></i>: {:.4f} {:.4f} {:.4f}".format(
+                *self.cell.array[0]
+            )
+            self.cell_b.value = "<i><b>b</b></i>: {:.4f} {:.4f} {:.4f}".format(
+                *self.cell.array[1]
+            )
+            self.cell_c.value = "<i><b>c</b></i>: {:.4f} {:.4f} {:.4f}".format(
+                *self.cell.array[2]
+            )
+
+            self.cell_a_length.value = "|<i><b>a</b></i>|: {:.4f}".format(
+                self.cell.lengths()[0]
+            )
+            self.cell_b_length.value = "|<i><b>b</b></i>|: {:.4f}".format(
+                self.cell.lengths()[1]
+            )
+            self.cell_c_length.value = "|<i><b>c</b></i>|: {:.4f}".format(
+                self.cell.lengths()[2]
+            )
+
+            self.cell_alpha.value = f"&alpha;: {self.cell.angles()[0]:.4f}"
+            self.cell_beta.value = f"&beta;: {self.cell.angles()[1]:.4f}"
+            self.cell_gamma.value = f"&gamma;: {self.cell.angles()[2]:.4f}"
+        else:
+            self.cell_a.value = "<i><b>a</b></i>:"
+            self.cell_b.value = "<i><b>b</b></i>:"
+            self.cell_c.value = "<i><b>c</b></i>:"
+
+            self.cell_a_length.value = "|<i><b>a</b></i>|:"
+            self.cell_b_length.value = "|<i><b>b</b></i>|:"
+            self.cell_c_length.value = "|<i><b>c</b></i>|:"
+
+            self.cell_alpha.value = "&alpha;:"
+            self.cell_beta.value = "&beta;:"
+            self.cell_gamma.value = "&gamma;:"
+
+    def _cell_tab(self):
+        self.cell_a = ipw.HTML()
+        self.cell_b = ipw.HTML()
+        self.cell_c = ipw.HTML()
+
+        self.cell_a_length = ipw.HTML()
+        self.cell_b_length = ipw.HTML()
+        self.cell_c_length = ipw.HTML()
+
+        self.cell_alpha = ipw.HTML()
+        self.cell_beta = ipw.HTML()
+        self.cell_gamma = ipw.HTML()
+
+        self._observe_cell()
+
+        return ipw.VBox(
+            [
+                ipw.HBox(
+                    [
+                        ipw.VBox(
+                            [
+                                ipw.HTML("Cell vectors:"),
+                                self.cell_a,
+                                self.cell_b,
+                                self.cell_c,
+                            ]
+                        ),
+                        ipw.VBox(
+                            [
+                                ipw.HTML("Сell vectors length:"),
+                                self.cell_a_length,
+                                self.cell_b_length,
+                                self.cell_c_length,
+                            ],
+                            layout={"margin": "0 0 0 50px"},
+                        ),
+                    ]
+                ),
+                ipw.VBox(
+                    [
+                        ipw.HTML("Angles:"),
+                        self.cell_alpha,
+                        self.cell_beta,
+                        self.cell_gamma,
+                    ]
+                ),
+            ]
+        )
 
     def _selection_tab(self):
         """Defining the selection tab."""
@@ -331,94 +421,6 @@ class _StructureDataBaseViewer(ipw.VBox):
 
         return ipw.VBox(
             [supercell_selector, background_color, camera_type, center_button]
-        )
-
-    @observe("cell")
-    def _observe_cell(self, _=None):
-        if self.cell:
-            self.cell_a.value = "<i><b>a</b></i>: {:.4f} {:.4f} {:.4f}".format(
-                *self.cell.array[0]
-            )
-            self.cell_b.value = "<i><b>b</b></i>: {:.4f} {:.4f} {:.4f}".format(
-                *self.cell.array[1]
-            )
-            self.cell_c.value = "<i><b>c</b></i>: {:.4f} {:.4f} {:.4f}".format(
-                *self.cell.array[2]
-            )
-
-            self.cell_a_length.value = "|<i><b>a</b></i>|: {:.4f}".format(
-                self.cell.lengths()[0]
-            )
-            self.cell_b_length.value = "|<i><b>b</b></i>|: {:.4f}".format(
-                self.cell.lengths()[1]
-            )
-            self.cell_c_length.value = "|<i><b>c</b></i>|: {:.4f}".format(
-                self.cell.lengths()[2]
-            )
-
-            self.cell_alpha.value = f"&alpha;: {self.cell.angles()[0]:.4f}"
-            self.cell_beta.value = f"&beta;: {self.cell.angles()[1]:.4f}"
-            self.cell_gamma.value = f"&gamma;: {self.cell.angles()[2]:.4f}"
-        else:
-            self.cell_a.value = "<i><b>a</b></i>:"
-            self.cell_b.value = "<i><b>b</b></i>:"
-            self.cell_c.value = "<i><b>c</b></i>:"
-
-            self.cell_a_length.value = "|<i><b>a</b></i>|:"
-            self.cell_b_length.value = "|<i><b>b</b></i>|:"
-            self.cell_c_length.value = "|<i><b>c</b></i>|:"
-
-            self.cell_alpha.value = "&alpha;:"
-            self.cell_beta.value = "&beta;:"
-            self.cell_gamma.value = "&gamma;:"
-
-    def _cell_tab(self):
-        self.cell_a = ipw.HTML()
-        self.cell_b = ipw.HTML()
-        self.cell_c = ipw.HTML()
-
-        self.cell_a_length = ipw.HTML()
-        self.cell_b_length = ipw.HTML()
-        self.cell_c_length = ipw.HTML()
-
-        self.cell_alpha = ipw.HTML()
-        self.cell_beta = ipw.HTML()
-        self.cell_gamma = ipw.HTML()
-
-        self._observe_cell()
-
-        return ipw.VBox(
-            [
-                ipw.HBox(
-                    [
-                        ipw.VBox(
-                            [
-                                ipw.HTML("Cell vectors:"),
-                                self.cell_a,
-                                self.cell_b,
-                                self.cell_c,
-                            ]
-                        ),
-                        ipw.VBox(
-                            [
-                                ipw.HTML("Сell vectors length:"),
-                                self.cell_a_length,
-                                self.cell_b_length,
-                                self.cell_c_length,
-                            ],
-                            layout={"margin": "0 0 0 50px"},
-                        ),
-                    ]
-                ),
-                ipw.VBox(
-                    [
-                        ipw.HTML("Angles:"),
-                        self.cell_alpha,
-                        self.cell_beta,
-                        self.cell_gamma,
-                    ]
-                ),
-            ]
         )
 
     def _download_tab(self):
