@@ -12,6 +12,9 @@ import ase
 import ipywidgets as ipw
 import numpy as np
 
+# spglib for cell converting
+import spglib
+
 # AiiDA imports
 from aiida.engine import calcfunction
 from aiida.orm import (
@@ -805,6 +808,7 @@ def _register_structure(operator):
 
     return inner
 
+
 def _register_selection(operator):
     """
     Decorator for methods that manipulate (operate on) the selected structure.
@@ -848,12 +852,14 @@ class BasicStructureEditor(ipw.VBox):  # pylint: disable=too-many-instance-attri
         self.title = title
         # cell transfor opration widget
         primitive_cell = ipw.Button(
-            description="Convert to primitive cell", layout={"width": "initial"},
+            description="Convert to primitive cell",
+            layout={"width": "initial"},
         )
         primitive_cell.on_click(self.def_primitive_cell)
 
         conventional_cell = ipw.Button(
-            description="Convert to conventional cell", layout={"width": "initial"},
+            description="Convert to conventional cell",
+            layout={"width": "initial"},
         )
         conventional_cell.on_click(self.def_conventional_cell)
 
@@ -1004,7 +1010,8 @@ class BasicStructureEditor(ipw.VBox):  # pylint: disable=too-many-instance-attri
                     "<b>Cell transformation:</b>",
                     layout={"margin": "20px 0px 10px 0px"},
                 ),
-                ipw.HBox([
+                ipw.HBox(
+                    [
                         primitive_cell,
                         conventional_cell,
                     ],
@@ -1160,15 +1167,15 @@ class BasicStructureEditor(ipw.VBox):  # pylint: disable=too-many-instance-attri
             self.axis_p2.value = self.vec2str(versor.tolist())
 
     @_register_structure
-    def def_primitive_cell(self, _=None,  atoms=None):
+    def def_primitive_cell(self, _=None, atoms=None):
         atoms = _to_standardize_cell(atoms, to_primitive=True)
-        
+
         self.structure = atoms
 
     @_register_structure
-    def def_conventional_cell(self, _=None,  atoms=None):
+    def def_conventional_cell(self, _=None, atoms=None):
         atoms = _to_standardize_cell(atoms, to_primitive=False)
-        
+
         self.structure = atoms
 
     @_register_structure
@@ -1363,15 +1370,24 @@ class BasicStructureEditor(ipw.VBox):  # pylint: disable=too-many-instance-attri
         self.structure, self.selection = atoms, selection
 
 
-def _to_standardize_cell(structure: Atoms, to_primitive=False, no_idealize=False, symprec=1e-5):
+def _to_standardize_cell(
+    structure: Atoms, to_primitive=False, no_idealize=False, symprec=1e-5
+):
     """The `standardize_cell` method from spglib and apply to ase.Atoms"""
     lattice = structure.get_cell()
     positions = structure.get_scaled_positions()
     numbers = structure.get_atomic_numbers()
 
     cell = (lattice, positions, numbers)
-    
-    # operation
-    lattice, positions, numbers = spglib.standardize_cell(cell, to_primitive=to_primitive, no_idealize=no_idealize, symprec=symprec)
 
-    return Atoms(cell=lattice, scaled_positions=positions, numbers=numbers, pbc=[True, True, True])
+    # operation
+    lattice, positions, numbers = spglib.standardize_cell(
+        cell, to_primitive=to_primitive, no_idealize=no_idealize, symprec=symprec
+    )
+
+    return Atoms(
+        cell=lattice,
+        scaled_positions=positions,
+        numbers=numbers,
+        pbc=[True, True, True],
+    )
