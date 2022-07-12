@@ -28,6 +28,9 @@ from ase.data import chemical_symbols, covalent_radii
 from sklearn.decomposition import PCA
 from traitlets import Instance, Int, List, Unicode, Union, default, dlink, link, observe
 
+# spglib for cell converting
+import spglib
+
 # Local imports
 from .data import LigandSelectorWidget
 from .utils import StatusHTML, get_ase_from_file, get_formula
@@ -406,57 +409,18 @@ class StructureUploadWidget(ipw.VBox):
     def _on_file_upload(self, change=None):
         """When file upload button is pressed."""
         for fname, item in change["new"].items():
-            self.structure = self._read_structure(fname, item["content"])
+            frmt = fname.split(".")[-1]
+            if frmt == "cif":
+                self.structure = CifData(file=io.BytesIO(item["content"]))
+            else:
+                with tempfile.NamedTemporaryFile(suffix=f".{frmt}") as temp_file:
+                    temp_file.write(item["content"])
+                    temp_file.flush()
+                    self.structure = self._validate_and_fix_ase_cell(
+                        get_ase_from_file(temp_file.name)
+                    )
             self.file_upload.value.clear()
             break
-
-    def _read_structure(self, fname, content):
-        suffix = "".join(pathlib.Path(fname).suffixes)
-        if suffix == ".cif":
-            try:
-                return CifData(file=io.BytesIO(content))
-            except Exception as e:
-                self._status_message.message = f"""
-                    <div class="alert alert-warning">Could not parse CIF file {fname}: {e}
-                    Trying ASE reader...</div>
-                    """
-
-        with tempfile.NamedTemporaryFile(suffix=suffix) as temp_file:
-            temp_file.write(content)
-            temp_file.flush()
-            try:
-                if suffix == ".cif":
-                    structures = get_ase_from_file(temp_file.name, format="cif")
-                else:
-                    structures = get_ase_from_file(temp_file.name)
-            except ValueError as e:
-                self._status_message.message = f"""
-                    <div class="alert alert-danger">ERROR: {e}</div>
-                    """
-                return None
-            except KeyError:
-                self._status_message.message = f"""
-                    <div class="alert alert-danger">ERROR: Could not parse file {fname}</div>
-                    """
-                return None
-
-            if len(structures) > 1:
-                if self.allow_trajectories:
-                    return TrajectoryData(
-                        structurelist=[
-                            StructureData(
-                                ase=self._validate_and_fix_ase_cell(ase_struct)
-                            )
-                            for ase_struct in structures
-                        ]
-                    )
-                else:
-                    self._status_message.message = f"""
-                        <div class="alert alert-danger">ERROR: More than one structure found in file {fname}</div>
-                        """
-                    return None
-
-            return self._validate_and_fix_ase_cell(structures[0])
 
 
 class StructureExamplesWidget(ipw.VBox):
@@ -888,6 +852,11 @@ class BasicStructureEditor(ipw.VBox):  # pylint: disable=too-many-instance-attri
         )
         primitive_cell.on_click(self.def_primitive_cell)
 
+        conventional_cell = ipw.Button(
+            description="Convert to conventional cell", layout={"width": "initial"},
+        )
+        conventional_cell.on_click(self.def_conventional_cell)
+
         # Define action vector.
         self.axis_p1 = ipw.Text(
             description="Starting point", value="0 0 0", layout={"width": "initial"}
@@ -1037,6 +1006,7 @@ class BasicStructureEditor(ipw.VBox):  # pylint: disable=too-many-instance-attri
                 ),
                 ipw.HBox([
                         primitive_cell,
+                        conventional_cell,
                     ],
                 ),
                 ipw.HTML(
@@ -1191,7 +1161,15 @@ class BasicStructureEditor(ipw.VBox):  # pylint: disable=too-many-instance-attri
 
     @_register_structure
     def def_primitive_cell(self, _=None,  atoms=None):
-        pass
+        atoms = _to_standardize_cell(atoms, to_primitive=True)
+        
+        self.structure = atoms
+
+    @_register_structure
+    def def_conventional_cell(self, _=None,  atoms=None):
+        atoms = _to_standardize_cell(atoms, to_primitive=False)
+        
+        self.structure = atoms
 
     @_register_structure
     @_register_selection
@@ -1383,3 +1361,17 @@ class BasicStructureEditor(ipw.VBox):  # pylint: disable=too-many-instance-attri
         del [atoms[selection]]
 
         self.structure, self.selection = atoms, selection
+
+
+def _to_standardize_cell(structure: Atoms, to_primitive=False, no_idealize=False, symprec=1e-5):
+    """The `standardize_cell` method from spglib and apply to ase.Atoms"""
+    lattice = structure.get_cell()
+    positions = structure.get_scaled_positions()
+    numbers = structure.get_atomic_numbers()
+
+    cell = (lattice, positions, numbers)
+    
+    # operation
+    lattice, positions, numbers = spglib.standardize_cell(cell, to_primitive=to_primitive, no_idealize=no_idealize, symprec=symprec)
+
+    return Atoms(cell=lattice, scaled_positions=positions, numbers=numbers, pbc=[True, True, True])
