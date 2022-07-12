@@ -847,6 +847,7 @@ def _register_operator(operator):
             )
 
     return inner
+    
 
 
 class BasicStructureEditor(ipw.VBox):  # pylint: disable=too-many-instance-attributes
@@ -859,6 +860,12 @@ class BasicStructureEditor(ipw.VBox):  # pylint: disable=too-many-instance-attri
     def __init__(self, title=""):
 
         self.title = title
+        # cell transfor opration widget
+        primitive_cell = ipw.Button(
+            description="Convert to primitive cell", layout={"width": "initial"},
+        )
+        primitive_cell.on_click(self.def_primitive_cell)
+
         # Define action vector.
         self.axis_p1 = ipw.Text(
             description="Starting point", value="0 0 0", layout={"width": "initial"}
@@ -1002,6 +1009,14 @@ class BasicStructureEditor(ipw.VBox):  # pylint: disable=too-many-instance-attri
 
         super().__init__(
             children=[
+                ipw.HTML(
+                    "<b>Cell transformation:</b>",
+                    layout={"margin": "20px 0px 10px 0px"},
+                ),
+                ipw.HBox([
+                        primitive_cell,
+                    ],
+                ),
                 ipw.HTML(
                     "<b>Action vector and point:</b>",
                     layout={"margin": "20px 0px 10px 0px"},
@@ -1151,6 +1166,10 @@ class BasicStructureEditor(ipw.VBox):  # pylint: disable=too-many-instance-attri
                 [-cmr[2], -cmr[6], -cmr[10]]
             )
             self.axis_p2.value = self.vec2str(versor.tolist())
+
+    @_register_operator
+    def def_primitive_cell(self, _=None,  atoms=None, selection=None):
+        pass
 
     @_register_operator
     def translate_dr(self, _=None, atoms=None, selection=None):
