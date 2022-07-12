@@ -9,13 +9,13 @@ from copy import deepcopy
 import ipywidgets as ipw
 import nglview
 import numpy as np
-
-# import spglib
+import spglib
 import traitlets
 from aiida.cmdline.utils.common import get_workchain_report
 from aiida.orm import Node
 from ase import Atoms, neighborlist
-from ase.cell import Cell
+
+# from ase.cell import Cell
 from IPython.display import clear_output, display
 from matplotlib.colors import to_rgb
 from numpy.linalg import norm
@@ -44,7 +44,7 @@ from vapory import (
 
 from .dicts import Colors, Radius
 from .misc import CopyToClipboardButton, ReversePolishNotation
-from .utils import list_to_string_range, string_range_to_list
+from .utils import ase2spglib, list_to_string_range, string_range_to_list
 
 AIIDA_VIEWER_MAPPING = dict()
 
@@ -171,7 +171,7 @@ class _StructureDataBaseViewer(ipw.VBox):
     selection = List(Int)
     selection_adv = Unicode()
     supercell = List(Int)
-    cell = Instance(Cell, allow_none=True)
+    cell = Instance(Atoms, allow_none=True)
     DEFAULT_SELECTION_OPACITY = 0.2
     DEFAULT_SELECTION_RADIUS = 6
     DEFAULT_SELECTION_COLOR = "green"
@@ -255,6 +255,14 @@ class _StructureDataBaseViewer(ipw.VBox):
             self.cell_alpha.value = f"&alpha;: {self.cell.angles()[0]:.4f}"
             self.cell_beta.value = f"&beta;: {self.cell.angles()[1]:.4f}"
             self.cell_gamma.value = f"&gamma;: {self.cell.angles()[2]:.4f}"
+
+            spglib_cell = ase2spglib(self.cell)
+            symmetry_dataset = spglib.get_symmetry_dataset(
+                spglib_cell, symprec=1e-5, angle_tolerance=1.0
+            )
+
+            self.cell_spacegroup.value = f"Spacegroup: {symmetry_dataset['international']} (No.{symmetry_dataset['number']})"
+            self.cell_hall.value = f"Hall: {symmetry_dataset['hall']} (No.{symmetry_dataset['hall_number']})"
         else:
             self.cell_a.value = "<i><b>a</b></i>:"
             self.cell_b.value = "<i><b>b</b></i>:"
@@ -281,6 +289,9 @@ class _StructureDataBaseViewer(ipw.VBox):
         self.cell_beta = ipw.HTML()
         self.cell_gamma = ipw.HTML()
 
+        self.cell_spacegroup = ipw.HTML()
+        self.cell_hall = ipw.HTML()
+
         self._observe_cell()
 
         return ipw.VBox(
@@ -306,12 +317,24 @@ class _StructureDataBaseViewer(ipw.VBox):
                         ),
                     ]
                 ),
-                ipw.VBox(
+                ipw.HBox(
                     [
-                        ipw.HTML("Angles:"),
-                        self.cell_alpha,
-                        self.cell_beta,
-                        self.cell_gamma,
+                        ipw.VBox(
+                            [
+                                ipw.HTML("Angles:"),
+                                self.cell_alpha,
+                                self.cell_beta,
+                                self.cell_gamma,
+                            ]
+                        ),
+                        ipw.VBox(
+                            [
+                                ipw.HTML("Symmetry infomation:"),
+                                self.cell_spacegroup,
+                                self.cell_hall,
+                                self.cell_gamma,
+                            ]
+                        ),
                     ]
                 ),
             ]

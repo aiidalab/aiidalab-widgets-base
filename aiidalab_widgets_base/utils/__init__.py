@@ -5,12 +5,8 @@ import ipywidgets as ipw
 import more_itertools as mit
 import numpy as np
 import traitlets
-from aiida.plugins import DataFactory
+from ase import Atoms
 from ase.io import read
-
-CifData = DataFactory("cif")  # pylint: disable=invalid-name
-StructureData = DataFactory("structure")  # pylint: disable=invalid-name
-TrajectoryData = DataFactory("array.trajectory")  # pylint: disable=invalid-name
 
 
 def valid_arguments(arguments, valid_args):
@@ -166,3 +162,12 @@ class StatusHTML(_StatusWidgetMixin, ipw.HTML):
     @traitlets.observe("message")
     def _observe_message(self, change):
         self.show_temporary_message(change["new"])
+
+
+def ase2spglib(cell: Atoms):
+    """convert ase Atoms instance to spglib cell"""
+    lattice = cell.get_cell()
+    positions = cell.get_scaled_positions()
+    numbers = cell.get_atomic_numbers()
+
+    return (lattice, positions, numbers)
