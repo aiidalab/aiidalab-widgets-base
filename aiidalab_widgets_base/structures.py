@@ -716,10 +716,11 @@ class SmilesWidget(ipw.VBox):
         mol = Chem.AddHs(mol)
 
         AllChem.EmbedMolecule(mol, maxAttempts=20, randomSeed=42)
-        if not AllChem.UFFHasAllMoleculeParams(mol):
-            raise ValueError("RDKit ERROR: Missing UFF parameters")
+        if AllChem.UFFHasAllMoleculeParams(mol):
+            AllChem.UFFOptimizeMolecule(mol, maxIters=steps)
+        else:
+            self.output.value = "RDKit WARNING: Missing UFF parameters"
 
-        AllChem.UFFOptimizeMolecule(mol, maxIters=steps)
         positions = mol.GetConformer().GetPositions()
         natoms = mol.GetNumAtoms()
         species = [mol.GetAtomWithIdx(j).GetSymbol() for j in range(natoms)]
