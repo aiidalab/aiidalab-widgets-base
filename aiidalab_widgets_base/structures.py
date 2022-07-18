@@ -654,12 +654,16 @@ class SmilesWidget(ipw.VBox):
 
         self.smiles = ipw.Text(placeholder="C=C")
         self.create_structure_btn = ipw.Button(
-            description="Generate molecule", button_style="info"
+            description="Generate molecule",
+            button_style="primary",
+            tooltip="Generate molecule from SMILES string",
         )
         self.create_structure_btn.on_click(self._on_button_pressed)
         self.output = ipw.HTML("")
 
-        super().__init__([self.smiles, self.create_structure_btn, self.output])
+        super().__init__(
+            [ipw.HBox([self.smiles, self.create_structure_btn]), self.output]
+        )
 
     def _make_ase(self, species, positions, smiles):
         """Create ase Atoms object."""
