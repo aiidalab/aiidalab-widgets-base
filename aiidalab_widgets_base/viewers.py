@@ -1131,7 +1131,7 @@ class BandsDataViewer(ipw.VBox):
 
 
 @register_viewer_widget("process.workflow.workchain.WorkChainNode.")
-class WorkChainNodeViewerWidget(ipw.VBox):
+class WorkChainNodeViewerWidget(ipw.HTML):
     def __init__(self, workchain, **kwargs):
         self.workchain = workchain
 
@@ -1139,7 +1139,9 @@ class WorkChainNodeViewerWidget(ipw.VBox):
         # NOT from its descendants
         report = get_workchain_report(self.workchain, "REPORT", max_depth=1)
         # Filter out the first column with dates
-        report = re.sub(r"^[0-9]{4}.*\| ([A-Z]+)\]", r"\1", report, flags=re.MULTILINE)
-        report = ipw.HTML(f"<pre>{report}</pre>")
+        filtered_report = re.sub(
+            r"^[0-9]{4}.*\| ([A-Z]+)\]", r"\1", report, flags=re.MULTILINE
+        )
+        self.value = f"<pre>{filtered_report}</pre>"
 
-        super().__init__([report], **kwargs)
+        super().__init__(**kwargs)
