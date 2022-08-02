@@ -2,6 +2,7 @@
 # pylint: disable=no-self-use
 
 import base64
+import re
 import warnings
 from copy import deepcopy
 
@@ -9,6 +10,7 @@ import ipywidgets as ipw
 import nglview
 import numpy as np
 import traitlets
+from aiida.cmdline.utils.common import get_workchain_report
 from aiida.orm import Node
 from ase import Atoms, neighborlist
 from ase.cell import Cell
@@ -1126,3 +1128,20 @@ class BandsDataViewer(ipw.VBox):
             show(plot)
         children = [out]
         super().__init__(children, **kwargs)
+
+
+@register_viewer_widget("process.workflow.workchain.WorkChainNode.")
+class WorkChainNodeViewerWidget(ipw.HTML):
+    def __init__(self, workchain, **kwargs):
+        self.workchain = workchain
+
+        # Displaying reports only from the selected workchain,
+        # NOT from its descendants
+        report = get_workchain_report(self.workchain, "REPORT", max_depth=1)
+        # Filter out the first column with dates
+        filtered_report = re.sub(
+            r"^[0-9]{4}.*\| ([A-Z]+)\]", r"\1", report, flags=re.MULTILINE
+        )
+        self.value = f"<pre>{filtered_report}</pre>"
+
+        super().__init__(**kwargs)
