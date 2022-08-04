@@ -278,13 +278,10 @@ class NodesTreeWidget(ipw.Output):
         if isinstance(tree_node, AiidaProcessNodeTreeNode):
             process_node = load_node(tree_node.pk)
             tree_node.name = calc_info(process_node)
-            tree_node.icon_style = (
-                self.PROCESS_STATE_STYLE.get(
-                    process_node.process_state, self.PROCESS_STATE_STYLE_DEFAULT
-                )
-                if not process_node.is_failed
-                else "danger"
-            )
+            # Override the process state in case that the process node has failed:
+            # (This could be refactored with structural pattern matching with py>=3.10.)
+            process_state = ProcessState.EXCEPTED if process_node.is_failed else process_node.process_state
+            tree_node.icon_style = self.PROCESS_STATE_STYLE.get(process_state, PROCESS_STATE_STYLE_DEFAULT)
 
     def update(self, _=None):
         """Refresh nodes based on the latest state of the root process and its children."""
