@@ -286,7 +286,7 @@ class NodesTreeWidget(ipw.Output):
                 else process_node.process_state
             )
             tree_node.icon_style = self.PROCESS_STATE_STYLE.get(
-                process_state, PROCESS_STATE_STYLE_DEFAULT
+                process_state, self.PROCESS_STATE_STYLE_DEFAULT
             )
 
     def update(self, _=None):
