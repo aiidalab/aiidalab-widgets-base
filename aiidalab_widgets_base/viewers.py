@@ -210,16 +210,16 @@ class _StructureDataBaseViewer(ipw.VBox):
 
         # Constructing configuration box
         if len(configuration_tabs) != 0:
-            configuration_box = ipw.Tab(
+            self.configuration_box = ipw.Tab(
                 layout=ipw.Layout(flex="1 1 auto", width="auto")
             )
-            configuration_box.children = [
+            self.configuration_box.children = [
                 configuration_tabs_map[tab_title] for tab_title in configuration_tabs
             ]
 
             for i, title in enumerate(configuration_tabs):
-                configuration_box.set_title(i, title)
-            children = [ipw.HBox([view_box, configuration_box])]
+                self.configuration_box.set_title(i, title)
+            children = [ipw.HBox([view_box, self.configuration_box])]
             view_box.layout = {"width": "60%"}
         else:
             children = [view_box]
@@ -676,6 +676,10 @@ class _StructureDataBaseViewer(ipw.VBox):
     def _observe_selection(self, _=None):
         self.highlight_atoms(self.selection)
         self._selected_atoms.value = list_to_string_range(self.selection, shift=1)
+
+        # if atom selected from nglview, shift to selection tab
+        if self._selected_atoms.value:
+            self.configuration_box.selected_index = 1
 
     def apply_selection(self, _=None):
         """Apply selection specified in the text field."""
