@@ -14,8 +14,7 @@ import traitlets
 from aiida.cmdline.utils.common import get_workchain_report
 from aiida.orm import Node
 from ase import Atoms, neighborlist
-
-# from ase.cell import Cell
+from ase.cell import Cell
 from IPython.display import clear_output, display
 from matplotlib.colors import to_rgb
 from numpy.linalg import norm
@@ -157,7 +156,7 @@ class DictViewer(ipw.VBox):
 
 
 class _StructureDataBaseViewer(ipw.VBox):
-    """Base viewer class for AiiDA structure or trajectory objects.
+    """Base viewer class for AiiDA structure or ase structure objects.
 
     :param configure_view: If True, add configuration tabs (deprecated)
     :type configure_view: bool
@@ -171,7 +170,8 @@ class _StructureDataBaseViewer(ipw.VBox):
     selection = List(Int)
     selection_adv = Unicode()
     supercell = List(Int)
-    cell = Instance(Atoms, allow_none=True)
+    cell = Instance(Cell, allow_none=True)  # Will be deprecated
+    ase_structure = Instance(Atoms, allow_none=True)
     DEFAULT_SELECTION_OPACITY = 0.2
     DEFAULT_SELECTION_RADIUS = 6
     DEFAULT_SELECTION_COLOR = "green"
@@ -229,9 +229,10 @@ class _StructureDataBaseViewer(ipw.VBox):
 
         super().__init__(children, **kwargs)
 
-    @observe("cell")
-    def _observe_cell(self, _=None):
-        if self.cell:
+    @observe("ase_structure")
+    def _observe_ase_structure(self, _=None):
+        if self.ase_structure:
+            self.cell = self.ase_structure.cell
             self.cell_a.value = "<i><b>a</b></i>: {:.4f} {:.4f} {:.4f}".format(
                 *self.cell.array[0]
             )
@@ -256,9 +257,9 @@ class _StructureDataBaseViewer(ipw.VBox):
             self.cell_beta.value = f"&beta;: {self.cell.angles()[1]:.4f}"
             self.cell_gamma.value = f"&gamma;: {self.cell.angles()[2]:.4f}"
 
-            spglib_cell = ase2spglib(self.cell)
+            spglib_structure = ase2spglib(self.ase_structure)
             symmetry_dataset = spglib.get_symmetry_dataset(
-                spglib_cell, symprec=1e-5, angle_tolerance=1.0
+                spglib_structure, symprec=1e-5, angle_tolerance=1.0
             )
 
             self.cell_spacegroup.value = f"Spacegroup: {symmetry_dataset['international']} (No.{symmetry_dataset['number']})"
@@ -276,6 +277,9 @@ class _StructureDataBaseViewer(ipw.VBox):
             self.cell_beta.value = "&beta;:"
             self.cell_gamma.value = "&gamma;:"
 
+            self.cell_spacegroup.value = "Spacegroup: "
+            self.cell_hall.value = "Hall: "
+
     def _cell_tab(self):
         self.cell_a = ipw.HTML()
         self.cell_b = ipw.HTML()
@@ -292,7 +296,7 @@ class _StructureDataBaseViewer(ipw.VBox):
         self.cell_spacegroup = ipw.HTML()
         self.cell_hall = ipw.HTML()
 
-        self._observe_cell()
+        self._observe_ase_structure()
 
         return ipw.VBox(
             [
@@ -332,8 +336,8 @@ class _StructureDataBaseViewer(ipw.VBox):
                                 ipw.HTML("Symmetry infomation:"),
                                 self.cell_spacegroup,
                                 self.cell_hall,
-                                self.cell_gamma,
-                            ]
+                            ],
+                            layout={"margin": "0 0 0 50px"},
                         ),
                     ]
                 ),
@@ -784,10 +788,10 @@ class StructureDataViewer(_StructureDataBaseViewer):
         # Remove the current structure(s) from the viewer.
         if change["new"] is not None:
             self.set_trait("displayed_structure", change["new"].repeat(self.supercell))
-            self.set_trait("cell", change["new"].cell)
+            self.set_trait("ase_structure", change["new"])
         else:
             self.set_trait("displayed_structure", None)
-            self.set_trait("cell", None)
+            self.set_trait("ase_structure", None)
 
     @observe("displayed_structure")
     def _update_structure_viewer(self, change):

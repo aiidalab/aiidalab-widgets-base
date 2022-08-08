@@ -164,10 +164,10 @@ class StatusHTML(_StatusWidgetMixin, ipw.HTML):
         self.show_temporary_message(change["new"])
 
 
-def ase2spglib(cell: Atoms):
+def ase2spglib(ase_structure: Atoms):
     """convert ase Atoms instance to spglib cell"""
-    lattice = cell.get_cell()
-    positions = cell.get_scaled_positions()
-    numbers = cell.get_atomic_numbers()
+    lattice = ase_structure.get_cell()
+    positions = ase_structure.get_scaled_positions()
+    numbers = ase_structure.get_atomic_numbers()
 
     return (lattice, positions, numbers)
