@@ -300,6 +300,7 @@ class _StructureDataBaseViewer(ipw.VBox):
 
         return ipw.VBox(
             [
+                ipw.HTML("Length unit: Angstrom"),
                 ipw.HBox(
                     [
                         ipw.VBox(
