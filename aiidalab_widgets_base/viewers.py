@@ -229,6 +229,112 @@ class _StructureDataBaseViewer(ipw.VBox):
 
         super().__init__(children, **kwargs)
 
+    def _selection_tab(self):
+        """Defining the selection tab."""
+
+        # 1. Selected atoms.
+        self._selected_atoms = ipw.Text(
+            description="Selected atoms:",
+            value="",
+            style={"description_width": "initial"},
+        )
+
+        # 2. Copy to clipboard
+        copy_to_clipboard = CopyToClipboardButton(description="Copy to clipboard")
+        link((self._selected_atoms, "value"), (copy_to_clipboard, "value"))
+
+        # 3. Informing about wrong syntax.
+        self.wrong_syntax = ipw.HTML(
+            value="""<i class="fa fa-times" style="color:red;font-size:2em;" ></i> wrong syntax""",
+            layout={"visibility": "hidden"},
+        )
+
+        # 4. Button to clear selection.
+        clear_selection = ipw.Button(description="Clear selection")
+        # clear_selection.on_click(lambda _: self.set_trait('selection', list()))  # lambda cannot contain assignments
+        clear_selection.on_click(
+            lambda _: (
+                self.set_trait("selection", list()),
+                self.set_trait("selection_adv", ""),
+                # self.wrong_syntax.layout.visibility = 'hidden'
+            )
+        )
+        # CLEAR self.wrong_syntax.layout.visibility = 'visible'
+
+        # 5. Button to apply selection
+        apply_selection = ipw.Button(description="Apply selection")
+        apply_selection.on_click(self.apply_selection)
+
+        self.selection_info = ipw.HTML()
+
+        return ipw.VBox(
+            [
+                ipw.HBox([self._selected_atoms, self.wrong_syntax]),
+                ipw.HTML(
+                    value="""
+                <p style="font-weight:800;">You can either specify ranges:
+                    <font style="font-style:italic;font-weight:400;">1 5..8 10</font>
+                </p>
+                <p style="font-weight:800;">or expressions:
+                    <font style="font-style:italic;font-weight:400;">(x>1 and name not [N,O]) or d_from [1,1,1]>2 or id>=10</font>
+                </p>"""
+                ),
+                ipw.HBox([copy_to_clipboard, clear_selection, apply_selection]),
+                self.selection_info,
+            ]
+        )
+
+    def _appearance_tab(self):
+        """Defining the appearance tab."""
+
+        # 1. Supercell
+        def change_supercell(_=None):
+            self.supercell = [
+                _supercell[0].value,
+                _supercell[1].value,
+                _supercell[2].value,
+            ]
+
+        _supercell = [
+            ipw.BoundedIntText(value=1, min=1, layout={"width": "30px"}),
+            ipw.BoundedIntText(value=1, min=1, layout={"width": "30px"}),
+            ipw.BoundedIntText(value=1, min=1, layout={"width": "30px"}),
+        ]
+        for elem in _supercell:
+            elem.observe(change_supercell, names="value")
+        supercell_selector = ipw.HBox(
+            [ipw.HTML(description="Super cell:")] + _supercell
+        )
+
+        # 2. Choose background color.
+        background_color = ipw.ColorPicker(description="Background")
+        link((background_color, "value"), (self._viewer, "background"))
+        background_color.value = "white"
+
+        # 3. Camera switcher
+        camera_type = ipw.ToggleButtons(
+            options={"Orthographic": "orthographic", "Perspective": "perspective"},
+            description="Camera type:",
+            value=self._viewer.camera,
+            layout={"align_self": "flex-start"},
+            style={"button_width": "115.5px"},
+            orientation="vertical",
+        )
+
+        def change_camera(change):
+
+            self._viewer.camera = change["new"]
+
+        camera_type.observe(change_camera, names="value")
+
+        # 4. Center button.
+        center_button = ipw.Button(description="Center molecule")
+        center_button.on_click(lambda c: self._viewer.center())
+
+        return ipw.VBox(
+            [supercell_selector, background_color, camera_type, center_button]
+        )
+
     @observe("ase_structure")
     def _observe_ase_structure(self, _=None):
         if self.ase_structure:
@@ -343,112 +449,6 @@ class _StructureDataBaseViewer(ipw.VBox):
                     ]
                 ),
             ]
-        )
-
-    def _selection_tab(self):
-        """Defining the selection tab."""
-
-        # 1. Selected atoms.
-        self._selected_atoms = ipw.Text(
-            description="Selected atoms:",
-            value="",
-            style={"description_width": "initial"},
-        )
-
-        # 2. Copy to clipboard
-        copy_to_clipboard = CopyToClipboardButton(description="Copy to clipboard")
-        link((self._selected_atoms, "value"), (copy_to_clipboard, "value"))
-
-        # 3. Informing about wrong syntax.
-        self.wrong_syntax = ipw.HTML(
-            value="""<i class="fa fa-times" style="color:red;font-size:2em;" ></i> wrong syntax""",
-            layout={"visibility": "hidden"},
-        )
-
-        # 4. Button to clear selection.
-        clear_selection = ipw.Button(description="Clear selection")
-        # clear_selection.on_click(lambda _: self.set_trait('selection', list()))  # lambda cannot contain assignments
-        clear_selection.on_click(
-            lambda _: (
-                self.set_trait("selection", list()),
-                self.set_trait("selection_adv", ""),
-                # self.wrong_syntax.layout.visibility = 'hidden'
-            )
-        )
-        # CLEAR self.wrong_syntax.layout.visibility = 'visible'
-
-        # 5. Button to apply selection
-        apply_selection = ipw.Button(description="Apply selection")
-        apply_selection.on_click(self.apply_selection)
-
-        self.selection_info = ipw.HTML()
-
-        return ipw.VBox(
-            [
-                ipw.HBox([self._selected_atoms, self.wrong_syntax]),
-                ipw.HTML(
-                    value="""
-                <p style="font-weight:800;">You can either specify ranges:
-                    <font style="font-style:italic;font-weight:400;">1 5..8 10</font>
-                </p>
-                <p style="font-weight:800;">or expressions:
-                    <font style="font-style:italic;font-weight:400;">(x>1 and name not [N,O]) or d_from [1,1,1]>2 or id>=10</font>
-                </p>"""
-                ),
-                ipw.HBox([copy_to_clipboard, clear_selection, apply_selection]),
-                self.selection_info,
-            ]
-        )
-
-    def _appearance_tab(self):
-        """Defining the appearance tab."""
-
-        # 1. Supercell
-        def change_supercell(_=None):
-            self.supercell = [
-                _supercell[0].value,
-                _supercell[1].value,
-                _supercell[2].value,
-            ]
-
-        _supercell = [
-            ipw.BoundedIntText(value=1, min=1, layout={"width": "30px"}),
-            ipw.BoundedIntText(value=1, min=1, layout={"width": "30px"}),
-            ipw.BoundedIntText(value=1, min=1, layout={"width": "30px"}),
-        ]
-        for elem in _supercell:
-            elem.observe(change_supercell, names="value")
-        supercell_selector = ipw.HBox(
-            [ipw.HTML(description="Super cell:")] + _supercell
-        )
-
-        # 2. Choose background color.
-        background_color = ipw.ColorPicker(description="Background")
-        link((background_color, "value"), (self._viewer, "background"))
-        background_color.value = "white"
-
-        # 3. Camera switcher
-        camera_type = ipw.ToggleButtons(
-            options={"Orthographic": "orthographic", "Perspective": "perspective"},
-            description="Camera type:",
-            value=self._viewer.camera,
-            layout={"align_self": "flex-start"},
-            style={"button_width": "115.5px"},
-            orientation="vertical",
-        )
-
-        def change_camera(change):
-
-            self._viewer.camera = change["new"]
-
-        camera_type.observe(change_camera, names="value")
-
-        # 4. Center button.
-        center_button = ipw.Button(description="Center molecule")
-        center_button.on_click(lambda c: self._viewer.center())
-
-        return ipw.VBox(
-            [supercell_selector, background_color, camera_type, center_button]
         )
 
     def _download_tab(self):
