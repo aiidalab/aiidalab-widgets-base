@@ -160,7 +160,7 @@ class _StructureDataBaseViewer(ipw.VBox):
 
     :param configure_view: If True, add configuration tabs (deprecated)
     :type configure_view: bool
-    :param configuration_tabs: List of configuration tabs (default: ["Cell", "Selection", "Cell", "Download"])
+    :param configuration_tabs: List of configuration tabs (default: ["Selection", "Appearance", "Cell", "Download"])
     :type configure_view: list
     :param default_camera: default camera (orthographic|perspective), can be changed in the Appearance tab
     :type default_camera: string
@@ -179,7 +179,7 @@ class _StructureDataBaseViewer(ipw.VBox):
     def __init__(
         self,
         configure_view=True,
-        configuration_tabs=["Cell", "Selection", "Appearance", "Download"],
+        configuration_tabs=None,
         default_camera="orthographic",
         **kwargs,
     ):
@@ -209,7 +209,11 @@ class _StructureDataBaseViewer(ipw.VBox):
                 configuration_tabs.clear()
 
         # Constructing configuration box
+        if configuration_tabs is None:
+            configuration_tabs = ["Selection", "Appearance", "Cell", "Download"]
+
         if len(configuration_tabs) != 0:
+            self.selection_tab_idx = configuration_tabs.index("Selection")
             self.configuration_box = ipw.Tab(
                 layout=ipw.Layout(flex="1 1 auto", width="auto")
             )
@@ -406,7 +410,7 @@ class _StructureDataBaseViewer(ipw.VBox):
 
         return ipw.VBox(
             [
-                ipw.HTML("Length unit: Angstrom"),
+                ipw.HTML("Length unit: angstrom"),
                 ipw.HBox(
                     [
                         ipw.VBox(
@@ -440,7 +444,7 @@ class _StructureDataBaseViewer(ipw.VBox):
                         ),
                         ipw.VBox(
                             [
-                                ipw.HTML("Symmetry infomation:"),
+                                ipw.HTML("Symmetry information:"),
                                 self.cell_spacegroup,
                                 self.cell_hall,
                             ],
@@ -677,9 +681,9 @@ class _StructureDataBaseViewer(ipw.VBox):
         self.highlight_atoms(self.selection)
         self._selected_atoms.value = list_to_string_range(self.selection, shift=1)
 
-        # if atom selected from nglview, shift to selection tab
+        # if atom is selected from nglview, shift to selection tab
         if self._selected_atoms.value:
-            self.configuration_box.selected_index = 1
+            self.configuration_box.selected_index = self.selection_tab_idx
 
     def apply_selection(self, _=None):
         """Apply selection specified in the text field."""

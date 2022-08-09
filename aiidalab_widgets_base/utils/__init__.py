@@ -1,5 +1,6 @@
 """Some utility functions used acrross the repository."""
 import threading
+from typing import Any, Tuple
 
 import ipywidgets as ipw
 import more_itertools as mit
@@ -164,8 +165,11 @@ class StatusHTML(_StatusWidgetMixin, ipw.HTML):
         self.show_temporary_message(change["new"])
 
 
-def ase2spglib(ase_structure: Atoms):
-    """convert ase Atoms instance to spglib cell"""
+def ase2spglib(ase_structure: Atoms) -> Tuple[Any, Any, Any]:
+    """
+    Convert ase Atoms instance to spglib cell in the format defined at
+    https://spglib.github.io/spglib/python-spglib.html#crystal-structure-cell
+    """
     lattice = ase_structure.get_cell()
     positions = ase_structure.get_scaled_positions()
     numbers = ase_structure.get_atomic_numbers()
