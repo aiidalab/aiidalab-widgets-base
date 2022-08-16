@@ -229,15 +229,19 @@ class ComputationalResourcesWidget(ipw.VBox):
                     "width": "500px",
                     "border": "1px solid gray",
                 }
-                display(
-                    ipw.HTML(
-                        """Please select the computer/code from a database to pre-fill the fields below."""
-                    ),
-                    self.comp_resources_database,
-                    self.setup_message,
-                    self.ssh_computer_setup.password_box,
-                    self.output_tab,
+                children = (
+                    [
+                        ipw.HTML(
+                            """Please select the computer/code from a database to pre-fill the fields below."""
+                        ),
+                        self.comp_resources_database,
+                        self.ssh_computer_setup.password_box,
+                    ]
+                    if self.comp_resources_database.database
+                    else []
                 )
+                children += [self.setup_message, self.output_tab]
+                display(*children)
             else:
                 self._setup_new_code_output.layout = {
                     "width": "500px",
