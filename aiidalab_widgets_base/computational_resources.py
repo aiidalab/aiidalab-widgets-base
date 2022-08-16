@@ -57,7 +57,10 @@ class ComputationalResourcesWidget(ipw.VBox):
         self.output = ipw.HTML()
         self.setup_message = StatusHTML()
         self.code_select_dropdown = ipw.Dropdown(
-            description=description, disabled=True, value=None
+            description=description,
+            disabled=True,
+            value=None,
+            style={"description_width": "initial"},
         )
         traitlets.link((self, "codes"), (self.code_select_dropdown, "options"))
         traitlets.link((self.code_select_dropdown, "value"), (self, "value"))
