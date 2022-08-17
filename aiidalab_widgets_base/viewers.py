@@ -372,8 +372,10 @@ class _StructureDataBaseViewer(ipw.VBox):
                 spglib_structure, symprec=1e-5, angle_tolerance=1.0
             )
 
-            self.cell_spacegroup.value = f"Spacegroup: {symmetry_dataset['international']} (No.{symmetry_dataset['number']})"
-            self.cell_hall.value = f"Hall: {symmetry_dataset['hall']} (No.{symmetry_dataset['hall_number']})"
+            # 3-D structure, attach symmetry info
+            if all(self.ase_structure.pbc):
+                self.cell_spacegroup.value = f"Spacegroup: {symmetry_dataset['international']} (No.{symmetry_dataset['number']})"
+                self.cell_hall.value = f"Hall: {symmetry_dataset['hall']} (No.{symmetry_dataset['hall_number']})"
         else:
             self.cell_a.value = "<i><b>a</b></i>:"
             self.cell_b.value = "<i><b>b</b></i>:"
@@ -387,8 +389,6 @@ class _StructureDataBaseViewer(ipw.VBox):
             self.cell_beta.value = "&beta;:"
             self.cell_gamma.value = "&gamma;:"
 
-            self.cell_spacegroup.value = "Spacegroup: "
-            self.cell_hall.value = "Hall: "
 
     def _cell_tab(self):
         self.cell_a = ipw.HTML()
@@ -410,7 +410,7 @@ class _StructureDataBaseViewer(ipw.VBox):
 
         return ipw.VBox(
             [
-                ipw.HTML("Length unit: angstrom"),
+                ipw.HTML("Length unit: angstrom (Å)"),
                 ipw.HBox(
                     [
                         ipw.VBox(
