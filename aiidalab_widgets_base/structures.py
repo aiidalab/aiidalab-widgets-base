@@ -369,9 +369,11 @@ class StructureUploadWidget(ipw.VBox):
         Supported structure formats
         </a>"""
         )
-        self.output = ipw.HTML("")
+        self._status_message = StatusHTML(clear_after=5)
         self.file_upload.observe(self._on_file_upload, names="value")
-        super().__init__(children=[self.file_upload, supported_formats, self.output])
+        super().__init__(
+            children=[self.file_upload, supported_formats, self._status_message]
+        )
 
     def _validate_and_fix_ase_cell(self, ase_structure, vacuum_ang=10.0):
         """
@@ -401,7 +403,6 @@ class StructureUploadWidget(ipw.VBox):
 
     def _on_file_upload(self, change=None):
         """When file upload button is pressed."""
-        self.output.value = ""
         for fname, item in change["new"].items():
             self.structure = self._read_structure(fname, item["content"])
             self.file_upload.value.clear()
@@ -415,7 +416,7 @@ class StructureUploadWidget(ipw.VBox):
             try:
                 return CifData(file=io.BytesIO(content))
             except StarError:
-                self.output.value = f"Could not parse CIF file {fname}"
+                self._status_message.message = f"Could not parse CIF file {fname}"
                 return None
 
         with tempfile.NamedTemporaryFile(suffix=suffix) as temp_file:
@@ -424,16 +425,26 @@ class StructureUploadWidget(ipw.VBox):
             try:
                 structures = get_ase_from_file(temp_file.name)
             except ValueError as e:
-                self.output.value = f"ERROR: {e}"
+                self._status_message.message = f"""
+                    <div class="alert alert-info">
+                    <strong>ERROR: {e}</strong>
+                    </div>
+                    """
                 return None
             except KeyError:
-                self.output.value = f"ERROR: Could not parse file {fname}"
+                self._status_message.message = f"""
+                    <div class="alert alert-info">
+                    <strong>ERROR: Could not parse file {fname}</strong>
+                    </div>
+                    """
                 return None
 
             if len(structures) > 1:
-                self.output.value = (
-                    f"ERROR: More than one structure found in file {fname}"
-                )
+                self._status_message.message = f"""
+                    <div class="alert alert-info">
+                    <strong>ERROR: More than one structure found in file {fname}</strong>
+                    </div>
+                    """
                 return None
 
             return self._validate_and_fix_ase_cell(structures[0])
