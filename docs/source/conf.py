@@ -14,15 +14,6 @@ from aiida.manage.configuration import load_documentation_profile
 
 load_documentation_profile()
 
-# Let's make sure the entry points are up to date
-try:
-    from aiida.plugins.entry_point import ENTRYPOINT_MANAGER as mgr
-
-    mgr.scan()
-except AttributeError:
-    # .scan may be no longer availabe if we switch away from reentry
-    pass
-
 import aiidalab_widgets_base  # pylint: disable=wrong-import-position
 
 # Add any Sphinx extension module names here, as strings. They can be
@@ -40,7 +31,7 @@ extensions = [
 jupyter_execute_notebooks = "off"
 
 intersphinx_mapping = {
-    "python": ("https://docs.python.org/3.7", None),
+    "python": ("https://docs.python.org/3.9", None),
 }
 
 # Add any paths that contain templates here, relative to this directory.
