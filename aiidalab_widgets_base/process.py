@@ -66,8 +66,7 @@ class SubmitButtonWidget(ipw.VBox):
     def __init__(  # pylint: disable=too-many-arguments
         self,
         process_class,
-        inputs_generator=None,
-        input_dictionary_function=None,
+        inputs_generator,
         description="Submit",
         disable_after_submit=True,
         append_output=False,
@@ -78,8 +77,6 @@ class SubmitButtonWidget(ipw.VBox):
         process_class (Process): Process class to submit.
 
         inputs_generator (func): Function that returns inputs dictionary or inputs builder.
-
-        input_dictionary_function (DEPRECATED): Function that generates input parameters dictionary.
 
         description (str): Description written on the submission button.
 
@@ -96,26 +93,7 @@ class SubmitButtonWidget(ipw.VBox):
                 f"process_class argument must be a sublcass of {Process}, got {process_class}"
             )
 
-        # Handling the deprecation.
-        if inputs_generator is None and input_dictionary_function is None:
-            raise ValueError("The `inputs_generator` argument must be provided.")
-        if inputs_generator and input_dictionary_function:
-            raise ValueError(
-                "You provided both: `inputs_generator` and `input_dictionary_function` "
-                "arguments. Please provide `inpust_generator` only."
-            )
-        if input_dictionary_function:
-            inputs_generator = input_dictionary_function
-            warnings.warn(
-                (
-                    "The `input_dictionary_function` argument is deprecated and "
-                    "will be removed in the release 1.1 of the aiidalab-widgets-base package. "
-                    "Please use the `inputs_generator` argument instead."
-                ),
-                DeprecationWarning,
-            )
-
-        # Checking if the inputs generator is
+        # Checking if the inputs generator is callable
         if callable(inputs_generator):
             self.inputs_generator = inputs_generator
         else:
