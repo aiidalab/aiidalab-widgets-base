@@ -340,7 +340,7 @@ class _StructureDataBaseViewer(ipw.VBox):
 
     @observe("cell")
     def _observe_cell(self, _=None):
-        # only update cell info when it is a 3D structure. 
+        # only update cell info when it is a 3D structure.
         if self.cell and all(self.structure.pbc):
             self.cell_a.value = "<i><b>a</b></i>: {:.4f} {:.4f} {:.4f}".format(
                 *self.cell.array[0]
@@ -385,7 +385,6 @@ class _StructureDataBaseViewer(ipw.VBox):
             self.cell_alpha.value = "&alpha;:"
             self.cell_beta.value = "&beta;:"
             self.cell_gamma.value = "&gamma;:"
-
 
     def _cell_tab(self):
         self.cell_a = ipw.HTML()
