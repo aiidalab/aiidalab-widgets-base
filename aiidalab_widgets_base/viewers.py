@@ -156,7 +156,7 @@ class DictViewer(ipw.VBox):
 
 
 class _StructureDataBaseViewer(ipw.VBox):
-    """Base viewer class for AiiDA structure or ase structure objects.
+    """Base viewer class for AiiDA structure or trajectory objects.
 
     :param configure_view: If True, add configuration tabs (deprecated)
     :type configure_view: bool
@@ -170,8 +170,7 @@ class _StructureDataBaseViewer(ipw.VBox):
     selection = List(Int)
     selection_adv = Unicode()
     supercell = List(Int)
-    cell = Instance(Cell, allow_none=True)  # Will be deprecated
-    ase_structure = Instance(Atoms, allow_none=True)
+    cell = Instance(Cell, allow_none=True)
     DEFAULT_SELECTION_OPACITY = 0.2
     DEFAULT_SELECTION_RADIUS = 6
     DEFAULT_SELECTION_COLOR = "green"
@@ -339,10 +338,10 @@ class _StructureDataBaseViewer(ipw.VBox):
             [supercell_selector, background_color, camera_type, center_button]
         )
 
-    @observe("ase_structure")
-    def _observe_ase_structure(self, _=None):
-        if self.ase_structure:
-            self.cell = self.ase_structure.cell
+    @observe("cell")
+    def _observe_cell(self, _=None):
+        # only update cell info when it is a 3D structure. 
+        if self.cell and all(self.structure.pbc):
             self.cell_a.value = "<i><b>a</b></i>: {:.4f} {:.4f} {:.4f}".format(
                 *self.cell.array[0]
             )
@@ -367,15 +366,13 @@ class _StructureDataBaseViewer(ipw.VBox):
             self.cell_beta.value = f"&beta;: {self.cell.angles()[1]:.4f}"
             self.cell_gamma.value = f"&gamma;: {self.cell.angles()[2]:.4f}"
 
-            spglib_structure = ase2spglib(self.ase_structure)
+            spglib_structure = ase2spglib(self.structure)
             symmetry_dataset = spglib.get_symmetry_dataset(
                 spglib_structure, symprec=1e-5, angle_tolerance=1.0
             )
 
-            # 3-D structure, attach symmetry info
-            if all(self.ase_structure.pbc):
-                self.cell_spacegroup.value = f"Spacegroup: {symmetry_dataset['international']} (No.{symmetry_dataset['number']})"
-                self.cell_hall.value = f"Hall: {symmetry_dataset['hall']} (No.{symmetry_dataset['hall_number']})"
+            self.cell_spacegroup.value = f"Spacegroup: {symmetry_dataset['international']} (No.{symmetry_dataset['number']})"
+            self.cell_hall.value = f"Hall: {symmetry_dataset['hall']} (No.{symmetry_dataset['hall_number']})"
         else:
             self.cell_a.value = "<i><b>a</b></i>:"
             self.cell_b.value = "<i><b>b</b></i>:"
@@ -406,7 +403,7 @@ class _StructureDataBaseViewer(ipw.VBox):
         self.cell_spacegroup = ipw.HTML()
         self.cell_hall = ipw.HTML()
 
-        self._observe_ase_structure()
+        self._observe_cell()
 
         return ipw.VBox(
             [
@@ -797,10 +794,10 @@ class StructureDataViewer(_StructureDataBaseViewer):
         # Remove the current structure(s) from the viewer.
         if change["new"] is not None:
             self.set_trait("displayed_structure", change["new"].repeat(self.supercell))
-            self.set_trait("ase_structure", change["new"])
+            self.set_trait("cell", change["new"].cell)
         else:
             self.set_trait("displayed_structure", None)
-            self.set_trait("ase_structure", None)
+            self.set_trait("cell", None)
 
     @observe("displayed_structure")
     def _update_structure_viewer(self, change):
