@@ -426,24 +426,18 @@ class StructureUploadWidget(ipw.VBox):
                 structures = get_ase_from_file(temp_file.name)
             except ValueError as e:
                 self._status_message.message = f"""
-                    <div class="alert alert-info">
-                    <strong>ERROR: {e}</strong>
-                    </div>
+                    <div class="alert alert-danger">ERROR: {e}</div>
                     """
                 return None
             except KeyError:
                 self._status_message.message = f"""
-                    <div class="alert alert-info">
-                    <strong>ERROR: Could not parse file {fname}</strong>
-                    </div>
+                    <div class="alert alert-danger">ERROR: Could not parse file {fname}</div>
                     """
                 return None
 
             if len(structures) > 1:
                 self._status_message.message = f"""
-                    <div class="alert alert-info">
-                    <strong>ERROR: More than one structure found in file {fname}</strong>
-                    </div>
+                    <div class="alert alert-danger">ERROR: More than one structure found in file {fname}</div>
                     """
                 return None
 
