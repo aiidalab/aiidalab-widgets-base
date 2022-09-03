@@ -411,12 +411,10 @@ class StructureUploadWidget(ipw.VBox):
     def _read_structure(self, fname, content):
         suffix = "".join(pathlib.Path(fname).suffixes)
         if suffix == ".cif":
-            from CifFile import StarError
-
             try:
                 return CifData(file=io.BytesIO(content))
-            except StarError:
-                self._status_message.message = f"Could not parse CIF file {fname}"
+            except Exception as e:
+                self._status_message.message = f"Could not parse CIF file {fname}: {e}"
                 return None
 
         with tempfile.NamedTemporaryFile(suffix=suffix) as temp_file:
