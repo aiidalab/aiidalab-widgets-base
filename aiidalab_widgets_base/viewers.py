@@ -1165,6 +1165,8 @@ class BandsDataViewer(ipw.VBox):
 
 
 @register_viewer_widget("process.workflow.workchain.WorkChainNode.")
+@register_viewer_widget("process.calculation.calcfunction.CalcFunctionNode.")
+@register_viewer_widget("process.workflow.workfunction.WorkFunctionNode.")
 class WorkChainNodeViewerWidget(ipw.HTML):
     def __init__(self, workchain, **kwargs):
         self.workchain = workchain
