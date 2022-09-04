@@ -414,7 +414,9 @@ class StructureUploadWidget(ipw.VBox):
             try:
                 return CifData(file=io.BytesIO(content))
             except Exception as e:
-                self._status_message.message = f"Could not parse CIF file {fname}: {e}"
+                self._status_message.message = f"""
+                    <div class="alert alert-danger">Could not parse CIF file {fname}: {e}</div>
+                    """
                 return None
 
         with tempfile.NamedTemporaryFile(suffix=suffix) as temp_file:
