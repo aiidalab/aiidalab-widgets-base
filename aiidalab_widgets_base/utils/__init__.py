@@ -36,15 +36,8 @@ def get_ase_from_file(fname, format=None):  # pylint: disable=redefined-builtin
     else:
         traj = read(fname, format=format, index=":")
     if not traj:
-        print(f"Could not read any information from the file {fname}")
-        return False
-    if len(traj) > 1:
-        print(
-            "Warning: Uploaded file {} contained more than one structure. Selecting the first one.".format(
-                fname
-            )
-        )
-    return traj[0]
+        raise ValueError(f"Could not read any information from the file {fname}")
+    return traj
 
 
 def find_ranges(iterable):

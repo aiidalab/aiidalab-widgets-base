@@ -4,6 +4,7 @@
 import datetime
 import functools
 import io
+import pathlib
 import tempfile
 from collections import OrderedDict
 
@@ -368,16 +369,25 @@ class StructureUploadWidget(ipw.VBox):
         Supported structure formats
         </a>"""
         )
+        self._status_message = StatusHTML(clear_after=5)
         self.file_upload.observe(self._on_file_upload, names="value")
-        super().__init__(children=[self.file_upload, supported_formats])
+        super().__init__(
+            children=[self.file_upload, supported_formats, self._status_message]
+        )
 
     def _validate_and_fix_ase_cell(self, ase_structure, vacuum_ang=10.0):
         """
         Checks if the ase Atoms object has a cell set,
         otherwise sets it to bounding box plus specified "vacuum" space
         """
+        if not ase_structure:
+            return None
+
         cell = ase_structure.cell
 
+        # TODO: Since AiiDA 2.0, zero cell is possible if PBC=false
+        # so we should honor that here and do not put artificial cell
+        # around gas phase molecules.
         if (
             np.linalg.norm(cell[0]) < 0.1
             or np.linalg.norm(cell[1]) < 0.1
@@ -394,18 +404,44 @@ class StructureUploadWidget(ipw.VBox):
     def _on_file_upload(self, change=None):
         """When file upload button is pressed."""
         for fname, item in change["new"].items():
-            frmt = fname.split(".")[-1]
-            if frmt == "cif":
-                self.structure = CifData(file=io.BytesIO(item["content"]))
-            else:
-                with tempfile.NamedTemporaryFile(suffix=f".{frmt}") as temp_file:
-                    temp_file.write(item["content"])
-                    temp_file.flush()
-                    self.structure = self._validate_and_fix_ase_cell(
-                        get_ase_from_file(temp_file.name)
-                    )
+            self.structure = self._read_structure(fname, item["content"])
             self.file_upload.value.clear()
             break
+
+    def _read_structure(self, fname, content):
+        suffix = "".join(pathlib.Path(fname).suffixes)
+        if suffix == ".cif":
+            try:
+                return CifData(file=io.BytesIO(content))
+            except Exception as e:
+                self._status_message.message = f"""
+                    <div class="alert alert-danger">Could not parse CIF file {fname}: {e}</div>
+                    """
+                return None
+
+        with tempfile.NamedTemporaryFile(suffix=suffix) as temp_file:
+            temp_file.write(content)
+            temp_file.flush()
+            try:
+                structures = get_ase_from_file(temp_file.name)
+            except ValueError as e:
+                self._status_message.message = f"""
+                    <div class="alert alert-danger">ERROR: {e}</div>
+                    """
+                return None
+            except KeyError:
+                self._status_message.message = f"""
+                    <div class="alert alert-danger">ERROR: Could not parse file {fname}</div>
+                    """
+                return None
+
+            if len(structures) > 1:
+                self._status_message.message = f"""
+                    <div class="alert alert-danger">ERROR: More than one structure found in file {fname}</div>
+                    """
+                return None
+
+            return self._validate_and_fix_ase_cell(structures[0])
 
 
 class StructureExamplesWidget(ipw.VBox):
@@ -437,7 +473,7 @@ class StructureExamplesWidget(ipw.VBox):
         """When structure is selected."""
 
         self.structure = (
-            get_ase_from_file(self._select_structure.value)
+            get_ase_from_file(self._select_structure.value)[0]
             if self._select_structure.value
             else None
         )
