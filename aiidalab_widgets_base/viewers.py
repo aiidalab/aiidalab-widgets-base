@@ -9,6 +9,7 @@ from copy import deepcopy
 import ipywidgets as ipw
 import nglview
 import numpy as np
+import spglib
 import traitlets
 from aiida.cmdline.utils.common import get_workchain_report
 from aiida.orm import Node
@@ -42,7 +43,7 @@ from vapory import (
 
 from .dicts import Colors, Radius
 from .misc import CopyToClipboardButton, ReversePolishNotation
-from .utils import list_to_string_range, string_range_to_list
+from .utils import ase2spglib, list_to_string_range, string_range_to_list
 
 AIIDA_VIEWER_MAPPING = dict()
 
@@ -177,7 +178,7 @@ class _StructureDataBaseViewer(ipw.VBox):
     def __init__(
         self,
         configure_view=True,
-        configuration_tabs=["Selection", "Appearance", "Cell", "Download"],
+        configuration_tabs=None,
         default_camera="orthographic",
         **kwargs,
     ):
@@ -192,9 +193,9 @@ class _StructureDataBaseViewer(ipw.VBox):
         view_box = ipw.VBox([self._viewer])
 
         configuration_tabs_map = {
+            "Cell": self._cell_tab(),
             "Selection": self._selection_tab(),
             "Appearance": self._appearance_tab(),
-            "Cell": self._cell_tab(),
             "Download": self._download_tab(),
         }
 
@@ -207,17 +208,21 @@ class _StructureDataBaseViewer(ipw.VBox):
                 configuration_tabs.clear()
 
         # Constructing configuration box
+        if configuration_tabs is None:
+            configuration_tabs = ["Selection", "Appearance", "Cell", "Download"]
+
         if len(configuration_tabs) != 0:
-            configuration_box = ipw.Tab(
+            self.selection_tab_idx = configuration_tabs.index("Selection")
+            self.configuration_box = ipw.Tab(
                 layout=ipw.Layout(flex="1 1 auto", width="auto")
             )
-            configuration_box.children = [
+            self.configuration_box.children = [
                 configuration_tabs_map[tab_title] for tab_title in configuration_tabs
             ]
 
             for i, title in enumerate(configuration_tabs):
-                configuration_box.set_title(i, title)
-            children = [ipw.HBox([view_box, configuration_box])]
+                self.configuration_box.set_title(i, title)
+            children = [ipw.HBox([view_box, self.configuration_box])]
             view_box.layout = {"width": "60%"}
         else:
             children = [view_box]
@@ -335,7 +340,8 @@ class _StructureDataBaseViewer(ipw.VBox):
 
     @observe("cell")
     def _observe_cell(self, _=None):
-        if self.cell:
+        # only update cell info when it is a 3D structure.
+        if self.cell and all(self.structure.pbc):
             self.cell_a.value = "<i><b>a</b></i>: {:.4f} {:.4f} {:.4f}".format(
                 *self.cell.array[0]
             )
@@ -359,6 +365,14 @@ class _StructureDataBaseViewer(ipw.VBox):
             self.cell_alpha.value = f"&alpha;: {self.cell.angles()[0]:.4f}"
             self.cell_beta.value = f"&beta;: {self.cell.angles()[1]:.4f}"
             self.cell_gamma.value = f"&gamma;: {self.cell.angles()[2]:.4f}"
+
+            spglib_structure = ase2spglib(self.structure)
+            symmetry_dataset = spglib.get_symmetry_dataset(
+                spglib_structure, symprec=1e-5, angle_tolerance=1.0
+            )
+
+            self.cell_spacegroup.value = f"Spacegroup: {symmetry_dataset['international']} (No.{symmetry_dataset['number']})"
+            self.cell_hall.value = f"Hall: {symmetry_dataset['hall']} (No.{symmetry_dataset['hall_number']})"
         else:
             self.cell_a.value = "<i><b>a</b></i>:"
             self.cell_b.value = "<i><b>b</b></i>:"
@@ -385,10 +399,14 @@ class _StructureDataBaseViewer(ipw.VBox):
         self.cell_beta = ipw.HTML()
         self.cell_gamma = ipw.HTML()
 
+        self.cell_spacegroup = ipw.HTML()
+        self.cell_hall = ipw.HTML()
+
         self._observe_cell()
 
         return ipw.VBox(
             [
+                ipw.HTML("Length unit: angstrom (Å)"),
                 ipw.HBox(
                     [
                         ipw.VBox(
@@ -410,12 +428,24 @@ class _StructureDataBaseViewer(ipw.VBox):
                         ),
                     ]
                 ),
-                ipw.VBox(
+                ipw.HBox(
                     [
-                        ipw.HTML("Angles:"),
-                        self.cell_alpha,
-                        self.cell_beta,
-                        self.cell_gamma,
+                        ipw.VBox(
+                            [
+                                ipw.HTML("Angles:"),
+                                self.cell_alpha,
+                                self.cell_beta,
+                                self.cell_gamma,
+                            ]
+                        ),
+                        ipw.VBox(
+                            [
+                                ipw.HTML("Symmetry information:"),
+                                self.cell_spacegroup,
+                                self.cell_hall,
+                            ],
+                            layout={"margin": "0 0 0 50px"},
+                        ),
                     ]
                 ),
             ]
@@ -646,6 +676,10 @@ class _StructureDataBaseViewer(ipw.VBox):
     def _observe_selection(self, _=None):
         self.highlight_atoms(self.selection)
         self._selected_atoms.value = list_to_string_range(self.selection, shift=1)
+
+        # if atom is selected from nglview, shift to selection tab
+        if self._selected_atoms.value:
+            self.configuration_box.selected_index = self.selection_tab_idx
 
     def apply_selection(self, _=None):
         """Apply selection specified in the text field."""

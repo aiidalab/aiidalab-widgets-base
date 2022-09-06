@@ -1,11 +1,13 @@
 """Some utility functions used acrross the repository."""
 import threading
+from typing import Any, Tuple
 
 import ipywidgets as ipw
 import more_itertools as mit
 import numpy as np
 import traitlets
 from aiida.plugins import DataFactory
+from ase import Atoms
 from ase.io import read
 
 CifData = DataFactory("cif")  # pylint: disable=invalid-name
@@ -166,3 +168,15 @@ class StatusHTML(_StatusWidgetMixin, ipw.HTML):
     @traitlets.observe("message")
     def _observe_message(self, change):
         self.show_temporary_message(change["new"])
+
+
+def ase2spglib(ase_structure: Atoms) -> Tuple[Any, Any, Any]:
+    """
+    Convert ase Atoms instance to spglib cell in the format defined at
+    https://spglib.github.io/spglib/python-spglib.html#crystal-structure-cell
+    """
+    lattice = ase_structure.get_cell()
+    positions = ase_structure.get_scaled_positions()
+    numbers = ase_structure.get_atomic_numbers()
+
+    return (lattice, positions, numbers)

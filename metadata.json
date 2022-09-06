@@ -14,6 +14,7 @@
             "more_itertools~=8.0",
             "nglview~=3.0",
             "numpy~=1.17",
+            "spglib~=1.16",
             "optimade-client==2021.5.7",
             "pandas~=1.0",
             "scikit-learn~=0.24",
