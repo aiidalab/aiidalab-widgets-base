@@ -7,7 +7,12 @@ import more_itertools as mit
 import numpy as np
 import traitlets
 from ase import Atoms
+from aiida.plugins import DataFactory
 from ase.io import read
+
+CifData = DataFactory("cif")  # pylint: disable=invalid-name
+StructureData = DataFactory("structure")  # pylint: disable=invalid-name
+TrajectoryData = DataFactory("array.trajectory")  # pylint: disable=invalid-name
 
 
 def valid_arguments(arguments, valid_args):
