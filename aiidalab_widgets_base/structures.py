@@ -497,7 +497,7 @@ class StructureBrowserWidget(ipw.VBox):
         if query_types:
             self.query_structure_type = query_types
         else:
-            self.query_structure_type = (DataFactory("structure"), DataFactory("cif"))
+            self.query_structure_type = (StructureData, CifData)
 
         # Extracting available process labels.
         qbuilder = QueryBuilder().append((CalcJobNode, WorkChainNode), project="label")
