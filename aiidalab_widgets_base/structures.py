@@ -484,8 +484,8 @@ class StructureBrowserWidget(ipw.VBox):
 
     :param title: Title of the widget displayed on a tab in StructureManagerWidget
     :type title: string
-    :param query_structure_type: A tuple of Data node types that are searched (default: StructureData, CifData)
-    :type query_structure_type: tuple
+    :param query_types: A tuple of Data node types that are searched (default: StructureData, CifData)
+    :type query_types: tuple
     """
 
     structure = Union([Instance(Atoms), Instance(Data)], allow_none=True)
