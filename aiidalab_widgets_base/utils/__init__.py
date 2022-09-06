@@ -6,8 +6,8 @@ import ipywidgets as ipw
 import more_itertools as mit
 import numpy as np
 import traitlets
-from ase import Atoms
 from aiida.plugins import DataFactory
+from ase import Atoms
 from ase.io import read
 
 CifData = DataFactory("cif")  # pylint: disable=invalid-name
