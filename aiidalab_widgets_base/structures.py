@@ -8,7 +8,6 @@ import pathlib
 import tempfile
 from collections import OrderedDict
 
-# ASE imports
 import ase
 import ipywidgets as ipw
 import numpy as np
@@ -29,12 +28,9 @@ from ase.data import chemical_symbols, covalent_radii
 from sklearn.decomposition import PCA
 from traitlets import Instance, Int, List, Unicode, Union, default, dlink, link, observe
 
-from aiidalab_widgets_base.utils import StatusHTML
-
-from .data import LigandSelectorWidget
-
 # Local imports
-from .utils import get_ase_from_file
+from .data import LigandSelectorWidget
+from .utils import StatusHTML, get_ase_from_file, get_formula
 from .viewers import StructureDataViewer
 
 CifData = DataFactory("cif")  # pylint: disable=invalid-name
@@ -484,15 +480,24 @@ class StructureExamplesWidget(ipw.VBox):
 
 
 class StructureBrowserWidget(ipw.VBox):
-    """Class to query for structures stored in the AiiDA database."""
+    """Class to query for structures stored in the AiiDA database.
+
+    :param title: Title of the widget displayed on a tab in StructureManagerWidget
+    :type title: string
+    :param query_types: A tuple of Data node types that are searched (default: StructureData, CifData)
+    :type query_types: tuple
+    """
 
     structure = Union([Instance(Atoms), Instance(Data)], allow_none=True)
 
-    def __init__(self, title=""):
+    def __init__(self, title="", query_types=None):
         self.title = title
 
         # Structure objects we want to query for.
-        self.query_structure_type = (DataFactory("structure"), DataFactory("cif"))
+        if query_types:
+            self.query_structure_type = query_types
+        else:
+            self.query_structure_type = (StructureData, CifData)
 
         # Extracting available process labels.
         qbuilder = QueryBuilder().append((CalcJobNode, WorkChainNode), project="label")
@@ -559,11 +564,10 @@ class StructureBrowserWidget(ipw.VBox):
         )
         for item in queryb.all():  # iterall() would interfere with set_extra()
             try:
-                formula = item[0].get_formula()
-            except AttributeError:
-                # Slow part.
-                formula = item[0].get_ase().get_chemical_formula()
-            item[0].set_extra("formula", formula)
+                formula = get_formula(item[0])
+                item[0].set_extra("formula", formula)
+            except ValueError:
+                pass
 
     def search(self, _=None):
         """Launch the search of structures in AiiDA database."""
@@ -638,7 +642,7 @@ class StructureBrowserWidget(ipw.VBox):
         for mch in matches:
             label = f"PK: {mch.id}"
             label += " | " + mch.ctime.strftime("%Y-%m-%d %H:%M")
-            label += " | " + mch.get_extra("formula")
+            label += " | " + mch.get_extra("formula", "")
             label += " | " + mch.node_type.split(".")[-2]
             label += " | " + mch.label
             label += " | " + mch.description
@@ -651,7 +655,7 @@ class StructureBrowserWidget(ipw.VBox):
 
 
 class SmilesWidget(ipw.VBox):
-    """Conver SMILES into 3D structure."""
+    """Convert SMILES into 3D structure."""
 
     structure = Instance(Atoms, allow_none=True)
 
