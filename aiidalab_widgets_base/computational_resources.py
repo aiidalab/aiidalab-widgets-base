@@ -1069,21 +1069,18 @@ class ComputerDropdownWidget(ipw.VBox):
     """Widget to select a configured computer.
 
     Attributes:
-        selected_computer(Unicode or Computer): Trait that points to the selected Computer instance.
-            It can be set either to an AiiDA Computer instance or to a computer label (will
-            automatically be replaced by the corresponding Computer instance). It is linked to the
+        selected_computer(Unicode of computer uuid): Trait that points to the selected Computer instance.
+            It can be set to an AiiDA Computer uuid. It is linked to the
             'value' trait of `self._dropdown` widget.
 
-        computers(Dict): Trait that contains a dictionary (label => Computer instance) for all
+        computers(Dict): Trait that contains a dictionary (label => Computer uuid) for all
         computers found in the AiiDA database. It is linked to the 'options' trait of
         `self._dropdown` widget.
 
         allow_select_disabled(Bool):  Trait that defines whether to show disabled computers.
     """
 
-    value = traitlets.Union(
-        [traitlets.Unicode(), traitlets.Instance(orm.Computer)], allow_none=True
-    )
+    value = traitlets.Unicode(allow_none=True)
     computers = traitlets.Dict(allow_none=True)
     allow_select_disabled = traitlets.Bool(False)
 
@@ -1127,7 +1124,7 @@ class ComputerDropdownWidget(ipw.VBox):
         user = orm.User.objects.get_default()
 
         return {
-            c[0].label: c[0]
+            c[0].label: c[0].uuid
             for c in orm.QueryBuilder().append(orm.Computer).all()
             if c[0].is_user_configured(user)
             and (self.allow_select_disabled or c[0].is_user_enabled(user))
@@ -1149,20 +1146,17 @@ class ComputerDropdownWidget(ipw.VBox):
     @traitlets.validate("value")
     def _validate_value(self, change):
         """Select computer either by label or by class instance."""
-        computer = change["value"]
+        computer_uuid = change["value"]
         self.output.value = ""
-        if not computer:
+        if not computer_uuid:
             return None
-        if isinstance(computer, str):
-            if computer in self.computers:
-                return self.computers[computer]
-            self.output.value = f"""Computer instance '<span style="color:red">{computer}</span>'
-            is not configured in your AiiDA profile."""
-            return None
+        if isinstance(computer_uuid, str):
+            try:
+                _ = orm.load_computer(computer_uuid)
+            except NotExistent:
+                self.output.value = f"""The computer uuid '<span style="color:red">{computer_uuid}</span>'
+                    supplied was not found in the AiiDA database."""
+            else:
+                return computer_uuid
 
-        if isinstance(computer, orm.Computer):
-            if computer.label in self.computers:
-                return computer
-            self.output.value = f"""Computer instance '<span style="color:red">{computer.label}</span>'
-            is not configured in your AiiDA profile."""
         return None
