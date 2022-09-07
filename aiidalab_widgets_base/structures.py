@@ -357,7 +357,7 @@ class StructureUploadWidget(ipw.VBox):
     structure = Union([Instance(Atoms), Instance(Data)], allow_none=True)
 
     def __init__(
-        self, title="", description="Upload Structure", multiple_structures=False
+        self, title="", description="Upload Structure", allow_trajectories=False
     ):
         self.title = title
         self.file_upload = ipw.FileUpload(
@@ -365,7 +365,7 @@ class StructureUploadWidget(ipw.VBox):
         )
         # Whether to allow uploading multiple structures from a single file.
         # In this case, we create TrajectoryData node.
-        self.multiple_structures = multiple_structures
+        self.allow_trajectories = allow_trajectories
         supported_formats = ipw.HTML(
             """<a href="https://wiki.fysik.dtu.dk/ase/ase/io/io.html#ase.io.write" target="_blank">
         Supported structure formats
@@ -441,7 +441,7 @@ class StructureUploadWidget(ipw.VBox):
                 return None
 
             if len(structures) > 1:
-                if self.multiple_structures:
+                if self.allow_trajectories:
                     return TrajectoryData(
                         structurelist=[
                             StructureData(
