@@ -33,11 +33,13 @@ def predefine_settings(obj, **kwargs):
         if hasattr(obj, key):
             setattr(obj, key, value)
         else:
-            raise AttributeError(f"'{obj}' object has no attirubte '{key}'")
+            raise AttributeError(f"'{obj}' object has no attribute '{key}'")
 
 
 def get_ase_from_file(fname, format=None):  # pylint: disable=redefined-builtin
     """Get ASE structure object."""
+    # store_tags parameter is useful for CIF files
+    # https://wiki.fysik.dtu.dk/ase/ase/io/formatoptions.html#cif
     if format == "cif":
         traj = read(fname, format=format, index=":", store_tags=True)
     else:

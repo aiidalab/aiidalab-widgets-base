@@ -35,6 +35,7 @@ from .viewers import StructureDataViewer
 
 CifData = DataFactory("cif")  # pylint: disable=invalid-name
 StructureData = DataFactory("structure")  # pylint: disable=invalid-name
+TrajectoryData = DataFactory("array.trajectory")
 
 SYMBOL_RADIUS = {key: covalent_radii[i] for i, key in enumerate(chemical_symbols)}
 
@@ -355,11 +356,16 @@ class StructureUploadWidget(ipw.VBox):
 
     structure = Union([Instance(Atoms), Instance(Data)], allow_none=True)
 
-    def __init__(self, title="", description="Upload Structure"):
+    def __init__(
+        self, title="", description="Upload Structure", multiple_structures=False
+    ):
         self.title = title
         self.file_upload = ipw.FileUpload(
             description=description, multiple=False, layout={"width": "initial"}
         )
+        # Whether to allow uploading multiple structures from a single file.
+        # In this case, we create TrajectoryData node.
+        self.multiple_structures = multiple_structures
         supported_formats = ipw.HTML(
             """<a href="https://wiki.fysik.dtu.dk/ase/ase/io/io.html#ase.io.write" target="_blank">
         Supported structure formats
@@ -411,15 +417,18 @@ class StructureUploadWidget(ipw.VBox):
                 return CifData(file=io.BytesIO(content))
             except Exception as e:
                 self._status_message.message = f"""
-                    <div class="alert alert-danger">Could not parse CIF file {fname}: {e}</div>
+                    <div class="alert alert-warning">Could not parse CIF file {fname}: {e}
+                    Trying ASE reader...</div>
                     """
-                return None
 
         with tempfile.NamedTemporaryFile(suffix=suffix) as temp_file:
             temp_file.write(content)
             temp_file.flush()
             try:
-                structures = get_ase_from_file(temp_file.name)
+                if suffix == ".cif":
+                    structures = get_ase_from_file(temp_file.name, format="cif")
+                else:
+                    structures = get_ase_from_file(temp_file.name)
             except ValueError as e:
                 self._status_message.message = f"""
                     <div class="alert alert-danger">ERROR: {e}</div>
@@ -432,10 +441,20 @@ class StructureUploadWidget(ipw.VBox):
                 return None
 
             if len(structures) > 1:
-                self._status_message.message = f"""
-                    <div class="alert alert-danger">ERROR: More than one structure found in file {fname}</div>
-                    """
-                return None
+                if self.multiple_structures:
+                    return TrajectoryData(
+                        structurelist=[
+                            StructureData(
+                                ase=self._validate_and_fix_ase_cell(ase_struct)
+                            )
+                            for ase_struct in structures
+                        ]
+                    )
+                else:
+                    self._status_message.message = f"""
+                        <div class="alert alert-danger">ERROR: More than one structure found in file {fname}</div>
+                        """
+                    return None
 
             return self._validate_and_fix_ase_cell(structures[0])
 
