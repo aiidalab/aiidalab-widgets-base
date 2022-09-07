@@ -9,7 +9,8 @@ import ipywidgets as ipw
 import pexpect
 import shortuuid
 import traitlets
-from aiida import common, orm, plugins, schedulers, transports
+from aiida import common, orm, plugins
+from aiida.common.exceptions import NotExistent
 from aiida.orm.utils.builders.code import CodeBuilder
 from aiida.orm.utils.builders.computer import ComputerBuilder
 from aiida.transports.plugins.ssh import parse_sshconfig
@@ -26,12 +27,13 @@ class ComputationalResourcesWidget(ipw.VBox):
     """Code selection widget.
     Attributes:
 
-    value(Unicode or Code): Trait that points to the selected Code instance.
-    It can be set either to an AiiDA Code instance or to a code label (will automatically
-    be replaced by the corresponding Code instance). It is linked to the 'value' trait of
+    value(Unicode or uuid of the code node): Trait that points to
+    the selected uuid of the code instance.
+    It can be set either to an AiiDA code uuid or to a code label.
+    It is linked to the 'value' trait of
     the `self.code_select_dropdown` widget.
 
-    codes(Dict): Trait that contains a dictionary (label => Code instance) for all
+    codes(Dict): Trait that contains a dictionary (label => Code uuid) for all
     codes found in the AiiDA database for the selected plugin. It is linked
     to the 'options' trait of the `self.code_select_dropdown` widget.
 
@@ -41,9 +43,7 @@ class ComputationalResourcesWidget(ipw.VBox):
     computers.
     """
 
-    value = traitlets.Union(
-        [traitlets.Unicode(), traitlets.Instance(orm.Code)], allow_none=True
-    )
+    value = traitlets.Unicode(allow_none=True)
     codes = traitlets.Dict(allow_none=True)
     allow_hidden_codes = traitlets.Bool(False)
     allow_disabled_computers = traitlets.Bool(False)
@@ -164,7 +164,7 @@ class ComputationalResourcesWidget(ipw.VBox):
         user = orm.User.objects.get_default()
 
         return {
-            self._full_code_label(c[0]): c[0]
+            self._full_code_label(c[0]): c[0].uuid
             for c in orm.QueryBuilder()
             .append(orm.Code, filters={"attributes.input_plugin": self.input_plugin})
             .all()
@@ -199,24 +199,21 @@ class ComputationalResourcesWidget(ipw.VBox):
     def _validate_value(self, change):
         """If code is provided, set it as it is. If code's label is provided,
         select the code and set it."""
-        code = change["value"]
+        code_uuid = change["value"]
         self.output.value = ""
 
         # If code None, set value to None.
-        if code is None:
+        if code_uuid is None:
             return None
 
-        if isinstance(code, str):  # Check code by label.
-            if code in self.codes:
-                return self.codes[code]
-            self.output.value = f"""No code named '<span style="color:red">{code}</span>'
-            found in the AiiDA database."""
-        elif isinstance(code, orm.Code):  # Check code by value.
-            label = self._full_code_label(code)
-            if label in self.codes:
-                return code
-            self.output.value = f"""The code instance '<span style="color:red">{code}</span>'
-            supplied was not found in the AiiDA database."""
+        if isinstance(code_uuid, str):  # Check code by label.
+            try:
+                _ = orm.load_code(code_uuid)
+            except NotExistent:
+                self.output.value = f"""The code uuid '<span style="color:red">{code_uuid}</span>'
+                    supplied was not found in the AiiDA database."""
+            else:
+                return code_uuid
 
         # This place will never be reached, because the trait's type is checked.
         return None
@@ -693,8 +690,8 @@ class AiidaComputerSetup(ipw.VBox):
 
         # Transport type.
         self.transport = ipw.Dropdown(
-            value="local",
-            options=transports.Transport.get_valid_transports(),
+            value="core.local",
+            options=plugins.entry_point.get_entry_point_names("aiida.transports"),
             description="Transport type:",
             style=STYLE,
         )
@@ -709,8 +706,8 @@ class AiidaComputerSetup(ipw.VBox):
 
         # Scheduler.
         self.scheduler = ipw.Dropdown(
-            value="slurm",
-            options=schedulers.Scheduler.get_valid_schedulers(),
+            value="core.slurm",
+            options=plugins.entry_point.get_entry_point_names("aiida.schedulers"),
             description="Scheduler:",
             style=STYLE,
         )
@@ -877,9 +874,9 @@ class AiidaComputerSetup(ipw.VBox):
         self.work_dir.value = ""
         self.mpirun_command.value = "mpirun -n {tot_num_mpiprocs}"
         self.mpiprocs_per_machine.value = 1
-        self.transport.value = "ssh"
+        self.transport.value = "core.ssh"
         self.safe_interval.value = 30.0
-        self.scheduler.value = "slurm"
+        self.scheduler.value = "core.slurm"
         self.shebang.value = "#!/usr/bin/env bash"
         self.use_login_shell.value = True
         self.prepend_text.value = ""
