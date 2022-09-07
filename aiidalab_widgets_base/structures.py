@@ -33,8 +33,8 @@ from .data import LigandSelectorWidget
 from .utils import StatusHTML, get_ase_from_file, get_formula
 from .viewers import StructureDataViewer
 
-CifData = DataFactory("cif")  # pylint: disable=invalid-name
-StructureData = DataFactory("structure")  # pylint: disable=invalid-name
+CifData = DataFactory("cif")
+StructureData = DataFactory("structure")
 TrajectoryData = DataFactory("array.trajectory")
 
 SYMBOL_RADIUS = {key: covalent_radii[i] for i, key in enumerate(chemical_symbols)}
