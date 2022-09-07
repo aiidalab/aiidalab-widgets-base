@@ -1167,13 +1167,13 @@ class BandsDataViewer(ipw.VBox):
 @register_viewer_widget("process.workflow.workchain.WorkChainNode.")
 @register_viewer_widget("process.calculation.calcfunction.CalcFunctionNode.")
 @register_viewer_widget("process.workflow.workfunction.WorkFunctionNode.")
-class WorkChainNodeViewerWidget(ipw.HTML):
-    def __init__(self, workchain, **kwargs):
-        self.workchain = workchain
+class ProcessNodeViewerWidget(ipw.HTML):
+    def __init__(self, process, **kwargs):
+        self.process = process
 
-        # Displaying reports only from the selected workchain,
-        # NOT from its descendants
-        report = get_workchain_report(self.workchain, "REPORT", max_depth=1)
+        # Displaying reports only from the selected process,
+        # NOT from its descendants.
+        report = get_workchain_report(self.process, "REPORT", max_depth=1)
         # Filter out the first column with dates
         filtered_report = re.sub(
             r"^[0-9]{4}.*\| ([A-Z]+)\]", r"\1", report, flags=re.MULTILINE
