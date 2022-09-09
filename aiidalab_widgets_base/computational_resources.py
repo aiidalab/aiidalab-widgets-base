@@ -57,7 +57,10 @@ class ComputationalResourcesWidget(ipw.VBox):
         self.output = ipw.HTML()
         self.setup_message = StatusHTML()
         self.code_select_dropdown = ipw.Dropdown(
-            description=description, disabled=True, value=None
+            description=description,
+            disabled=True,
+            value=None,
+            style={"description_width": "initial"},
         )
         traitlets.link((self, "codes"), (self.code_select_dropdown, "options"))
         traitlets.link((self.code_select_dropdown, "value"), (self, "value"))
@@ -125,7 +128,7 @@ class ComputationalResourcesWidget(ipw.VBox):
         # Quick setup.
         quick_setup_button = ipw.Button(description="Quick Setup")
         quick_setup_button.on_click(self.quick_setup)
-        quick_setup = ipw.VBox(
+        self.quick_setup = ipw.VBox(
             children=[
                 self.ssh_computer_setup.username,
                 quick_setup_button,
@@ -134,20 +137,16 @@ class ComputationalResourcesWidget(ipw.VBox):
         )
 
         # Detailed setup.
-        detailed_setup = ipw.Accordion(
+        self.detailed_setup = ipw.Accordion(
             children=[
                 self.ssh_computer_setup,
                 self.aiida_computer_setup,
                 self.aiida_code_setup,
             ]
         )
-        detailed_setup.set_title(0, "Set up password-less SSH connection")
-        detailed_setup.set_title(1, "Set up a computer in AiiDA")
-        detailed_setup.set_title(2, "Set up a code in AiiDA")
-
-        self.output_tab = ipw.Tab(children=[quick_setup, detailed_setup])
-        self.output_tab.set_title(0, "Quick Setup")
-        self.output_tab.set_title(1, "Detailed Setup")
+        self.detailed_setup.set_title(0, "Set up password-less SSH connection")
+        self.detailed_setup.set_title(1, "Set up a computer in AiiDA")
+        self.detailed_setup.set_title(2, "Set up a code in AiiDA")
 
         self.refresh()
 
@@ -229,15 +228,27 @@ class ComputationalResourcesWidget(ipw.VBox):
                     "width": "500px",
                     "border": "1px solid gray",
                 }
-                display(
-                    ipw.HTML(
-                        """Please select the computer/code from a database to pre-fill the fields below."""
-                    ),
-                    self.comp_resources_database,
-                    self.setup_message,
-                    self.ssh_computer_setup.password_box,
-                    self.output_tab,
-                )
+                if self.comp_resources_database.database:
+                    setup_tab = ipw.Tab(
+                        children=[self.quick_setup, self.detailed_setup]
+                    )
+                    setup_tab.set_title(0, "Quick Setup")
+                    setup_tab.set_title(1, "Detailed Setup")
+                    children = [
+                        ipw.HTML(
+                            """Please select the computer/code from a database to pre-fill the fields below."""
+                        ),
+                        self.comp_resources_database,
+                        self.ssh_computer_setup.password_box,
+                        self.setup_message,
+                        setup_tab,
+                    ]
+                else:
+                    # Display only Detailed Setup if DB is empty
+                    setup_tab = ipw.Tab(children=[self.detailed_setup])
+                    setup_tab.set_title(0, "Detailed Setup")
+                    children = [self.setup_message, setup_tab]
+                display(*children)
             else:
                 self._setup_new_code_output.layout = {
                     "width": "500px",
