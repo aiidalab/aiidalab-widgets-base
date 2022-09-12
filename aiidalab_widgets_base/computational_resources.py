@@ -27,13 +27,13 @@ class ComputationalResourcesWidget(ipw.VBox):
     """Code selection widget.
     Attributes:
 
-    value(Unicode or uuid of the code node): Trait that points to
-    the selected uuid of the code instance.
-    It can be set either to an AiiDA code uuid or to a code label.
+    value(Unicode or UUID of the code node): Trait that points to
+    the selected UUID of the code instance.
+    It can be set either to an AiiDA code UUID or to a code label.
     It is linked to the 'value' trait of
     the `self.code_select_dropdown` widget.
 
-    codes(Dict): Trait that contains a dictionary (label => Code uuid) for all
+    codes(Dict): Trait that contains a dictionary (label => Code UUID) for all
     codes found in the AiiDA database for the selected plugin. It is linked
     to the 'options' trait of the `self.code_select_dropdown` widget.
 
@@ -210,7 +210,7 @@ class ComputationalResourcesWidget(ipw.VBox):
             try:
                 _ = orm.load_code(code_uuid)
             except NotExistent:
-                self.output.value = f"""The code uuid '<span style="color:red">{code_uuid}</span>'
+                self.output.value = f"""The code UUID '<span style="color:red">{code_uuid}</span>'
                     supplied was not found in the AiiDA database."""
             else:
                 return code_uuid
@@ -1069,11 +1069,11 @@ class ComputerDropdownWidget(ipw.VBox):
     """Widget to select a configured computer.
 
     Attributes:
-        selected_computer(Unicode of computer uuid): Trait that points to the selected Computer instance.
-            It can be set to an AiiDA Computer uuid. It is linked to the
+        selected_computer(Unicode of computer UUID): Trait that points to the selected Computer instance.
+            It can be set to an AiiDA Computer UUID. It is linked to the
             'value' trait of `self._dropdown` widget.
 
-        computers(Dict): Trait that contains a dictionary (label => Computer uuid) for all
+        computers(Dict): Trait that contains a dictionary (label => Computer UUID) for all
         computers found in the AiiDA database. It is linked to the 'options' trait of
         `self._dropdown` widget.
 
@@ -1154,7 +1154,7 @@ class ComputerDropdownWidget(ipw.VBox):
             try:
                 _ = orm.load_computer(computer_uuid)
             except NotExistent:
-                self.output.value = f"""The computer uuid '<span style="color:red">{computer_uuid}</span>'
+                self.output.value = f"""The computer UUID '<span style="color:red">{computer_uuid}</span>'
                     supplied was not found in the AiiDA database."""
             else:
                 return computer_uuid
