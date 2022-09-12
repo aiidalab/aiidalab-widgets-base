@@ -197,8 +197,8 @@ class ComputationalResourcesWidget(ipw.VBox):
 
     @traitlets.validate("value")
     def _validate_value(self, change):
-        """If code is provided, set it as it is. If code's label is provided,
-        select the code and set it."""
+        """If code is provided, set it as it is. If code's UUID is provided,
+        check it is valid in DB"""
         code_uuid = change["value"]
         self.output.value = ""
 
@@ -206,17 +206,13 @@ class ComputationalResourcesWidget(ipw.VBox):
         if code_uuid is None:
             return None
 
-        if isinstance(code_uuid, str):  # Check code by label.
-            try:
-                _ = orm.load_code(code_uuid)
-            except NotExistent:
-                self.output.value = f"""The code UUID '<span style="color:red">{code_uuid}</span>'
-                    supplied was not found in the AiiDA database."""
-            else:
-                return code_uuid
-
-        # This place will never be reached, because the trait's type is checked.
-        return None
+        try:
+            _ = orm.load_code(code_uuid)
+        except NotExistent:
+            self.output.value = f"""The supplied code UUID '<span style="color:red">{code_uuid}</span>'
+                was not found in the AiiDA database."""
+        else:
+            return code_uuid
 
     def _setup_new_code(self, _=None):
         with self._setup_new_code_output:
@@ -1145,18 +1141,16 @@ class ComputerDropdownWidget(ipw.VBox):
 
     @traitlets.validate("value")
     def _validate_value(self, change):
-        """Select computer either by label or by class instance."""
+        """Select computer either by computer UUID."""
         computer_uuid = change["value"]
         self.output.value = ""
         if not computer_uuid:
             return None
-        if isinstance(computer_uuid, str):
-            try:
-                _ = orm.load_computer(computer_uuid)
-            except NotExistent:
-                self.output.value = f"""The computer UUID '<span style="color:red">{computer_uuid}</span>'
-                    supplied was not found in the AiiDA database."""
-            else:
-                return computer_uuid
 
-        return None
+        try:
+            _ = orm.load_computer(computer_uuid)
+        except NotExistent:
+            self.output.value = f"""The computer UUID '<span style="color:red">{computer_uuid}</span>'
+                supplied was not found in the AiiDA database."""
+        else:
+            return computer_uuid
