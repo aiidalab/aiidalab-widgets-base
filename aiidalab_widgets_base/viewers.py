@@ -12,6 +12,7 @@ import numpy as np
 import spglib
 import traitlets
 from aiida.cmdline.utils.common import get_workchain_report
+from aiida.cmdline.utils.query import formatting
 from aiida.orm import Node
 from ase import Atoms, neighborlist
 from ase.cell import Cell
@@ -1164,18 +1165,28 @@ class BandsDataViewer(ipw.VBox):
         super().__init__(children, **kwargs)
 
 
+@register_viewer_widget("process.calculation.calcfunction.CalcFunctionNode.")
+@register_viewer_widget("process.calculation.calcjob.CalcJobNode.")
+@register_viewer_widget("process.workflow.workfunction.WorkFunctionNode.")
 @register_viewer_widget("process.workflow.workchain.WorkChainNode.")
-class WorkChainNodeViewerWidget(ipw.HTML):
-    def __init__(self, workchain, **kwargs):
-        self.workchain = workchain
+class ProcessNodeViewerWidget(ipw.HTML):
+    def __init__(self, process, **kwargs):
+        self.process = process
 
-        # Displaying reports only from the selected workchain,
-        # NOT from its descendants
-        report = get_workchain_report(self.workchain, "REPORT", max_depth=1)
+        # Displaying reports only from the selected process,
+        # NOT from its descendants.
+        report = get_workchain_report(self.process, "REPORT", max_depth=1)
         # Filter out the first column with dates
         filtered_report = re.sub(
             r"^[0-9]{4}.*\| ([A-Z]+)\]", r"\1", report, flags=re.MULTILINE
         )
-        self.value = f"<pre>{filtered_report}</pre>"
+        header = f"""
+            Process {process.process_label},
+            State: {formatting.format_process_state(process.process_state.value)},
+            UUID: {process.uuid} (pk: {process.pk})<br>
+            Started {formatting.format_relative_time(process.ctime)},
+            Last modified {formatting.format_relative_time(process.mtime)}<br>
+        """
+        self.value = f"{header}<pre>{filtered_report}</pre>"
 
         super().__init__(**kwargs)
