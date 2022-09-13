@@ -4,13 +4,13 @@ import subprocess
 import threading
 from copy import copy
 from pathlib import Path
+from uuid import UUID
 
 import ipywidgets as ipw
 import pexpect
 import shortuuid
 import traitlets
 from aiida import common, orm, plugins
-from aiida.common.exceptions import NotExistent
 from aiida.orm.utils.builders.code import CodeBuilder
 from aiida.orm.utils.builders.computer import ComputerBuilder
 from aiida.transports.plugins.ssh import parse_sshconfig
@@ -207,10 +207,10 @@ class ComputationalResourcesWidget(ipw.VBox):
             return None
 
         try:
-            _ = orm.load_code(code_uuid)
-        except NotExistent:
-            self.output.value = f"""The supplied code UUID '<span style="color:red">{code_uuid}</span>'
-                was not found in the AiiDA database."""
+            _ = UUID(code_uuid, version=4)
+        except ValueError:
+            self.output.value = f"""'<span style="color:red">{code_uuid}</span>'
+            is not a valid UUID."""
         else:
             return code_uuid
 
@@ -1148,9 +1148,9 @@ class ComputerDropdownWidget(ipw.VBox):
             return None
 
         try:
-            _ = orm.load_computer(computer_uuid)
-        except NotExistent:
-            self.output.value = f"""The computer UUID '<span style="color:red">{computer_uuid}</span>'
-                supplied was not found in the AiiDA database."""
+            _ = UUID(computer_uuid, version=4)
+        except ValueError:
+            self.output.value = f"""'<span style="color:red">{computer_uuid}</span>'
+            is not a valid UUID."""
         else:
             return computer_uuid
