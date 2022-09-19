@@ -839,17 +839,14 @@ def _register_selection(operator):
     return inner
     
 
-
-class BasicStructureEditor(ipw.VBox):  # pylint: disable=too-many-instance-attributes
-    """Widget that allows for the basic structure editing."""
-
+class BasicCellEditor(ipw.VBox):
+    """Widget that allows for the basic cell editing."""
+    
     structure = Instance(Atoms, allow_none=True)
-    selection = List(Int)
-    camera_orientation = List()
-
+    
     def __init__(self, title=""):
-
         self.title = title
+        
         # cell transfor opration widget
         primitive_cell = ipw.Button(
             description="Convert to primitive cell",
@@ -862,6 +859,68 @@ class BasicStructureEditor(ipw.VBox):  # pylint: disable=too-many-instance-attri
             layout={"width": "initial"},
         )
         conventional_cell.on_click(self.def_conventional_cell)
+        
+        super().__init__(
+            children=[
+                ipw.HTML(
+                    "<b>Cell transformation:</b>",
+                    layout={"margin": "20px 0px 10px 0px"},
+                ),
+                ipw.HBox(
+                    [
+                        primitive_cell,
+                        conventional_cell,
+                    ],
+                ),
+            ],
+        )
+        
+    @_register_structure
+    def def_primitive_cell(self, _=None, atoms=None):
+        atoms = _to_standardize_cell(atoms, to_primitive=True)
+
+        self.structure = atoms
+
+    @_register_structure
+    def def_conventional_cell(self, _=None, atoms=None):
+        atoms = _to_standardize_cell(atoms, to_primitive=False)
+
+        self.structure = atoms
+
+def _to_standardize_cell(
+    structure: Atoms, to_primitive=False, no_idealize=False, symprec=1e-5
+):
+    """The `standardize_cell` method from spglib and apply to ase.Atoms"""
+    lattice = structure.get_cell()
+    positions = structure.get_scaled_positions()
+    numbers = structure.get_atomic_numbers()
+
+    cell = (lattice, positions, numbers)
+
+    # operation
+    lattice, positions, numbers = spglib.standardize_cell(
+        cell, to_primitive=to_primitive, no_idealize=no_idealize, symprec=symprec
+    )
+
+    return Atoms(
+        cell=lattice,
+        scaled_positions=positions,
+        numbers=numbers,
+        pbc=[True, True, True],
+    )
+
+class BasicStructureEditor(ipw.VBox):  # pylint: disable=too-many-instance-attributes
+    """
+    Widget that allows for the basic structure (molecule and 
+    position of periodic structure in cell) editing."""
+
+    structure = Instance(Atoms, allow_none=True)
+    selection = List(Int)
+    camera_orientation = List()
+
+    def __init__(self, title=""):
+
+        self.title = title
 
         # Define action vector.
         self.axis_p1 = ipw.Text(
@@ -1006,16 +1065,6 @@ class BasicStructureEditor(ipw.VBox):  # pylint: disable=too-many-instance-attri
 
         super().__init__(
             children=[
-                ipw.HTML(
-                    "<b>Cell transformation:</b>",
-                    layout={"margin": "20px 0px 10px 0px"},
-                ),
-                ipw.HBox(
-                    [
-                        primitive_cell,
-                        conventional_cell,
-                    ],
-                ),
                 ipw.HTML(
                     "<b>Action vector and point:</b>",
                     layout={"margin": "20px 0px 10px 0px"},
@@ -1165,18 +1214,6 @@ class BasicStructureEditor(ipw.VBox):  # pylint: disable=too-many-instance-attri
                 [-cmr[2], -cmr[6], -cmr[10]]
             )
             self.axis_p2.value = self.vec2str(versor.tolist())
-
-    @_register_structure
-    def def_primitive_cell(self, _=None, atoms=None):
-        atoms = _to_standardize_cell(atoms, to_primitive=True)
-
-        self.structure = atoms
-
-    @_register_structure
-    def def_conventional_cell(self, _=None, atoms=None):
-        atoms = _to_standardize_cell(atoms, to_primitive=False)
-
-        self.structure = atoms
 
     @_register_structure
     @_register_selection
@@ -1369,25 +1406,3 @@ class BasicStructureEditor(ipw.VBox):  # pylint: disable=too-many-instance-attri
 
         self.structure, self.selection = atoms, selection
 
-
-def _to_standardize_cell(
-    structure: Atoms, to_primitive=False, no_idealize=False, symprec=1e-5
-):
-    """The `standardize_cell` method from spglib and apply to ase.Atoms"""
-    lattice = structure.get_cell()
-    positions = structure.get_scaled_positions()
-    numbers = structure.get_atomic_numbers()
-
-    cell = (lattice, positions, numbers)
-
-    # operation
-    lattice, positions, numbers = spglib.standardize_cell(
-        cell, to_primitive=to_primitive, no_idealize=no_idealize, symprec=symprec
-    )
-
-    return Atoms(
-        cell=lattice,
-        scaled_positions=positions,
-        numbers=numbers,
-        pbc=[True, True, True],
-    )
