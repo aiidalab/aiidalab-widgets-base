@@ -4,7 +4,6 @@
 import datetime
 import functools
 import io
-import pathlib
 import tempfile
 from collections import OrderedDict
 
