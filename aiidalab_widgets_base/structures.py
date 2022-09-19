@@ -913,38 +913,38 @@ class BasicCellEditor(ipw.VBox):
 
     @_register_structure
     def def_primitive_cell(self, _=None, atoms=None):
-        atoms = _to_standardize_cell(atoms, to_primitive=True)
+        atoms = self._to_standardize_cell(atoms, to_primitive=True)
 
         self.structure = atoms
 
     @_register_structure
     def def_conventional_cell(self, _=None, atoms=None):
-        atoms = _to_standardize_cell(atoms, to_primitive=False)
+        atoms = self._to_standardize_cell(atoms, to_primitive=False)
 
         self.structure = atoms
 
+    @staticmethod
+    def _to_standardize_cell(
+        structure: Atoms, to_primitive=False, no_idealize=False, symprec=1e-5
+    ):
+        """The `standardize_cell` method from spglib and apply to ase.Atoms"""
+        lattice = structure.get_cell()
+        positions = structure.get_scaled_positions()
+        numbers = structure.get_atomic_numbers()
 
-def _to_standardize_cell(
-    structure: Atoms, to_primitive=False, no_idealize=False, symprec=1e-5
-):
-    """The `standardize_cell` method from spglib and apply to ase.Atoms"""
-    lattice = structure.get_cell()
-    positions = structure.get_scaled_positions()
-    numbers = structure.get_atomic_numbers()
+        cell = (lattice, positions, numbers)
 
-    cell = (lattice, positions, numbers)
+        # operation
+        lattice, positions, numbers = spglib.standardize_cell(
+            cell, to_primitive=to_primitive, no_idealize=no_idealize, symprec=symprec
+        )
 
-    # operation
-    lattice, positions, numbers = spglib.standardize_cell(
-        cell, to_primitive=to_primitive, no_idealize=no_idealize, symprec=symprec
-    )
-
-    return Atoms(
-        cell=lattice,
-        scaled_positions=positions,
-        numbers=numbers,
-        pbc=[True, True, True],
-    )
+        return Atoms(
+            cell=lattice,
+            scaled_positions=positions,
+            numbers=numbers,
+            pbc=[True, True, True],
+        )
 
 
 class BasicStructureEditor(ipw.VBox):  # pylint: disable=too-many-instance-attributes
