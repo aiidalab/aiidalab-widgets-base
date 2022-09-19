@@ -12,7 +12,6 @@ import ipywidgets as ipw
 import numpy as np
 
 # spglib for cell converting
-# spglib for cell converting
 import spglib
 
 # AiiDA imports

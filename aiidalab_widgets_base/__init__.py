@@ -32,6 +32,7 @@ from .process import (
     SubmitButtonWidget,
 )
 from .structures import (
+    BasicCellEditor,
     BasicStructureEditor,
     SmilesWidget,
     StructureBrowserWidget,
@@ -47,6 +48,7 @@ __all__ = [
     "AiidaComputerSetup",
     "AiidaNodeViewWidget",
     "BasicStructureEditor",
+    "BasicCellEditor",
     "CodeDatabaseWidget",
     "CodeDropdown",
     "CodQueryWidget",
