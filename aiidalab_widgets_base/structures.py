@@ -13,6 +13,7 @@ import ipywidgets as ipw
 import numpy as np
 
 # spglib for cell converting
+# spglib for cell converting
 import spglib
 
 # AiiDA imports
@@ -30,9 +31,6 @@ from ase import Atom, Atoms
 from ase.data import chemical_symbols, covalent_radii
 from sklearn.decomposition import PCA
 from traitlets import Instance, Int, List, Unicode, Union, default, dlink, link, observe
-
-# spglib for cell converting
-import spglib
 
 # Local imports
 from .data import LigandSelectorWidget
@@ -837,16 +835,16 @@ def _register_selection(operator):
             )
 
     return inner
-    
+
 
 class BasicCellEditor(ipw.VBox):
     """Widget that allows for the basic cell editing."""
-    
+
     structure = Instance(Atoms, allow_none=True)
-    
+
     def __init__(self, title=""):
         self.title = title
-        
+
         # cell transfor opration widget
         primitive_cell = ipw.Button(
             description="Convert to primitive cell",
@@ -859,7 +857,7 @@ class BasicCellEditor(ipw.VBox):
             layout={"width": "initial"},
         )
         conventional_cell.on_click(self.def_conventional_cell)
-        
+
         super().__init__(
             children=[
                 ipw.HTML(
@@ -874,7 +872,7 @@ class BasicCellEditor(ipw.VBox):
                 ),
             ],
         )
-        
+
     @_register_structure
     def def_primitive_cell(self, _=None, atoms=None):
         atoms = _to_standardize_cell(atoms, to_primitive=True)
@@ -886,6 +884,7 @@ class BasicCellEditor(ipw.VBox):
         atoms = _to_standardize_cell(atoms, to_primitive=False)
 
         self.structure = atoms
+
 
 def _to_standardize_cell(
     structure: Atoms, to_primitive=False, no_idealize=False, symprec=1e-5
@@ -909,9 +908,10 @@ def _to_standardize_cell(
         pbc=[True, True, True],
     )
 
+
 class BasicStructureEditor(ipw.VBox):  # pylint: disable=too-many-instance-attributes
     """
-    Widget that allows for the basic structure (molecule and 
+    Widget that allows for the basic structure (molecule and
     position of periodic structure in cell) editing."""
 
     structure = Instance(Atoms, allow_none=True)
@@ -1405,4 +1405,3 @@ class BasicStructureEditor(ipw.VBox):  # pylint: disable=too-many-instance-attri
         del [atoms[selection]]
 
         self.structure, self.selection = atoms, selection
-
