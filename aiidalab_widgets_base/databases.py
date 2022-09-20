@@ -144,7 +144,7 @@ class OptimadeQueryWidget(ipw.VBox):
 
     :param embedded: Whether or not to show extra database and provider information.
         When set to `True`, the extra information will be hidden, this is useful
-        in situations where the widget is used in a Tab or similar, e.g., for the 
+        in situations where the widget is used in a Tab or similar, e.g., for the
         class :class:`aiidalab_widgets_base.structures.StructureManagerWidget`.
     :type embedded: bool
     :param title: Title used for Tab header if employed in
