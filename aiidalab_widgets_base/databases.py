@@ -5,7 +5,7 @@ import requests
 import traitlets
 from aiida.tools.dbimporters.plugins.cod import CodDbImporter
 from ase import Atoms
-from optimade_client.parameters import (
+from optimade_client.default_parameters import (
     DISABLE_PROVIDERS,
     PROVIDER_DATABASE_GROUPINGS,
     SKIP_DATABASE,
