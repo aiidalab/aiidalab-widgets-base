@@ -144,8 +144,8 @@ class OptimadeQueryWidget(ipw.VBox):
 
     :param embedded: Whether or not to show extra database and provider information.
         When set to `True`, the extra information will be hidden, this is useful
-        in situations where the widget is used in a Tab or similar, e.g., can be used
-        for the :class:`aiidalab_widgets_base.structures.StructureManagerWidget`.
+        in situations where the widget is used in a Tab or similar, e.g., for the 
+        class :class:`aiidalab_widgets_base.structures.StructureManagerWidget`.
     :type embedded: bool
     :param title: Title used for Tab header if employed in
         :class:`aiidalab_widgets_base.structures.StructureManagerWidget`.
@@ -157,7 +157,7 @@ class OptimadeQueryWidget(ipw.VBox):
     _disable_providers = DISABLE_PROVIDERS
     _skip_databases = SKIP_DATABASE
     _skip_providers = SKIP_PROVIDERS
-    _database_grouping = PROVIDER_DATABASE_GROUPINGS
+    _provider_database_groupings = PROVIDER_DATABASE_GROUPINGS
 
     def __init__(
         self,
@@ -173,9 +173,9 @@ class OptimadeQueryWidget(ipw.VBox):
             database_limit=kwargs.pop("database_limit", None),
             disable_providers=kwargs.pop("disable_providers", self._disable_providers),
             skip_databases=kwargs.pop("skip_databases", self._skip_databases),
-            skip_provider=kwargs.pop("skip_databases", self._skip_providers),
+            skip_providers=kwargs.pop("skip_providers", self._skip_providers),
             provider_database_groupings=kwargs.pop(
-                "provider_database_groupings", self._database_grouping
+                "provider_database_groupings", self._provider_database_groupings
             ),
         )
         filters = OptimadeQueryFilterWidget(
