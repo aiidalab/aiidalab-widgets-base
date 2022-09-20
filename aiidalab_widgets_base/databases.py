@@ -5,6 +5,12 @@ import requests
 import traitlets
 from aiida.tools.dbimporters.plugins.cod import CodDbImporter
 from ase import Atoms
+from optimade_client.default_parameters import (
+    DISABLE_PROVIDERS,
+    PROVIDER_DATABASE_GROUPINGS,
+    SKIP_DATABASE,
+    SKIP_PROVIDERS,
+)
 from optimade_client.query_filter import OptimadeQueryFilterWidget
 from optimade_client.query_provider import OptimadeQueryProviderWidget
 from traitlets import Bool, Float, Instance, Int, Unicode, default, observe
@@ -139,7 +145,7 @@ class OptimadeQueryWidget(ipw.VBox):
     :param embedded: Whether or not to show extra database and provider information.
         When set to `True`, the extra information will be hidden, this is useful
         in situations where the widget is used in a Tab or similar, e.g., for the
-        :class:`aiidalab_widgets_base.structures.StructureManagerWidget`.
+        class :class:`aiidalab_widgets_base.structures.StructureManagerWidget`.
     :type embedded: bool
     :param title: Title used for Tab header if employed in
         :class:`aiidalab_widgets_base.structures.StructureManagerWidget`.
@@ -148,33 +154,10 @@ class OptimadeQueryWidget(ipw.VBox):
 
     structure = Instance(Atoms, allow_none=True)
 
-    _disable_providers = [
-        "cod",
-        "tcod",
-        "nmd",
-        "oqmd",
-        "aflow",
-        "matcloud",
-        "mpds",
-        "necro",
-        "jarvis",
-    ]
-    _skip_databases = {"Materials Cloud": ["optimade-sample", "li-ion-conductors"]}
-    _database_grouping = {
-        "Materials Cloud": {
-            "General": ["curated-cofs"],
-            "Projects": [
-                "2dstructures",
-                "2dtopo",
-                "pyrene-mofs",
-                "scdm",
-                "sssp",
-                "stoceriaitf",
-                "tc-applicability",
-                "threedd",
-            ],
-        },
-    }
+    _disable_providers = DISABLE_PROVIDERS
+    _skip_databases = SKIP_DATABASE
+    _skip_providers = SKIP_PROVIDERS
+    _provider_database_groupings = PROVIDER_DATABASE_GROUPINGS
 
     def __init__(
         self,
@@ -190,8 +173,9 @@ class OptimadeQueryWidget(ipw.VBox):
             database_limit=kwargs.pop("database_limit", None),
             disable_providers=kwargs.pop("disable_providers", self._disable_providers),
             skip_databases=kwargs.pop("skip_databases", self._skip_databases),
+            skip_providers=kwargs.pop("skip_providers", self._skip_providers),
             provider_database_groupings=kwargs.pop(
-                "provider_database_groupings", self._database_grouping
+                "provider_database_groupings", self._provider_database_groupings
             ),
         )
         filters = OptimadeQueryFilterWidget(
