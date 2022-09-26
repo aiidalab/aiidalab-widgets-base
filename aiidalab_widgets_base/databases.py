@@ -473,15 +473,14 @@ class ComputationalResourcesDatabaseWidget(ipw.VBox):
         return database
 
     def update(self, _=None):
-        with self.hold_trait_notifications():
-            database = requests.get(
-                "https://aiidateam.github.io/aiida-code-registry/database.json"
-            ).json()
-            self.database = (
-                self.clean_up_database(database, self.input_plugin)
-                if self.input_plugin
-                else database
-            )
+        database = requests.get(
+            "https://aiidateam.github.io/aiida-code-registry/database.json"
+        ).json()
+        self.database = (
+            self.clean_up_database(database, self.input_plugin)
+            if self.input_plugin
+            else database
+        )
 
     @traitlets.observe("database")
     def _observer_database_change(self, _=None):
