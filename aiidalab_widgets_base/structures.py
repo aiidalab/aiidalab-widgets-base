@@ -1331,4 +1331,4 @@ class BasicStructureEditor(ipw.VBox):  # pylint: disable=too-many-instance-attri
         """Remove selected atoms."""
         del [atoms[selection]]
 
-        self.structure, self.selection = atoms, selection
+        self.structure, self.selection = atoms, list()
