@@ -880,7 +880,7 @@ class BasicCellEditor(ipw.VBox):
 
     structure = Instance(Atoms, allow_none=True)
 
-    def __init__(self, title=""):
+    def __init__(self, title="Cell transform"):
         self.title = title
 
         # cell transfor opration widget
@@ -898,10 +898,6 @@ class BasicCellEditor(ipw.VBox):
 
         super().__init__(
             children=[
-                ipw.HTML(
-                    "<b>Cell transformation:</b>",
-                    layout={"margin": "20px 0px 10px 0px"},
-                ),
                 ipw.HBox(
                     [
                         primitive_cell,
@@ -913,18 +909,18 @@ class BasicCellEditor(ipw.VBox):
 
     @_register_structure
     def def_primitive_cell(self, _=None, atoms=None):
-        atoms = self._to_standardize_cell(atoms, to_primitive=True)
+        atoms = self._to_standard_cell(atoms, to_primitive=True)
 
         self.structure = atoms
 
     @_register_structure
     def def_conventional_cell(self, _=None, atoms=None):
-        atoms = self._to_standardize_cell(atoms, to_primitive=False)
+        atoms = self._to_standard_cell(atoms, to_primitive=False)
 
         self.structure = atoms
 
     @staticmethod
-    def _to_standardize_cell(
+    def _to_standard_cell(
         structure: Atoms, to_primitive=False, no_idealize=False, symprec=1e-5
     ):
         """The `standardize_cell` method from spglib and apply to ase.Atoms"""
