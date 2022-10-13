@@ -12,6 +12,9 @@ import ase
 import ipywidgets as ipw
 import numpy as np
 
+# spglib for cell converting
+import spglib
+
 # AiiDA imports
 from aiida.engine import calcfunction
 from aiida.orm import (
@@ -812,7 +815,7 @@ class SmilesWidget(ipw.VBox):
         return None
 
 
-def _register_operator(operator):
+def _register_structure(operator):
     """
     Decorator for methods that manipulate (operate on) the selected structure.
 
@@ -831,7 +834,31 @@ def _register_operator(operator):
             <strong>Please choose a structure first.</strong>
             </div>
             """
-        elif not ref.selection:
+        else:
+            operator(
+                ref,
+                *args,
+                **kwargs,
+                atoms=ref.structure.copy(),
+            )
+
+    return inner
+
+
+def _register_selection(operator):
+    """
+    Decorator for methods that manipulate (operate on) the selected structure.
+
+    Checks whether a structure and selection is set and ensures that the
+    arguments for structure and selection are passed by copy rather than
+    reference. A pop-up warning message is shown in case that neither a
+    structure or selection are set.
+    """
+
+    @functools.wraps(operator)
+    def inner(ref, *args, **kwargs):
+
+        if not ref.selection:
             ref._status_message.message = """
             <div class="alert alert-info">
             <strong>Please select atoms first.</strong>
@@ -842,15 +869,84 @@ def _register_operator(operator):
                 ref,
                 *args,
                 **kwargs,
-                atoms=ref.structure.copy(),
                 selection=ref.selection.copy(),
             )
 
     return inner
 
 
+class BasicCellEditor(ipw.VBox):
+    """Widget that allows for the basic cell editing."""
+
+    structure = Instance(Atoms, allow_none=True)
+
+    def __init__(self, title="Cell transform"):
+        self.title = title
+
+        # cell transfor opration widget
+        primitive_cell = ipw.Button(
+            description="Convert to primitive cell",
+            layout={"width": "initial"},
+        )
+        primitive_cell.on_click(self.def_primitive_cell)
+
+        conventional_cell = ipw.Button(
+            description="Convert to conventional cell",
+            layout={"width": "initial"},
+        )
+        conventional_cell.on_click(self.def_conventional_cell)
+
+        super().__init__(
+            children=[
+                ipw.HBox(
+                    [
+                        primitive_cell,
+                        conventional_cell,
+                    ],
+                ),
+            ],
+        )
+
+    @_register_structure
+    def def_primitive_cell(self, _=None, atoms=None):
+        atoms = self._to_standard_cell(atoms, to_primitive=True)
+
+        self.structure = atoms
+
+    @_register_structure
+    def def_conventional_cell(self, _=None, atoms=None):
+        atoms = self._to_standard_cell(atoms, to_primitive=False)
+
+        self.structure = atoms
+
+    @staticmethod
+    def _to_standard_cell(
+        structure: Atoms, to_primitive=False, no_idealize=False, symprec=1e-5
+    ):
+        """The `standardize_cell` method from spglib and apply to ase.Atoms"""
+        lattice = structure.get_cell()
+        positions = structure.get_scaled_positions()
+        numbers = structure.get_atomic_numbers()
+
+        cell = (lattice, positions, numbers)
+
+        # operation
+        lattice, positions, numbers = spglib.standardize_cell(
+            cell, to_primitive=to_primitive, no_idealize=no_idealize, symprec=symprec
+        )
+
+        return Atoms(
+            cell=lattice,
+            scaled_positions=positions,
+            numbers=numbers,
+            pbc=[True, True, True],
+        )
+
+
 class BasicStructureEditor(ipw.VBox):  # pylint: disable=too-many-instance-attributes
-    """Widget that allows for the basic structure editing."""
+    """
+    Widget that allows for the basic structure (molecule and
+    position of periodic structure in cell) editing."""
 
     structure = Instance(Atoms, allow_none=True)
     selection = List(Int)
@@ -859,6 +955,7 @@ class BasicStructureEditor(ipw.VBox):  # pylint: disable=too-many-instance-attri
     def __init__(self, title=""):
 
         self.title = title
+
         # Define action vector.
         self.axis_p1 = ipw.Text(
             description="Starting point", value="0 0 0", layout={"width": "initial"}
@@ -1152,7 +1249,8 @@ class BasicStructureEditor(ipw.VBox):  # pylint: disable=too-many-instance-attri
             )
             self.axis_p2.value = self.vec2str(versor.tolist())
 
-    @_register_operator
+    @_register_structure
+    @_register_selection
     def translate_dr(self, _=None, atoms=None, selection=None):
         """Translate by dr along the selected vector."""
 
@@ -1162,7 +1260,8 @@ class BasicStructureEditor(ipw.VBox):  # pylint: disable=too-many-instance-attri
 
         self.structure, self.selection = atoms, selection
 
-    @_register_operator
+    @_register_structure
+    @_register_selection
     def translate_dxdydz(self, _=None, atoms=None, selection=None):
         """Translate by the selected XYZ delta."""
 
@@ -1171,7 +1270,8 @@ class BasicStructureEditor(ipw.VBox):  # pylint: disable=too-many-instance-attri
 
         self.structure, self.selection = atoms, selection
 
-    @_register_operator
+    @_register_structure
+    @_register_selection
     def translate_to_xyz(self, _=None, atoms=None, selection=None):
         """Translate to the selected XYZ position."""
         # The action.
@@ -1180,7 +1280,8 @@ class BasicStructureEditor(ipw.VBox):  # pylint: disable=too-many-instance-attri
 
         self.structure, self.selection = atoms, selection
 
-    @_register_operator
+    @_register_structure
+    @_register_selection
     def rotate(self, _=None, atoms=None, selection=None):
         """Rotate atoms around selected point in space and vector."""
 
@@ -1193,7 +1294,8 @@ class BasicStructureEditor(ipw.VBox):  # pylint: disable=too-many-instance-attri
 
         self.structure, self.selection = atoms, selection
 
-    @_register_operator
+    @_register_structure
+    @_register_selection
     def mirror(self, _=None, norm=None, point=None, atoms=None, selection=None):
         """Mirror atoms on the plane perpendicular to the action vector."""
         # The action.
@@ -1234,7 +1336,8 @@ class BasicStructureEditor(ipw.VBox):  # pylint: disable=too-many-instance-attri
         normal = normal / np.linalg.norm(normal)
         self.mirror(norm=normal, point=pt3)
 
-    @_register_operator
+    @_register_structure
+    @_register_selection
     def align(self, _=None, atoms=None, selection=None):
         """Rotate atoms to align action vector with XYZ vector."""
         if not self.selection:
@@ -1248,7 +1351,8 @@ class BasicStructureEditor(ipw.VBox):  # pylint: disable=too-many-instance-attri
 
         self.structure, self.selection = atoms, selection
 
-    @_register_operator
+    @_register_structure
+    @_register_selection
     def mod_element(self, _=None, atoms=None, selection=None):
         """Modify selected atoms into the given element."""
         last_atom = atoms.get_global_number_of_atoms()
@@ -1278,7 +1382,8 @@ class BasicStructureEditor(ipw.VBox):  # pylint: disable=too-many-instance-attri
 
         self.structure, self.selection = atoms, new_selection
 
-    @_register_operator
+    @_register_structure
+    @_register_selection
     def copy_sel(self, _=None, atoms=None, selection=None):
         """Copy selected atoms and shift by 1.0 A along X-axis."""
         last_atom = atoms.get_global_number_of_atoms()
@@ -1292,7 +1397,8 @@ class BasicStructureEditor(ipw.VBox):  # pylint: disable=too-many-instance-attri
 
         self.structure, self.selection = atoms, new_selection
 
-    @_register_operator
+    @_register_structure
+    @_register_selection
     def add(self, _=None, atoms=None, selection=None):
         """Add atoms."""
         last_atom = atoms.get_global_number_of_atoms()
@@ -1326,7 +1432,8 @@ class BasicStructureEditor(ipw.VBox):  # pylint: disable=too-many-instance-attri
 
         self.structure, self.selection = atoms, new_selection
 
-    @_register_operator
+    @_register_structure
+    @_register_selection
     def remove(self, _, atoms=None, selection=None):
         """Remove selected atoms."""
         del [atoms[selection]]
