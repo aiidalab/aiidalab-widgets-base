@@ -190,6 +190,7 @@ class _StructureDataBaseViewer(ipw.VBox):
         self._viewer.camera = default_camera
         self._viewer.observe(self._on_atom_click, names="picked")
         self._viewer.stage.set_parameters(mouse_preset="pymol")
+        self.vis_dict={}
 
         view_box = ipw.VBox([self._viewer])
 
@@ -335,8 +336,78 @@ class _StructureDataBaseViewer(ipw.VBox):
         center_button = ipw.Button(description="Center molecule")
         center_button.on_click(lambda c: self._viewer.center())
 
+ #       "b": {
+ #           "ids": "set_ids",
+ #           "aspectRatio": 4,
+ #           "highlight_aspectRatio": 4.1,
+ #           "highlight_color": "green",
+ #           "highlight_opacity": 0.6,
+ #           "name": "bulk",
+ #           "type": "ball+stick",
+ #       },
+
+        # representations
+        def apply_representations(change):
+            DEFAULT_REPRESENTATIONS={        "molecule": {
+            "ids": "1..2",
+            "aspectRatio": 3.5,
+            "highlight_aspectRatio": 3.6,
+            "highlight_color": "red",
+            "highlight_opacity": 0.6,
+            "name": "molecule",
+            "type": "ball+stick",
+        },
+        "surface": {
+            "ids": "1..2",
+            "aspectRatio": 5,
+            "highlight_aspectRatio": 5,
+            "highlight_color": "green",
+            "highlight_opacity": 0.6,
+            "name": "surface",
+            "type": "ball+stick",
+        },}
+            #iterate on number of representations
+            self.vis_dict={}
+            current_rep=0
+            for sel,rep in [(self._selected_atoms_r1.value , self.rep1.value),(self._selected_atoms_r2.value,self.rep2.value)]:
+                if sel:
+                    self.vis_dict[current_rep] = DEFAULT_REPRESENTATIONS[rep]
+                    self.vis_dict[current_rep]["ids"] = sel
+                    self.vis_dict[current_rep]["name"] = "rep"+str(current_rep)
+                    current_rep+=1
+            self.update_viewer()
+
+        apply_rep = ipw.Button(description="Apply rep")
+        apply_rep.on_click(apply_representations)     
+
+        self.rep1 = ipw.Dropdown(
+            #options=["ball+stick", "licorice", "spacefill", "surface"],
+            options=["molecule","surface"],
+            value="molecule",
+            description="Rep1",
+            disabled=False,
+        )
+        self.rep2 = ipw.Dropdown(
+            #options=["ball+stick", "licorice", "spacefill", "surface"],
+            options=["molecule","surface"],
+            value="molecule",
+            description="Rep2",
+            disabled=False,
+        )
+        self._selected_atoms_r1 = ipw.Text(
+            description="atoms rep 1:",
+            value="",
+            style={"description_width": "initial"},
+        )
+        self._selected_atoms_r2 = ipw.Text(
+            description="atoms rep 2:",
+            value="",
+            style={"description_width": "initial"},
+        )        
+
         return ipw.VBox(
-            [supercell_selector, background_color, camera_type, center_button]
+            [supercell_selector, background_color, camera_type, 
+            ipw.HBox([self._selected_atoms_r1,self.rep1]), ipw.HBox([self._selected_atoms_r2,self.rep2]), apply_rep, center_button]
         )
 
     @observe("cell")
@@ -623,6 +694,32 @@ class _StructureDataBaseViewer(ipw.VBox):
         self._download(payload=payload, filename=fname)
         self.render_btn.disabled = False
 
+    def _gen_translation_indexes(self):
+        """Transfromation of indexes in case of multiple representations
+        dictionaries for  back and forth transformations."""
+
+        self._translate_i_glob_loc = {}
+        self._translate_i_loc_glob = {}
+        for component in range(len(self.vis_dict.keys())):
+            comp_i = 0
+            ids = list(
+                string_range_to_list(self.vis_dict[component]["ids"], shift=0)[0]
+            )
+            for i_g in ids:
+                self._translate_i_glob_loc[i_g] = (component, comp_i)
+                self._translate_i_loc_glob[(component, comp_i)] = i_g
+                comp_i += 1
+
+    def _translate_glob_loc(self, indexes):
+        """From global index to indexes of different components."""
+        all_comp = [list() for i in range(len(self.vis_dict.keys()))]
+        print("all_comp ",all_comp)
+        for i_g in indexes:
+            i_c, i_a = self._translate_i_glob_loc[i_g]
+            all_comp[i_c].append(i_a)
+
+        return all_comp
+
     def _on_atom_click(self, _=None):
         """Update selection when clicked on atom."""
         if "atom1" not in self._viewer.picked.keys():
@@ -638,7 +735,8 @@ class _StructureDataBaseViewer(ipw.VBox):
         else:
             selection = [index]
 
-        self.selection = selection
+        self.selection = selection        
+
 
     def highlight_atoms(
         self,
@@ -648,18 +746,90 @@ class _StructureDataBaseViewer(ipw.VBox):
         opacity=DEFAULT_SELECTION_OPACITY,
     ):
         """Highlighting atoms according to the provided list."""
+        print(vis_list)
         if not hasattr(self._viewer, "component_0"):
             return
-        self._viewer._remove_representations_by_name(
-            repr_name="selected_atoms"
-        )  # pylint:disable=protected-access
-        self._viewer.add_ball_and_stick(  # pylint:disable=no-member
-            name="selected_atoms",
-            selection=list() if vis_list is None else vis_list,
-            color=color,
-            aspectRatio=size,
-            opacity=opacity,
-        )
+
+        if self.vis_dict is None:
+            self._viewer._remove_representations_by_name(
+                repr_name="selected_atoms"
+            )  # pylint:disable=protected-access
+            self._viewer.add_ball_and_stick(  # pylint:disable=no-member
+                name="selected_atoms",
+                selection=list() if vis_list is None else vis_list,
+                color=color,
+                aspectRatio=size,
+                opacity=opacity,
+            )
+        else:
+
+            ncomponents = len(self.vis_dict.keys())
+            for component in range(ncomponents):
+                name = "highlight_" + self.vis_dict[component]["name"]
+                self._viewer._remove_representations_by_name(
+                    repr_name=name, component=component
+                )
+                color = self.vis_dict[component]["highlight_color"]
+                aspectRatio = self.vis_dict[component]["highlight_aspectRatio"]
+                opacity = self.vis_dict[component]["highlight_opacity"]
+                if vis_list is None:
+                    self._viewer.add_ball_and_stick(
+                        name=name,
+                        selection=list(),
+                        color=color,
+                        aspectRatio=aspectRatio,
+                        opacity=opacity,
+                        component=component,
+                    )
+                else:
+                    all_comp = self._translate_glob_loc(vis_list)
+                    selection = all_comp[component]
+                    self._viewer.add_ball_and_stick(
+                        name=name,
+                        selection=selection,
+                        color=color,
+                        aspectRatio=aspectRatio,
+                        opacity=opacity,
+                        component=component,
+                    )
+    def update_viewer(self, c=None):
+        with self.hold_trait_notifications():
+ 
+            while hasattr(self._viewer, "component_0"):
+                self._viewer.component_0.clear_representations()
+                cid = self._viewer.component_0.id
+                self._viewer.remove_component(cid)
+
+            # self.vis_dict = vis_dict
+            for component in range(len(self.vis_dict)):
+
+                rep_indexes = list(
+                    string_range_to_list(self.vis_dict[component]["ids"], shift=-1)[
+                        0
+                    ]
+                )
+                if rep_indexes:
+                    mol = self.displayed_structure[rep_indexes]
+
+                    self._viewer.add_component(
+                        nglview.ASEStructure(mol), default_representation=False
+                    )
+
+                    if self.vis_dict[component]["type"] == "ball+stick":
+                        print("ball ",component)
+                        aspectRatio = self.vis_dict[component]["aspectRatio"]
+                        self._viewer.add_ball_and_stick(
+                            aspectRatio=aspectRatio,
+                            opacity=1.0,
+                            component=component,
+                        )
+                    elif self.vis_dict[component]["type"] == "licorice":
+                        self._viewer.add_licorice(opacity=1.0, component=component)
+                    elif self.vis_dict[component]["type"] == "hyperball":
+                        self._viewer.add_hyperball(opacity=1.0, component=component)
+            self._gen_translation_indexes()
+            self._viewer.add_unitcell()
+            self._viewer.center()
 
     @default("supercell")
     def _default_supercell(self):
@@ -802,19 +972,9 @@ class StructureDataViewer(_StructureDataBaseViewer):
     @observe("displayed_structure")
     def _update_structure_viewer(self, change):
         """Update the view if displayed_structure trait was modified."""
-        with self.hold_trait_notifications():
-            for (
-                comp_id
-            ) in self._viewer._ngl_component_ids:  # pylint: disable=protected-access
-                self._viewer.remove_component(comp_id)
-            self.selection = list()
-            if change["new"] is not None:
-                self._viewer.add_component(nglview.ASEStructure(change["new"]))
-                self._viewer.clear()
-                self._viewer.add_ball_and_stick(
-                    aspectRatio=4
-                )  # pylint: disable=no-member
-                self._viewer.add_unitcell()  # pylint: disable=no-member
+        self.update_viewer()
+
+
 
     def d_from(self, operand):
         point = np.array([float(i) for i in operand[1:-1].split(",")])
