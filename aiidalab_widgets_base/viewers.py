@@ -697,7 +697,18 @@ class _StructureDataBaseViewer(ipw.VBox):
 
     def _gen_translation_indexes(self):
         """Transfromation of indexes in case of multiple representations
-        dictionaries for  back and forth transformations."""
+        dictionaries for  back and forth transformations.
+        suppose we have 3 representations:
+        component = 0,1,2
+        and a structure with 10 atoms.
+        If we assign the first 3 atoms to the first representation
+        atom 4 to the second and the rest to the third
+        teh two dictionaries will look like:
+        {0:(0,0),1:(0,1),2:(0,2),3:(1,0),4:(2,0),5:(2,1),6:(2,2),7:(2,3),8:(2,4),9:(2,5)}
+        and
+        {(0,0):0,(0,1):1,(0,2):2,(1,0):3,(2,0):4,(2,1):5,(2,2):6,(2,3):7,(2,4):8,(2,5):9}
+        """
+        
 
         self._translate_i_glob_loc = {}
         self._translate_i_loc_glob = {}        
