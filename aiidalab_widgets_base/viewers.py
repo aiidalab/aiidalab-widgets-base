@@ -190,7 +190,25 @@ class _StructureDataBaseViewer(ipw.VBox):
         self._viewer.camera = default_camera
         self._viewer.observe(self._on_atom_click, names="picked")
         self._viewer.stage.set_parameters(mouse_preset="pymol")
-        self.vis_dict={}
+        self.rep_dict={}
+        self.default_representations={        "molecule": {
+            "ids": "1..2",
+            "aspectRatio": 3.5,
+            "highlight_aspectRatio": 3.6,
+            "highlight_color": "red",
+            "highlight_opacity": 0.6,
+            "name": "molecule",
+            "type": "ball+stick",
+        },
+        "surface": {
+            "ids": "1..2",
+            "aspectRatio": 5,
+            "highlight_aspectRatio": 5,
+            "highlight_color": "green",
+            "highlight_opacity": 0.6,
+            "name": "surface",
+            "type": "ball+stick",
+        },}
 
         view_box = ipw.VBox([self._viewer])
 
@@ -348,32 +366,14 @@ class _StructureDataBaseViewer(ipw.VBox):
 
         # representations
         def apply_representations(change):
-            DEFAULT_REPRESENTATIONS={        "molecule": {
-            "ids": "1..2",
-            "aspectRatio": 3.5,
-            "highlight_aspectRatio": 3.6,
-            "highlight_color": "red",
-            "highlight_opacity": 0.6,
-            "name": "molecule",
-            "type": "ball+stick",
-        },
-        "surface": {
-            "ids": "1..2",
-            "aspectRatio": 5,
-            "highlight_aspectRatio": 5,
-            "highlight_color": "green",
-            "highlight_opacity": 0.6,
-            "name": "surface",
-            "type": "ball+stick",
-        },}
             #iterate on number of representations
-            self.vis_dict={}
+            self.rep_dict={}
             current_rep=0
             for sel,rep in [(self._selected_atoms_r1.value , self.rep1.value),(self._selected_atoms_r2.value,self.rep2.value)]:
                 if sel:
-                    self.vis_dict[current_rep] = DEFAULT_REPRESENTATIONS[rep]
-                    self.vis_dict[current_rep]["ids"] = sel
-                    self.vis_dict[current_rep]["name"] = "rep"+str(current_rep)
+                    self.rep_dict[current_rep] = self.default_representations[rep]
+                    self.rep_dict[current_rep]["ids"] = sel
+                    self.rep_dict[current_rep]["name"] = "rep"+str(current_rep)
                     current_rep+=1
             self.update_viewer()
 
@@ -700,10 +700,10 @@ class _StructureDataBaseViewer(ipw.VBox):
 
         self._translate_i_glob_loc = {}
         self._translate_i_loc_glob = {}
-        for component in range(len(self.vis_dict.keys())):
+        for component in range(len(self.rep_dict.keys())):
             comp_i = 0
             ids = list(
-                string_range_to_list(self.vis_dict[component]["ids"], shift=0)[0]
+                string_range_to_list(self.rep_dict[component]["ids"], shift=0)[0]
             )
             for i_g in ids:
                 self._translate_i_glob_loc[i_g] = (component, comp_i)
@@ -712,7 +712,7 @@ class _StructureDataBaseViewer(ipw.VBox):
 
     def _translate_glob_loc(self, indexes):
         """From global index to indexes of different components."""
-        all_comp = [list() for i in range(len(self.vis_dict.keys()))]
+        all_comp = [list() for i in range(len(self.rep_dict.keys()))]
         print("all_comp ",all_comp)
         for i_g in indexes:
             i_c, i_a = self._translate_i_glob_loc[i_g]
@@ -725,6 +725,13 @@ class _StructureDataBaseViewer(ipw.VBox):
         if "atom1" not in self._viewer.picked.keys():
             return  # did not click on atom
         index = self._viewer.picked["atom1"]["index"]
+        print("index ",index)
+        selection = self.selection.copy()
+
+        if self.rep_dict:
+            component = self._viewer.picked["component"]
+            index = self._translate_i_loc_glob[(component, index)]
+
         selection = self.selection.copy()
 
         if selection:
@@ -734,8 +741,13 @@ class _StructureDataBaseViewer(ipw.VBox):
                 selection.remove(index)
         else:
             selection = [index]
+        print(selection,"selection")
+        self.selection = selection
 
-        self.selection = selection        
+        return
+
+
+
 
 
     def highlight_atoms(
@@ -746,11 +758,11 @@ class _StructureDataBaseViewer(ipw.VBox):
         opacity=DEFAULT_SELECTION_OPACITY,
     ):
         """Highlighting atoms according to the provided list."""
-        print(vis_list)
+        print("vis_list",vis_list)
         if not hasattr(self._viewer, "component_0"):
             return
 
-        if self.vis_dict is None:
+        if self.rep_dict is None:
             self._viewer._remove_representations_by_name(
                 repr_name="selected_atoms"
             )  # pylint:disable=protected-access
@@ -763,15 +775,15 @@ class _StructureDataBaseViewer(ipw.VBox):
             )
         else:
 
-            ncomponents = len(self.vis_dict.keys())
+            ncomponents = len(self.rep_dict.keys())
             for component in range(ncomponents):
-                name = "highlight_" + self.vis_dict[component]["name"]
+                name = "highlight_" + self.rep_dict[component]["name"]
                 self._viewer._remove_representations_by_name(
                     repr_name=name, component=component
                 )
-                color = self.vis_dict[component]["highlight_color"]
-                aspectRatio = self.vis_dict[component]["highlight_aspectRatio"]
-                opacity = self.vis_dict[component]["highlight_opacity"]
+                color = self.rep_dict[component]["highlight_color"]
+                aspectRatio = self.rep_dict[component]["highlight_aspectRatio"]
+                opacity = self.rep_dict[component]["highlight_opacity"]
                 if vis_list is None:
                     self._viewer.add_ball_and_stick(
                         name=name,
@@ -800,11 +812,11 @@ class _StructureDataBaseViewer(ipw.VBox):
                 cid = self._viewer.component_0.id
                 self._viewer.remove_component(cid)
 
-            # self.vis_dict = vis_dict
-            for component in range(len(self.vis_dict)):
+            
+            for component in range(len(self.rep_dict)):
 
                 rep_indexes = list(
-                    string_range_to_list(self.vis_dict[component]["ids"], shift=-1)[
+                    string_range_to_list(self.rep_dict[component]["ids"], shift=-1)[
                         0
                     ]
                 )
@@ -815,17 +827,17 @@ class _StructureDataBaseViewer(ipw.VBox):
                         nglview.ASEStructure(mol), default_representation=False
                     )
 
-                    if self.vis_dict[component]["type"] == "ball+stick":
+                    if self.rep_dict[component]["type"] == "ball+stick":
                         print("ball ",component)
-                        aspectRatio = self.vis_dict[component]["aspectRatio"]
+                        aspectRatio = self.rep_dict[component]["aspectRatio"]
                         self._viewer.add_ball_and_stick(
                             aspectRatio=aspectRatio,
                             opacity=1.0,
                             component=component,
                         )
-                    elif self.vis_dict[component]["type"] == "licorice":
+                    elif self.rep_dict[component]["type"] == "licorice":
                         self._viewer.add_licorice(opacity=1.0, component=component)
-                    elif self.vis_dict[component]["type"] == "hyperball":
+                    elif self.rep_dict[component]["type"] == "hyperball":
                         self._viewer.add_hyperball(opacity=1.0, component=component)
             self._gen_translation_indexes()
             self._viewer.add_unitcell()
@@ -846,7 +858,7 @@ class _StructureDataBaseViewer(ipw.VBox):
     @observe("selection")
     def _observe_selection(self, _=None):
         self.highlight_atoms(self.selection)
-        self._selected_atoms.value = list_to_string_range(self.selection, shift=1)
+        self._selected_atoms.value = list_to_string_range(self.selection, shift=0)
 
         # if atom is selected from nglview, shift to selection tab
         if self._selected_atoms.value:
@@ -963,6 +975,8 @@ class StructureDataViewer(_StructureDataBaseViewer):
         """Update displayed_structure trait after the structure trait has been modified."""
         # Remove the current structure(s) from the viewer.
         if change["new"] is not None:
+            self.rep_dict ={0: self.default_representations['surface']}
+            self.rep_dict[0]['ids'] = '1..'+str(len(change["new"]))
             self.set_trait("displayed_structure", change["new"].repeat(self.supercell))
             self.set_trait("cell", change["new"].cell)
         else:
