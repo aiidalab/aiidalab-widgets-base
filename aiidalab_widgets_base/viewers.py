@@ -191,6 +191,7 @@ class _StructureDataBaseViewer(ipw.VBox):
         self._viewer.observe(self._on_atom_click, names="picked")
         self._viewer.stage.set_parameters(mouse_preset="pymol")
         self.rep_dict={}
+        self.rep_dict_unit={}
         self.default_representations={        "molecule": {
             "ids": "1..2",
             "aspectRatio": 3.5,
@@ -367,14 +368,14 @@ class _StructureDataBaseViewer(ipw.VBox):
         # representations
         def apply_representations(change):
             #iterate on number of representations
-            self.rep_dict={}
+            self.rep_dict_unit={}
             current_rep=0
             for sel,rep in [(self._selected_atoms_r1.value , self.rep1.value),(self._selected_atoms_r2.value,self.rep2.value)]:
                 if sel:
-                    self.rep_dict[current_rep] = self.default_representations[rep]
-                    self.rep_dict[current_rep]["ids"] = sel
-                    self.rep_dict[current_rep]["name"] = "rep"+str(current_rep)
-                    current_rep+=1
+                    self.rep_dict_unit[current_rep] = deepcopy(self.default_representations[rep])
+                    self.rep_dict_unit[current_rep]["ids"] = list_to_string_range(string_range_to_list(sel,shift=-1)[0],shift=0)
+                    self.rep_dict_unit[current_rep]["name"] = "rep"+str(current_rep)
+                current_rep+=1
             self.update_viewer()
 
         apply_rep = ipw.Button(description="Apply rep")
@@ -699,21 +700,21 @@ class _StructureDataBaseViewer(ipw.VBox):
         dictionaries for  back and forth transformations."""
 
         self._translate_i_glob_loc = {}
-        self._translate_i_loc_glob = {}
+        self._translate_i_loc_glob = {}        
         for component in range(len(self.rep_dict.keys())):
             comp_i = 0
             ids = list(
-                string_range_to_list(self.rep_dict[component]["ids"], shift=0)[0]
-            )
+                string_range_to_list(self.rep_dict[component]["ids"], shift=0)[0])
             for i_g in ids:
                 self._translate_i_glob_loc[i_g] = (component, comp_i)
                 self._translate_i_loc_glob[(component, comp_i)] = i_g
                 comp_i += 1
 
+
     def _translate_glob_loc(self, indexes):
         """From global index to indexes of different components."""
         all_comp = [list() for i in range(len(self.rep_dict.keys()))]
-        print("all_comp ",all_comp)
+
         for i_g in indexes:
             i_c, i_a = self._translate_i_glob_loc[i_g]
             all_comp[i_c].append(i_a)
@@ -725,15 +726,14 @@ class _StructureDataBaseViewer(ipw.VBox):
         if "atom1" not in self._viewer.picked.keys():
             return  # did not click on atom
         index = self._viewer.picked["atom1"]["index"]
-        print("index ",index)
-        selection = self.selection.copy()
 
         if self.rep_dict:
             component = self._viewer.picked["component"]
-            index = self._translate_i_loc_glob[(component, index)]
+            index = self._translate_i_loc_glob[(component, index)]%self.natoms
 
+        
         selection = self.selection.copy()
-
+      
         if selection:
             if index not in selection:
                 selection.append(index)
@@ -741,8 +741,9 @@ class _StructureDataBaseViewer(ipw.VBox):
                 selection.remove(index)
         else:
             selection = [index]
-        print(selection,"selection")
+        
         self.selection = selection
+        
 
         return
 
@@ -758,7 +759,6 @@ class _StructureDataBaseViewer(ipw.VBox):
         opacity=DEFAULT_SELECTION_OPACITY,
     ):
         """Highlighting atoms according to the provided list."""
-        print("vis_list",vis_list)
         if not hasattr(self._viewer, "component_0"):
             return
 
@@ -812,14 +812,21 @@ class _StructureDataBaseViewer(ipw.VBox):
                 cid = self._viewer.component_0.id
                 self._viewer.remove_component(cid)
 
-            
+            #copy representations of structure into rep of display structure 
+            nrep = np.prod(self.supercell)
+            self.rep_dict = deepcopy(self.rep_dict_unit)
+            if nrep > 1:    
+                for component in range(len(self.rep_dict_unit.keys())):
+                    ids = string_range_to_list(self.rep_dict_unit[component]["ids"] , shift=0)[0]
+                    new_ids = [i+rep*self.natoms for rep in range(nrep) for i in ids]
+                    self.rep_dict[component]["ids"] = list_to_string_range(new_ids,shift=0)      
+
             for component in range(len(self.rep_dict)):
 
                 rep_indexes = list(
-                    string_range_to_list(self.rep_dict[component]["ids"], shift=-1)[
-                        0
-                    ]
+                    string_range_to_list(self.rep_dict[component]["ids"], shift=0)[0]
                 )
+                
                 if rep_indexes:
                     mol = self.displayed_structure[rep_indexes]
 
@@ -828,7 +835,6 @@ class _StructureDataBaseViewer(ipw.VBox):
                     )
 
                     if self.rep_dict[component]["type"] == "ball+stick":
-                        print("ball ",component)
                         aspectRatio = self.rep_dict[component]["aspectRatio"]
                         self._viewer.add_ball_and_stick(
                             aspectRatio=aspectRatio,
@@ -858,7 +864,7 @@ class _StructureDataBaseViewer(ipw.VBox):
     @observe("selection")
     def _observe_selection(self, _=None):
         self.highlight_atoms(self.selection)
-        self._selected_atoms.value = list_to_string_range(self.selection, shift=0)
+        self._selected_atoms.value = list_to_string_range(self.selection, shift=1)
 
         # if atom is selected from nglview, shift to selection tab
         if self._selected_atoms.value:
@@ -974,9 +980,11 @@ class StructureDataViewer(_StructureDataBaseViewer):
     def _observe_structure(self, change):
         """Update displayed_structure trait after the structure trait has been modified."""
         # Remove the current structure(s) from the viewer.
+        
+        self.natoms = len(change["new"])
         if change["new"] is not None:
-            self.rep_dict ={0: self.default_representations['surface']}
-            self.rep_dict[0]['ids'] = '1..'+str(len(change["new"]))
+            self.rep_dict_unit ={0: deepcopy(self.default_representations['surface'])}
+            self.rep_dict_unit[0]['ids'] = '0..'+str(self.natoms - 1)
             self.set_trait("displayed_structure", change["new"].repeat(self.supercell))
             self.set_trait("cell", change["new"].cell)
         else:
@@ -986,6 +994,7 @@ class StructureDataViewer(_StructureDataBaseViewer):
     @observe("displayed_structure")
     def _update_structure_viewer(self, change):
         """Update the view if displayed_structure trait was modified."""
+        # Create visualization for repeat atoms. 
         self.update_viewer()
 
 
