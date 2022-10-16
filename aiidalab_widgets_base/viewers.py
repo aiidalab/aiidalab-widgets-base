@@ -370,10 +370,10 @@ class _StructureDataBaseViewer(ipw.VBox):
             #iterate on number of representations
             self.rep_dict_unit={}
             current_rep=0
-            for sel,rep in [(self._selected_atoms_r1.value , self.rep1.value),(self._selected_atoms_r2.value,self.rep2.value)]:
-                if sel:
-                    self.rep_dict_unit[current_rep] = deepcopy(self.default_representations[rep])
-                    self.rep_dict_unit[current_rep]["ids"] = list_to_string_range(string_range_to_list(sel,shift=-1)[0],shift=0)
+            for sel,rep,show in self.representations:
+                if sel.value:
+                    self.rep_dict_unit[current_rep] = deepcopy(self.default_representations[rep.value])
+                    self.rep_dict_unit[current_rep]["ids"] = list_to_string_range(string_range_to_list(sel.value,shift=-1)[0],shift=0)
                     self.rep_dict_unit[current_rep]["name"] = "rep"+str(current_rep)
                 current_rep+=1
             self.update_viewer()
@@ -381,34 +381,47 @@ class _StructureDataBaseViewer(ipw.VBox):
         apply_rep = ipw.Button(description="Apply rep")
         apply_rep.on_click(apply_representations)     
 
-        self.rep1 = ipw.Dropdown(
-            #options=["ball+stick", "licorice", "spacefill", "surface"],
-            options=["molecule","surface"],
-            value="molecule",
-            description="Rep1",
-            disabled=False,
-        )
-        self.rep2 = ipw.Dropdown(
-            #options=["ball+stick", "licorice", "spacefill", "surface"],
-            options=["molecule","surface"],
-            value="molecule",
-            description="Rep2",
-            disabled=False,
-        )
-        self._selected_atoms_r1 = ipw.Text(
-            description="atoms rep 1:",
-            value="",
-            style={"description_width": "initial"},
-        )
-        self._selected_atoms_r2 = ipw.Text(
-            description="atoms rep 2:",
-            value="",
-            style={"description_width": "initial"},
-        )        
+ 
 
+        # TO DO make this general
+        # options=["ball+stick", "licorice", "spacefill", "surface"],
+        self.representations = [
+            (
+            ipw.Text(
+            description="atoms:",
+            value="",
+            style={"description_width": "initial"} ),
+            ipw.Dropdown(           
+            options=["molecule","surface"],
+            value="molecule",
+            description="mode",
+            disabled=False,),  
+            ipw.Checkbox(
+            description="show",
+            value=True,
+            disabled=False,
+            indent=False)
+            ),
+            (
+            ipw.Text(
+            description="atoms:",
+            value="",
+            style={"description_width": "initial"} ),
+            ipw.Dropdown(
+            options=["molecule","surface"],
+            value="molecule",
+            description="mode",
+            disabled=False,),
+            ipw.Checkbox(
+            description="show",
+            value=True,
+            disabled=False,
+            indent=False)
+            )
+            ]
         return ipw.VBox(
             [supercell_selector, background_color, camera_type, 
-            ipw.HBox([self._selected_atoms_r1,self.rep1]), ipw.HBox([self._selected_atoms_r2,self.rep2]), apply_rep, center_button]
+            ipw.VBox([ipw.HBox([iwidget for iwidget in irep]) for irep in self.representations]), apply_rep, center_button]
         )
 
     @observe("cell")
@@ -992,8 +1005,9 @@ class StructureDataViewer(_StructureDataBaseViewer):
         """Update displayed_structure trait after the structure trait has been modified."""
         # Remove the current structure(s) from the viewer.
         
-        self.natoms = len(change["new"])
+        
         if change["new"] is not None:
+            self.natoms = len(change["new"])
             self.rep_dict_unit ={0: deepcopy(self.default_representations['surface'])}
             self.rep_dict_unit[0]['ids'] = '0..'+str(self.natoms - 1)
             self.set_trait("displayed_structure", change["new"].repeat(self.supercell))
