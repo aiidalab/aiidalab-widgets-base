@@ -11,6 +11,7 @@ from collections import OrderedDict
 import ase
 import ipywidgets as ipw
 import numpy as np
+from copy import deepcopy
 
 # spglib for cell converting
 import spglib
@@ -29,7 +30,7 @@ from aiida.plugins import DataFactory
 from ase import Atom, Atoms
 from ase.data import chemical_symbols, covalent_radii
 from sklearn.decomposition import PCA
-from traitlets import Instance, Int, List, Unicode, Union, default, dlink, link, observe
+from traitlets import Dict, Instance, Int, List, Unicode, Union, default, dlink, link, observe
 
 # Local imports
 from .data import LigandSelectorWidget
@@ -176,6 +177,8 @@ class StructureManagerWidget(ipw.VBox):
             link((editors[0], "structure"), (self, "structure"))
             if editors[0].has_trait("selection"):
                 link((editors[0], "selection"), (self.viewer, "selection"))
+            if editors[0].has_trait("list_of_representations"):
+                link((editors[0], "list_of_representations"), (self.viewer, "list_of_representations"))
             if editors[0].has_trait("camera_orientation"):
                 dlink(
                     (self.viewer._viewer, "_camera_orientation"),
@@ -949,6 +952,7 @@ class BasicStructureEditor(ipw.VBox):  # pylint: disable=too-many-instance-attri
     position of periodic structure in cell) editing."""
 
     structure = Instance(Atoms, allow_none=True)
+    list_of_representations = List()
     selection = List(Int)
     camera_orientation = List()
 
@@ -1182,6 +1186,13 @@ class BasicStructureEditor(ipw.VBox):  # pylint: disable=too-many-instance-attri
             ]
         )
 
+
+    def find_index(self,list_of_lists, element):
+        for i, x in enumerate(list_of_lists):
+            if element in x:
+                return i
+        return -1
+
     def str2vec(self, string):
         return np.array(list(map(float, string.split())))
 
@@ -1402,7 +1413,8 @@ class BasicStructureEditor(ipw.VBox):  # pylint: disable=too-many-instance-attri
     def add(self, _=None, atoms=None, selection=None):
         """Add atoms."""
         last_atom = atoms.get_global_number_of_atoms()
-
+        end_atom=last_atom
+        new_list_of_representations = deepcopy(self.list_of_representations)
         if self.ligand.value == 0:
             initial_ligand = Atoms([Atom(self.element.value, [0, 0, 0])])
             rad = SYMBOL_RADIUS[self.element.value]
@@ -1425,11 +1437,14 @@ class BasicStructureEditor(ipw.VBox):  # pylint: disable=too-many-instance-attri
                 lgnd.translate(position + self.action_vector * self.bond_length.value)
 
             atoms += lgnd
+            rep_of_idx = self.find_index(new_list_of_representations, idx)
+            new_list_of_representations[rep_of_idx]+=[i for i in range(end_atom, end_atom + len(lgnd))]
+            end_atom += len(lgnd)
 
         new_selection = [
-            i for i in range(last_atom, last_atom + len(selection) * len(lgnd))
+            i for i in range(last_atom, end_atom)
         ]
-
+        self.list_of_representations = new_list_of_representations
         self.structure, self.selection = atoms, new_selection
 
     @_register_structure
@@ -1437,5 +1452,7 @@ class BasicStructureEditor(ipw.VBox):  # pylint: disable=too-many-instance-attri
     def remove(self, _, atoms=None, selection=None):
         """Remove selected atoms."""
         del [atoms[selection]]
+        new_list = [[ele for ele in sub if ele not in selection] for sub in self.list_of_representations]
 
+        self.list_of_representations = new_list
         self.structure, self.selection = atoms, list()

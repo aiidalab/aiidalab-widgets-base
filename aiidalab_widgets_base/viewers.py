@@ -20,6 +20,7 @@ from IPython.display import clear_output, display
 from matplotlib.colors import to_rgb
 from numpy.linalg import norm
 from traitlets import (
+    Dict,
     Instance,
     Int,
     List,
@@ -171,6 +172,7 @@ class _StructureDataBaseViewer(ipw.VBox):
     selection = List(Int)
     selection_adv = Unicode()
     supercell = List(Int)
+    list_of_representations = List()
     cell = Instance(Cell, allow_none=True)
     DEFAULT_SELECTION_OPACITY = 0.2
     DEFAULT_SELECTION_RADIUS = 6
@@ -355,27 +357,26 @@ class _StructureDataBaseViewer(ipw.VBox):
         center_button = ipw.Button(description="Center molecule")
         center_button.on_click(lambda c: self._viewer.center())
 
- #       "b": {
- #           "ids": "set_ids",
- #           "aspectRatio": 4,
- #           "highlight_aspectRatio": 4.1,
- #           "highlight_color": "green",
- #           "highlight_opacity": 0.6,
- #           "name": "bulk",
- #           "type": "ball+stick",
- #       },
 
         # representations
         def apply_representations(change):
             #iterate on number of representations
             self.rep_dict_unit={}
             current_rep=0
+            list_of_representations=list()
             for sel,rep,show in self.representations:
-                if sel.value:
+                # in representation dictionary indexes start from 0
+                idsl = string_range_to_list(sel.value,shift=-1)[0]
+                ids = list_to_string_range(idsl,shift=0)                
+                if ids:
                     self.rep_dict_unit[current_rep] = deepcopy(self.default_representations[rep.value])
-                    self.rep_dict_unit[current_rep]["ids"] = list_to_string_range(string_range_to_list(sel.value,shift=-1)[0],shift=0)
+                    self.rep_dict_unit[current_rep]["ids"] = ids
                     self.rep_dict_unit[current_rep]["name"] = "rep"+str(current_rep)
+                    list_of_representations.append(idsl)
+                else:
+                    list_of_representations.append([])
                 current_rep+=1
+            self.list_of_representations = list_of_representations
             self.update_viewer()
 
         apply_rep = ipw.Button(description="Apply rep")
@@ -423,6 +424,14 @@ class _StructureDataBaseViewer(ipw.VBox):
             [supercell_selector, background_color, camera_type, 
             ipw.VBox([ipw.HBox([iwidget for iwidget in irep]) for irep in self.representations]), apply_rep, center_button]
         )
+
+    @observe("list_of_representations")
+    def _observe_list_of_representations(self, _=None):
+        """Update the value of representation selection widgets when the list of representations changes."""
+        for i,list in enumerate(self.list_of_representations):
+            self.representations[i][0].value = list_to_string_range(list,shift=1)
+        #apply_representations()
+
 
     @observe("cell")
     def _observe_cell(self, _=None):
@@ -852,6 +861,7 @@ class _StructureDataBaseViewer(ipw.VBox):
                 )
                 
                 if rep_indexes:
+                    print("rep_indexes",rep_indexes)
                     mol = self.displayed_structure[rep_indexes]
 
                     self._viewer.add_component(
