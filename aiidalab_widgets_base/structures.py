@@ -57,6 +57,7 @@ class StructureManagerWidget(ipw.VBox):
     structure = Union([Instance(Atoms), Instance(Data)], allow_none=True)
     structure_node = Instance(Data, allow_none=True, read_only=True)
     node_class = Unicode()
+    list_of_representations = List()
 
     SUPPORTED_DATA_FORMATS = {"CifData": "cif", "StructureData": "structure"}
 
@@ -179,6 +180,7 @@ class StructureManagerWidget(ipw.VBox):
                 link((editors[0], "selection"), (self.viewer, "selection"))
             if editors[0].has_trait("list_of_representations"):
                 link((editors[0], "list_of_representations"), (self.viewer, "list_of_representations"))
+                link((editors[0], "list_of_representations"), (self, "list_of_representations"))
             if editors[0].has_trait("camera_orientation"):
                 dlink(
                     (self.viewer._viewer, "_camera_orientation"),
@@ -238,7 +240,8 @@ class StructureManagerWidget(ipw.VBox):
         if self.history:
             self.history = self.history[:-1]
             if self.history:
-                self.structure = self.history[-1]
+                self.structure = self.history[-1][0]
+                self.list_of_representations = self.history[-1][1]
             else:
                 self.input_structure = None
         self.structure_set_by_undo = False
@@ -336,6 +339,11 @@ class StructureManagerWidget(ipw.VBox):
         else:
             self.structure = None
 
+    @observe("list_of_representations")
+    def _observe_list_of_representations(self, change=None):
+        """Update list of representations in teh history list."""
+        self.history[-1]=(self.history[-1][0],deepcopy(self.list_of_representations))
+
     @observe("structure")
     def _structure_changed(self, change=None):
         """Perform some operations that depend on the value of `structure` trait.
@@ -344,7 +352,7 @@ class StructureManagerWidget(ipw.VBox):
         Also, the function sets `structure_node` trait to the selected node type.
         """
         if not self.structure_set_by_undo:
-            self.history.append(change["new"])
+            self.history.append((change["new"],deepcopy(self.list_of_representations)))
 
         # If structure trait was set to None, structure_node should become None as well.
         if self.structure is None:
@@ -1382,31 +1390,44 @@ class BasicStructureEditor(ipw.VBox):  # pylint: disable=too-many-instance-attri
             initial_ligand = self.ligand.rotate(
                 align_to=self.action_vector, remove_anchor=True
             )
+            end_atom=last_atom
+            new_list_of_representations = deepcopy(self.list_of_representations)
             for idx in self.selection:
                 position = self.structure.positions[idx].copy()
                 lgnd = initial_ligand.copy()
                 lgnd.translate(position)
                 atoms += lgnd
+                rep_of_idx = self.find_index(new_list_of_representations, idx)
+                new_list_of_representations[rep_of_idx]+=[i for i in range(end_atom, end_atom + len(lgnd))]
+                end_atom += len(lgnd)                
             new_selection = [
                 i for i in range(last_atom, last_atom + len(selection) * len(lgnd))
             ]
-
+        
         self.structure, self.selection = atoms, new_selection
+        self.list_of_representations = new_list_of_representations
 
     @_register_structure
     @_register_selection
     def copy_sel(self, _=None, atoms=None, selection=None):
         """Copy selected atoms and shift by 1.0 A along X-axis."""
         last_atom = atoms.get_global_number_of_atoms()
+        new_list_of_representations = deepcopy(self.list_of_representations)
 
         # The action
         add_atoms = atoms[self.selection].copy()
         add_atoms.translate([1.0, 0, 0])
         atoms += add_atoms
 
+        for i,id in enumerate(selection):
+            rep_of_idx = self.find_index(new_list_of_representations, id)
+            new_list_of_representations[rep_of_idx]+=[last_atom+i]
+
         new_selection = [i for i in range(last_atom, last_atom + len(selection))]
 
+        
         self.structure, self.selection = atoms, new_selection
+        self.list_of_representations = new_list_of_representations
 
     @_register_structure
     @_register_selection
@@ -1444,15 +1465,18 @@ class BasicStructureEditor(ipw.VBox):  # pylint: disable=too-many-instance-attri
         new_selection = [
             i for i in range(last_atom, end_atom)
         ]
-        self.list_of_representations = new_list_of_representations
+
+        
         self.structure, self.selection = atoms, new_selection
+        self.list_of_representations = new_list_of_representations
 
     @_register_structure
     @_register_selection
     def remove(self, _, atoms=None, selection=None):
         """Remove selected atoms."""
         del [atoms[selection]]
-        new_list = [[ele for ele in sub if ele not in selection] for sub in self.list_of_representations]
+        new_list_of_representations = [[ele for ele in sub if ele not in selection] for sub in self.list_of_representations]
 
-        self.list_of_representations = new_list
+        
         self.structure, self.selection = atoms, list()
+        self.list_of_representations = new_list_of_representations

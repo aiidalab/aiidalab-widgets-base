@@ -194,6 +194,8 @@ class _StructureDataBaseViewer(ipw.VBox):
         self._viewer.stage.set_parameters(mouse_preset="pymol")
         self.rep_dict={}
         self.rep_dict_unit={}
+        self.representations = list()
+        self.representations_box = ipw.VBox()
         self.default_representations={        "molecule": {
             "ids": "1..2",
             "aspectRatio": 3.5,
@@ -358,51 +360,26 @@ class _StructureDataBaseViewer(ipw.VBox):
         center_button.on_click(lambda c: self._viewer.center())
 
 
-        # representations
-        def apply_representations(change):
-            #iterate on number of representations
-            self.rep_dict_unit={}
-            current_rep=0
-            list_of_representations=list()
-            for sel,rep,show in self.representations:
-                # in representation dictionary indexes start from 0
-                idsl = string_range_to_list(sel.value,shift=-1)[0]
-                ids = list_to_string_range(idsl,shift=0)                
-                if ids:
-                    self.rep_dict_unit[current_rep] = deepcopy(self.default_representations[rep.value])
-                    self.rep_dict_unit[current_rep]["ids"] = ids
-                    self.rep_dict_unit[current_rep]["name"] = "rep"+str(current_rep)
-                    list_of_representations.append(idsl)
-                else:
-                    list_of_representations.append([])
-                current_rep+=1
-            self.list_of_representations = list_of_representations
-            self.update_viewer()
-
+        # 5. representations buttons
+        add_rep = ipw.Button(description="Add rep")
+        add_rep.on_click(self.add_representation)
+        #remove_rep = ipw.Button(description="Remove rep")
+        #remove_rep.on_click(self.remove_representation)
         apply_rep = ipw.Button(description="Apply rep")
-        apply_rep.on_click(apply_representations)     
+        apply_rep.on_click(self.apply_representations)     
 
  
 
-        # TO DO make this general
-        # options=["ball+stick", "licorice", "spacefill", "surface"],
-        self.representations = [
-            (
-            ipw.Text(
-            description="atoms:",
-            value="",
-            style={"description_width": "initial"} ),
-            ipw.Dropdown(           
-            options=["molecule","surface"],
-            value="molecule",
-            description="mode",
-            disabled=False,),  
-            ipw.Checkbox(
-            description="show",
-            value=True,
-            disabled=False,
-            indent=False)
-            ),
+
+        return ipw.VBox(
+            [supercell_selector, background_color, camera_type, self.representations_box,add_rep,
+             apply_rep, center_button]
+        )
+
+
+    def add_representation(self,_=None):
+        """Add representation"""
+        self.representations.append(
             (
             ipw.Text(
             description="atoms:",
@@ -419,18 +396,35 @@ class _StructureDataBaseViewer(ipw.VBox):
             disabled=False,
             indent=False)
             )
-            ]
-        return ipw.VBox(
-            [supercell_selector, background_color, camera_type, 
-            ipw.VBox([ipw.HBox([iwidget for iwidget in irep]) for irep in self.representations]), apply_rep, center_button]
-        )
+            )
+        self.representations_box.children = [ipw.VBox([ipw.HBox([iwidget for iwidget in irep]) for irep in self.representations])]
+    def apply_representations(self,change=None):
+        #iterate on number of representations
+        self.rep_dict_unit={}
+        current_rep=0
+        list_of_representations=list()
+        for sel,rep,show in self.representations:
+            # in representation dictionary indexes start from 0
+            idsl = string_range_to_list(sel.value,shift=-1)[0]
+            ids = list_to_string_range(idsl,shift=0)                
+            if ids:
+                self.rep_dict_unit[current_rep] = deepcopy(self.default_representations[rep.value])
+                self.rep_dict_unit[current_rep]["ids"] = ids
+                self.rep_dict_unit[current_rep]["name"] = "rep"+str(current_rep)
+                list_of_representations.append(idsl)
+            else:
+                list_of_representations.append([])
+            current_rep+=1
+        self.list_of_representations = list_of_representations
+        self.update_viewer()
+
 
     @observe("list_of_representations")
     def _observe_list_of_representations(self, _=None):
         """Update the value of representation selection widgets when the list of representations changes."""
         for i,list in enumerate(self.list_of_representations):
             self.representations[i][0].value = list_to_string_range(list,shift=1)
-        #apply_representations()
+        self.apply_representations()
 
 
     @observe("cell")
@@ -861,7 +855,6 @@ class _StructureDataBaseViewer(ipw.VBox):
                 )
                 
                 if rep_indexes:
-                    print("rep_indexes",rep_indexes)
                     mol = self.displayed_structure[rep_indexes]
 
                     self._viewer.add_component(
@@ -1015,7 +1008,10 @@ class StructureDataViewer(_StructureDataBaseViewer):
         """Update displayed_structure trait after the structure trait has been modified."""
         # Remove the current structure(s) from the viewer.
         
-        
+        # to do: distingush the case a brand new structure in uploaded/ creted
+        # and the case a structure is changed, in teh first case we create a brand new representation dictionary
+        # in the second case we just update the existing one this would avoid a double representation of the structure
+        # not easy: the order in wich structure and list_of_rep traits are updated can create conflicts
         if change["new"] is not None:
             self.natoms = len(change["new"])
             self.rep_dict_unit ={0: deepcopy(self.default_representations['surface'])}
