@@ -6,6 +6,7 @@ import re
 import warnings
 from copy import deepcopy
 
+import itertools
 import ipywidgets as ipw
 import nglview
 import numpy as np
@@ -193,7 +194,7 @@ class _StructureDataBaseViewer(ipw.VBox):
 
     """
     representations = traitlets.List()
-
+    natoms = Int()
     selection = List(Int)
     selection_adv = Unicode()
     supercell = List(Int)
@@ -217,6 +218,7 @@ class _StructureDataBaseViewer(ipw.VBox):
         self._viewer.camera = default_camera
         self._viewer.observe(self._on_atom_click, names="picked")
         self._viewer.stage.set_parameters(mouse_preset="pymol")
+        self.natoms=0
         self.rep_dict={}
         self.rep_dict_unit={}
         self.default_representations={        "molecule": {
@@ -383,6 +385,7 @@ class _StructureDataBaseViewer(ipw.VBox):
 
 
         # 5. representations buttons
+        self.atoms_not_represented=ipw.Output()
         self.add_new_rep_button = ipw.Button(description="Add rep", button_style="info")
         self.add_new_rep_button.on_click(self.add_representation)
 
@@ -392,7 +395,7 @@ class _StructureDataBaseViewer(ipw.VBox):
 
         return ipw.VBox(
             [supercell_selector, background_color, camera_type,
-            self.add_new_rep_button, self.representation_output, apply_rep, center_button]
+            self.add_new_rep_button, self.representation_output,self.atoms_not_represented, apply_rep, center_button]
         )
 
     def add_representation(self, _):
@@ -408,6 +411,7 @@ class _StructureDataBaseViewer(ipw.VBox):
 
         self.representations = self.representations[:index] + self.representations[index+1:]
         del representation
+        self.apply_representations()
 
     @observe("representations")
     def _observe_representations(self, change):
@@ -436,6 +440,14 @@ class _StructureDataBaseViewer(ipw.VBox):
                 list_of_representations.append([])
             current_rep+=1
         self.list_of_representations = list_of_representations
+        missing_atoms  = set(range(self.natoms)).difference(set(list(itertools.chain.from_iterable(list_of_representations))))
+        if missing_atoms:
+            self.atoms_not_represented.clear_output()
+            with self.atoms_not_represented:
+                print("Atoms not represented: ",list_to_string_range(list(missing_atoms),shift=1))
+        else:
+            self.atoms_not_represented.clear_output()
+
         self.update_viewer()
 
 
