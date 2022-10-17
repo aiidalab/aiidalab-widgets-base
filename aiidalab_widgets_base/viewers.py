@@ -14,7 +14,6 @@ import traitlets
 from aiida.cmdline.utils.common import get_workchain_report
 from aiida.cmdline.utils.query import formatting
 from aiida.orm import Node
-from aiidalab_widgets_base.representations  import Representation, RepresentationList
 from ase import Atoms, neighborlist
 from ase.cell import Cell
 from IPython.display import clear_output, display
@@ -49,6 +48,7 @@ from .misc import CopyToClipboardButton, ReversePolishNotation
 from .utils import ase2spglib, list_to_string_range, string_range_to_list
 
 AIIDA_VIEWER_MAPPING = dict()
+BOX_LAYOUT = ipw.Layout(display='flex-wrap', flex_flow='row wrap', justify_content='space-between')
 
 
 def register_viewer_widget(key):
@@ -158,6 +158,29 @@ class DictViewer(ipw.VBox):
         super().__init__([self.widget], **kwargs)
 
 
+class Representation(ipw.HBox):
+    master_class = None
+    def __init__(self, indices="1..2"):
+        self.selection = ipw.Text(description="atoms:",value="",style={"description_width": "initial"} )
+        self.style = ipw.Dropdown(options=["molecule","surface"],value="molecule",description="mode",disabled=False)
+
+        # Delete button.
+        self.delete_button = ipw.Button(description="Delete", button_style="danger")
+        self.delete_button.on_click(self.delete_myself)
+
+
+        super().__init__(
+            children=[
+                self.selection,
+                self.style,
+                self.delete_button,
+            ]
+            )
+
+    
+    def delete_myself(self, _):
+        self.master_class.delete_representation(self)
+
 class _StructureDataBaseViewer(ipw.VBox):
     """Base viewer class for AiiDA structure or trajectory objects.
 
@@ -169,6 +192,7 @@ class _StructureDataBaseViewer(ipw.VBox):
     :type default_camera: string
 
     """
+    representations = traitlets.List()
 
     selection = List(Int)
     selection_adv = Unicode()
@@ -195,7 +219,6 @@ class _StructureDataBaseViewer(ipw.VBox):
         self._viewer.stage.set_parameters(mouse_preset="pymol")
         self.rep_dict={}
         self.rep_dict_unit={}
-        self.representations = RepresentationList()
         self.default_representations={        "molecule": {
             "ids": "1..2",
             "aspectRatio": 3.5,
@@ -350,7 +373,6 @@ class _StructureDataBaseViewer(ipw.VBox):
         )
 
         def change_camera(change):
-
             self._viewer.camera = change["new"]
 
         camera_type.observe(change_camera, names="value")
@@ -361,28 +383,49 @@ class _StructureDataBaseViewer(ipw.VBox):
 
 
         # 5. representations buttons
+        self.add_new_rep_button = ipw.Button(description="Add rep", button_style="info")
+        self.add_new_rep_button.on_click(self.add_representation)
 
         apply_rep = ipw.Button(description="Apply rep")
         apply_rep.on_click(self.apply_representations)     
-
- 
-
+        self.representation_output = ipw.Box(layout=BOX_LAYOUT)
 
         return ipw.VBox(
-            [supercell_selector, background_color, camera_type, self.representations,
-             apply_rep, center_button]
+            [supercell_selector, background_color, camera_type,
+            self.add_new_rep_button, self.representation_output, apply_rep, center_button]
         )
 
+    def add_representation(self, _):
+        """Add a representation to the list of representations."""
+        self.representations = self.representations + [Representation()]
 
+    def delete_representation(self, representation):
+        try:
+            index = self.representations.index(representation)
+        except ValueError:
+            self.representation_add_message.message = f"""<span style="color:red">Error:</span> Rep. {representation} not found."""
+            return
+
+        self.representations = self.representations[:index] + self.representations[index+1:]
+        del representation
+
+    @observe("representations")
+    def _observe_representations(self, change):
+        """Update the list of representations."""
+        if change['new']:
+            self.representation_output.children = change["new"]
+            self.representations[-1].master_class = self
+        else:
+            self.representation_output.children = []
 
     def apply_representations(self,change=None):
         #iterate on number of representations
         self.rep_dict_unit={}
         current_rep=0
         list_of_representations=list()
-        for rep in self.representations.representations:
+        for rep in self.representations:
             # in representation dictionary indexes start from 0
-            idsl = string_range_to_list(rep.selection.value,shift=-1)[0]
+            idsl = string_range_to_list(rep.selection.value, shift=-1)[0]
             ids = list_to_string_range(idsl,shift=0)                
             if ids:
                 self.rep_dict_unit[current_rep] = deepcopy(self.default_representations[rep.style.value])
@@ -400,7 +443,7 @@ class _StructureDataBaseViewer(ipw.VBox):
     def _observe_list_of_representations(self, _=None):
         """Update the value of representation selection widgets when the list of representations changes."""
         for i,list in enumerate(self.list_of_representations):
-            self.representations.representations[i].selection.value = list_to_string_range(list,shift=1)
+            self.representations[i].selection.value = list_to_string_range(list,shift=1)
         self.apply_representations()
 
 
