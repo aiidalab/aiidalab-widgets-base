@@ -14,6 +14,7 @@ import traitlets
 from aiida.cmdline.utils.common import get_workchain_report
 from aiida.cmdline.utils.query import formatting
 from aiida.orm import Node
+from aiidalab_widgets_base.representations  import Representation, RepresentationList
 from ase import Atoms, neighborlist
 from ase.cell import Cell
 from IPython.display import clear_output, display
@@ -194,8 +195,7 @@ class _StructureDataBaseViewer(ipw.VBox):
         self._viewer.stage.set_parameters(mouse_preset="pymol")
         self.rep_dict={}
         self.rep_dict_unit={}
-        self.representations = list()
-        self.representations_box = ipw.VBox()
+        self.representations = RepresentationList()
         self.default_representations={        "molecule": {
             "ids": "1..2",
             "aspectRatio": 3.5,
@@ -361,10 +361,7 @@ class _StructureDataBaseViewer(ipw.VBox):
 
 
         # 5. representations buttons
-        add_rep = ipw.Button(description="Add rep")
-        add_rep.on_click(self.add_representation)
-        #remove_rep = ipw.Button(description="Remove rep")
-        #remove_rep.on_click(self.remove_representation)
+
         apply_rep = ipw.Button(description="Apply rep")
         apply_rep.on_click(self.apply_representations)     
 
@@ -372,43 +369,23 @@ class _StructureDataBaseViewer(ipw.VBox):
 
 
         return ipw.VBox(
-            [supercell_selector, background_color, camera_type, self.representations_box,add_rep,
+            [supercell_selector, background_color, camera_type, self.representations,
              apply_rep, center_button]
         )
 
 
-    def add_representation(self,_=None):
-        """Add representation"""
-        self.representations.append(
-            (
-            ipw.Text(
-            description="atoms:",
-            value="",
-            style={"description_width": "initial"} ),
-            ipw.Dropdown(
-            options=["molecule","surface"],
-            value="molecule",
-            description="mode",
-            disabled=False,),
-            ipw.Checkbox(
-            description="show",
-            value=True,
-            disabled=False,
-            indent=False)
-            )
-            )
-        self.representations_box.children = [ipw.VBox([ipw.HBox([iwidget for iwidget in irep]) for irep in self.representations])]
+
     def apply_representations(self,change=None):
         #iterate on number of representations
         self.rep_dict_unit={}
         current_rep=0
         list_of_representations=list()
-        for sel,rep,show in self.representations:
+        for rep in self.representations.representations:
             # in representation dictionary indexes start from 0
-            idsl = string_range_to_list(sel.value,shift=-1)[0]
+            idsl = string_range_to_list(rep.selection.value,shift=-1)[0]
             ids = list_to_string_range(idsl,shift=0)                
             if ids:
-                self.rep_dict_unit[current_rep] = deepcopy(self.default_representations[rep.value])
+                self.rep_dict_unit[current_rep] = deepcopy(self.default_representations[rep.style.value])
                 self.rep_dict_unit[current_rep]["ids"] = ids
                 self.rep_dict_unit[current_rep]["name"] = "rep"+str(current_rep)
                 list_of_representations.append(idsl)
@@ -423,7 +400,7 @@ class _StructureDataBaseViewer(ipw.VBox):
     def _observe_list_of_representations(self, _=None):
         """Update the value of representation selection widgets when the list of representations changes."""
         for i,list in enumerate(self.list_of_representations):
-            self.representations[i][0].value = list_to_string_range(list,shift=1)
+            self.representations.representations[i].selection.value = list_to_string_range(list,shift=1)
         self.apply_representations()
 
 

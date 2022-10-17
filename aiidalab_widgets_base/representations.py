@@ -13,9 +13,9 @@ class Representation(ipw.HBox):
         self.selection = ipw.Text(description="atoms:",value="",style={"description_width": "initial"} )
         self.style = ipw.Dropdown(options=["molecule","surface"],value="molecule",description="mode",disabled=False)
         #self.show =  ipw.Checkbox(description="show",value=True,disabled=False,indent=False)
-        #self.name = ipw.Text(description="Name", value=name, style=STYLE)
+        self.name = ipw.Text(description="Name", value=name, style=STYLE)
 
-        #ipw.dlink((self.name, "value"), (self.label, "value"), transform=lambda x: f"<b>Fragment: {x}</b>")
+        ipw.dlink((self.name, "value"), (self.label, "value"), transform=lambda x: f"<b>Fragment: {x}</b>")
 
         #self.output = ipw.Output()
 
@@ -57,27 +57,29 @@ class RepresentationList(ipw.VBox):
         self.add_new_rep_button.on_click(self.add_representation)
 
         # Outputs.
-        #self.fragment_add_message = awb.utils.StatusHTML()
+        self.representation_add_message = awb.utils.StatusHTML()
         self.representation_output = ipw.Box(layout=BOX_LAYOUT)
-        super().__init__(children=[ipw.HBox([self.new_representation_name, self.add_new_rep_button])])#, self.fragment_add_message, self.fragment_output])
+        super().__init__(children=[ipw.HBox([self.new_representation_name, self.add_new_rep_button,self.representation_add_message,self.representation_output])])
 
 
         self.representation_output.children = self.representations
 
     def add_representation(self, _):
         """Add a representation to the list of representations."""
-
-        self.representations = self.representations + [Representation()]
+        if not self.new_representation_name.value:
+            self.representation_add_message.message = """<span style="color:red">Error:</span> Please enter a name for the Rep."""
+            return
+        self.representations = self.representations + [Representation(name=self.new_representation_name.value)]
         self.new_representation_name.value = ''
     
     def delete_representation(self, representation):
         try:
             index = self.representations.index(representation)
         except ValueError:
-            self.representation_add_message.message = f"""<span style="color:red">Error:</span> Fragment {representation} not found."""
+            self.representation_add_message.message = f"""<span style="color:red">Error:</span> Rep. {representation} not found."""
             return
 
-        self.representation_add_message.message = f"""<span style="color:blue">Info:</span> Removing {representation.name.value} ({representation.indices.value}) from the fragment list."""
+        self.representation_add_message.message = f"""<span style="color:blue">Info:</span> Removing {representation.name.value} ({representation.selection.value}) """
         self.representations = self.representations[:index] + self.representations[index+1:]
         del representation
     
