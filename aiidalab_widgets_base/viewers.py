@@ -21,6 +21,7 @@ from IPython.display import clear_output, display
 from matplotlib.colors import to_rgb
 from numpy.linalg import norm
 from traitlets import (
+    Bool,
     Dict,
     Instance,
     Int,
@@ -195,6 +196,7 @@ class _StructureDataBaseViewer(ipw.VBox):
     """
     representations = traitlets.List()
     natoms = Int()
+    brand_new_structure = Bool(True)
     selection = List(Int)
     selection_adv = Unicode()
     supercell = List(Int)
@@ -218,6 +220,7 @@ class _StructureDataBaseViewer(ipw.VBox):
         self._viewer.camera = default_camera
         self._viewer.observe(self._on_atom_click, names="picked")
         self._viewer.stage.set_parameters(mouse_preset="pymol")
+        self.first_update_of_viewer = True
         self.natoms=0
         self.rep_dict={}
         self.rep_dict_unit={}
@@ -390,7 +393,7 @@ class _StructureDataBaseViewer(ipw.VBox):
         self.add_new_rep_button.on_click(self.add_representation)
 
         apply_rep = ipw.Button(description="Apply rep")
-        apply_rep.on_click(self.apply_representations)     
+        apply_rep.on_click(self.on_click_apply_representations)     
         self.representation_output = ipw.Box(layout=BOX_LAYOUT)
 
         return ipw.VBox(
@@ -422,41 +425,76 @@ class _StructureDataBaseViewer(ipw.VBox):
         else:
             self.representation_output.children = []
 
+    def update_representations(self, change=None):
+        """Update the representations using the list of representations"""
+        print("update representations")
+        if not self.representations and self.list_of_representations:
+            self.representations = [Representation()]
+        for i,list in enumerate(self.list_of_representations):
+            self.representations[i].selection.value = list_to_string_range(list,shift=1)
+        self.apply_representations()
+
+    def replicate_representations(self, change=None):
+        #copy representations of structure into rep of display structure 
+        nrep = np.prod(self.supercell)
+        self.rep_dict = deepcopy(self.rep_dict_unit)
+        if nrep > 1:    
+            for component in range(len(self.rep_dict_unit.keys())):
+                ids = string_range_to_list(self.rep_dict_unit[component]["ids"] , shift=0)[0]
+                new_ids = [i+rep*self.natoms for rep in range(nrep) for i in ids]
+                self.rep_dict[component]["ids"] = list_to_string_range(new_ids,shift=0)
+
+        self._gen_translation_indexes()  
+
+    def on_click_apply_representations(self,change=None):
+        list_of_representations = []
+        for rep in self.representations:
+            list_of_representations.append(string_range_to_list(rep.selection.value,shift=-1)[0])
+        self.list_of_representations = list_of_representations
+
+
     def apply_representations(self,change=None):
         #iterate on number of representations
         self.rep_dict_unit={}
         current_rep=0
-        list_of_representations=list()
+
+        print("apply representations")
+        self.brand_new_structure=False
         for rep in self.representations:
             # in representation dictionary indexes start from 0
             idsl = string_range_to_list(rep.selection.value, shift=-1)[0]
             ids = list_to_string_range(idsl,shift=0)                
-            if ids:
-                self.rep_dict_unit[current_rep] = deepcopy(self.default_representations[rep.style.value])
-                self.rep_dict_unit[current_rep]["ids"] = ids
-                self.rep_dict_unit[current_rep]["name"] = "rep"+str(current_rep)
-                list_of_representations.append(idsl)
-            else:
-                list_of_representations.append([])
+
+            self.rep_dict_unit[current_rep] = deepcopy(self.default_representations[rep.style.value])
+            self.rep_dict_unit[current_rep]["ids"] = ids
+            self.rep_dict_unit[current_rep]["name"] = "rep"+str(current_rep)
+
             current_rep+=1
-        self.list_of_representations = list_of_representations
-        missing_atoms  = set(range(self.natoms)).difference(set(list(itertools.chain.from_iterable(list_of_representations))))
+        missing_atoms  = set(range(self.natoms)).difference(set(list(itertools.chain.from_iterable(self.list_of_representations))))
         if missing_atoms:
             self.atoms_not_represented.clear_output()
             with self.atoms_not_represented:
                 print("Atoms not represented: ",list_to_string_range(list(missing_atoms),shift=1))
         else:
             self.atoms_not_represented.clear_output()
-
+        print("before calling replicate the rep dict is",self.rep_dict_unit)
+        self.replicate_representations()
         self.update_viewer()
+        if self.first_update_of_viewer:            
+            self.first_update_of_viewer = self.orient_z_up()
 
 
     @observe("list_of_representations")
     def _observe_list_of_representations(self, _=None):
         """Update the value of representation selection widgets when the list of representations changes."""
+        print("obsereve list of representations")
+        if not self.representations and self.list_of_representations:
+            self.representations = [Representation()]
+            self.representations[0].style.value = "molecule"        
         for i,list in enumerate(self.list_of_representations):
             self.representations[i].selection.value = list_to_string_range(list,shift=1)
-        self.apply_representations()
+        print("in observe list the list is ",self.list_of_representations)
+        self.update_representations()
 
 
     @observe("cell")
@@ -871,42 +909,72 @@ class _StructureDataBaseViewer(ipw.VBox):
                 cid = self._viewer.component_0.id
                 self._viewer.remove_component(cid)
 
-            #copy representations of structure into rep of display structure 
-            nrep = np.prod(self.supercell)
-            self.rep_dict = deepcopy(self.rep_dict_unit)
-            if nrep > 1:    
-                for component in range(len(self.rep_dict_unit.keys())):
-                    ids = string_range_to_list(self.rep_dict_unit[component]["ids"] , shift=0)[0]
-                    new_ids = [i+rep*self.natoms for rep in range(nrep) for i in ids]
-                    self.rep_dict[component]["ids"] = list_to_string_range(new_ids,shift=0)      
+            #copy representations of structure into rep of display structure
+            print("quasay display")      
 
-            for component in range(len(self.rep_dict)):
+            if self.displayed_structure:
+                print("inside displaying")
+                for component in range(len(self.rep_dict)):
 
-                rep_indexes = list(
-                    string_range_to_list(self.rep_dict[component]["ids"], shift=0)[0]
-                )
-                
-                if rep_indexes:
-                    mol = self.displayed_structure[rep_indexes]
-
-                    self._viewer.add_component(
-                        nglview.ASEStructure(mol), default_representation=False
+                    rep_indexes = list(
+                        string_range_to_list(self.rep_dict[component]["ids"], shift=0)[0]
                     )
+                    
+                    if rep_indexes:
+                        mol = self.displayed_structure[rep_indexes]
 
-                    if self.rep_dict[component]["type"] == "ball+stick":
-                        aspectRatio = self.rep_dict[component]["aspectRatio"]
-                        self._viewer.add_ball_and_stick(
-                            aspectRatio=aspectRatio,
-                            opacity=1.0,
-                            component=component,
+                        self._viewer.add_component(
+                            nglview.ASEStructure(mol), default_representation=False
                         )
-                    elif self.rep_dict[component]["type"] == "licorice":
-                        self._viewer.add_licorice(opacity=1.0, component=component)
-                    elif self.rep_dict[component]["type"] == "hyperball":
-                        self._viewer.add_hyperball(opacity=1.0, component=component)
-            self._gen_translation_indexes()
-            self._viewer.add_unitcell()
-            self._viewer.center()
+
+                        if self.rep_dict[component]["type"] == "ball+stick":
+                            aspectRatio = self.rep_dict[component]["aspectRatio"]
+                            self._viewer.add_ball_and_stick(
+                                aspectRatio=aspectRatio,
+                                opacity=1.0,
+                                component=component,
+                            )
+                        elif self.rep_dict[component]["type"] == "licorice":
+                            self._viewer.add_licorice(opacity=1.0, component=component)
+                        elif self.rep_dict[component]["type"] == "hyperball":
+                            self._viewer.add_hyperball(opacity=1.0, component=component)
+                #self._gen_translation_indexes()
+                self._viewer.add_unitcell()
+                self._viewer.center()
+
+    def orient_z_up(self, _=None):
+        try:
+            print("inside orient_z_up")
+            if self.structure is not None:
+                print("orienting")
+                cell_z = self.structure.cell[2, 2]
+                com = self.structure.get_center_of_mass()
+                def_orientation = self._viewer._camera_orientation
+                top_z_orientation = [
+                    1.0,
+                    0.0,
+                    0.0,
+                    0,
+                    0.0,
+                    1.0,
+                    0.0,
+                    0,
+                    0.0,
+                    0.0,
+                    -np.max([cell_z, 30.0]),
+                    0,
+                    -com[0],
+                    -com[1],
+                    -com[2],
+                    1,
+                ]
+                self._viewer._set_camera_orientation(top_z_orientation)
+                return False
+            else:
+                return True
+        except  AttributeError:
+            print("AttributeError")
+            return True
 
     @default("supercell")
     def _default_supercell(self):
@@ -1015,6 +1083,7 @@ class StructureDataViewer(_StructureDataBaseViewer):
     def repeat(self, _=None):
         if self.structure is not None:
             self.set_trait("displayed_structure", self.structure.repeat(self.supercell))
+            self.apply_representations()
 
     @validate("structure")
     def _valid_structure(self, change):  # pylint: disable=no-self-use
@@ -1044,11 +1113,12 @@ class StructureDataViewer(_StructureDataBaseViewer):
         # and the case a structure is changed, in teh first case we create a brand new representation dictionary
         # in the second case we just update the existing one this would avoid a double representation of the structure
         # not easy: the order in wich structure and list_of_rep traits are updated can create conflicts
+        print("brand new structure?",self.brand_new_structure)
         if change["new"] is not None:
             self.natoms = len(change["new"])
-            self.rep_dict_unit ={0: deepcopy(self.default_representations['surface'])}
-            self.rep_dict_unit[0]['ids'] = '0..'+str(self.natoms - 1)
             self.set_trait("displayed_structure", change["new"].repeat(self.supercell))
+            if self.brand_new_structure:
+                self.list_of_representations = [list(range(self.natoms))]            
             self.set_trait("cell", change["new"].cell)
         else:
             self.set_trait("displayed_structure", None)
@@ -1058,7 +1128,9 @@ class StructureDataViewer(_StructureDataBaseViewer):
     def _update_structure_viewer(self, change):
         """Update the view if displayed_structure trait was modified."""
         # Create visualization for repeat atoms. 
-        self.update_viewer()
+        #if not self.brand_new_structure:
+        #    print("observe displayed_structure calls update_structure_viewer")
+        #    self.update_representations()
 
 
 
