@@ -691,15 +691,8 @@ class SmilesWidget(ipw.VBox):
             from openbabel import openbabel  # noqa: F401
             from openbabel import pybel  # noqa: F401
         except ImportError:
-            super().__init__(
-                [
-                    ipw.HTML(
-                        "The SmilesWidget requires the OpenBabel library, "
-                        "but the library was not found."
-                    )
-                ]
-            )
-            return
+            self.disable_openbabel = True
+
         try:
             from rdkit import Chem  # noqa: F401
             from rdkit.Chem import AllChem  # noqa: F401
@@ -794,6 +787,8 @@ class SmilesWidget(ipw.VBox):
             return self._rdkit_opt(smiles, steps)
         except ValueError as e:
             self.output.value = str(e)
+            if self.disable_openbabel:
+                return None
             self.output.value += " Trying OpenBabel..."
             return self._pybel_opt(smiles, steps)
 
