@@ -980,7 +980,7 @@ class BasicStructureEditor(ipw.VBox):  # pylint: disable=too-many-instance-attri
     position of periodic structure in cell) editing."""
 
     structure = Instance(Atoms, allow_none=True)
-    list_of_representations = List()
+    list_of_representations = List([[]])
     selection = List(Int)
     camera_orientation = List()
 

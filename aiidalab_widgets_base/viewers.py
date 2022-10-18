@@ -2,6 +2,7 @@
 # pylint: disable=no-self-use
 
 import base64
+from hashlib import new
 import re
 import warnings
 from copy import deepcopy
@@ -200,7 +201,7 @@ class _StructureDataBaseViewer(ipw.VBox):
     selection = List(Int)
     selection_adv = Unicode()
     supercell = List(Int)
-    list_of_representations = List()
+    list_of_representations = List([[]])
     cell = Instance(Cell, allow_none=True)
     DEFAULT_SELECTION_OPACITY = 0.2
     DEFAULT_SELECTION_RADIUS = 6
@@ -969,6 +970,7 @@ class _StructureDataBaseViewer(ipw.VBox):
                     1,
                 ]
                 self._viewer._set_camera_orientation(top_z_orientation)
+                self._viewer.center()
                 return False
             else:
                 return True
@@ -1107,18 +1109,20 @@ class StructureDataViewer(_StructureDataBaseViewer):
     @observe("structure")
     def _observe_structure(self, change):
         """Update displayed_structure trait after the structure trait has been modified."""
-        # Remove the current structure(s) from the viewer.
-        
-        # to do: distingush the case a brand new structure in uploaded/ creted
-        # and the case a structure is changed, in teh first case we create a brand new representation dictionary
-        # in the second case we just update the existing one this would avoid a double representation of the structure
-        # not easy: the order in wich structure and list_of_rep traits are updated can create conflicts
+        # if  a structure originates from an input widget previous represnetations are kept
+        # but all atoms are put in the first one
+
         print("brand new structure?",self.brand_new_structure)
         if change["new"] is not None:
             self.natoms = len(change["new"])
             self.set_trait("displayed_structure", change["new"].repeat(self.supercell))
             if self.brand_new_structure:
-                self.list_of_representations = [list(range(self.natoms))]            
+                new_list_of_representations = deepcopy(self.list_of_representations)
+                print(new_list_of_representations)
+                for rep in new_list_of_representations:
+                    rep=[]
+                new_list_of_representations[0] = list(range(self.natoms))
+                self.list_of_representations = new_list_of_representations            
             self.set_trait("cell", change["new"].cell)
         else:
             self.set_trait("displayed_structure", None)
