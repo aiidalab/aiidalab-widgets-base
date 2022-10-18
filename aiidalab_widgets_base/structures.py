@@ -877,6 +877,7 @@ class BasicCellEditor(ipw.VBox):
 
     def __init__(self, title="Cell transform"):
         self.title = title
+        self._status_message = StatusHTML()
 
         # cell transfor opration widget
         primitive_cell = ipw.Button(
@@ -899,6 +900,7 @@ class BasicCellEditor(ipw.VBox):
                         conventional_cell,
                     ],
                 ),
+                self._status_message,
             ],
         )
 
