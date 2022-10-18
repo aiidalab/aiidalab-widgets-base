@@ -997,20 +997,26 @@ class StructureDataViewer(_StructureDataBaseViewer):
 
         # Find geometric center.
         geom_center = print_pos(
-            np.average(self.structure[self.selection].get_positions(), axis=0)
+            np.average(self.displayed_structure[self.selection].get_positions(), axis=0)
         )
 
         # Report coordinates.
         if len(self.selection) == 1:
-            return add_info(self.selection[0], self.structure[self.selection[0]])
+            return add_info(
+                self.selection[0], self.displayed_structure[self.selection[0]]
+            )
 
         # Report coordinates, distance and center.
         if len(self.selection) == 2:
             info = ""
-            info += add_info(self.selection[0], self.structure[self.selection[0]])
-            info += add_info(self.selection[1], self.structure[self.selection[1]])
-            dist = self.structure.get_distance(*self.selection)
-            distv = self.structure.get_distance(*self.selection, vector=True)
+            info += add_info(
+                self.selection[0], self.displayed_structure[self.selection[0]]
+            )
+            info += add_info(
+                self.selection[1], self.displayed_structure[self.selection[1]]
+            )
+            dist = self.displayed_structure.get_distance(*self.selection)
+            distv = self.displayed_structure.get_distance(*self.selection, vector=True)
             info += f"Distance: {dist:.2f} ({print_pos(distv)})<br>Geometric center: ({geom_center})"
             return info
 
@@ -1020,9 +1026,9 @@ class StructureDataViewer(_StructureDataBaseViewer):
 
         # Report angle geometric center and normal.
         if len(self.selection) == 3:
-            angle = self.structure.get_angle(*self.selection).round(2)
+            angle = self.displayed_structure.get_angle(*self.selection).round(2)
             normal = np.cross(
-                *self.structure.get_distances(
+                *self.displayed_structure.get_distances(
                     self.selection[1],
                     [self.selection[0], self.selection[2]],
                     mic=False,
@@ -1035,7 +1041,9 @@ class StructureDataViewer(_StructureDataBaseViewer):
         # Report dihedral angle and geometric center.
         if len(self.selection) == 4:
             try:
-                dihedral = self.structure.get_dihedral(self.selection) * 180 / np.pi
+                dihedral = (
+                    self.displayed_structure.get_dihedral(self.selection) * 180 / np.pi
+                )
                 dihedral_str = f"{dihedral:.2f}"
             except ZeroDivisionError:
                 dihedral_str = "nan"
