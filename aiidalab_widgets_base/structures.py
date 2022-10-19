@@ -58,7 +58,7 @@ class StructureManagerWidget(ipw.VBox):
     structure_node = Instance(Data, allow_none=True, read_only=True)
     node_class = Unicode()
     list_of_representations = List()
-    brand_new_structure = Bool()
+    #brand_new_structure = Bool()
 
     SUPPORTED_DATA_FORMATS = {"CifData": "cif", "StructureData": "structure"}
 
@@ -253,9 +253,9 @@ class StructureManagerWidget(ipw.VBox):
         if self.history:
             self.history = self.history[:-1]
             if self.history:
-                self.brand_new_structure = False
+                #self.brand_new_structure = False
                 self.structure = self.history[-1][0]
-                print("in undo",self.history[-1][1])
+                #print("in undo",self.history[-1][1])
                 self.list_of_representations = self.history[-1][1]
             else:
                 self.input_structure = None
@@ -357,9 +357,9 @@ class StructureManagerWidget(ipw.VBox):
     @observe("list_of_representations")
     def _observe_list_of_representations(self, change=None):
         """Update list of representations in the history list."""
-        print("observe list_rep of history")
+        #print("observe list_rep of history")
         self.history[-1]=(self.history[-1][0],deepcopy(self.list_of_representations))
-        print(self.history)
+        #print(self.history)
 
     @observe("structure")
     def _structure_changed(self, change=None):
@@ -370,7 +370,7 @@ class StructureManagerWidget(ipw.VBox):
         """
         if not self.structure_set_by_undo:
             self.history.append((change["new"],deepcopy(self.list_of_representations)))
-            print("history: ",self.history)
+            #print("history: ",self.history)
 
         # If structure trait was set to None, structure_node should become None as well.
         if self.structure is None:
@@ -709,7 +709,7 @@ class SmilesWidget(ipw.VBox):
     """Convert SMILES into 3D structure."""
 
     structure = Instance(Atoms, allow_none=True)
-    brand_new_structure = Bool()
+    #brand_new_structure = Bool()
 
     SPINNER = """<i class="fa fa-spinner fa-pulse" style="color:red;" ></i>"""
 
@@ -835,8 +835,6 @@ class SmilesWidget(ipw.VBox):
             return
         spinner = f"Screening possible conformers {self.SPINNER}"  # font-size:20em;
         self.output.value = spinner
-        self.brand_new_structure = True
-        print("created in smiles")
         self.structure = self._mol_from_smiles(self.smiles.value)
         # Don't overwrite possible error/warning messages
         if self.output.value == spinner:
@@ -1298,7 +1296,7 @@ class BasicStructureEditor(ipw.VBox):  # pylint: disable=too-many-instance-attri
             self.action_vector * self.displacement.value
         )
 
-        self.brand_new_structure = False
+        #self.brand_new_structure = False
         self.structure, self.selection = atoms, selection
 
     @_register_structure
@@ -1309,7 +1307,7 @@ class BasicStructureEditor(ipw.VBox):  # pylint: disable=too-many-instance-attri
         # The action.
         atoms.positions[self.selection] += np.array(self.str2vec(self.dxyz.value))
 
-        self.brand_new_structure = False
+        #self.brand_new_structure = False
 
         self.structure, self.selection = atoms, selection
 
@@ -1321,7 +1319,7 @@ class BasicStructureEditor(ipw.VBox):  # pylint: disable=too-many-instance-attri
         geo_center = np.average(self.structure[self.selection].get_positions(), axis=0)
         atoms.positions[self.selection] += self.str2vec(self.dxyz.value) - geo_center
 
-        self.brand_new_structure = False
+        #self.brand_new_structure = False
         self.structure, self.selection = atoms, selection
 
     @_register_structure
@@ -1336,7 +1334,7 @@ class BasicStructureEditor(ipw.VBox):  # pylint: disable=too-many-instance-attri
         rotated_subset.rotate(self.phi.value, v=vec, center=center, rotate_cell=False)
         atoms.positions[list(self.selection)] = rotated_subset.positions
 
-        self.brand_new_structure = False
+        #self.brand_new_structure = False
         self.structure, self.selection = atoms, selection
 
     @_register_structure
@@ -1370,7 +1368,7 @@ class BasicStructureEditor(ipw.VBox):  # pylint: disable=too-many-instance-attri
         # Mirror atoms.
         atoms.positions[selection] -= 2 * projections
 
-        self.brand_new_structure = False
+        #self.brand_new_structure = False
         self.structure, self.selection = atoms, selection
 
     def mirror_3p(self, _=None):
@@ -1395,7 +1393,7 @@ class BasicStructureEditor(ipw.VBox):  # pylint: disable=too-many-instance-attri
         subset.rotate(self.action_vector, self.str2vec(self.dxyz.value), center=center)
         atoms.positions[selection] = subset.positions
 
-        self.brand_new_structure = False
+        #self.brand_new_structure = False
         self.structure, self.selection = atoms, selection
 
     @_register_structure
@@ -1460,7 +1458,7 @@ class BasicStructureEditor(ipw.VBox):  # pylint: disable=too-many-instance-attri
 
         new_selection = [i for i in range(last_atom, last_atom + len(selection))]
 
-        self.brand_new_structure = False
+        #self.brand_new_structure = False
 
         # the order of the traitlets below is important
         self.selection = []
@@ -1505,7 +1503,7 @@ class BasicStructureEditor(ipw.VBox):  # pylint: disable=too-many-instance-attri
             i for i in range(last_atom, end_atom)
         ]
 
-        self.brand_new_structure = False
+        #self.brand_new_structure = False
 
         # the order of the traitlets below is important
         self.selection = []
@@ -1519,9 +1517,14 @@ class BasicStructureEditor(ipw.VBox):  # pylint: disable=too-many-instance-attri
         """Remove selected atoms."""
         del [atoms[selection]]
         new_list_of_representations = [[ele for ele in sub if ele not in selection] for sub in self.list_of_representations]
-
+        # shifts atoms ids to account for preceding atoms removed
+        for sel_atom in selection:
+            for idrep in range(len(new_list_of_representations)):
+                for idatom in range(len(new_list_of_representations[idrep])):
+                    if sel_atom < new_list_of_representations[idrep][idatom]:
+                        new_list_of_representations[idrep][idatom]=new_list_of_representations[idrep][idatom]-1
         
-        self.brand_new_structure = False
+        #self.brand_new_structure = False
 
         # the order of the traitlets below is important
         self.selection = []

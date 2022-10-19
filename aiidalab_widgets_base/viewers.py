@@ -162,6 +162,21 @@ class DictViewer(ipw.VBox):
 
 
 class Representation(ipw.HBox):
+    """Representation for StructureData in nglviewer
+        if a structure is imported the traitlet import_structure will trigger
+        initialization of the list 'list_of_representations' e.g. [[0,1,2,3,4,5]]
+        the traitlet 'list_of_representations' will trigger creation of self.representations as list of Representations()
+        default style set in  self.representations[0].style is 'molecule'
+        self.representations[0].selection is populated with all atoms
+        self.update_representations() which copyes selections in the representations widgets into the list_of_representations
+        ad calls self.apply_representations()
+
+        apply_representations:
+        creates the representation dictionary for the main structure 'rep_dict_unit', replicates teh reprsentattions in case 
+        of supercell and calls self.update_viewer() that creates teh nglview representattions
+
+        Editors of a structure update the traitlet self.list_of_representations.
+    """
     master_class = None
     def __init__(self, indices="1..2"):
         self.selection = ipw.Text(description="atoms:",value="",style={"description_width": "initial"} )
@@ -197,7 +212,7 @@ class _StructureDataBaseViewer(ipw.VBox):
     """
     representations = traitlets.List()
     natoms = Int()
-    brand_new_structure = Bool(True)
+    #brand_new_structure = Bool(True)
     selection = List(Int)
     selection_adv = Unicode()
     supercell = List(Int)
@@ -221,7 +236,7 @@ class _StructureDataBaseViewer(ipw.VBox):
         self._viewer.camera = default_camera
         self._viewer.observe(self._on_atom_click, names="picked")
         self._viewer.stage.set_parameters(mouse_preset="pymol")
-        self.first_update_of_viewer = True
+        #self.first_update_of_viewer = True
         self.natoms=0
         self.rep_dict={}
         self.rep_dict_unit={}
@@ -428,11 +443,11 @@ class _StructureDataBaseViewer(ipw.VBox):
 
     def update_representations(self, change=None):
         """Update the representations using the list of representations"""
-        print("update representations")
+        #print("update representations")
         if not self.representations and self.list_of_representations:
             self.representations = [Representation()]
-        for i,list in enumerate(self.list_of_representations):
-            self.representations[i].selection.value = list_to_string_range(list,shift=1)
+        for i,selection in enumerate(self.list_of_representations):
+            self.representations[i].selection.value = list_to_string_range(selection,shift=1)
         self.apply_representations()
 
     def replicate_representations(self, change=None):
@@ -451,7 +466,12 @@ class _StructureDataBaseViewer(ipw.VBox):
         list_of_representations = []
         for rep in self.representations:
             list_of_representations.append(string_range_to_list(rep.selection.value,shift=-1)[0])
-        self.list_of_representations = list_of_representations
+        if self.list_of_representations == list_of_representations:
+            # needed in case I just change the style of a representation without changing the selection
+            self.apply_representations()
+        else:
+            self.list_of_representations = list_of_representations
+
 
 
     def apply_representations(self,change=None):
@@ -459,8 +479,8 @@ class _StructureDataBaseViewer(ipw.VBox):
         self.rep_dict_unit={}
         current_rep=0
 
-        print("apply representations")
-        self.brand_new_structure=False
+        #print("apply representations")
+        #self.brand_new_structure=False
         for rep in self.representations:
             # in representation dictionary indexes start from 0
             idsl = string_range_to_list(rep.selection.value, shift=-1)[0]
@@ -478,23 +498,24 @@ class _StructureDataBaseViewer(ipw.VBox):
                 print("Atoms not represented: ",list_to_string_range(list(missing_atoms),shift=1))
         else:
             self.atoms_not_represented.clear_output()
-        print("before calling replicate the rep dict is",self.rep_dict_unit)
+        #print("before calling replicate the rep dict is",self.rep_dict_unit)
         self.replicate_representations()
         self.update_viewer()
-        if self.first_update_of_viewer:            
-            self.first_update_of_viewer = self.orient_z_up()
+        #if self.first_update_of_viewer:            
+            #self.first_update_of_viewer = self.orient_z_up()
+        self.orient_z_up()
 
 
     @observe("list_of_representations")
     def _observe_list_of_representations(self, _=None):
         """Update the value of representation selection widgets when the list of representations changes."""
-        print("obsereve list of representations")
+        #print("obsereve list of representations")
         if not self.representations and self.list_of_representations:
             self.representations = [Representation()]
             self.representations[0].style.value = "molecule"        
         for i,list in enumerate(self.list_of_representations):
             self.representations[i].selection.value = list_to_string_range(list,shift=1)
-        print("in observe list the list is ",self.list_of_representations)
+        #print("in observe list the list is ",self.list_of_representations)
         self.update_representations()
 
 
@@ -911,12 +932,11 @@ class _StructureDataBaseViewer(ipw.VBox):
                 self._viewer.remove_component(cid)
 
             #copy representations of structure into rep of display structure
-            print("quasay display")      
+            print("inside update viewer")    
 
             if self.displayed_structure:
-                print("inside displaying")
+                #print("inside displaying")
                 for component in range(len(self.rep_dict)):
-
                     rep_indexes = list(
                         string_range_to_list(self.rep_dict[component]["ids"], shift=0)[0]
                     )
@@ -945,9 +965,9 @@ class _StructureDataBaseViewer(ipw.VBox):
 
     def orient_z_up(self, _=None):
         try:
-            print("inside orient_z_up")
+            #print("inside orient_z_up")
             if self.structure is not None:
-                print("orienting")
+                #print("orienting")
                 cell_z = self.structure.cell[2, 2]
                 com = self.structure.get_center_of_mass()
                 def_orientation = self._viewer._camera_orientation
@@ -975,7 +995,6 @@ class _StructureDataBaseViewer(ipw.VBox):
             else:
                 return True
         except  AttributeError:
-            print("AttributeError")
             return True
 
     @default("supercell")
@@ -1110,16 +1129,19 @@ class StructureDataViewer(_StructureDataBaseViewer):
     @observe("input_structure")
     def _observe_input_structure(self, change):
         """Update displayed structure."""
-        self.brand_new_structure = True
+        #self.brand_new_structure = True
         self.natoms = 0
         if change["new"] is not None:
-            self.natoms = len(change["new"])
+            if isinstance(change["new"], Atoms):
+                self.natoms = len(change["new"])
+            else:
+                self.natoms = len(change["new"].get_ase())
             new_list_of_representations = deepcopy(self.list_of_representations)
-            print("in observe structure previous list", new_list_of_representations)
+            #print("in observe structure previous list", new_list_of_representations)
             for rep in range(len(new_list_of_representations)):
                 new_list_of_representations[rep]=[]
             new_list_of_representations[0] = list(range(self.natoms))
-            print("in observe structure updated list", new_list_of_representations)
+            #print("in observe structure updated list", new_list_of_representations)
             self.list_of_representations = new_list_of_representations 
 
     @observe("structure")
@@ -1128,7 +1150,7 @@ class StructureDataViewer(_StructureDataBaseViewer):
         # if  a structure originates from an importer widget previous represnetations are kept
         # but all atoms are put in the first one
 
-        print("brand new structure?",self.brand_new_structure)
+        #print("brand new structure?",self.brand_new_structure)
         if change["new"] is not None:
             self.natoms = len(change["new"])
             self.set_trait("displayed_structure", change["new"].repeat(self.supercell))           
@@ -1140,6 +1162,7 @@ class StructureDataViewer(_StructureDataBaseViewer):
     @observe("displayed_structure")
     def _update_structure_viewer(self, change):
         """Update the view if displayed_structure trait was modified."""
+        self.update_viewer()
         # not needed for the moment, actions are defined in the editors functions
         # to avoid unnecessary updates
         # reactivation would require some care
