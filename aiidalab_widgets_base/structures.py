@@ -101,6 +101,7 @@ class StructureManagerWidget(ipw.VBox):
         else:
             self.viewer = StructureDataViewer(**kwargs)
         dlink((self, "structure_node"), (self.viewer, "structure"))
+        dlink((self, "input_structure"), (self.viewer, "input_structure"))
 
         # Store button.
         self.btn_store = ipw.Button(description="Store in AiiDA", disabled=True)
@@ -162,9 +163,9 @@ class StructureManagerWidget(ipw.VBox):
         if len(importers) == 1:
             # Assigning a function which will be called when importer provides a structure.
             dlink((importers[0], "structure"), (self, "input_structure"))
-            if importers[0].has_trait("brand_new_structure"):
-                link((importers[0], "brand_new_structure"), (self.viewer, "brand_new_structure"))
-                link((importers[0], "brand_new_structure"), (self, "brand_new_structure"))
+            #if importers[0].has_trait("brand_new_structure"):
+            #    link((importers[0], "brand_new_structure"), (self.viewer, "brand_new_structure"))
+            #    link((importers[0], "brand_new_structure"), (self, "brand_new_structure"))
 
             return importers[0]
              
@@ -176,9 +177,9 @@ class StructureManagerWidget(ipw.VBox):
             # Labeling tabs.
             importers_tab.set_title(i, importer.title)
             dlink((importer, "structure"), (self, "input_structure"))
-            if importer.has_trait("brand_new_structure"):
-                link((importer, "brand_new_structure"), (self.viewer, "brand_new_structure"))
-                link((importer, "brand_new_structure"), (self, "brand_new_structure"))
+            #if importer.has_trait("brand_new_structure"):
+            #    link((importer, "brand_new_structure"), (self.viewer, "brand_new_structure"))
+            #    link((importer, "brand_new_structure"), (self, "brand_new_structure"))
         return importers_tab
 
     def _structure_editors(self, editors):

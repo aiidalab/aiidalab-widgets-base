@@ -15,7 +15,7 @@ import spglib
 import traitlets
 from aiida.cmdline.utils.common import get_workchain_report
 from aiida.cmdline.utils.query import formatting
-from aiida.orm import Node
+from aiida.orm import Node, Data
 from ase import Atoms, neighborlist
 from ase.cell import Cell
 from IPython.display import clear_output, display
@@ -1073,6 +1073,7 @@ class StructureDataViewer(_StructureDataBaseViewer):
     """
 
     structure = Union([Instance(Atoms), Instance(Node)], allow_none=True)
+    input_structure = Union([Instance(Atoms), Instance(Data)], allow_none=True)
     displayed_structure = Instance(Atoms, allow_none=True, read_only=True)
     pk = Int(allow_none=True)
 
@@ -1106,23 +1107,31 @@ class StructureDataViewer(_StructureDataBaseViewer):
             "ASE Atoms object, AiiDA CifData or StructureData."
         )
 
+    @observe("input_structure")
+    def _observe_input_structure(self, change):
+        """Update displayed structure."""
+        self.brand_new_structure = True
+        self.natoms = 0
+        if change["new"] is not None:
+            self.natoms = len(change["new"])
+            new_list_of_representations = deepcopy(self.list_of_representations)
+            print("in observe structure previous list", new_list_of_representations)
+            for rep in range(len(new_list_of_representations)):
+                new_list_of_representations[rep]=[]
+            new_list_of_representations[0] = list(range(self.natoms))
+            print("in observe structure updated list", new_list_of_representations)
+            self.list_of_representations = new_list_of_representations 
+
     @observe("structure")
     def _observe_structure(self, change):
         """Update displayed_structure trait after the structure trait has been modified."""
-        # if  a structure originates from an input widget previous represnetations are kept
+        # if  a structure originates from an importer widget previous represnetations are kept
         # but all atoms are put in the first one
 
         print("brand new structure?",self.brand_new_structure)
         if change["new"] is not None:
             self.natoms = len(change["new"])
-            self.set_trait("displayed_structure", change["new"].repeat(self.supercell))
-            if self.brand_new_structure:
-                new_list_of_representations = deepcopy(self.list_of_representations)
-                print(new_list_of_representations)
-                for rep in new_list_of_representations:
-                    rep=[]
-                new_list_of_representations[0] = list(range(self.natoms))
-                self.list_of_representations = new_list_of_representations            
+            self.set_trait("displayed_structure", change["new"].repeat(self.supercell))           
             self.set_trait("cell", change["new"].cell)
         else:
             self.set_trait("displayed_structure", None)
@@ -1131,10 +1140,9 @@ class StructureDataViewer(_StructureDataBaseViewer):
     @observe("displayed_structure")
     def _update_structure_viewer(self, change):
         """Update the view if displayed_structure trait was modified."""
-        # Create visualization for repeat atoms. 
-        #if not self.brand_new_structure:
-        #    print("observe displayed_structure calls update_structure_viewer")
-        #    self.update_representations()
+        # not needed for the moment, actions are defined in the editors functions
+        # to avoid unnecessary updates
+        # reactivation would require some care
 
 
 
