@@ -490,7 +490,6 @@ class _StructureDataBaseViewer(ipw.VBox):
 
         self.structure.set_array("representations", arrayrepresentations)
         self.structure.set_array("representationsshow", arrayrepresentationsshow)
-        print("show",self.structure.arrays["representationsshow"])
 
         self.apply_representations()
 
@@ -523,7 +522,6 @@ class _StructureDataBaseViewer(ipw.VBox):
         else:
             self.atoms_not_represented.clear_output()
         #print("before calling replicate the rep dict is",self.rep_dict_unit)
-        print(self.rep_dict_unit)
         self.replicate_representations()
         self.update_viewer()
         #if self.first_update_of_viewer:            
@@ -949,7 +947,7 @@ class _StructureDataBaseViewer(ipw.VBox):
             #copy representations of structure into rep of display structure   
 
             if self.displayed_structure:
-                #print("inside displaying")
+                print("inside displaying ", self.rep_dict,self.displayed_structure)
                 for component in range(len(self.rep_dict)):
                     rep_indexes = list(
                         string_range_to_list(self.rep_dict[component]["ids"], shift=0)[0]
