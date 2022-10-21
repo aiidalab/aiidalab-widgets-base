@@ -180,7 +180,7 @@ class Representation(ipw.HBox):
     master_class = None
     def __init__(self, indices="1..2"):
         self.selection = ipw.Text(description="atoms:",value="",style={"description_width": "initial"} )
-        self.style = ipw.Dropdown(options=["molecule","surface"],value="molecule",description="mode",disabled=False)
+        self.style = ipw.Dropdown(options=["molecule","surface","bulk"],value="molecule",description="mode",disabled=False)
         self.show = ipw.Checkbox(value=True,description="show",disabled=False)
 
         # Delete button.
@@ -258,7 +258,17 @@ class _StructureDataBaseViewer(ipw.VBox):
             "highlight_opacity": 0.6,
             "name": "surface",
             "type": "ball+stick",
-        },}
+        },
+                "bulk": {
+            "ids": "1..2",
+            "aspectRatio": 5,
+            "highlight_aspectRatio": 5.1,
+            "highlight_color": "green",
+            "highlight_opacity": 0.6,
+            "name": "surface",
+            "type": "ball+stick",
+        },
+        }
 
         view_box = ipw.VBox([self._viewer])
 
@@ -470,13 +480,17 @@ class _StructureDataBaseViewer(ipw.VBox):
 
         # negative value means an atom is not assigned to a representation
         arrayrepresentations=-1*np.ones(self.natoms)
+        arrayrepresentationsshow=np.zeros(self.natoms)
         for irep, rep in enumerate(self.representations):
             selection = string_range_to_list(rep.selection.value, shift=-1)[0]
             for index in selection:
                 arrayrepresentations[index] = irep
+                if rep.show.value:
+                    arrayrepresentationsshow[index] = 1
 
         self.structure.set_array("representations", arrayrepresentations)
-
+        self.structure.set_array("representationsshow", arrayrepresentationsshow)
+        print("show",self.structure.arrays["representationsshow"])
 
         self.apply_representations()
 
@@ -493,8 +507,8 @@ class _StructureDataBaseViewer(ipw.VBox):
         #self.brand_new_structure=False
         for rep in self.representations:
             # in representation dictionary indexes start from 0 so we transform '1..4' in '0..3'
-            idsl = string_range_to_list(rep.selection.value, shift=-1)[0]
-            ids = list_to_string_range(idsl,shift=0)                
+            idsl = string_range_to_list(rep.selection.value, shift=-1)[0]            
+            ids = list_to_string_range([i for i in idsl if self.structure.arrays['representationsshow'][i]],shift=0)                
 
             self.rep_dict_unit[current_rep] = deepcopy(self.default_representations[rep.style.value])
             self.rep_dict_unit[current_rep]["ids"] = ids
@@ -509,6 +523,7 @@ class _StructureDataBaseViewer(ipw.VBox):
         else:
             self.atoms_not_represented.clear_output()
         #print("before calling replicate the rep dict is",self.rep_dict_unit)
+        print(self.rep_dict_unit)
         self.replicate_representations()
         self.update_viewer()
         #if self.first_update_of_viewer:            
@@ -1129,6 +1144,8 @@ class StructureDataViewer(_StructureDataBaseViewer):
         self.natoms= len(structure)
         if "representations" not in structure.arrays:
             structure.set_array("representations", np.zeros(self.natoms))
+        if "representationsshow" not in structure.arrays:
+            structure.set_array("representationsshow", np.ones(self.natoms))            
 
         return structure
  
