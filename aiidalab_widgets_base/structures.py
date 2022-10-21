@@ -57,7 +57,6 @@ class StructureManagerWidget(ipw.VBox):
     structure = Union([Instance(Atoms), Instance(Data)], allow_none=True)
     structure_node = Instance(Data, allow_none=True, read_only=True)
     node_class = Unicode()
-    list_of_representations = List()
     #brand_new_structure = Bool()
 
     SUPPORTED_DATA_FORMATS = {"CifData": "cif", "StructureData": "structure"}
@@ -100,8 +99,7 @@ class StructureManagerWidget(ipw.VBox):
             self.viewer = viewer
         else:
             self.viewer = StructureDataViewer(**kwargs)
-        dlink((self, "structure_node"), (self.viewer, "structure"))
-        dlink((self, "input_structure"), (self.viewer, "input_structure"))
+        link((self, "structure"), (self.viewer, "structure"))
 
         # Store button.
         self.btn_store = ipw.Button(description="Store in AiiDA", disabled=True)
@@ -188,9 +186,6 @@ class StructureManagerWidget(ipw.VBox):
             link((editors[0], "structure"), (self, "structure"))
             if editors[0].has_trait("selection"):
                 link((editors[0], "selection"), (self.viewer, "selection"))
-            if editors[0].has_trait("list_of_representations"):
-                link((editors[0], "list_of_representations"), (self.viewer, "list_of_representations"))
-                link((editors[0], "list_of_representations"), (self, "list_of_representations"))
             if editors[0].has_trait("camera_orientation"):
                 dlink(
                     (self.viewer._viewer, "_camera_orientation"),
@@ -206,10 +201,7 @@ class StructureManagerWidget(ipw.VBox):
                 editors_tab.set_title(i, editor.title)
                 link((editor, "structure"), (self, "structure"))
                 if editor.has_trait("selection"):
-                    link((editor, "selection"), (self.viewer, "selection"))
-                if editor.has_trait("list_of_representations"):
-                    link((editors, "list_of_representations"), (self.viewer, "list_of_representations"))
-                    link((editors, "list_of_representations"), (self, "list_of_representations"))                    
+                    link((editor, "selection"), (self.viewer, "selection"))                   
                 if editor.has_trait("camera_orientation"):
                     dlink(
                         (self.viewer._viewer, "_camera_orientation"),
@@ -253,10 +245,7 @@ class StructureManagerWidget(ipw.VBox):
         if self.history:
             self.history = self.history[:-1]
             if self.history:
-                #self.brand_new_structure = False
-                self.structure = self.history[-1][0]
-                #print("in undo",self.history[-1][1])
-                self.list_of_representations = self.history[-1][1]
+                self.structure = self.history[-1]
             else:
                 self.input_structure = None
         self.structure_set_by_undo = False
@@ -354,12 +343,6 @@ class StructureManagerWidget(ipw.VBox):
         else:
             self.structure = None
 
-    @observe("list_of_representations")
-    def _observe_list_of_representations(self, change=None):
-        """Update list of representations in the history list."""
-        #print("observe list_rep of history")
-        self.history[-1]=(self.history[-1][0],deepcopy(self.list_of_representations))
-        #print(self.history)
 
     @observe("structure")
     def _structure_changed(self, change=None):
@@ -368,9 +351,9 @@ class StructureManagerWidget(ipw.VBox):
         This function enables/disables `btn_store` widget if structure is provided/set to None.
         Also, the function sets `structure_node` trait to the selected node type.
         """
+        
         if not self.structure_set_by_undo:
-            self.history.append((change["new"],deepcopy(self.list_of_representations)))
-            #print("history: ",self.history)
+            self.history.append(change["new"])
 
         # If structure trait was set to None, structure_node should become None as well.
         if self.structure is None:
@@ -979,7 +962,6 @@ class BasicStructureEditor(ipw.VBox):  # pylint: disable=too-many-instance-attri
     position of periodic structure in cell) editing."""
 
     structure = Instance(Atoms, allow_none=True)
-    list_of_representations = List([[]])
     selection = List(Int)
     camera_orientation = List()
 
@@ -1402,7 +1384,7 @@ class BasicStructureEditor(ipw.VBox):  # pylint: disable=too-many-instance-attri
         """Modify selected atoms into the given element."""
         last_atom = atoms.get_global_number_of_atoms()
 
-        new_list_of_representations = []
+
         if self.ligand.value == 0:
             for idx in self.selection:
                 new = Atom(self.element.value)
@@ -1417,53 +1399,44 @@ class BasicStructureEditor(ipw.VBox):  # pylint: disable=too-many-instance-attri
             initial_ligand = self.ligand.rotate(
                 align_to=self.action_vector, remove_anchor=True
             )
-            end_atom=last_atom
-            new_list_of_representations = deepcopy(self.list_of_representations)
+            
             for idx in self.selection:
                 position = self.structure.positions[idx].copy()
                 lgnd = initial_ligand.copy()
                 lgnd.translate(position)
-                atoms += lgnd
-                rep_of_idx = self.find_index(new_list_of_representations, idx)
-                new_list_of_representations[rep_of_idx]+=[i for i in range(end_atom, end_atom + len(lgnd))]
-                end_atom += len(lgnd)                
+                atoms += lgnd                
             new_selection = [
                 i for i in range(last_atom, last_atom + len(selection) * len(lgnd))
             ]
         
-        self.brand_new_structure = False
+
 
         # the order of the traitlets below is important
         self.selection = []
         self.structure = atoms
-        if new_list_of_representations:
-            self.list_of_representations = new_list_of_representations
         self.selection = new_selection
 
     @_register_structure
     @_register_selection
     def copy_sel(self, _=None, atoms=None, selection=None):
         """Copy selected atoms and shift by 1.0 A along X-axis."""
+        print("in copy representations", self.structure.arrays["representations"])
         last_atom = atoms.get_global_number_of_atoms()
-        new_list_of_representations = deepcopy(self.list_of_representations)
 
         # The action
         add_atoms = atoms[self.selection].copy()
         add_atoms.translate([1.0, 0, 0])
         atoms += add_atoms
 
-        for i,id in enumerate(selection):
-            rep_of_idx = self.find_index(new_list_of_representations, id)
-            new_list_of_representations[rep_of_idx]+=[last_atom+i]
+
 
         new_selection = [i for i in range(last_atom, last_atom + len(selection))]
 
-        #self.brand_new_structure = False
+
 
         # the order of the traitlets below is important
         self.selection = []
         self.structure = atoms
-        self.list_of_representations = new_list_of_representations
         self.selection = new_selection
 
     @_register_structure
@@ -1471,8 +1444,6 @@ class BasicStructureEditor(ipw.VBox):  # pylint: disable=too-many-instance-attri
     def add(self, _=None, atoms=None, selection=None):
         """Add atoms."""
         last_atom = atoms.get_global_number_of_atoms()
-        end_atom=last_atom
-        new_list_of_representations = deepcopy(self.list_of_representations)
         if self.ligand.value == 0:
             initial_ligand = Atoms([Atom(self.element.value, [0, 0, 0])])
             rad = SYMBOL_RADIUS[self.element.value]
@@ -1495,12 +1466,9 @@ class BasicStructureEditor(ipw.VBox):  # pylint: disable=too-many-instance-attri
                 lgnd.translate(position + self.action_vector * self.bond_length.value)
 
             atoms += lgnd
-            rep_of_idx = self.find_index(new_list_of_representations, idx)
-            new_list_of_representations[rep_of_idx]+=[i for i in range(end_atom, end_atom + len(lgnd))]
-            end_atom += len(lgnd)
 
         new_selection = [
-            i for i in range(last_atom, end_atom)
+            i for i in range(last_atom, last_atom + len(selection) * len(lgnd))
         ]
 
         #self.brand_new_structure = False
@@ -1508,7 +1476,6 @@ class BasicStructureEditor(ipw.VBox):  # pylint: disable=too-many-instance-attri
         # the order of the traitlets below is important
         self.selection = []
         self.structure = atoms
-        self.list_of_representations = new_list_of_representations
         self.selection = new_selection
 
     @_register_structure
@@ -1516,17 +1483,7 @@ class BasicStructureEditor(ipw.VBox):  # pylint: disable=too-many-instance-attri
     def remove(self, _, atoms=None, selection=None):
         """Remove selected atoms."""
         del [atoms[selection]]
-        new_list_of_representations = [[ele for ele in sub if ele not in selection] for sub in self.list_of_representations]
-        # shifts atoms ids to account for preceding atoms removed
-        for sel_atom in selection:
-            for idrep in range(len(new_list_of_representations)):
-                for idatom in range(len(new_list_of_representations[idrep])):
-                    if sel_atom < new_list_of_representations[idrep][idatom]:
-                        new_list_of_representations[idrep][idatom]=new_list_of_representations[idrep][idatom]-1
-        
-        #self.brand_new_structure = False
 
-        # the order of the traitlets below is important
+
         self.selection = []
         self.structure = atoms
-        self.list_of_representations = new_list_of_representations
