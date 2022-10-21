@@ -1073,7 +1073,7 @@ class AiidaCodeSetup(ipw.VBox):
 
 class ComputerDropdownWidget(ipw.VBox):
     """Widget to select a configured computer.
-    
+
     Attributes:
         selected_computer(Unicode of computer UUID): Trait that points to the selected Computer instance.
             It can be set to an AiiDA Computer UUID. It is linked to the
@@ -1149,7 +1149,7 @@ class ComputerDropdownWidget(ipw.VBox):
 
     @traitlets.validate("value")
     def _validate_value(self, change):
-        """Select computer either by computer UUID."""
+        """Select computer by computer UUID."""
         computer_uuid = change["value"]
         self.output.value = ""
         if not computer_uuid:
