@@ -4,6 +4,7 @@ import subprocess
 import threading
 from copy import copy
 from pathlib import Path
+from uuid import UUID
 
 import ipywidgets as ipw
 import pexpect
@@ -26,12 +27,13 @@ class ComputationalResourcesWidget(ipw.VBox):
     """Code selection widget.
     Attributes:
 
-    value(Unicode or Code): Trait that points to the selected Code instance.
-    It can be set either to an AiiDA Code instance or to a code label (will automatically
-    be replaced by the corresponding Code instance). It is linked to the 'value' trait of
+    value(Unicode or UUID of the code node): Trait that points to
+    the selected UUID of the code instance.
+    It can be set either to an AiiDA code UUID or to a code label.
+    It is linked to the 'value' trait of
     the `self.code_select_dropdown` widget.
 
-    codes(Dict): Trait that contains a dictionary (label => Code instance) for all
+    codes(Dict): Trait that contains a dictionary (label => Code UUID) for all
     codes found in the AiiDA database for the selected plugin. It is linked
     to the 'options' trait of the `self.code_select_dropdown` widget.
 
@@ -41,9 +43,7 @@ class ComputationalResourcesWidget(ipw.VBox):
     computers.
     """
 
-    value = traitlets.Union(
-        [traitlets.Unicode(), traitlets.Instance(orm.Code)], allow_none=True
-    )
+    value = traitlets.Unicode(allow_none=True)
     codes = traitlets.Dict(allow_none=True)
     allow_hidden_codes = traitlets.Bool(False)
     allow_disabled_computers = traitlets.Bool(False)
@@ -163,7 +163,7 @@ class ComputationalResourcesWidget(ipw.VBox):
         user = orm.User.objects.get_default()
 
         return {
-            self._full_code_label(c[0]): c[0]
+            self._full_code_label(c[0]): c[0].uuid
             for c in orm.QueryBuilder()
             .append(orm.Code, filters={"attributes.input_plugin": self.input_plugin})
             .all()
@@ -196,29 +196,21 @@ class ComputationalResourcesWidget(ipw.VBox):
 
     @traitlets.validate("value")
     def _validate_value(self, change):
-        """If code is provided, set it as it is. If code's label is provided,
-        select the code and set it."""
-        code = change["value"]
+        """Check if the code is valid in DB"""
+        code_uuid = change["value"]
         self.output.value = ""
 
         # If code None, set value to None.
-        if code is None:
+        if code_uuid is None:
             return None
 
-        if isinstance(code, str):  # Check code by label.
-            if code in self.codes:
-                return self.codes[code]
-            self.output.value = f"""No code named '<span style="color:red">{code}</span>'
-            found in the AiiDA database."""
-        elif isinstance(code, orm.Code):  # Check code by value.
-            label = self._full_code_label(code)
-            if label in self.codes:
-                return code
-            self.output.value = f"""The code instance '<span style="color:red">{code}</span>'
-            supplied was not found in the AiiDA database."""
-
-        # This place will never be reached, because the trait's type is checked.
-        return None
+        try:
+            _ = UUID(code_uuid, version=4)
+        except ValueError:
+            self.output.value = f"""'<span style="color:red">{code_uuid}</span>'
+            is not a valid UUID."""
+        else:
+            return code_uuid
 
     def _setup_new_code(self, _=None):
         with self._setup_new_code_output:
@@ -1081,23 +1073,18 @@ class AiidaCodeSetup(ipw.VBox):
 
 class ComputerDropdownWidget(ipw.VBox):
     """Widget to select a configured computer.
-
+    
     Attributes:
-        selected_computer(Unicode or Computer): Trait that points to the selected Computer instance.
-            It can be set either to an AiiDA Computer instance or to a computer label (will
-            automatically be replaced by the corresponding Computer instance). It is linked to the
+        selected_computer(Unicode of computer UUID): Trait that points to the selected Computer instance.
+            It can be set to an AiiDA Computer UUID. It is linked to the
             'value' trait of `self._dropdown` widget.
-
-        computers(Dict): Trait that contains a dictionary (label => Computer instance) for all
+        computers(Dict): Trait that contains a dictionary (label => Computer UUID) for all
         computers found in the AiiDA database. It is linked to the 'options' trait of
         `self._dropdown` widget.
-
         allow_select_disabled(Bool):  Trait that defines whether to show disabled computers.
     """
 
-    value = traitlets.Union(
-        [traitlets.Unicode(), traitlets.Instance(orm.Computer)], allow_none=True
-    )
+    value = traitlets.Unicode(allow_none=True)
     computers = traitlets.Dict(allow_none=True)
     allow_select_disabled = traitlets.Bool(False)
 
@@ -1141,7 +1128,7 @@ class ComputerDropdownWidget(ipw.VBox):
         user = orm.User.objects.get_default()
 
         return {
-            c[0].label: c[0]
+            c[0].label: c[0].uuid
             for c in orm.QueryBuilder().append(orm.Computer).all()
             if c[0].is_user_configured(user)
             and (self.allow_select_disabled or c[0].is_user_enabled(user))
@@ -1162,21 +1149,16 @@ class ComputerDropdownWidget(ipw.VBox):
 
     @traitlets.validate("value")
     def _validate_value(self, change):
-        """Select computer either by label or by class instance."""
-        computer = change["value"]
+        """Select computer either by computer UUID."""
+        computer_uuid = change["value"]
         self.output.value = ""
-        if not computer:
-            return None
-        if isinstance(computer, str):
-            if computer in self.computers:
-                return self.computers[computer]
-            self.output.value = f"""Computer instance '<span style="color:red">{computer}</span>'
-            is not configured in your AiiDA profile."""
+        if not computer_uuid:
             return None
 
-        if isinstance(computer, orm.Computer):
-            if computer.label in self.computers:
-                return computer
-            self.output.value = f"""Computer instance '<span style="color:red">{computer.label}</span>'
-            is not configured in your AiiDA profile."""
-        return None
+        try:
+            _ = UUID(computer_uuid, version=4)
+        except ValueError:
+            self.output.value = f"""'<span style="color:red">{computer_uuid}</span>'
+            is not a valid UUID."""
+        else:
+            return computer_uuid
