@@ -444,7 +444,7 @@ class _StructureDataBaseViewer(ipw.VBox):
                 self.representations = [Representation()]
             # shoudl not be needed teh check of more reps in array['representations'] than actually defined reps
             
-            representations  = self.structure.arrays['representations']
+            representations  = self.structure.arrays["representations"]
             for rep in set(representations):
                 if rep >=0: # negative values are used for atoms not represented (different from the case of hidden representations)           
                     self.representations[int(rep)].selection.value = list_to_string_range([int(i) for i in np.where(representations == rep )[0]],shift=1)
@@ -467,12 +467,16 @@ class _StructureDataBaseViewer(ipw.VBox):
 
     def on_click_apply_representations(self,change=None):
         """Updates self.displayed_structure.arrays['representations'] according to user defined representations"""
-        
+
+        arrayrepresentations=np.zeros(self.natoms)
         for irep, rep in enumerate(self.representations):
             selection = string_range_to_list(rep.selection.value, shift=-1)[0]
             for index in selection:
-                self.structure.arrays['representations'][index] = irep
-        print("in on click apply rep", self.structure.arrays['representations'])
+                arrayrepresentations[index] = irep
+
+        self.structure.set_array("representations", arrayrepresentations)
+
+
         self.apply_representations()
 
         
@@ -496,11 +500,11 @@ class _StructureDataBaseViewer(ipw.VBox):
             self.rep_dict_unit[current_rep]["name"] = "rep"+str(current_rep)
 
             current_rep+=1
-        missing_atoms  = set([int(i) for i in np.where(self.displayed_structure.arrays['representations']<0)[0]])
+        missing_atoms  = set([int(i) for i in np.where(self.structure.arrays["representations"]<0)[0]])
         if missing_atoms:
             self.atoms_not_represented.clear_output()
             with self.atoms_not_represented:
-                print("Atoms not represented: ",list_to_string_range(list(missing_atoms),shift=1))
+                print("Atoms excluded from representations: ",list_to_string_range(list(missing_atoms),shift=1))
         else:
             self.atoms_not_represented.clear_output()
         #print("before calling replicate the rep dict is",self.rep_dict_unit)
@@ -1122,7 +1126,7 @@ class StructureDataViewer(_StructureDataBaseViewer):
                 "ASE Atoms object, AiiDA CifData or StructureData."
             )
         self.natoms= len(structure)
-        if 'representations' not in structure.arrays:
+        if "representations" not in structure.arrays:
             print("Resetting representations")
             structure.set_array("representations", np.zeros(self.natoms))
 
@@ -1136,7 +1140,7 @@ class StructureDataViewer(_StructureDataBaseViewer):
         if change["new"] is not None:            
             self.set_trait("displayed_structure", change["new"].repeat(self.supercell))           
             self.set_trait("cell", change["new"].cell)
-            self.structure = change["new"].copy()
+            self.structure = change["new"]
         else:
             self.set_trait("displayed_structure", None)
             self.set_trait("cell", None)
