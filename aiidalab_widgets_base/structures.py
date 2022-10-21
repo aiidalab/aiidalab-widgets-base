@@ -1420,7 +1420,6 @@ class BasicStructureEditor(ipw.VBox):  # pylint: disable=too-many-instance-attri
     @_register_selection
     def copy_sel(self, _=None, atoms=None, selection=None):
         """Copy selected atoms and shift by 1.0 A along X-axis."""
-        print("in copy representations", self.structure.arrays["representations"])
         last_atom = atoms.get_global_number_of_atoms()
 
         # The action

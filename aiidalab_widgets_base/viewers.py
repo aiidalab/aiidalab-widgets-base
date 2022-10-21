@@ -468,7 +468,8 @@ class _StructureDataBaseViewer(ipw.VBox):
     def on_click_apply_representations(self,change=None):
         """Updates self.displayed_structure.arrays['representations'] according to user defined representations"""
 
-        arrayrepresentations=np.zeros(self.natoms)
+        # negative value means an atom is not assigned to a representation
+        arrayrepresentations=-1*np.ones(self.natoms)
         for irep, rep in enumerate(self.representations):
             selection = string_range_to_list(rep.selection.value, shift=-1)[0]
             for index in selection:
@@ -1127,7 +1128,6 @@ class StructureDataViewer(_StructureDataBaseViewer):
             )
         self.natoms= len(structure)
         if "representations" not in structure.arrays:
-            print("Resetting representations")
             structure.set_array("representations", np.zeros(self.natoms))
 
         return structure
