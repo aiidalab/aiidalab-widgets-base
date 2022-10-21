@@ -1105,38 +1105,35 @@ class StructureDataViewer(_StructureDataBaseViewer):
             self.set_trait("displayed_structure", self.structure.repeat(self.supercell))
             self.apply_representations()
 
-    # @validate("structure")
-    # def _valid_structure(self, change):  # pylint: disable=no-self-use
-    #     """Update structure."""
-    #     structure = change["value"]
+    @validate("structure")
+    def _valid_structure(self, change):  # pylint: disable=no-self-use
+        """Update structure."""
+        structure = change["value"]
+        if structure is None:
+           return None  # if no structure provided, the rest of the code can be skipped
+        if isinstance(structure, Atoms):
+            self.pk = None
+        elif isinstance(structure, Node):
+            self.pk = structure.pk
+            structure =  structure.get_ase()
+        else:
+            raise ValueError(
+                "Unsupported type {}, structure must be one of the following types: "
+                "ASE Atoms object, AiiDA CifData or StructureData."
+            )
+        self.natoms= len(structure)
+        if 'representations' not in structure.arrays:
+            print("Resetting representations")
+            structure.set_array("representations", np.zeros(self.natoms))
 
-    #     if structure is None:
-    #         return None  # if no structure provided, the rest of the code can be skipped
-
-    #     if isinstance(structure, Atoms):
-    #         self.pk = None
-    #         return structure
-    #     if isinstance(structure, Node):
-    #         self.pk = structure.pk
-    #         return structure.get_ase()
-    #     raise ValueError(
-    #         "Unsupported type {}, structure must be one of the following types: "
-    #         "ASE Atoms object, AiiDA CifData or StructureData."
-    #     )
+        return structure
  
 
     @observe("structure")
     def _observe_structure(self, change):
         """Update displayed_structure trait after the structure trait has been modified."""
 
-        if change["new"] is not None:
-            self.natoms = len(change["new"])
-            if 'representations' not in change["new"].arrays:
-                print("Resetting representations")
-                change["new"].set_array("representations", np.zeros(self.natoms))
-                self.structure = change["new"].copy()
-            
-            
+        if change["new"] is not None:            
             self.set_trait("displayed_structure", change["new"].repeat(self.supercell))           
             self.set_trait("cell", change["new"].cell)
             self.structure = change["new"].copy()
