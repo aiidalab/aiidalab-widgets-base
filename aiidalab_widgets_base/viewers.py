@@ -163,7 +163,7 @@ class DictViewer(ipw.VBox):
         super().__init__([self.widget], **kwargs)
 
 
-class Representation(ipw.HBox):
+class Representation(ipw.VBox):
     """Representation for StructureData in nglviewer
     if a structure is imported the traitlet import_structure will trigger
     initialization of the list 'list_of_representations' e.g. [[0,1,2,3,4,5]]
@@ -186,10 +186,19 @@ class Representation(ipw.HBox):
         self.selection = ipw.Text(
             description="atoms:", value="", style={"description_width": "initial"}
         )
-        self.style = ipw.Dropdown(
-            options=["molecule", "surface", "bulk"],
-            value="molecule",
-            description="mode",
+        self.repr_type = ipw.Dropdown(
+            options=["ball+stick"],
+            value="ball+stick",
+            description="type",
+            disabled=False,
+        )
+        self.size = ipw.FloatText(
+            value=3, description="size", style={"description_width": "initial"}
+        )
+        self.color = ipw.Dropdown(
+            options=["element", "red", "green", "blue", "yellow", "orange", "purple"],
+            value="element",
+            description="color",
             disabled=False,
         )
         self.show = ipw.Checkbox(value=True, description="show", disabled=False)
@@ -200,12 +209,12 @@ class Representation(ipw.HBox):
 
         super().__init__(
             children=[
-                self.selection,
-                self.style,
-                self.show,
-                self.delete_button,
-            ]
-        )
+                ipw.HBox([self.selection,self.show,self.delete_button,]),
+                ipw.HBox([self.repr_type, self.size, self.color])]) 
+                
+                
+            
+        
 
     def delete_myself(self, _):
         self.master_class.delete_representation(self)
@@ -223,7 +232,7 @@ class _StructureDataBaseViewer(ipw.VBox):
 
     """
 
-    representations = traitlets.List()
+    all_representations = traitlets.List()
     natoms = Int()
     # brand_new_structure = Bool(True)
     selection = List(Int)
@@ -443,36 +452,36 @@ class _StructureDataBaseViewer(ipw.VBox):
 
     def add_representation(self, _):
         """Add a representation to the list of representations."""
-        self.representations = self.representations + [Representation()]
+        self.all_representations = self.all_representations + [Representation()]
 
     def delete_representation(self, representation):
         try:
-            index = self.representations.index(representation)
+            index = self.all_representations.index(representation)
         except ValueError:
             self.representation_add_message.message = f"""<span style="color:red">Error:</span> Rep. {representation} not found."""
             return
 
-        self.representations = (
-            self.representations[:index] + self.representations[index + 1 :]
+        self.all_representations = (
+            self.all_representations[:index] + self.all_representations[index + 1 :]
         )
         del representation
         self.apply_representations()
 
-    @observe("representations")
+    @observe("all_representations")
     def _observe_representations(self, change):
         """Update the list of representations."""
         if change["new"]:
             self.representation_output.children = change["new"]
-            self.representations[-1].master_class = self
+            self.all_representations[-1].master_class = self
         else:
-            self.representation_output.children = []
+            self.all_representation_output.children = []
 
     def update_representations(self, change=None):
         """Update the representations using the list of representations"""
-        number_of_representation_widgets = len(self.representations)
+        number_of_representation_widgets = len(self.all_representations)
         if self.displayed_structure:
             if number_of_representation_widgets == 0:
-                self.representations = [Representation()]
+                self.all_representations = [Representation()]
             # shoudl not be needed teh check of more reps in array['representations'] than actually defined reps
 
             representations = self.structure.arrays["representations"]
@@ -480,7 +489,7 @@ class _StructureDataBaseViewer(ipw.VBox):
                 if (
                     rep >= 0
                 ):  # negative values are used for atoms not represented (different from the case of hidden representations)
-                    self.representations[
+                    self.all_representations[
                         int(rep)
                     ].selection.value = list_to_string_range(
                         [int(i) for i in np.where(representations == rep)[0]], shift=1
@@ -488,21 +497,9 @@ class _StructureDataBaseViewer(ipw.VBox):
             # empty selection field for unused representations
             for rep in range(number_of_representation_widgets):
                 if rep not in {int(i) for i in representations}:
-                    self.representations[rep].selection.value = ""
+                    self.all_representations[rep].selection.value = ""
             self.apply_representations()
 
-    def replicate_representations(self, change=None):
-        # copy representations of structure into rep of display structure
-        nrep = np.prod(self.supercell)
-        self.rep_dict = deepcopy(self.rep_dict_unit)
-        if nrep > 1:
-            for component in range(len(self.rep_dict_unit.keys())):
-                ids = string_range_to_list(
-                    self.rep_dict_unit[component]["ids"], shift=0
-                )[0]
-                new_ids = [i + rep * self.natoms for rep in range(nrep) for i in ids]
-                self.rep_dict[component]["ids"] = list_to_string_range(new_ids, shift=0)
-        self._gen_translation_indexes()
 
     def on_click_apply_representations(self, change=None):
         """Updates self.displayed_structure.arrays['representations'] according to user defined representations"""
@@ -510,7 +507,7 @@ class _StructureDataBaseViewer(ipw.VBox):
         # negative value means an atom is not assigned to a representation
         arrayrepresentations = -1 * np.ones(self.natoms)
         arrayrepresentationsshow = np.zeros(self.natoms)
-        for irep, rep in enumerate(self.representations):
+        for irep, rep in enumerate(self.all_representations):
             selection = string_range_to_list(rep.selection.value, shift=-1)[0]
             for index in selection:
                 arrayrepresentations[index] = irep
@@ -524,23 +521,22 @@ class _StructureDataBaseViewer(ipw.VBox):
 
     def apply_representations(self, change=None):
         # iterate on number of representations
-        self.rep_dict_unit = {}
-        current_rep = 0
-
+        self.repr_params = []
         # self.brand_new_structure=False
-        for rep in self.representations:
+        nrep = np.prod(self.supercell)
+        current_rep = 0
+        for rep in self.all_representations:
             # in representation dictionary indexes start from 0 so we transform '1..4' in '0..3'
             idsl = string_range_to_list(rep.selection.value, shift=-1)[0]
-            ids = list_to_string_range(
-                [i for i in idsl if self.structure.arrays["representationsshow"][i]],
-                shift=0,
-            )
-
-            self.rep_dict_unit[current_rep] = deepcopy(
-                self.default_representations[rep.style.value]
-            )
-            self.rep_dict_unit[current_rep]["ids"] = ids
-            self.rep_dict_unit[current_rep]["name"] = "rep" + str(current_rep)
+            idsl_rep = [i + rep * self.natoms for rep in range(nrep) for i in idsl if self.structure.arrays["representationsshow"][i]]
+            ids = "@" + ",".join(str(s) for s in idsl_rep)
+            self.repr_params.append({'type': rep.repr_type.value,
+                'params': {'sele':ids,
+                           'opacity': 1,
+                           'name':'rep_'+str(current_rep),
+                           'aspectRatio': rep.size.value,
+                           'color':rep.color.value,
+                          }})
 
             current_rep += 1
         missing_atoms = {
@@ -555,8 +551,6 @@ class _StructureDataBaseViewer(ipw.VBox):
                 )
         else:
             self.atoms_not_represented.clear_output()
-        # print("before calling replicate the rep dict is",self.rep_dict_unit)
-        self.replicate_representations()
         self.update_viewer()
         # if self.first_update_of_viewer:
         # self.first_update_of_viewer = self.orient_z_up()
@@ -963,44 +957,19 @@ class _StructureDataBaseViewer(ipw.VBox):
                         component=component,
                     )
 
-    def update_viewer(self, c=None):
+    def remove_viewer_components(self, c=None):
         with self.hold_trait_notifications():
-
             while hasattr(self._viewer, "component_0"):
                 self._viewer.component_0.clear_representations()
                 cid = self._viewer.component_0.id
                 self._viewer.remove_component(cid)
 
-            # copy representations of structure into rep of display structure
+    def update_viewer(self, c=None):
 
             if self.displayed_structure:
-                print("inside displaying ", self.rep_dict, self.displayed_structure)
-                for component in range(len(self.rep_dict)):
-                    rep_indexes = list(
-                        string_range_to_list(self.rep_dict[component]["ids"], shift=0)[
-                            0
-                        ]
-                    )
-
-                    if rep_indexes:
-                        mol = self.displayed_structure[rep_indexes]
-
-                        self._viewer.add_component(
-                            nglview.ASEStructure(mol), default_representation=False
-                        )
-
-                        if self.rep_dict[component]["type"] == "ball+stick":
-                            aspectRatio = self.rep_dict[component]["aspectRatio"]
-                            self._viewer.add_ball_and_stick(
-                                aspectRatio=aspectRatio,
-                                opacity=1.0,
-                                component=component,
-                            )
-                        elif self.rep_dict[component]["type"] == "licorice":
-                            self._viewer.add_licorice(opacity=1.0, component=component)
-                        elif self.rep_dict[component]["type"] == "hyperball":
-                            self._viewer.add_hyperball(opacity=1.0, component=component)
-                # self._gen_translation_indexes()
+                print("in update viewer", self.repr_params)
+                print(hasattr(self._viewer, "component_0"))
+                self._viewer.set_representations(self.repr_params,component=0)
                 self._viewer.add_unitcell()
                 self._viewer.center()
 
@@ -1191,7 +1160,9 @@ class StructureDataViewer(_StructureDataBaseViewer):
     @observe("displayed_structure")
     def _observe_displayed_structure(self, change):
         """Update the view if displayed_structure trait was modified."""
-        self.update_representations()
+        if change["new"] is not None:
+            self._viewer.add_component(nglview.ASEStructure(self.displayed_structure), default_representation=False,name='Structure')
+            self.update_representations()
         # not needed for the moment, actions are defined in the editors functions
         # to avoid unnecessary updates
         # reactivation would require some care
