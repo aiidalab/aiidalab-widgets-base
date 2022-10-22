@@ -1137,7 +1137,6 @@ class StructureDataViewer(_StructureDataBaseViewer):
         if change["new"] is not None:
             self.set_trait("displayed_structure", change["new"].repeat(self.supercell))
             self.set_trait("cell", change["new"].cell)
-            self.structure = change["new"]
         else:
             self.set_trait("displayed_structure", None)
             self.set_trait("cell", None)
