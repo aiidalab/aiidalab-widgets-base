@@ -165,19 +165,6 @@ class DictViewer(ipw.VBox):
 
 class Representation(ipw.VBox):
     """Representation for StructureData in nglviewer
-    if a structure is imported the traitlet import_structure will trigger
-    initialization of the list 'list_of_representations' e.g. [[0,1,2,3,4,5]]
-    the traitlet 'list_of_representations' will trigger creation of self.representations as list of Representations()
-    default style set in  self.representations[0].style is 'molecule'
-    self.representations[0].selection is populated with all atoms
-    self.update_representations() which copyes selections in the representations widgets into the list_of_representations
-    ad calls self.apply_representations()
-
-    apply_representations:
-    creates the representation dictionary for the main structure 'rep_dict_unit', replicates teh reprsentattions in case
-    of supercell and calls self.update_viewer() that creates teh nglview representattions
-
-    Editors of a structure update the traitlet self.list_of_representations.
     """
 
     master_class = None
@@ -456,7 +443,7 @@ class _StructureDataBaseViewer(ipw.VBox):
 
     def delete_representation(self, representation):
         try:
-            index = self.all_representations.index(representation)
+            index = self.all_representations.index(representation)            
         except ValueError:
             self.representation_add_message.message = f"""<span style="color:red">Error:</span> Rep. {representation} not found."""
             return
@@ -958,6 +945,7 @@ class _StructureDataBaseViewer(ipw.VBox):
                     )
 
     def remove_viewer_components(self, c=None):
+        print("remove components")
         with self.hold_trait_notifications():
             while hasattr(self._viewer, "component_0"):
                 self._viewer.component_0.clear_representations()
@@ -967,17 +955,13 @@ class _StructureDataBaseViewer(ipw.VBox):
     def update_viewer(self, c=None):
 
             if self.displayed_structure:
-                print("in update viewer", self.repr_params)
-                print(hasattr(self._viewer, "component_0"))
                 self._viewer.set_representations(self.repr_params,component=0)
                 self._viewer.add_unitcell()
                 self._viewer.center()
 
     def orient_z_up(self, _=None):
         try:
-            # print("inside orient_z_up")
             if self.structure is not None:
-                # print("orienting")
                 cell_z = self.structure.cell[2, 2]
                 com = self.structure.get_center_of_mass()
                 def_orientation = self._viewer._camera_orientation
@@ -1124,6 +1108,7 @@ class StructureDataViewer(_StructureDataBaseViewer):
     @validate("structure")
     def _valid_structure(self, change):  # pylint: disable=no-self-use
         """Update structure."""
+        self.remove_viewer_components()
         structure = change["value"]
         if structure is None:
             return None  # if no structure provided, the rest of the code can be skipped
@@ -1161,6 +1146,7 @@ class StructureDataViewer(_StructureDataBaseViewer):
     def _observe_displayed_structure(self, change):
         """Update the view if displayed_structure trait was modified."""
         if change["new"] is not None:
+            print("create components")
             self._viewer.add_component(nglview.ASEStructure(self.displayed_structure), default_representation=False,name='Structure')
             self.update_representations()
         # not needed for the moment, actions are defined in the editors functions
