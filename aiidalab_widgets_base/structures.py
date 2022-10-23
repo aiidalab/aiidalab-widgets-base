@@ -1418,7 +1418,7 @@ class BasicStructureEditor(ipw.VBox):  # pylint: disable=too-many-instance-attri
             ]
 
         # the order of the traitlets below is important
-        self.selection = []
+        #self.selection = []
         self.structure = atoms
         self.selection = new_selection
 
@@ -1436,7 +1436,7 @@ class BasicStructureEditor(ipw.VBox):  # pylint: disable=too-many-instance-attri
         new_selection = [i for i in range(last_atom, last_atom + len(selection))]
 
         # the order of the traitlets below is important
-        self.selection = []
+        #self.selection = []
         self.structure = atoms
         self.selection = new_selection
 
@@ -1475,7 +1475,7 @@ class BasicStructureEditor(ipw.VBox):  # pylint: disable=too-many-instance-attri
         # self.brand_new_structure = False
 
         # the order of the traitlets below is important
-        self.selection = []
+        #self.selection = []
         self.structure = atoms
         self.selection = new_selection
 

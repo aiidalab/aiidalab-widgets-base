@@ -171,27 +171,27 @@ class Representation(ipw.VBox):
 
     def __init__(self, indices="1..2"):
         self.selection = ipw.Text(
-            description="atoms:", value="", style={"description_width": "initial"}
+            description="atoms:", value="", layout=ipw.Layout(width='35%', height='30px')
         )
         self.repr_type = ipw.Dropdown(
-            options=["ball+stick"],
+            options=["ball+stick","spacefill"],
             value="ball+stick",
             description="type",
-            disabled=False,
+            disabled=False,layout=ipw.Layout(width='35%', height='30px')
         )
         self.size = ipw.FloatText(
-            value=3, description="size", style={"description_width": "initial"}
+            value=3, description="size", layout=ipw.Layout(width='25%', height='30px')
         )
         self.color = ipw.Dropdown(
             options=["element", "red", "green", "blue", "yellow", "orange", "purple"],
             value="element",
             description="color",
-            disabled=False,
+            disabled=False,layout=ipw.Layout(width='35%', height='30px')
         )
         self.show = ipw.Checkbox(value=True, description="show", disabled=False)
 
         # Delete button.
-        self.delete_button = ipw.Button(description="Delete", button_style="danger")
+        self.delete_button = ipw.Button(description="Delete", button_style="danger",layout=ipw.Layout(width='15%', height='30px'))
         self.delete_button.on_click(self.delete_myself)
 
         super().__init__(
@@ -246,37 +246,8 @@ class _StructureDataBaseViewer(ipw.VBox):
         self._viewer.stage.set_parameters(mouse_preset="pymol")
         # self.first_update_of_viewer = True
         self.natoms = 0
-        self.rep_dict = {}
-        self.rep_dict_unit = {}
-        self.default_representations = {
-            "molecule": {
-                "ids": "1..2",
-                "aspectRatio": 3.5,
-                "highlight_aspectRatio": 3.6,
-                "highlight_color": "red",
-                "highlight_opacity": 0.6,
-                "name": "molecule",
-                "type": "ball+stick",
-            },
-            "surface": {
-                "ids": "1..2",
-                "aspectRatio": 10,
-                "highlight_aspectRatio": 10.1,
-                "highlight_color": "green",
-                "highlight_opacity": 0.6,
-                "name": "surface",
-                "type": "ball+stick",
-            },
-            "bulk": {
-                "ids": "1..2",
-                "aspectRatio": 5,
-                "highlight_aspectRatio": 5.1,
-                "highlight_color": "green",
-                "highlight_opacity": 0.6,
-                "name": "surface",
-                "type": "ball+stick",
-            },
-        }
+        self.n_all_representations = 0
+
 
         view_box = ipw.VBox([self._viewer])
 
@@ -421,7 +392,7 @@ class _StructureDataBaseViewer(ipw.VBox):
         self.add_new_rep_button.on_click(self.add_representation)
 
         apply_rep = ipw.Button(description="Apply rep")
-        apply_rep.on_click(self.on_click_apply_representations)
+        apply_rep.on_click(self.apply_representations)
         self.representation_output = ipw.Box(layout=BOX_LAYOUT)
 
         return ipw.VBox(
@@ -440,6 +411,7 @@ class _StructureDataBaseViewer(ipw.VBox):
     def add_representation(self, _):
         """Add a representation to the list of representations."""
         self.all_representations = self.all_representations + [Representation()]
+        self.n_all_representations += 1
 
     def delete_representation(self, representation):
         try:
@@ -452,6 +424,7 @@ class _StructureDataBaseViewer(ipw.VBox):
             self.all_representations[:index] + self.all_representations[index + 1 :]
         )
         del representation
+        self.n_all_representations -= 1
         self.apply_representations()
 
     @observe("all_representations")
@@ -468,8 +441,9 @@ class _StructureDataBaseViewer(ipw.VBox):
         number_of_representation_widgets = len(self.all_representations)
         if self.displayed_structure:
             if number_of_representation_widgets == 0:
-                self.all_representations = [Representation()]
-            # shoudl not be needed teh check of more reps in array['representations'] than actually defined reps
+                self.n_all_representations = 0
+                #self.all_representations = [Representation()]
+                self.add_representation(None)
 
             representations = self.structure.arrays["representations"]
             for rep in set(representations):
@@ -487,11 +461,28 @@ class _StructureDataBaseViewer(ipw.VBox):
                     self.all_representations[rep].selection.value = ""
             self.apply_representations()
 
+    def representation_parameters(self, representation):
+        """Return the parameters dictionary of a representation."""
+        idsl = string_range_to_list(representation.selection.value, shift=-1)[0]
+        idsl_rep = [i + rep * self.natoms for rep in range(np.prod(self.supercell)) for i in idsl if self.structure.arrays["representationsshow"][i]]
+        ids = self.list_to_nglview(idsl_rep)        
+        params = {'type': representation.repr_type.value,
+            'params': {'sele':ids,
+                        'opacity': 1,
+                        'color':representation.color.value,
+                        }}
+        if representation.repr_type.value == "ball+stick":
+            params["params"]["aspectRatio"] =  representation.size.value
+        else: 
+            params["params"]["radiusScale"] =  0.1 * representation.size.value
 
-    def on_click_apply_representations(self, change=None):
-        """Updates self.displayed_structure.arrays['representations'] according to user defined representations"""
+        return params
+               
 
+    def apply_representations(self, change=None):
+        """Apply the representations to the displayed structure."""
         # negative value means an atom is not assigned to a representation
+        self._viewer.clear_representations(component=0)
         arrayrepresentations = -1 * np.ones(self.natoms)
         arrayrepresentationsshow = np.zeros(self.natoms)
         for irep, rep in enumerate(self.all_representations):
@@ -502,30 +493,18 @@ class _StructureDataBaseViewer(ipw.VBox):
                     arrayrepresentationsshow[index] = 1
 
         self.structure.set_array("representations", arrayrepresentations)
-        self.structure.set_array("representationsshow", arrayrepresentationsshow)
-
-        self.apply_representations()
-
-    def apply_representations(self, change=None):
+        self.structure.set_array("representationsshow", arrayrepresentationsshow)      
+        #self.displayed_structure.set_array("representations", arrayrepresentations)
+        #self.displayed_structure.set_array("representationsshow", arrayrepresentationsshow)          
         # iterate on number of representations
         self.repr_params = []
         # self.brand_new_structure=False
-        nrep = np.prod(self.supercell)
         current_rep = 0
         for rep in self.all_representations:
             # in representation dictionary indexes start from 0 so we transform '1..4' in '0..3'
-            idsl = string_range_to_list(rep.selection.value, shift=-1)[0]
-            idsl_rep = [i + rep * self.natoms for rep in range(nrep) for i in idsl if self.structure.arrays["representationsshow"][i]]
-            ids = "@" + ",".join(str(s) for s in idsl_rep)
-            self.repr_params.append({'type': rep.repr_type.value,
-                'params': {'sele':ids,
-                           'opacity': 1,
-                           'name':'rep_'+str(current_rep),
-                           'aspectRatio': rep.size.value,
-                           'color':rep.color.value,
-                          }})
-
+            self.repr_params.append(self.representation_parameters(rep))
             current_rep += 1
+
         missing_atoms = {
             int(i) for i in np.where(self.structure.arrays["representations"] < 0)[0]
         }
@@ -827,125 +806,96 @@ class _StructureDataBaseViewer(ipw.VBox):
         self._download(payload=payload, filename=fname)
         self.render_btn.disabled = False
 
-    def _gen_translation_indexes(self):
-        """Transfromation of indexes in case of multiple representations
-        dictionaries for  back and forth transformations.
-        suppose we have 3 representations:
-        component = 0,1,2
-        and a structure with 10 atoms.
-        If we assign the first 3 atoms to the first representation
-        atom 4 to the second and the rest to the third
-        teh two dictionaries will look like:
-        {0:(0,0),1:(0,1),2:(0,2),3:(1,0),4:(2,0),5:(2,1),6:(2,2),7:(2,3),8:(2,4),9:(2,5)}
-        and
-        {(0,0):0,(0,1):1,(0,2):2,(1,0):3,(2,0):4,(2,1):5,(2,2):6,(2,3):7,(2,4):8,(2,5):9}
-        """
 
-        self._translate_i_glob_loc = {}
-        self._translate_i_loc_glob = {}
-        for component in range(len(self.rep_dict.keys())):
-            comp_i = 0
-            ids = list(
-                string_range_to_list(self.rep_dict[component]["ids"], shift=0)[0]
-            )
-            for i_g in ids:
-                self._translate_i_glob_loc[i_g] = (component, comp_i)
-                self._translate_i_loc_glob[(component, comp_i)] = i_g
-                comp_i += 1
-
-    def _translate_glob_loc(self, indexes):
-        """From global index to indexes of different components."""
-        all_comp = [list() for i in range(len(self.rep_dict.keys()))]
-
-        for i_g in indexes:
-            i_c, i_a = self._translate_i_glob_loc[i_g]
-            all_comp[i_c].append(i_a)
-
-        return all_comp
 
     def _on_atom_click(self, _=None):
         """Update selection when clicked on atom."""
-        if "atom1" not in self._viewer.picked.keys():
-            return  # did not click on atom
-        index = self._viewer.picked["atom1"]["index"]
+        if hasattr(self._viewer, "component_0"):
+            if "atom1" not in self._viewer.picked.keys():
+                return  # did not click on atom
+            index = self._viewer.picked["atom1"]["index"]
+            #component = self._viewer.picked["component"]
 
-        if self.rep_dict:
-            component = self._viewer.picked["component"]
+            selection = self.selection.copy()
 
-            index = self._translate_i_loc_glob[(component, index)]
-
-        selection = self.selection.copy()
-
-        if selection:
-            if index not in selection:
-                selection.append(index)
+            if selection:
+                if index not in selection:
+                    selection.append(index)
+                else:
+                    selection.remove(index)
             else:
-                selection.remove(index)
-        else:
-            selection = [index]
+                selection = [index]
 
-        # selection_unit = [i for i in selection if i < self.natoms]
-        self.selection = selection
-        # self.selection = selection_unit
+            # selection_unit = [i for i in selection if i < self.natoms]
+            self.selection = selection
+            # self.selection = selection_unit
 
         return
+    def list_to_nglview(self, list):
+        """Converts a list of structures to a nglview widget"""
+        sele = 'none'
+        if list:
+            sele = "@" + ",".join(str(s) for s in list)
+        return sele
 
     def highlight_atoms(
         self,
         vis_list,
-        color=DEFAULT_SELECTION_COLOR,
-        size=DEFAULT_SELECTION_RADIUS,
-        opacity=DEFAULT_SELECTION_OPACITY,
     ):
         """Highlighting atoms according to the provided list."""
         if not hasattr(self._viewer, "component_0"):
             return
+        print(self.repr_params)
+        print("prima",len(self._viewer._ngl_repr_dict['0']))
+        print("prima",self._viewer._ngl_repr_dict['0'])
+        ids=[[] for rep in range(self.n_all_representations)]
+        # Map vis_list and self.displayed_structure.arrays["representations"] to a list of strings
+        # that goes to the highlight_reps
+        # there are N representations defined by the user and N automatically added for highlighting
+        print("vis_list",vis_list)
+        print("self.structure.arrays['representations']",self.structure.arrays["representations"])
+        for i in vis_list:
+            ids[int(self.structure.arrays["representations"][i])].append(i)
+        print("ids ",ids)
+        # _update_representations does not allow to change the selection of a representation
+        #for i,selection in enumerate(ids):
+        #    viewer._update_representations_by_name('highlight_rep'+str(i), component=0,
+        #                                sele=self.list_to_nglview(selection))
 
-        if self.rep_dict is None:
-            self._viewer._remove_representations_by_name(
-                repr_name="selected_atoms"
-            )  # pylint:disable=protected-access
-            self._viewer.add_ball_and_stick(  # pylint:disable=no-member
-                name="selected_atoms",
-                selection=list() if vis_list is None else vis_list,
-                color=color,
-                aspectRatio=size,
-                opacity=opacity,
-            )
-        else:
+        # So we have to remove and add the representations
+        # also setting visibility of a representation seems not to work while if works for components
+        #while(len(self._viewer._ngl_repr_dict['0']) > self.n_all_representations ):
+            #we always remove the same index: after teh representation 'unitcell'
+            #self._viewer._remove_representation(component=0, repr_index=self.n_all_representations ) 
+        print(self.n_all_representations)
+        self._viewer._remove_representation(component=0,repr_index=2)
+        print("adesso: ",len(self._viewer._ngl_repr_dict['0']))
+        print(self._viewer._ngl_repr_dict['0'])
 
-            ncomponents = len(self.rep_dict.keys())
-            for component in range(ncomponents):
-                name = "highlight_" + self.rep_dict[component]["name"]
-                self._viewer._remove_representations_by_name(
-                    repr_name=name, component=component
-                )
-                color = self.rep_dict[component]["highlight_color"]
-                aspectRatio = self.rep_dict[component]["highlight_aspectRatio"]
-                opacity = self.rep_dict[component]["highlight_opacity"]
-                if vis_list is None:
-                    self._viewer.add_ball_and_stick(
-                        name=name,
-                        selection=list(),
-                        color=color,
-                        aspectRatio=aspectRatio,
-                        opacity=opacity,
-                        component=component,
-                    )
-                else:
-                    all_comp = self._translate_glob_loc(vis_list)
-                    selection = all_comp[component]
-                    self._viewer.add_ball_and_stick(
-                        name=name,
-                        selection=selection,
-                        color=color,
-                        aspectRatio=aspectRatio,
-                        opacity=opacity,
-                        component=component,
-                    )
+        # to make sure that the unitcell representation is always in position self.n_all_representations   
+        self._viewer.add_unitcell()
+
+        for i,selection in enumerate(ids):
+
+
+            params=self.representation_parameters(self.all_representations[i])
+            params['params']['sele']=self.list_to_nglview(selection)
+            params['params']['color']='red'
+            params['params']['opacity']=0.6
+            params['params']['component_index']=0
+            if 'radiusScale' in params['params']:
+                params['params']['radiusScale'] += 0.1
+            else:
+                params['params']['aspectRatio'] += 0.1
+
+            self._viewer._remote_call('addRepresentation',
+                  target='compList',
+                  args=[params['type']],
+                  kwargs=params['params'])
+        print("dopo",len(self._viewer._ngl_repr_dict[0]))
+        print("dopo",self._viewer._ngl_repr_dict[0])
 
     def remove_viewer_components(self, c=None):
-        print("remove components")
         with self.hold_trait_notifications():
             while hasattr(self._viewer, "component_0"):
                 self._viewer.component_0.clear_representations()
@@ -1109,6 +1059,7 @@ class StructureDataViewer(_StructureDataBaseViewer):
     def _valid_structure(self, change):  # pylint: disable=no-self-use
         """Update structure."""
         self.remove_viewer_components()
+        self.clear_selection()
         structure = change["value"]
         if structure is None:
             return None  # if no structure provided, the rest of the code can be skipped
@@ -1145,7 +1096,6 @@ class StructureDataViewer(_StructureDataBaseViewer):
     def _observe_displayed_structure(self, change):
         """Update the view if displayed_structure trait was modified."""
         if change["new"] is not None:
-            print("create components")
             self._viewer.add_component(nglview.ASEStructure(self.displayed_structure), default_representation=False,name='Structure')
             self.update_representations()
         # not needed for the moment, actions are defined in the editors functions
