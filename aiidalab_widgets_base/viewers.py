@@ -2,11 +2,9 @@
 # pylint: disable=no-self-use
 
 import base64
-import itertools
 import re
 import warnings
 from copy import deepcopy
-from hashlib import new
 
 import ipywidgets as ipw
 import nglview
@@ -15,15 +13,13 @@ import spglib
 import traitlets
 from aiida.cmdline.utils.common import get_workchain_report
 from aiida.cmdline.utils.query import formatting
-from aiida.orm import Data, Node
+from aiida.orm import Node
 from ase import Atoms, neighborlist
 from ase.cell import Cell
 from IPython.display import clear_output, display
 from matplotlib.colors import to_rgb
 from numpy.linalg import norm
 from traitlets import (
-    Bool,
-    Dict,
     Instance,
     Int,
     List,
@@ -232,7 +228,6 @@ class _StructureDataBaseViewer(ipw.VBox):
 
     all_representations = traitlets.List()
     natoms = Int()
-    # brand_new_structure = Bool(True)
     selection = List(Int)
     selection_adv = Unicode()
     supercell = List(Int)
@@ -869,7 +864,6 @@ class _StructureDataBaseViewer(ipw.VBox):
         if not hasattr(self._viewer, "component_0"):
             return
 
-        
         # Map vis_list and self.displayed_structure.arrays["representations"] to a list of strings
         # that goes to the highlight_reps
         # there are N representations defined by the user and N automatically added for highlighting
@@ -880,7 +874,9 @@ class _StructureDataBaseViewer(ipw.VBox):
 
         # remove previous highlight_rep representations
         for i in range(self.n_all_representations):
-            self._viewer._remove_representations_by_name(repr_name="highlight_rep" + str(i), component=0)
+            self._viewer._remove_representations_by_name(
+                repr_name="highlight_rep" + str(i), component=0
+            )
 
         # create the dictionaries for highlight_reps
         for i, selection in enumerate(ids):
@@ -904,7 +900,6 @@ class _StructureDataBaseViewer(ipw.VBox):
                     kwargs=params["params"],
                 )
 
-
     def remove_viewer_components(self, c=None):
         with self.hold_trait_notifications():
             while hasattr(self._viewer, "component_0"):
@@ -924,7 +919,6 @@ class _StructureDataBaseViewer(ipw.VBox):
             if self.structure is not None:
                 cell_z = self.structure.cell[2, 2]
                 com = self.structure.get_center_of_mass()
-                def_orientation = self._viewer._camera_orientation
                 top_z_orientation = [
                     1.0,
                     0.0,
@@ -1357,7 +1351,11 @@ class StructureDataViewer(_StructureDataBaseViewer):
     def _observe_selection_adv(self, _=None):
         """Apply the advanced boolean atom selection"""
         try:
-            sel = [int(i) for i in self.parse_advanced_sel(condition=self.selection_adv) if self.structure.arrays['representationsshow'][i]]
+            sel = [
+                int(i)
+                for i in self.parse_advanced_sel(condition=self.selection_adv)
+                if self.structure.arrays["representationsshow"][i]
+            ]
             self.selection = sel
             self._selected_atoms.value = list_to_string_range(sel, shift=1)
             self.wrong_syntax.layout.visibility = "hidden"

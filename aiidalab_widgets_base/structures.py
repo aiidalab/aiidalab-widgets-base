@@ -7,7 +7,6 @@ import io
 import pathlib
 import tempfile
 from collections import OrderedDict
-from copy import deepcopy
 
 import ase
 import ipywidgets as ipw
@@ -30,19 +29,7 @@ from aiida.plugins import DataFactory
 from ase import Atom, Atoms
 from ase.data import chemical_symbols, covalent_radii
 from sklearn.decomposition import PCA
-from traitlets import (
-    Bool,
-    Dict,
-    Instance,
-    Int,
-    List,
-    Unicode,
-    Union,
-    default,
-    dlink,
-    link,
-    observe,
-)
+from traitlets import Instance, Int, List, Unicode, Union, default, dlink, link, observe
 
 # Local imports
 from .data import LigandSelectorWidget
@@ -69,7 +56,6 @@ class StructureManagerWidget(ipw.VBox):
     structure = Union([Instance(Atoms), Instance(Data)], allow_none=True)
     structure_node = Instance(Data, allow_none=True, read_only=True)
     node_class = Unicode()
-    # brand_new_structure = Bool()
 
     SUPPORTED_DATA_FORMATS = {"CifData": "cif", "StructureData": "structure"}
 
