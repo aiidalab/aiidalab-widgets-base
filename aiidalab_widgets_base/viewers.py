@@ -861,59 +861,42 @@ class _StructureDataBaseViewer(ipw.VBox):
         """Highlighting atoms according to the provided list."""
         if not hasattr(self._viewer, "component_0"):
             return
-        print(self.repr_params)
-        print("prima", len(self._viewer._ngl_repr_dict["0"]))
-        print("prima", self._viewer._ngl_repr_dict["0"])
-        ids = [[] for rep in range(self.n_all_representations)]
+
+        
         # Map vis_list and self.displayed_structure.arrays["representations"] to a list of strings
         # that goes to the highlight_reps
         # there are N representations defined by the user and N automatically added for highlighting
-        print("vis_list", vis_list)
-        print(
-            "self.structure.arrays['representations']",
-            self.structure.arrays["representations"],
-        )
+        ids = [[] for rep in range(self.n_all_representations)]
+
         for i in vis_list:
             ids[int(self.structure.arrays["representations"][i])].append(i)
-        print("ids ", ids)
-        # _update_representations does not allow to change the selection of a representation
-        # for i,selection in enumerate(ids):
-        #    viewer._update_representations_by_name('highlight_rep'+str(i), component=0,
-        #                                sele=self.list_to_nglview(selection))
 
-        # So we have to remove and add the representations
-        # also setting visibility of a representation seems not to work while if works for components
-        # while(len(self._viewer._ngl_repr_dict['0']) > self.n_all_representations ):
-        # we always remove the same index: after teh representation 'unitcell'
-        # self._viewer._remove_representation(component=0, repr_index=self.n_all_representations )
-        print(self.n_all_representations)
-        self._viewer._remove_representation(component=0, repr_index=2)
-        print("adesso: ", len(self._viewer._ngl_repr_dict["0"]))
-        print(self._viewer._ngl_repr_dict["0"])
+        # remove previous highlight_rep representations
+        for i in range(self.n_all_representations):
+            self._viewer._remove_representations_by_name(repr_name="highlight_rep" + str(i), component=0)
 
-        # to make sure that the unitcell representation is always in position self.n_all_representations
-        self._viewer.add_unitcell()
-
+        # create the dictionaries for highlight_reps
         for i, selection in enumerate(ids):
+            if selection:
+                params = self.representation_parameters(self.all_representations[i])
+                params["params"]["sele"] = self.list_to_nglview(selection)
+                params["params"]["name"] = "highlight_rep" + str(i)
+                params["params"]["color"] = "red"
+                params["params"]["opacity"] = 0.6
+                params["params"]["component_index"] = 0
+                if "radiusScale" in params["params"]:
+                    params["params"]["radiusScale"] += 0.1
+                else:
+                    params["params"]["aspectRatio"] += 0.1
 
-            params = self.representation_parameters(self.all_representations[i])
-            params["params"]["sele"] = self.list_to_nglview(selection)
-            params["params"]["color"] = "red"
-            params["params"]["opacity"] = 0.6
-            params["params"]["component_index"] = 0
-            if "radiusScale" in params["params"]:
-                params["params"]["radiusScale"] += 0.1
-            else:
-                params["params"]["aspectRatio"] += 0.1
+                # and use directly teh remote call for more flexibility
+                self._viewer._remote_call(
+                    "addRepresentation",
+                    target="compList",
+                    args=[params["type"]],
+                    kwargs=params["params"],
+                )
 
-            self._viewer._remote_call(
-                "addRepresentation",
-                target="compList",
-                args=[params["type"]],
-                kwargs=params["params"],
-            )
-        print("dopo", len(self._viewer._ngl_repr_dict[0]))
-        print("dopo", self._viewer._ngl_repr_dict[0])
 
     def remove_viewer_components(self, c=None):
         with self.hold_trait_notifications():
