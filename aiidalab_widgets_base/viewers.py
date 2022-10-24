@@ -159,7 +159,7 @@ class DictViewer(ipw.VBox):
         super().__init__([self.widget], **kwargs)
 
 
-class Representation(ipw.VBox):
+class NlgViewrRepresentation(ipw.VBox):
     """Representation for StructureData in nglviewer"""
 
     master_class = None
@@ -250,7 +250,6 @@ class _StructureDataBaseViewer(ipw.VBox):
         self._viewer.camera = default_camera
         self._viewer.observe(self._on_atom_click, names="picked")
         self._viewer.stage.set_parameters(mouse_preset="pymol")
-        # self.first_update_of_viewer = True
         self.natoms = 0
         self.n_all_representations = 0
 
@@ -318,7 +317,6 @@ class _StructureDataBaseViewer(ipw.VBox):
 
         # 4. Button to clear selection.
         clear_selection = ipw.Button(description="Clear selection")
-        # clear_selection.on_click(lambda _: self.set_trait('selection', list()))  # lambda cannot contain assignments
         clear_selection.on_click(self.clear_selection)
         # CLEAR self.wrong_syntax.layout.visibility = 'visible'
 
@@ -392,7 +390,7 @@ class _StructureDataBaseViewer(ipw.VBox):
         center_button.on_click(lambda c: self._viewer.center())
 
         # 5. representations buttons
-        self.atoms_not_represented = ipw.Output()
+        self.atoms_not_represented = ipw.HTML()
         self.add_new_rep_button = ipw.Button(description="Add rep", button_style="info")
         self.add_new_rep_button.on_click(self.add_representation)
 
@@ -415,7 +413,7 @@ class _StructureDataBaseViewer(ipw.VBox):
 
     def add_representation(self, _):
         """Add a representation to the list of representations."""
-        self.all_representations = self.all_representations + [Representation()]
+        self.all_representations = self.all_representations + [NlgViewrRepresentation()]
         self.n_all_representations += 1
 
     def delete_representation(self, representation):
@@ -433,7 +431,7 @@ class _StructureDataBaseViewer(ipw.VBox):
         self.apply_representations()
 
     @observe("all_representations")
-    def _observe_representations(self, change):
+    def _observe_all_representations(self, change):
         """Update the list of representations."""
         if change["new"]:
             self.representation_output.children = change["new"]
@@ -447,7 +445,6 @@ class _StructureDataBaseViewer(ipw.VBox):
         if self.displayed_structure:
             if number_of_representation_widgets == 0:
                 self.n_all_representations = 0
-                # self.all_representations = [Representation()]
                 self.add_representation(None)
 
             representations = self.structure.arrays["representations"]
@@ -517,7 +514,6 @@ class _StructureDataBaseViewer(ipw.VBox):
         # self.displayed_structure.set_array("representationsshow", arrayrepresentationsshow)
         # iterate on number of representations
         self.repr_params = []
-        # self.brand_new_structure=False
         current_rep = 0
         for rep in self.all_representations:
             # in representation dictionary indexes start from 0 so we transform '1..4' in '0..3'
@@ -528,18 +524,13 @@ class _StructureDataBaseViewer(ipw.VBox):
             int(i) for i in np.where(self.structure.arrays["representations"] < 0)[0]
         }
         if missing_atoms:
-            self.atoms_not_represented.clear_output()
-            with self.atoms_not_represented:
-                print(
-                    "Atoms excluded from representations: ",
-                    list_to_string_range(list(missing_atoms), shift=1),
-                )
+            self.atoms_not_represented.value = (
+                "Atoms excluded from representations: "
+                + list_to_string_range(list(missing_atoms), shift=1)
+            )
         else:
-            self.atoms_not_represented.clear_output()
+            self.atoms_not_represented.value = ""
         self.update_viewer()
-        # if self.first_update_of_viewer:
-        # self.first_update_of_viewer = self.orient_z_up()
-        self.orient_z_up()
 
     @observe("cell")
     def _observe_cell(self, _=None):
@@ -831,7 +822,7 @@ class _StructureDataBaseViewer(ipw.VBox):
             if "atom1" not in self._viewer.picked.keys():
                 return  # did not click on atom
             index = self._viewer.picked["atom1"]["index"]
-            # component = self._viewer.picked["component"]
+            # component = self._viewer.picked["component"] to be used in case of multiple components will be implemented
 
             selection = self.selection.copy()
 
@@ -843,9 +834,7 @@ class _StructureDataBaseViewer(ipw.VBox):
             else:
                 selection = [index]
 
-            # selection_unit = [i for i in selection if i < self.natoms]
             self.selection = selection
-            # self.selection = selection_unit
 
         return
 
@@ -913,37 +902,6 @@ class _StructureDataBaseViewer(ipw.VBox):
             self._viewer.set_representations(self.repr_params, component=0)
             self._viewer.add_unitcell()
             self._viewer.center()
-
-    def orient_z_up(self, _=None):
-        try:
-            if self.structure is not None:
-                cell_z = self.structure.cell[2, 2]
-                com = self.structure.get_center_of_mass()
-                top_z_orientation = [
-                    1.0,
-                    0.0,
-                    0.0,
-                    0,
-                    0.0,
-                    1.0,
-                    0.0,
-                    0,
-                    0.0,
-                    0.0,
-                    -np.max([cell_z, 30.0]),
-                    0,
-                    -com[0],
-                    -com[1],
-                    -com[2],
-                    1,
-                ]
-                self._viewer._set_camera_orientation(top_z_orientation)
-                self._viewer.center()
-                return False
-            else:
-                return True
-        except AttributeError:
-            return True
 
     @default("supercell")
     def _default_supercell(self):
@@ -1106,9 +1064,6 @@ class StructureDataViewer(_StructureDataBaseViewer):
                 name="Structure",
             )
             self.update_representations()
-        # not needed for the moment, actions are defined in the editors functions
-        # to avoid unnecessary updates
-        # reactivation would require some care
 
     def d_from(self, operand):
         point = np.array([float(i) for i in operand[1:-1].split(",")])

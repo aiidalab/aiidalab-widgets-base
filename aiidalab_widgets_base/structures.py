@@ -97,7 +97,7 @@ class StructureManagerWidget(ipw.VBox):
             self.viewer = viewer
         else:
             self.viewer = StructureDataViewer(**kwargs)
-        link((self, "structure"), (self.viewer, "structure"))
+        dlink((self, "structure"), (self.viewer, "structure"))
 
         # Store button.
         self.btn_store = ipw.Button(description="Store in AiiDA", disabled=True)
@@ -159,9 +159,6 @@ class StructureManagerWidget(ipw.VBox):
         if len(importers) == 1:
             # Assigning a function which will be called when importer provides a structure.
             dlink((importers[0], "structure"), (self, "input_structure"))
-            # if importers[0].has_trait("brand_new_structure"):
-            #    link((importers[0], "brand_new_structure"), (self.viewer, "brand_new_structure"))
-            #    link((importers[0], "brand_new_structure"), (self, "brand_new_structure"))
 
             return importers[0]
 
@@ -172,9 +169,6 @@ class StructureManagerWidget(ipw.VBox):
             # Labeling tabs.
             importers_tab.set_title(i, importer.title)
             dlink((importer, "structure"), (self, "input_structure"))
-            # if importer.has_trait("brand_new_structure"):
-            #    link((importer, "brand_new_structure"), (self.viewer, "brand_new_structure"))
-            #    link((importer, "brand_new_structure"), (self, "brand_new_structure"))
         return importers_tab
 
     def _structure_editors(self, editors):
@@ -688,7 +682,6 @@ class SmilesWidget(ipw.VBox):
     """Convert SMILES into 3D structure."""
 
     structure = Instance(Atoms, allow_none=True)
-    # brand_new_structure = Bool()
 
     SPINNER = """<i class="fa fa-spinner fa-pulse" style="color:red;" ></i>"""
 
@@ -1273,7 +1266,6 @@ class BasicStructureEditor(ipw.VBox):  # pylint: disable=too-many-instance-attri
             self.action_vector * self.displacement.value
         )
 
-        # self.brand_new_structure = False
         self.structure, self.selection = atoms, selection
 
     @_register_structure
@@ -1283,8 +1275,6 @@ class BasicStructureEditor(ipw.VBox):  # pylint: disable=too-many-instance-attri
 
         # The action.
         atoms.positions[self.selection] += np.array(self.str2vec(self.dxyz.value))
-
-        # self.brand_new_structure = False
 
         self.structure, self.selection = atoms, selection
 
@@ -1296,7 +1286,6 @@ class BasicStructureEditor(ipw.VBox):  # pylint: disable=too-many-instance-attri
         geo_center = np.average(self.structure[self.selection].get_positions(), axis=0)
         atoms.positions[self.selection] += self.str2vec(self.dxyz.value) - geo_center
 
-        # self.brand_new_structure = False
         self.structure, self.selection = atoms, selection
 
     @_register_structure
@@ -1311,7 +1300,6 @@ class BasicStructureEditor(ipw.VBox):  # pylint: disable=too-many-instance-attri
         rotated_subset.rotate(self.phi.value, v=vec, center=center, rotate_cell=False)
         atoms.positions[list(self.selection)] = rotated_subset.positions
 
-        # self.brand_new_structure = False
         self.structure, self.selection = atoms, selection
 
     @_register_structure
@@ -1345,7 +1333,6 @@ class BasicStructureEditor(ipw.VBox):  # pylint: disable=too-many-instance-attri
         # Mirror atoms.
         atoms.positions[selection] -= 2 * projections
 
-        # self.brand_new_structure = False
         self.structure, self.selection = atoms, selection
 
     def mirror_3p(self, _=None):
@@ -1370,7 +1357,6 @@ class BasicStructureEditor(ipw.VBox):  # pylint: disable=too-many-instance-attri
         subset.rotate(self.action_vector, self.str2vec(self.dxyz.value), center=center)
         atoms.positions[selection] = subset.positions
 
-        # self.brand_new_structure = False
         self.structure, self.selection = atoms, selection
 
     @_register_structure
@@ -1404,7 +1390,7 @@ class BasicStructureEditor(ipw.VBox):  # pylint: disable=too-many-instance-attri
             ]
 
         # the order of the traitlets below is important
-        # self.selection = []
+        # we must be sure trait atoms is set BEFORE trait selection
         self.structure = atoms
         self.selection = new_selection
 
@@ -1422,7 +1408,7 @@ class BasicStructureEditor(ipw.VBox):  # pylint: disable=too-many-instance-attri
         new_selection = [i for i in range(last_atom, last_atom + len(selection))]
 
         # the order of the traitlets below is important
-        # self.selection = []
+        # we must be sure trait atoms is set BEFORE trait selection
         self.structure = atoms
         self.selection = new_selection
 
@@ -1458,10 +1444,8 @@ class BasicStructureEditor(ipw.VBox):  # pylint: disable=too-many-instance-attri
             i for i in range(last_atom, last_atom + len(selection) * len(lgnd))
         ]
 
-        # self.brand_new_structure = False
-
         # the order of the traitlets below is important
-        # self.selection = []
+        # we must be sure trait atoms is set BEFORE trait selection
         self.structure = atoms
         self.selection = new_selection
 
@@ -1471,5 +1455,7 @@ class BasicStructureEditor(ipw.VBox):  # pylint: disable=too-many-instance-attri
         """Remove selected atoms."""
         del [atoms[selection]]
 
+        # the order of the traitlets below is important
+        # we must be sure trait atoms is set BEFORE trait selection
         self.selection = []
         self.structure = atoms
