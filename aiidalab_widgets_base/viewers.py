@@ -500,8 +500,13 @@ class _StructureDataBaseViewer(ipw.VBox):
         """Apply the representations to the displayed structure."""
         # negative value means an atom is not assigned to a representation
         self._viewer.clear_representations(component=0)
+
+        # initially not atoms are assigned to a representation
         arrayrepresentations = -1 * np.ones(self.natoms)
+
+        # the atom is not shown
         arrayrepresentationsshow = np.zeros(self.natoms)
+
         for irep, rep in enumerate(self.all_representations):
             selection = string_range_to_list(rep.selection.value, shift=-1)[0]
             for index in selection:
@@ -511,6 +516,8 @@ class _StructureDataBaseViewer(ipw.VBox):
 
         self.structure.set_array("representations", arrayrepresentations)
         self.structure.set_array("representationsshow", arrayrepresentationsshow)
+
+        # when supercell bugs will be fixed, decide on how to handle supercell selections
         # self.displayed_structure.set_array("representations", arrayrepresentations)
         # self.displayed_structure.set_array("representationsshow", arrayrepresentationsshow)
         # iterate on number of representations
@@ -1350,7 +1357,7 @@ class StructureDataViewer(_StructureDataBaseViewer):
     def _observe_selection_adv(self, _=None):
         """Apply the advanced boolean atom selection"""
         try:
-            sel = self.parse_advanced_sel(condition=self.selection_adv)
+            sel = [int(i) for i in self.parse_advanced_sel(condition=self.selection_adv) if self.structure.arrays['representationsshow'][i]]
             self.selection = sel
             self._selected_atoms.value = list_to_string_range(sel, shift=1)
             self.wrong_syntax.layout.visibility = "hidden"
