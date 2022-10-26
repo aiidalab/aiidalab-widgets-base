@@ -16,6 +16,7 @@ from aiida.cmdline.utils.query import formatting
 from aiida.orm import Node
 from ase import Atoms, neighborlist
 from ase.cell import Cell
+from ase.data import colors
 from IPython.display import clear_output, display
 from matplotlib.colors import to_rgb
 from numpy.linalg import norm
@@ -42,7 +43,7 @@ from vapory import (
     Texture,
 )
 
-from .dicts import Colors, Radius
+from .dicts import Colors, Radius, RGB_colors
 from .misc import CopyToClipboardButton, ReversePolishNotation
 from .utils import ase2spglib, list_to_string_range, string_range_to_list
 
@@ -159,7 +160,7 @@ class DictViewer(ipw.VBox):
         super().__init__([self.widget], **kwargs)
 
 
-class NlgViewrRepresentation(ipw.VBox):
+class NglViewRepresentation(ipw.VBox):
     """Representation for StructureData in nglviewer"""
 
     master_class = None
@@ -171,7 +172,7 @@ class NlgViewrRepresentation(ipw.VBox):
             layout=ipw.Layout(width="35%", height="30px"),
         )
         self.repr_type = ipw.Dropdown(
-            options=["ball+stick", "spacefill"],
+            options=["ball+stick", "spacefill", "compute-bonds"],
             value="ball+stick",
             description="type",
             disabled=False,
@@ -413,7 +414,7 @@ class _StructureDataBaseViewer(ipw.VBox):
 
     def add_representation(self, _):
         """Add a representation to the list of representations."""
-        self.all_representations = self.all_representations + [NlgViewrRepresentation()]
+        self.all_representations = self.all_representations + [NglViewRepresentation()]
         self.n_all_representations += 1
 
     def delete_representation(self, representation):
@@ -488,12 +489,58 @@ class _StructureDataBaseViewer(ipw.VBox):
 
         return params
 
+    def compute_bonds(self, structure, radius=1.0, color="element", povray=False):
+        """Compute the bonds between atoms."""
+        radius = radius / 5
+        cutOff = neighborlist.natural_cutoffs(structure)
+        nl = neighborlist.NeighborList(cutOff, self_interaction=False, bothways=False)
+        nl.update(structure)
+        bonds = []
+        matrix = nl.get_connectivity_matrix()
+        for k in matrix.keys():
+            i = structure[k[0]]
+            j = structure[k[1]]
+
+            v1 = np.array([i.x, i.y, i.z])
+            v2 = np.array([j.x, j.y, j.z])
+            midi = v1 + (v2 - v1) * Radius[i.symbol] / (
+                Radius[i.symbol] + Radius[j.symbol]
+            )
+            if povray:
+                bond = Cylinder(
+                    v1,
+                    midi,
+                    0.2,
+                    Pigment("color", np.array(Colors[i.symbol])),
+                    Finish("phong", 0.8, "reflection", 0.05),
+                )
+                bonds.append(bond)
+                bond = Cylinder(
+                    v2,
+                    midi,
+                    0.2,
+                    Pigment("color", np.array(Colors[j.symbol])),
+                    Finish("phong", 0.8, "reflection", 0.05),
+                )
+                bonds.append(bond)
+            else:
+                if color == "element":
+                    color0 = colors.jmol_colors[structure.numbers[k[0]]].tolist()
+                    color1 = colors.jmol_colors[structure.numbers[k[1]]].tolist()
+                else:
+                    color0 = RGB_colors[color]
+                    color1 = RGB_colors[color]
+                bonds.append(("cylinder", v1.tolist(), midi.tolist(), color0, radius))
+                bonds.append(("cylinder", v2.tolist(), midi.tolist(), color1, radius))
+        return bonds
+
     def apply_representations(self, change=None):
         """Apply the representations to the displayed structure."""
-        # negative value means an atom is not assigned to a representation
-        self._viewer.clear_representations(component=0)
 
-        # initially not atoms are assigned to a representation
+        # remove all components created for bonds
+        self.remove_viewer_components(only_bonds=True)
+        # negative value means an atom is not assigned to a representation
+        # initially no atom is assigned to a representation
         arrayrepresentations = -1 * np.ones(self.natoms)
 
         # the atom is not shown
@@ -501,10 +548,29 @@ class _StructureDataBaseViewer(ipw.VBox):
 
         for irep, rep in enumerate(self.all_representations):
             selection = string_range_to_list(rep.selection.value, shift=-1)[0]
-            for index in selection:
-                arrayrepresentations[index] = irep
-                if rep.show.value:
-                    arrayrepresentationsshow[index] = 1
+            if rep.repr_type.value != "compute-bonds":
+                for index in selection:
+                    arrayrepresentations[index] = irep
+                    if rep.show.value:
+                        arrayrepresentationsshow[index] = 1
+            else:
+                # for bonds computed we do not keep track of the representation in structure.arrays
+                if selection:
+                    portion = self.displayed_structure[selection]
+                    self._viewer.add_component(
+                        nglview.ASEStructure(portion),
+                        default_representation=False,
+                        name="Bonds_" + str(irep),
+                    )
+                    bond_shapes = self.compute_bonds(
+                        portion, rep.size.value, rep.color.value
+                    )
+                    self._viewer._remote_call(
+                        "addShape",
+                        target="Widget",
+                        args=["bonds_" + str(irep), bond_shapes],
+                        fire_embed=True,
+                    )
 
         self.structure.set_array("representations", arrayrepresentations)
         self.structure.set_array("representationsshow", arrayrepresentationsshow)
@@ -531,6 +597,104 @@ class _StructureDataBaseViewer(ipw.VBox):
         else:
             self.atoms_not_represented.value = ""
         self.update_viewer()
+
+    def _on_atom_click(self, _=None):
+        """Update selection when clicked on atom."""
+        if hasattr(self._viewer, "component_0"):
+            if "atom1" not in self._viewer.picked.keys():
+                return  # did not click on atom
+            index = self._viewer.picked["atom1"]["index"]
+            # component = self._viewer.picked["component"] to be used in case of multiple components will be implemented
+
+            selection = self.selection.copy()
+
+            if selection:
+                if index not in selection:
+                    selection.append(index)
+                else:
+                    selection.remove(index)
+            else:
+                selection = [index]
+
+            self.selection = selection
+
+        return
+
+    def list_to_nglview(self, list):
+        """Converts a list of structures to a nglview widget"""
+        sele = "none"
+        if list:
+            sele = "@" + ",".join(str(s) for s in list)
+        return sele
+
+    def highlight_atoms(
+        self,
+        vis_list,
+    ):
+        """Highlighting atoms according to the provided list."""
+        if not hasattr(self._viewer, "component_0"):
+            return
+
+        # Map vis_list and self.displayed_structure.arrays["representations"] to a list of strings
+        # that goes to the highlight_reps
+        # there are N representations defined by the user and N automatically added for highlighting
+        ids = [[] for rep in range(self.n_all_representations)]
+
+        for i in vis_list:
+            ids[int(self.structure.arrays["representations"][i])].append(i)
+
+        # remove previous highlight_rep representations
+        for i in range(self.n_all_representations):
+            self._viewer._remove_representations_by_name(
+                repr_name="highlight_rep" + str(i), component=0
+            )
+
+        # create the dictionaries for highlight_reps
+        for i, selection in enumerate(ids):
+            if selection:
+                params = self.representation_parameters(self.all_representations[i])
+                params["params"]["sele"] = self.list_to_nglview(selection)
+                params["params"]["name"] = "highlight_rep" + str(i)
+                params["params"]["color"] = "red"
+                params["params"]["opacity"] = 0.6
+                params["params"]["component_index"] = 0
+                if "radiusScale" in params["params"]:
+                    params["params"]["radiusScale"] += 0.1
+                else:
+                    params["params"]["aspectRatio"] += 0.1
+
+                # and use directly teh remote call for more flexibility
+                self._viewer._remote_call(
+                    "addRepresentation",
+                    target="compList",
+                    args=[params["type"]],
+                    kwargs=params["params"],
+                )
+
+    def remove_viewer_components(self, only_bonds=False, c=None):
+        """Remove all components from the viewer except the one specified."""
+        cstart = 0
+        all_components = self._viewer._ngl_component_ids
+        if only_bonds:
+            cstart = 1
+        with self.hold_trait_notifications():
+            for comp in range(cstart, self._viewer.n_components):
+                self._viewer.clear_representations(comp)
+                try:
+                    self._viewer.remove_component(all_components[comp])
+                except IndexError:  # shape not component
+                    pass
+                try:
+                    self._viewer._ngl_repr_dict.pop(str(comp))
+                except KeyError:
+                    pass
+
+    def update_viewer(self, c=None):
+
+        if self.displayed_structure:
+            self._viewer.set_representations(self.repr_params, component=0)
+            self._viewer.add_unitcell()
+            self._viewer.center()
 
     @observe("cell")
     def _observe_cell(self, _=None):
@@ -718,42 +882,7 @@ class _StructureDataBaseViewer(ipw.VBox):
             ixyz = omat[0:3, 0:3].dot(i + omat[0:3, 3])
             vertices[n] = np.array([-ixyz[0], ixyz[1], ixyz[2]])
 
-        bonds = []
-
-        cutOff = neighborlist.natural_cutoffs(
-            bb
-        )  # Takes the cutoffs from the ASE database
-        neighborList = neighborlist.NeighborList(
-            cutOff, self_interaction=False, bothways=False
-        )
-        neighborList.update(bb)
-        matrix = neighborList.get_connectivity_matrix()
-
-        for k in matrix.keys():
-            i = bb[k[0]]
-            j = bb[k[1]]
-
-            v1 = np.array([i.x, i.y, i.z])
-            v2 = np.array([j.x, j.y, j.z])
-            midi = v1 + (v2 - v1) * Radius[i.symbol] / (
-                Radius[i.symbol] + Radius[j.symbol]
-            )
-            bond = Cylinder(
-                v1,
-                midi,
-                0.2,
-                Pigment("color", np.array(Colors[i.symbol])),
-                Finish("phong", 0.8, "reflection", 0.05),
-            )
-            bonds.append(bond)
-            bond = Cylinder(
-                v2,
-                midi,
-                0.2,
-                Pigment("color", np.array(Colors[j.symbol])),
-                Finish("phong", 0.8, "reflection", 0.05),
-            )
-            bonds.append(bond)
+        bonds = self.compute_bonds(bb, povray=True)
 
         edges = []
         for x, i in enumerate(vertices):
@@ -815,93 +944,6 @@ class _StructureDataBaseViewer(ipw.VBox):
             payload = base64.b64encode(raw.read()).decode()
         self._download(payload=payload, filename=fname)
         self.render_btn.disabled = False
-
-    def _on_atom_click(self, _=None):
-        """Update selection when clicked on atom."""
-        if hasattr(self._viewer, "component_0"):
-            if "atom1" not in self._viewer.picked.keys():
-                return  # did not click on atom
-            index = self._viewer.picked["atom1"]["index"]
-            # component = self._viewer.picked["component"] to be used in case of multiple components will be implemented
-
-            selection = self.selection.copy()
-
-            if selection:
-                if index not in selection:
-                    selection.append(index)
-                else:
-                    selection.remove(index)
-            else:
-                selection = [index]
-
-            self.selection = selection
-
-        return
-
-    def list_to_nglview(self, list):
-        """Converts a list of structures to a nglview widget"""
-        sele = "none"
-        if list:
-            sele = "@" + ",".join(str(s) for s in list)
-        return sele
-
-    def highlight_atoms(
-        self,
-        vis_list,
-    ):
-        """Highlighting atoms according to the provided list."""
-        if not hasattr(self._viewer, "component_0"):
-            return
-
-        # Map vis_list and self.displayed_structure.arrays["representations"] to a list of strings
-        # that goes to the highlight_reps
-        # there are N representations defined by the user and N automatically added for highlighting
-        ids = [[] for rep in range(self.n_all_representations)]
-
-        for i in vis_list:
-            ids[int(self.structure.arrays["representations"][i])].append(i)
-
-        # remove previous highlight_rep representations
-        for i in range(self.n_all_representations):
-            self._viewer._remove_representations_by_name(
-                repr_name="highlight_rep" + str(i), component=0
-            )
-
-        # create the dictionaries for highlight_reps
-        for i, selection in enumerate(ids):
-            if selection:
-                params = self.representation_parameters(self.all_representations[i])
-                params["params"]["sele"] = self.list_to_nglview(selection)
-                params["params"]["name"] = "highlight_rep" + str(i)
-                params["params"]["color"] = "red"
-                params["params"]["opacity"] = 0.6
-                params["params"]["component_index"] = 0
-                if "radiusScale" in params["params"]:
-                    params["params"]["radiusScale"] += 0.1
-                else:
-                    params["params"]["aspectRatio"] += 0.1
-
-                # and use directly teh remote call for more flexibility
-                self._viewer._remote_call(
-                    "addRepresentation",
-                    target="compList",
-                    args=[params["type"]],
-                    kwargs=params["params"],
-                )
-
-    def remove_viewer_components(self, c=None):
-        with self.hold_trait_notifications():
-            while hasattr(self._viewer, "component_0"):
-                self._viewer.component_0.clear_representations()
-                cid = self._viewer.component_0.id
-                self._viewer.remove_component(cid)
-
-    def update_viewer(self, c=None):
-
-        if self.displayed_structure:
-            self._viewer.set_representations(self.repr_params, component=0)
-            self._viewer.add_unitcell()
-            self._viewer.center()
 
     @default("supercell")
     def _default_supercell(self):
