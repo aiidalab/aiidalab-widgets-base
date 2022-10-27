@@ -172,14 +172,14 @@ class NglViewRepresentation(ipw.VBox):
             layout=ipw.Layout(width="35%", height="30px"),
         )
         self.repr_type = ipw.Dropdown(
-            options=["ball+stick", "spacefill", "compute-bonds"],
-            value="ball+stick",
+            options=["spacefill", "ball+stick"],
+            value="spacefill",
             description="type",
             disabled=False,
             layout=ipw.Layout(width="35%", height="30px"),
         )
-        self.size = ipw.FloatText(
-            value=3, description="size", layout=ipw.Layout(width="25%", height="30px")
+        self.radius = ipw.FloatText(
+            value=3, description="radius", layout=ipw.Layout(width="25%", height="30px")
         )
         self.color = ipw.Dropdown(
             options=["element", "red", "green", "blue", "yellow", "orange", "purple"],
@@ -207,7 +207,7 @@ class NglViewRepresentation(ipw.VBox):
                         self.delete_button,
                     ]
                 ),
-                ipw.HBox([self.repr_type, self.size, self.color]),
+                ipw.HBox([self.repr_type, self.radius, self.color]),
             ]
         )
 
@@ -475,70 +475,71 @@ class _StructureDataBaseViewer(ipw.VBox):
         ]
         ids = self.list_to_nglview(idsl_rep)
         params = {
-            "type": representation.repr_type.value,
+            "type": "spacefill",
             "params": {
                 "sele": ids,
                 "opacity": 1,
                 "color": representation.color.value,
+                "radiusScale": 0.1 * representation.radius.value,
             },
         }
-        if representation.repr_type.value == "ball+stick":
-            params["params"]["aspectRatio"] = representation.size.value
-        else:
-            params["params"]["radiusScale"] = 0.1 * representation.size.value
 
         return params
 
     def compute_bonds(self, structure, radius=1.0, color="element", povray=False):
         """Compute the bonds between atoms."""
-        radius = radius / 5
+        radius = radius / 20  # to match nicely spheres size
         cutOff = neighborlist.natural_cutoffs(structure)
         nl = neighborlist.NeighborList(cutOff, self_interaction=False, bothways=False)
         nl.update(structure)
         bonds = []
-        matrix = nl.get_connectivity_matrix()
-        for k in matrix.keys():
-            i = structure[k[0]]
-            j = structure[k[1]]
+        if len(structure) > 1:
+            matrix = nl.get_connectivity_matrix()
+            for k in matrix.keys():
+                i = structure[k[0]]
+                j = structure[k[1]]
 
-            v1 = np.array([i.x, i.y, i.z])
-            v2 = np.array([j.x, j.y, j.z])
-            midi = v1 + (v2 - v1) * Radius[i.symbol] / (
-                Radius[i.symbol] + Radius[j.symbol]
-            )
-            if povray:
-                bond = Cylinder(
-                    v1,
-                    midi,
-                    0.2,
-                    Pigment("color", np.array(Colors[i.symbol])),
-                    Finish("phong", 0.8, "reflection", 0.05),
+                v1 = np.array([i.x, i.y, i.z])
+                v2 = np.array([j.x, j.y, j.z])
+                midi = v1 + (v2 - v1) * Radius[i.symbol] / (
+                    Radius[i.symbol] + Radius[j.symbol]
                 )
-                bonds.append(bond)
-                bond = Cylinder(
-                    v2,
-                    midi,
-                    0.2,
-                    Pigment("color", np.array(Colors[j.symbol])),
-                    Finish("phong", 0.8, "reflection", 0.05),
-                )
-                bonds.append(bond)
-            else:
-                if color == "element":
-                    color0 = colors.jmol_colors[structure.numbers[k[0]]].tolist()
-                    color1 = colors.jmol_colors[structure.numbers[k[1]]].tolist()
+                if povray:
+                    bond = Cylinder(
+                        v1,
+                        midi,
+                        0.2,
+                        Pigment("color", np.array(Colors[i.symbol])),
+                        Finish("phong", 0.8, "reflection", 0.05),
+                    )
+                    bonds.append(bond)
+                    bond = Cylinder(
+                        v2,
+                        midi,
+                        0.2,
+                        Pigment("color", np.array(Colors[j.symbol])),
+                        Finish("phong", 0.8, "reflection", 0.05),
+                    )
+                    bonds.append(bond)
                 else:
-                    color0 = RGB_colors[color]
-                    color1 = RGB_colors[color]
-                bonds.append(("cylinder", v1.tolist(), midi.tolist(), color0, radius))
-                bonds.append(("cylinder", v2.tolist(), midi.tolist(), color1, radius))
+                    if color == "element":
+                        color0 = colors.jmol_colors[structure.numbers[k[0]]].tolist()
+                        color1 = colors.jmol_colors[structure.numbers[k[1]]].tolist()
+                    else:
+                        color0 = RGB_colors[color]
+                        color1 = RGB_colors[color]
+                    bonds.append(
+                        ("cylinder", v1.tolist(), midi.tolist(), color0, radius)
+                    )
+                    bonds.append(
+                        ("cylinder", v2.tolist(), midi.tolist(), color1, radius)
+                    )
         return bonds
 
     def apply_representations(self, change=None):
         """Apply the representations to the displayed structure."""
 
-        # remove all components created for bonds
-        self.remove_viewer_components(only_bonds=True)
+        self.remove_shape_components()
         # negative value means an atom is not assigned to a representation
         # initially no atom is assigned to a representation
         arrayrepresentations = -1 * np.ones(self.natoms)
@@ -546,45 +547,30 @@ class _StructureDataBaseViewer(ipw.VBox):
         # the atom is not shown
         arrayrepresentationsshow = np.zeros(self.natoms)
 
+        self.repr_params = []
+        self.shapes = []
+        current_rep = 0
+
+        # iterate on number of representations to initialize structure arrays
         for irep, rep in enumerate(self.all_representations):
             selection = string_range_to_list(rep.selection.value, shift=-1)[0]
-            if rep.repr_type.value != "compute-bonds":
-                for index in selection:
-                    arrayrepresentations[index] = irep
-                    if rep.show.value:
-                        arrayrepresentationsshow[index] = 1
-            else:
-                # for bonds computed we do not keep track of the representation in structure.arrays
+            for index in selection:
+                arrayrepresentations[index] = irep
+                if rep.show.value:
+                    arrayrepresentationsshow[index] = 1
+
+            # in representation dictionary indexes start from 0 so we transform '1..4' in '0..3'
+            self.repr_params.append(self.representation_parameters(rep))
+            # for futre implementation: replicate shapes in case of supercell , do not compute bonds on the supercell!
+            if rep.repr_type.value == "ball+stick":
                 if selection:
-                    portion = self.displayed_structure[selection]
-                    self._viewer.add_component(
-                        nglview.ASEStructure(portion),
-                        default_representation=False,
-                        name="Bonds_" + str(irep),
+                    self.shapes += self.compute_bonds(
+                        self.structure[selection], rep.radius.value, rep.color.value
                     )
-                    bond_shapes = self.compute_bonds(
-                        portion, rep.size.value, rep.color.value
-                    )
-                    self._viewer._remote_call(
-                        "addShape",
-                        target="Widget",
-                        args=["bonds_" + str(irep), bond_shapes],
-                        fire_embed=True,
-                    )
+            current_rep += 1
 
         self.structure.set_array("representations", arrayrepresentations)
         self.structure.set_array("representationsshow", arrayrepresentationsshow)
-
-        # when supercell bugs will be fixed, decide on how to handle supercell selections
-        # self.displayed_structure.set_array("representations", arrayrepresentations)
-        # self.displayed_structure.set_array("representationsshow", arrayrepresentationsshow)
-        # iterate on number of representations
-        self.repr_params = []
-        current_rep = 0
-        for rep in self.all_representations:
-            # in representation dictionary indexes start from 0 so we transform '1..4' in '0..3'
-            self.repr_params.append(self.representation_parameters(rep))
-            current_rep += 1
 
         missing_atoms = {
             int(i) for i in np.where(self.structure.arrays["representations"] < 0)[0]
@@ -658,42 +644,40 @@ class _StructureDataBaseViewer(ipw.VBox):
                 params["params"]["color"] = "red"
                 params["params"]["opacity"] = 0.6
                 params["params"]["component_index"] = 0
-                if "radiusScale" in params["params"]:
-                    params["params"]["radiusScale"] += 0.1
-                else:
-                    params["params"]["aspectRatio"] += 0.1
+                params["params"]["radiusScale"] += 0.1
 
                 # and use directly teh remote call for more flexibility
                 self._viewer._remote_call(
                     "addRepresentation",
                     target="compList",
-                    args=[params["type"]],
+                    args=["spacefill"],
                     kwargs=params["params"],
                 )
 
-    def remove_viewer_components(self, only_bonds=False, c=None):
+    def remove_shape_components(self, c=None):
+        """Remove all components of shapes, supposed to be all components >0"""
+        while hasattr(self._viewer, "component_1"):
+            self._viewer.component_1.clear_representations()
+            cid = self._viewer.component_1.id
+            self._viewer.remove_component(cid)
+
+    def remove_viewer_components(self, c=None):
         """Remove all components from the viewer except the one specified."""
-        cstart = 0
-        all_components = self._viewer._ngl_component_ids
-        if only_bonds:
-            cstart = 1
-        with self.hold_trait_notifications():
-            for comp in range(cstart, self._viewer.n_components):
-                self._viewer.clear_representations(comp)
-                try:
-                    self._viewer.remove_component(all_components[comp])
-                except IndexError:  # shape not component
-                    pass
-                try:
-                    self._viewer._ngl_repr_dict.pop(str(comp))
-                except KeyError:
-                    pass
+        self.shapes = []
+        while hasattr(self._viewer, "component_0"):
+            self._viewer.component_0.clear_representations()
+            cid = self._viewer.component_0.id
+            self._viewer.remove_component(cid)
 
     def update_viewer(self, c=None):
 
         if self.displayed_structure:
             self._viewer.set_representations(self.repr_params, component=0)
             self._viewer.add_unitcell()
+            # bonds
+            if self.shapes:
+                self._viewer._add_shape(self.shapes, name="bonds")
+
             self._viewer.center()
 
     @observe("cell")
