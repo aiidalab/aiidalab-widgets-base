@@ -179,7 +179,9 @@ class NglViewRepresentation(ipw.VBox):
             layout=ipw.Layout(width="35%", height="30px"),
         )
         self.radius = ipw.FloatText(
-            value=3, description="radius", layout=ipw.Layout(width="25%", height="30px")
+            value=0.8,
+            description="radius",
+            layout=ipw.Layout(width="25%", height="30px"),
         )
         self.color = ipw.Dropdown(
             options=["element", "red", "green", "blue", "yellow", "orange", "purple"],
@@ -474,13 +476,16 @@ class _StructureDataBaseViewer(ipw.VBox):
             if self.structure.arrays["representationsshow"][i]
         ]
         ids = self.list_to_nglview(idsl_rep)
+        radiusscale = 1
+        if representation.repr_type.value == "ball+stick":
+            radiusscale = 0.3
         params = {
             "type": "spacefill",
             "params": {
                 "sele": ids,
                 "opacity": 1,
                 "color": representation.color.value,
-                "radiusScale": 0.1 * representation.radius.value,
+                "radiusScale": radiusscale * representation.radius.value,
             },
         }
 
@@ -488,7 +493,10 @@ class _StructureDataBaseViewer(ipw.VBox):
 
     def compute_bonds(self, structure, radius=1.0, color="element", povray=False):
         """Compute the bonds between atoms."""
-        radius = radius / 20  # to match nicely spheres size
+        radius = radius / 5
+
+        # bb = deepcopy(structure)
+        # bb.pbc = (False, False, False)
         cutOff = neighborlist.natural_cutoffs(structure)
         nl = neighborlist.NeighborList(cutOff, self_interaction=False, bothways=False)
         nl.update(structure)
