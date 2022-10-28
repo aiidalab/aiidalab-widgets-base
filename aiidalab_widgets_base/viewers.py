@@ -495,12 +495,11 @@ class _StructureDataBaseViewer(ipw.VBox):
         """Compute the bonds between atoms."""
         radius = radius / 5
 
-        # bb = deepcopy(structure)
-        # bb.pbc = (False, False, False)
         cutOff = neighborlist.natural_cutoffs(structure)
         nl = neighborlist.NeighborList(cutOff, self_interaction=False, bothways=False)
         nl.update(structure)
         bonds = []
+        print("compute bonds")
         if len(structure) > 1:
             matrix = nl.get_connectivity_matrix()
             for k in matrix.keys():
@@ -509,14 +508,11 @@ class _StructureDataBaseViewer(ipw.VBox):
 
                 v1 = np.array([i.x, i.y, i.z])
                 v2 = np.array([j.x, j.y, j.z])
-                mic_vector = structure.get_distance(i, j, mic=True, vector=True)
-                midi = v1 + mic_vector * Radius[i.symbol] / (
-                    Radius[i.symbol] + Radius[j.symbol]
-                )
+                mic_vector = structure.get_distance(k[0], k[1], mic=True, vector=True)
                 if povray:
                     bond = Cylinder(
                         v1,
-                        midi,
+                        v1 + mic_vector * Radius[i.symbol] / ( Radius[i.symbol] + Radius[j.symbol]) ,
                         0.2,
                         Pigment("color", np.array(Colors[i.symbol])),
                         Finish("phong", 0.8, "reflection", 0.05),
@@ -524,7 +520,7 @@ class _StructureDataBaseViewer(ipw.VBox):
                     bonds.append(bond)
                     bond = Cylinder(
                         v2,
-                        midi,
+                        v2 - mic_vector * Radius[j.symbol] / ( Radius[i.symbol] + Radius[j.symbol]),
                         0.2,
                         Pigment("color", np.array(Colors[j.symbol])),
                         Finish("phong", 0.8, "reflection", 0.05),
@@ -538,10 +534,10 @@ class _StructureDataBaseViewer(ipw.VBox):
                         color0 = RGB_colors[color]
                         color1 = RGB_colors[color]
                     bonds.append(
-                        ("cylinder", v1.tolist(), midi.tolist(), color0, radius)
+                        ("cylinder", v1.tolist(), (v1 + mic_vector * Radius[i.symbol] / ( Radius[i.symbol] + Radius[j.symbol])).tolist(), color0, radius)
                     )
                     bonds.append(
-                        ("cylinder", v2.tolist(), midi.tolist(), color1, radius)
+                        ("cylinder", v2.tolist(), (v2 - mic_vector * Radius[j.symbol] / ( Radius[i.symbol] + Radius[j.symbol])).tolist(), color1, radius)
                     )
         return bonds
 
