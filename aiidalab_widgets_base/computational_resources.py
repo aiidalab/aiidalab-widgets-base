@@ -13,6 +13,7 @@ from aiida import common, orm, plugins
 from aiida.orm.utils.builders.code import CodeBuilder
 from aiida.orm.utils.builders.computer import ComputerBuilder
 from aiida.transports.plugins.ssh import parse_sshconfig
+from humanfriendly import InvalidSize, parse_size
 from IPython.display import clear_output, display
 
 from .databases import ComputationalResourcesDatabaseWidget
@@ -55,7 +56,7 @@ class ComputationalResourcesWidget(ipw.VBox):
         description (str): Description to display before the dropdown.
         """
         self.output = ipw.HTML()
-        self.setup_message = StatusHTML(clear_after=100)
+        self.setup_message = StatusHTML(clear_after=30)
         self.code_select_dropdown = ipw.Dropdown(
             description=description,
             disabled=True,
@@ -703,11 +704,36 @@ class AiidaComputerSetup(ipw.VBox):
         )
 
         # Memory per node.
-        self.default_memory_per_machine_in_gb = ipw.IntText(
-            step=1,
-            description="#Memory(RAM) per node (GB):",
+        self.default_memory_per_machine_widget = ipw.Text(
+            value="",
+            placeholder="not specified",
+            description="Memory per node:",
             layout=LAYOUT,
             style=STYLE,
+        )
+        memory_wrong_syntax = ipw.HTML(
+            value="""<i class="fa fa-times" style="color:red;font-size:2em;" ></i> wrong syntax""",
+            layout={"visibility": "hidden"},
+        )
+        self.default_memory_per_machine = None
+
+        def observe_memory_per_machine(change):
+            """Check if the string defining memory is valid."""
+            memory_wrong_syntax.layout.visibility = "hidden"
+            if not self.default_memory_per_machine_widget.value:
+                self.default_memory_per_machine = None
+                return
+            try:
+                self.default_memory_per_machine = (
+                    int(parse_size(change["new"], binary=True) / 1024) or None
+                )
+                memory_wrong_syntax.layout.visibility = "hidden"
+            except InvalidSize:
+                memory_wrong_syntax.layout.visibility = "visible"
+                self.default_memory_per_machine = None
+
+        self.default_memory_per_machine_widget.observe(
+            observe_memory_per_machine, names="value"
         )
 
         # Transport type.
@@ -778,7 +804,7 @@ class AiidaComputerSetup(ipw.VBox):
             self.work_dir,
             self.mpirun_command,
             self.mpiprocs_per_machine,
-            self.default_memory_per_machine_in_gb,
+            ipw.HBox([self.default_memory_per_machine_widget, memory_wrong_syntax]),
             self.transport,
             self.safe_interval,
             self.scheduler,
@@ -865,15 +891,10 @@ class AiidaComputerSetup(ipw.VBox):
             "shebang",
         ]
 
-        if self.default_memory_per_machine_in_gb.value == 0:
-            default_memory_per_machine = None
-        else:
-            default_memory_per_machine *= 1000000
-
         kwargs = {key: getattr(self, key).value for key in items_to_configure}
 
         computer_builder = ComputerBuilder(
-            default_memory_per_machine=default_memory_per_machine, **kwargs
+            default_memory_per_machine=self.default_memory_per_machine, **kwargs
         )
         try:
             computer = computer_builder.new()
@@ -914,6 +935,7 @@ class AiidaComputerSetup(ipw.VBox):
         self.description.value = ""
         self.work_dir.value = ""
         self.mpirun_command.value = "mpirun -n {tot_num_mpiprocs}"
+        self.default_memory_per_machine_widget.value = ""
         self.mpiprocs_per_machine.value = 1
         self.transport.value = "core.ssh"
         self.safe_interval.value = 30.0
@@ -932,8 +954,13 @@ class AiidaComputerSetup(ipw.VBox):
             return
         if "setup" in self.computer_setup:
             for key, value in self.computer_setup["setup"].items():
-                if hasattr(self, key):
+                if key == "default_memory_per_machine":
+                    self.default_memory_per_machine_widget.value = int(
+                        value / 1024**2
+                    )
+                elif hasattr(self, key):
                     getattr(self, key).value = value
+
         # Configure.
         if "configure" in self.computer_setup:
             for key, value in self.computer_setup["configure"].items():
@@ -1110,7 +1137,10 @@ class AiidaCodeSetup(ipw.VBox):
         for key, value in self.code_setup.items():
             if hasattr(self, key):
                 if key == "input_plugin":
-                    getattr(self, key).label = value
+                    try:
+                        getattr(self, key).label = value
+                    except traitlets.TraitError:
+                        self.message = f"Input plugin {value} is not installed."
                 else:
                     getattr(self, key).value = value
 
