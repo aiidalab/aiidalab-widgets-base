@@ -509,7 +509,8 @@ class _StructureDataBaseViewer(ipw.VBox):
 
                 v1 = np.array([i.x, i.y, i.z])
                 v2 = np.array([j.x, j.y, j.z])
-                midi = v1 + (v2 - v1) * Radius[i.symbol] / (
+                mic_vector = structure.get_distance(i, j, mic=True, vector = True)
+                midi = v1 + mic_vector * Radius[i.symbol] / (
                     Radius[i.symbol] + Radius[j.symbol]
                 )
                 if povray:
