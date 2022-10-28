@@ -512,7 +512,10 @@ class _StructureDataBaseViewer(ipw.VBox):
                 if povray:
                     bond = Cylinder(
                         v1,
-                        v1 + mic_vector * Radius[i.symbol] / ( Radius[i.symbol] + Radius[j.symbol]) ,
+                        v1
+                        + mic_vector
+                        * Radius[i.symbol]
+                        / (Radius[i.symbol] + Radius[j.symbol]),
                         0.2,
                         Pigment("color", np.array(Colors[i.symbol])),
                         Finish("phong", 0.8, "reflection", 0.05),
@@ -520,7 +523,10 @@ class _StructureDataBaseViewer(ipw.VBox):
                     bonds.append(bond)
                     bond = Cylinder(
                         v2,
-                        v2 - mic_vector * Radius[j.symbol] / ( Radius[i.symbol] + Radius[j.symbol]),
+                        v2
+                        - mic_vector
+                        * Radius[j.symbol]
+                        / (Radius[i.symbol] + Radius[j.symbol]),
                         0.2,
                         Pigment("color", np.array(Colors[j.symbol])),
                         Finish("phong", 0.8, "reflection", 0.05),
@@ -534,10 +540,32 @@ class _StructureDataBaseViewer(ipw.VBox):
                         color0 = RGB_colors[color]
                         color1 = RGB_colors[color]
                     bonds.append(
-                        ("cylinder", v1.tolist(), (v1 + mic_vector * Radius[i.symbol] / ( Radius[i.symbol] + Radius[j.symbol])).tolist(), color0, radius)
+                        (
+                            "cylinder",
+                            v1.tolist(),
+                            (
+                                v1
+                                + mic_vector
+                                * Radius[i.symbol]
+                                / (Radius[i.symbol] + Radius[j.symbol])
+                            ).tolist(),
+                            color0,
+                            radius,
+                        )
                     )
                     bonds.append(
-                        ("cylinder", v2.tolist(), (v2 - mic_vector * Radius[j.symbol] / ( Radius[i.symbol] + Radius[j.symbol])).tolist(), color1, radius)
+                        (
+                            "cylinder",
+                            v2.tolist(),
+                            (
+                                v2
+                                - mic_vector
+                                * Radius[j.symbol]
+                                / (Radius[i.symbol] + Radius[j.symbol])
+                            ).tolist(),
+                            color1,
+                            radius,
+                        )
                     )
         return bonds
 
