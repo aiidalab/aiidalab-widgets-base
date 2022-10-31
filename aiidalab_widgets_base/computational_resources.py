@@ -767,9 +767,10 @@ class AiidaComputerSetup(ipw.VBox):
             style=STYLE,
         )
 
-        # Use double quotes to espace.
+        # Use double quotes to escape.
         self.use_double_quotes = ipw.Checkbox(
-            value=False, description="Use double quotes"
+            value=False,
+            description="Use double quotes to escape environment variable of job script.",
         )
 
         # Use login shell.
@@ -955,9 +956,7 @@ class AiidaComputerSetup(ipw.VBox):
         if "setup" in self.computer_setup:
             for key, value in self.computer_setup["setup"].items():
                 if key == "default_memory_per_machine":
-                    self.default_memory_per_machine_widget.value = int(
-                        value / 1024**2
-                    )
+                    self.default_memory_per_machine_widget.value = f"{value} KB"
                 elif hasattr(self, key):
                     getattr(self, key).value = value
 
@@ -1016,9 +1015,10 @@ class AiidaCodeSetup(ipw.VBox):
             style=STYLE,
         )
 
-        # Use double quotes to espace.
+        # Use double quotes to escape.
         self.use_double_quotes = ipw.Checkbox(
-            value=False, description="Use double quotes"
+            value=False,
+            description="Use double quotes to escape environment variable of job script.",
         )
 
         self.prepend_text = ipw.Textarea(

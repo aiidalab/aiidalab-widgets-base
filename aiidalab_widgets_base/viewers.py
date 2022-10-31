@@ -104,7 +104,7 @@ class AiidaNodeViewWidget(ipw.VBox):
                     display(viewer(change["new"]))
 
 
-@register_viewer_widget("data.dict.Dict.")
+@register_viewer_widget("data.core.dict.Dict.")
 class DictViewer(ipw.VBox):
 
     value = Unicode()
@@ -744,8 +744,8 @@ class _StructureDataBaseViewer(ipw.VBox):
         return self._prepare_payload(file_format="png")
 
 
-@register_viewer_widget("data.cif.CifData.")
-@register_viewer_widget("data.structure.StructureData.")
+@register_viewer_widget("data.core.cif.CifData.")
+@register_viewer_widget("data.core.structure.StructureData.")
 class StructureDataViewer(_StructureDataBaseViewer):
     """Viewer class for AiiDA structure objects.
 
@@ -1063,7 +1063,7 @@ class StructureDataViewer(_StructureDataBaseViewer):
         self.selection_info.value = self.create_selection_info()
 
 
-@register_viewer_widget("data.folder.FolderData.")
+@register_viewer_widget("data.core.folder.FolderData.")
 class FolderDataViewer(ipw.VBox):
     """Viewer class for FolderData object.
 
@@ -1119,7 +1119,7 @@ class FolderDataViewer(ipw.VBox):
         display(javas)
 
 
-@register_viewer_widget("data.array.bands.BandsData.")
+@register_viewer_widget("data.core.array.bands.BandsData.")
 class BandsDataViewer(ipw.VBox):
     """Viewer class for BandsData object.
 
