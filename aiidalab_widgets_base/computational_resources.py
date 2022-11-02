@@ -10,10 +10,11 @@ import ipywidgets as ipw
 import pexpect
 import shortuuid
 import traitlets
-from aiida import common, orm, plugins, schedulers, transports
+from aiida import common, orm, plugins
 from aiida.orm.utils.builders.code import CodeBuilder
 from aiida.orm.utils.builders.computer import ComputerBuilder
 from aiida.transports.plugins.ssh import parse_sshconfig
+from humanfriendly import InvalidSize, parse_size
 from IPython.display import clear_output, display
 
 from .databases import ComputationalResourcesDatabaseWidget
@@ -55,7 +56,7 @@ class ComputationalResourcesWidget(ipw.VBox):
         description (str): Description to display before the dropdown.
         """
         self.output = ipw.HTML()
-        self.setup_message = StatusHTML()
+        self.setup_message = StatusHTML(clear_after=30)
         self.code_select_dropdown = ipw.Dropdown(
             description=description,
             disabled=True,
@@ -160,7 +161,7 @@ class ComputationalResourcesWidget(ipw.VBox):
     def _get_codes(self):
         """Query the list of available codes."""
 
-        user = orm.User.objects.get_default()
+        user = orm.User.collection.get_default()
 
         return {
             self._full_code_label(c[0]): c[0].uuid
@@ -694,10 +695,43 @@ class AiidaComputerSetup(ipw.VBox):
             style=STYLE,
         )
 
+        # Memory per node.
+        self.default_memory_per_machine_widget = ipw.Text(
+            value="",
+            placeholder="not specified",
+            description="Memory per node:",
+            layout=LAYOUT,
+            style=STYLE,
+        )
+        memory_wrong_syntax = ipw.HTML(
+            value="""<i class="fa fa-times" style="color:red;font-size:2em;" ></i> wrong syntax""",
+            layout={"visibility": "hidden"},
+        )
+        self.default_memory_per_machine = None
+
+        def observe_memory_per_machine(change):
+            """Check if the string defining memory is valid."""
+            memory_wrong_syntax.layout.visibility = "hidden"
+            if not self.default_memory_per_machine_widget.value:
+                self.default_memory_per_machine = None
+                return
+            try:
+                self.default_memory_per_machine = (
+                    int(parse_size(change["new"], binary=True) / 1024) or None
+                )
+                memory_wrong_syntax.layout.visibility = "hidden"
+            except InvalidSize:
+                memory_wrong_syntax.layout.visibility = "visible"
+                self.default_memory_per_machine = None
+
+        self.default_memory_per_machine_widget.observe(
+            observe_memory_per_machine, names="value"
+        )
+
         # Transport type.
         self.transport = ipw.Dropdown(
-            value="local",
-            options=transports.Transport.get_valid_transports(),
+            value="core.local",
+            options=plugins.entry_point.get_entry_point_names("aiida.transports"),
             description="Transport type:",
             style=STYLE,
         )
@@ -712,8 +746,8 @@ class AiidaComputerSetup(ipw.VBox):
 
         # Scheduler.
         self.scheduler = ipw.Dropdown(
-            value="slurm",
-            options=schedulers.Scheduler.get_valid_schedulers(),
+            value="core.slurm",
+            options=plugins.entry_point.get_entry_point_names("aiida.schedulers"),
             description="Scheduler:",
             style=STYLE,
         )
@@ -723,6 +757,12 @@ class AiidaComputerSetup(ipw.VBox):
             description="Shebang:",
             layout=LAYOUT,
             style=STYLE,
+        )
+
+        # Use double quotes to escape.
+        self.use_double_quotes = ipw.Checkbox(
+            value=False,
+            description="Use double quotes to escape environment variable of job script.",
         )
 
         # Use login shell.
@@ -757,11 +797,13 @@ class AiidaComputerSetup(ipw.VBox):
             self.work_dir,
             self.mpirun_command,
             self.mpiprocs_per_machine,
+            ipw.HBox([self.default_memory_per_machine_widget, memory_wrong_syntax]),
             self.transport,
             self.safe_interval,
             self.scheduler,
             self.shebang,
             self.use_login_shell,
+            self.use_double_quotes,
             self.prepend_text,
             self.append_text,
             self.setup_button,
@@ -771,7 +813,7 @@ class AiidaComputerSetup(ipw.VBox):
 
         super().__init__(children, **kwargs)
 
-    def _configure_computer(self, computer):
+    def _configure_computer(self, computer: orm.Computer):
         """Configure the computer"""
         sshcfg = parse_sshconfig(self.hostname.value)
         authparams = {
@@ -807,7 +849,10 @@ class AiidaComputerSetup(ipw.VBox):
         elif "proxyjump" in sshcfg:
             authparams["proxy_jump"] = sshcfg["proxyjump"]
 
-        computer.configure(**authparams)
+        # user default AiiDA user
+        user = orm.User.collection.get_default()
+        computer.configure(user=user, **authparams)
+
         return True
 
     def on_setup_computer(self, _=None):
@@ -832,14 +877,18 @@ class AiidaComputerSetup(ipw.VBox):
             "mpirun_command",
             "mpiprocs_per_machine",
             "transport",
+            "use_double_quotes",
             "scheduler",
             "prepend_text",
             "append_text",
             "shebang",
         ]
+
         kwargs = {key: getattr(self, key).value for key in items_to_configure}
 
-        computer_builder = ComputerBuilder(**kwargs)
+        computer_builder = ComputerBuilder(
+            default_memory_per_machine=self.default_memory_per_machine, **kwargs
+        )
         try:
             computer = computer_builder.new()
         except (
@@ -879,12 +928,14 @@ class AiidaComputerSetup(ipw.VBox):
         self.description.value = ""
         self.work_dir.value = ""
         self.mpirun_command.value = "mpirun -n {tot_num_mpiprocs}"
+        self.default_memory_per_machine_widget.value = ""
         self.mpiprocs_per_machine.value = 1
-        self.transport.value = "ssh"
+        self.transport.value = "core.ssh"
         self.safe_interval.value = 30.0
-        self.scheduler.value = "slurm"
+        self.scheduler.value = "core.slurm"
         self.shebang.value = "#!/usr/bin/env bash"
         self.use_login_shell.value = True
+        self.use_double_quotes.value = False
         self.prepend_text.value = ""
         self.append_text.value = ""
 
@@ -896,8 +947,11 @@ class AiidaComputerSetup(ipw.VBox):
             return
         if "setup" in self.computer_setup:
             for key, value in self.computer_setup["setup"].items():
-                if hasattr(self, key):
+                if key == "default_memory_per_machine":
+                    self.default_memory_per_machine_widget.value = f"{value} KB"
+                elif hasattr(self, key):
                     getattr(self, key).value = value
+
         # Configure.
         if "configure" in self.computer_setup:
             for key, value in self.computer_setup["configure"].items():
@@ -930,7 +984,7 @@ class AiidaCodeSetup(ipw.VBox):
         # Code plugin.
         self.input_plugin = ipw.Dropdown(
             options=sorted(
-                (ep.name, ep)
+                (ep.name, ep.name)
                 for ep in plugins.entry_point.get_entry_points("aiida.calculations")
             ),
             description="Code plugin:",
@@ -951,6 +1005,12 @@ class AiidaCodeSetup(ipw.VBox):
             description="Absolute path to executable:",
             layout=LAYOUT,
             style=STYLE,
+        )
+
+        # Use double quotes to escape.
+        self.use_double_quotes = ipw.Checkbox(
+            value=False,
+            description="Use double quotes to escape environment variable of job script.",
         )
 
         self.prepend_text = ipw.Textarea(
@@ -975,6 +1035,7 @@ class AiidaCodeSetup(ipw.VBox):
             self.input_plugin,
             self.description,
             self.remote_abs_path,
+            self.use_double_quotes,
             self.prepend_text,
             self.append_text,
             btn_setup_code,
@@ -1002,6 +1063,7 @@ class AiidaCodeSetup(ipw.VBox):
                 "description",
                 "input_plugin",
                 "remote_abs_path",
+                "use_double_quotes",
                 "prepend_text",
                 "append_text",
             ]
@@ -1051,6 +1113,7 @@ class AiidaCodeSetup(ipw.VBox):
         self.computer.value = ""
         self.description.value = ""
         self.remote_abs_path.value = ""
+        self.use_double_quotes.value = False
         self.prepend_text.value = ""
         self.append_text.value = ""
 
@@ -1066,7 +1129,10 @@ class AiidaCodeSetup(ipw.VBox):
         for key, value in self.code_setup.items():
             if hasattr(self, key):
                 if key == "input_plugin":
-                    getattr(self, key).label = value
+                    try:
+                        getattr(self, key).label = value
+                    except traitlets.TraitError:
+                        self.message = f"Input plugin {value} is not installed."
                 else:
                     getattr(self, key).value = value
 
@@ -1125,7 +1191,7 @@ class ComputerDropdownWidget(ipw.VBox):
         """Get the list of available computers."""
 
         # Getting the current user.
-        user = orm.User.objects.get_default()
+        user = orm.User.collection.get_default()
 
         return {
             c[0].label: c[0].uuid

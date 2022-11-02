@@ -104,7 +104,7 @@ class AiidaNodeViewWidget(ipw.VBox):
                     display(viewer(change["new"]))
 
 
-@register_viewer_widget("data.dict.Dict.")
+@register_viewer_widget("data.core.dict.Dict.")
 class DictViewer(ipw.VBox):
 
     value = Unicode()
@@ -212,8 +212,12 @@ class _StructureDataBaseViewer(ipw.VBox):
         if configuration_tabs is None:
             configuration_tabs = ["Selection", "Appearance", "Cell", "Download"]
 
+        self.selection_tab_idx = None
         if len(configuration_tabs) != 0:
-            self.selection_tab_idx = configuration_tabs.index("Selection")
+            try:
+                self.selection_tab_idx = configuration_tabs.index("Selection")
+            except ValueError:
+                pass
             self.configuration_box = ipw.Tab(
                 layout=ipw.Layout(flex="1 1 auto", width="auto")
             )
@@ -679,7 +683,7 @@ class _StructureDataBaseViewer(ipw.VBox):
         self._selected_atoms.value = list_to_string_range(self.selection, shift=1)
 
         # if atom is selected from nglview, shift to selection tab
-        if self._selected_atoms.value:
+        if self._selected_atoms.value and self.selection_tab_idx is not None:
             self.configuration_box.selected_index = self.selection_tab_idx
 
     def apply_selection(self, _=None):
@@ -740,8 +744,8 @@ class _StructureDataBaseViewer(ipw.VBox):
         return self._prepare_payload(file_format="png")
 
 
-@register_viewer_widget("data.cif.CifData.")
-@register_viewer_widget("data.structure.StructureData.")
+@register_viewer_widget("data.core.cif.CifData.")
+@register_viewer_widget("data.core.structure.StructureData.")
 class StructureDataViewer(_StructureDataBaseViewer):
     """Viewer class for AiiDA structure objects.
 
@@ -1059,7 +1063,7 @@ class StructureDataViewer(_StructureDataBaseViewer):
         self.selection_info.value = self.create_selection_info()
 
 
-@register_viewer_widget("data.folder.FolderData.")
+@register_viewer_widget("data.core.folder.FolderData.")
 class FolderDataViewer(ipw.VBox):
     """Viewer class for FolderData object.
 
@@ -1115,7 +1119,7 @@ class FolderDataViewer(ipw.VBox):
         display(javas)
 
 
-@register_viewer_widget("data.array.bands.BandsData.")
+@register_viewer_widget("data.core.array.bands.BandsData.")
 class BandsDataViewer(ipw.VBox):
     """Viewer class for BandsData object.
 
