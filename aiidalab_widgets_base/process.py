@@ -710,10 +710,10 @@ class ProcessMonitor(traitlets.HasTraits):
 
     @traitlets.observe("process_uuid")
     def _observe_process(self, change):
-        """When the process_uuid is changed, stop the previous 
+        """When the process_uuid is changed, stop the previous
         monitor if exist. Start a new one in thread."""
         process_uuid = change["new"]
-        
+
         if process_uuid is None:
             return
 
@@ -722,7 +722,7 @@ class ProcessMonitor(traitlets.HasTraits):
             with self._monitor_thread_lock:
                 self._monitor_thread_stop.set()
                 self._monitor_thread.join()
-        
+
         with self._monitor_thread_lock:
             self._monitor_thread_stop.clear()
             self._monitor_thread = Thread(
