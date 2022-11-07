@@ -710,22 +710,25 @@ class ProcessMonitor(traitlets.HasTraits):
 
     @traitlets.observe("process_uuid")
     def _observe_process(self, change):
+        """When the process_uuid is changed, stop the previous 
+        monitor if exist. Start a new one in thread."""
         process_uuid = change["new"]
-        if process_uuid is None or process_uuid != change["old"]:
-            with self.hold_trait_notifications():
-                with self._monitor_thread_lock:
-                    # stop thread (if running)
-                    if self._monitor_thread is not None:
-                        self._monitor_thread_stop.set()
-                        self._monitor_thread.join()
+        
+        if process_uuid is None:
+            return
 
-                    # start monitor thread
-                    if process_uuid is not None:
-                        self._monitor_thread_stop.clear()
-                        self._monitor_thread = Thread(
-                            target=self._monitor_process, args=(process_uuid,)
-                        )
-                        self._monitor_thread.start()
+        # stop thread (if running)
+        if self._monitor_thread is not None:
+            with self._monitor_thread_lock:
+                self._monitor_thread_stop.set()
+                self._monitor_thread.join()
+        
+        with self._monitor_thread_lock:
+            self._monitor_thread_stop.clear()
+            self._monitor_thread = Thread(
+                target=self._monitor_process, args=(process_uuid,)
+            )
+            self._monitor_thread.start()
 
     def _monitor_process(self, process_uuid):
         assert process_uuid is not None
