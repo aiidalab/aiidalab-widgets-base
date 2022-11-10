@@ -714,14 +714,14 @@ class ProcessMonitor(traitlets.HasTraits):
         monitor if exist. Start a new one in thread."""
         process_uuid = change["new"]
 
-        if process_uuid is None:
-            return
-
         # stop thread (if running)
         if self._monitor_thread is not None:
             with self._monitor_thread_lock:
                 self._monitor_thread_stop.set()
                 self._monitor_thread.join()
+
+        if process_uuid is None:
+            return
 
         with self._monitor_thread_lock:
             self._monitor_thread_stop.clear()
