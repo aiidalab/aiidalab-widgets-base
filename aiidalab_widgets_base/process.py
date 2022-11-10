@@ -542,7 +542,7 @@ class ProcessListWidget(ipw.VBox):
 
     past_days (int): Sumulations that were submitted in the last `past_days`.
 
-    incoming_node (tr): Trait that takes node uuid that must
+    incoming_node (str): Trait that takes node uuid that must
     be among the input nodes of the process of interest.
 
     outgoing_node (str): Trait that takes node uuid that must
