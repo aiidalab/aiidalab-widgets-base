@@ -316,6 +316,7 @@ class StructureManagerWidget(ipw.VBox):
         # If the `input_structure` trait is set to Atoms object, then the `structure` trait should be set to it as well.
         self.history = []
 
+        self.structure = None
         if isinstance(change["new"], Atoms):
             self.structure = change["new"]
 
@@ -331,8 +332,6 @@ class StructureManagerWidget(ipw.VBox):
         elif isinstance(change["new"], StructureData):
             self.structure = change["new"].get_ase()
 
-        else:
-            self.structure = None
 
     @observe("structure")
     def _structure_changed(self, change=None):
@@ -410,6 +409,7 @@ class StructureUploadWidget(ipw.VBox):
 
     def _on_file_upload(self, change=None):
         """When file upload button is pressed."""
+        self.structure = None
         for fname, item in change["new"].items():
             self.structure = self._read_structure(fname, item["content"])
             self.file_upload.value.clear()
@@ -803,6 +803,7 @@ class SmilesWidget(ipw.VBox):
         """Convert SMILES to ase structure when button is pressed."""
         self.output.value = ""
 
+        self.structure = None
         if not self.smiles.value:
             return
         spinner = f"Screening possible conformers {self.SPINNER}"  # font-size:20em;
