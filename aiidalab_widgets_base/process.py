@@ -6,6 +6,7 @@ import warnings
 from inspect import isclass, signature
 from threading import Event, Lock, Thread
 from time import sleep
+from uuid import UUID
 
 # External imports
 import ipywidgets as ipw
@@ -20,11 +21,7 @@ from aiida.cmdline.utils.common import (
     get_workchain_report,
 )
 from aiida.cmdline.utils.query.calculation import CalculationQueryBuilder
-from aiida.common.exceptions import (
-    MultipleObjectsError,
-    NotExistent,
-    NotExistentAttributeError,
-)
+from aiida.common.exceptions import NotExistentAttributeError
 from aiida.engine import Process, ProcessBuilder, submit
 from aiida.orm import (
     CalcFunctionNode,
@@ -36,7 +33,7 @@ from aiida.orm import (
     load_node,
 )
 from IPython.display import HTML, Javascript, clear_output, display
-from traitlets import Instance, Int, List, Unicode, Union, default, observe, validate
+from traitlets import Instance, Int, List, Unicode, default, observe, validate
 
 from .nodes import NodesTreeWidget
 
@@ -545,10 +542,10 @@ class ProcessListWidget(ipw.VBox):
 
     past_days (int): Sumulations that were submitted in the last `past_days`.
 
-    incoming_node (int, str, Node): Trait that takes node id or uuid and returns the node that must
+    incoming_node (str): Trait that takes node uuid that must
     be among the input nodes of the process of interest.
 
-    outgoing_node (int, str, Node): Trait that takes node id or uuid and returns the node that must
+    outgoing_node (str): Trait that takes node uuid that must
     be among the output nodes of the process of interest.
 
     process_states (list): List of allowed process states.
@@ -560,8 +557,8 @@ class ProcessListWidget(ipw.VBox):
     """
 
     past_days = Int(7)
-    incoming_node = Union([Int(), Unicode(), Instance(Node)], allow_none=True)
-    outgoing_node = Union([Int(), Unicode(), Instance(Node)], allow_none=True)
+    incoming_node = Unicode(allow_none=True)
+    outgoing_node = Unicode(allow_none=True)
     process_states = List()
     process_label = Unicode(allow_none=True)
     description_contains = Unicode(allow_none=True)
@@ -605,10 +602,16 @@ class ProcessListWidget(ipw.VBox):
         )
         relationships = {}
         if self.incoming_node:
-            relationships = {**relationships, **{"with_outgoing": self.incoming_node}}
+            relationships = {
+                **relationships,
+                **{"with_outgoing": load_node(self.incoming_node)},
+            }
 
         if self.outgoing_node:
-            relationships = {**relationships, **{"with_incoming": self.outgoing_node}}
+            relationships = {
+                **relationships,
+                **{"with_incoming": load_node(self.outgoing_node)},
+            }
 
         query_set = builder.get_query_set(
             filters=filters,
@@ -645,23 +648,27 @@ class ProcessListWidget(ipw.VBox):
 
     @validate("incoming_node")
     def _validate_incoming_node(self, provided):
-        """Validate incoming node. The function load_node takes care of managing ids and uuids."""
-        if provided["value"]:
-            try:
-                return load_node(provided["value"])
-            except (MultipleObjectsError, NotExistent):
-                return None
-        return None
+        """Validate incoming node."""
+        node_uuid = provided["value"]
+        try:
+            _ = UUID(node_uuid, version=4)
+        except ValueError:
+            self.output.value = f"""'<span style="color:red">{node_uuid}</span>'
+            is not a valid UUID."""
+        else:
+            return node_uuid
 
     @validate("outgoing_node")
     def _validate_outgoing_node(self, provided):
         """Validate outgoing node. The function load_node takes care of managing ids and uuids."""
-        if provided["value"]:
-            try:
-                return load_node(provided["value"])
-            except (MultipleObjectsError, NotExistent):
-                return None
-        return None
+        node_uuid = provided["value"]
+        try:
+            _ = UUID(node_uuid, version=4)
+        except ValueError:
+            self.output.value = f"""'<span style="color:red">{node_uuid}</span>'
+            is not a valid UUID."""
+        else:
+            return node_uuid
 
     @default("process_label")
     def _default_process_label(self):
@@ -688,7 +695,7 @@ class ProcessListWidget(ipw.VBox):
 class ProcessMonitor(traitlets.HasTraits):
     """Monitor a process and execute callback functions at specified intervals."""
 
-    process = traitlets.Instance(ProcessNode, allow_none=True)
+    value = Unicode(allow_none=True)
 
     def __init__(self, callbacks=None, on_sealed=None, timeout=None, **kwargs):
         self.callbacks = [] if callbacks is None else list(callbacks)
@@ -701,29 +708,31 @@ class ProcessMonitor(traitlets.HasTraits):
 
         super().__init__(**kwargs)
 
-    @traitlets.observe("process")
+    @traitlets.observe("value")
     def _observe_process(self, change):
-        process = change["new"]
-        if process is None or process.id != getattr(change["old"], "id", None):
-            with self.hold_trait_notifications():
-                with self._monitor_thread_lock:
-                    # stop thread (if running)
-                    if self._monitor_thread is not None:
-                        self._monitor_thread_stop.set()
-                        self._monitor_thread.join()
+        """When the value (process uuid) is changed, stop the previous
+        monitor if exist. Start a new one in thread."""
+        process_uuid = change["new"]
 
-                    # start monitor thread
-                    if process is not None:
-                        self._monitor_thread_stop.clear()
-                        process_id = getattr(process, "id", None)
-                        self._monitor_thread = Thread(
-                            target=self._monitor_process, args=(process_id,)
-                        )
-                        self._monitor_thread.start()
+        # stop thread (if running)
+        if self._monitor_thread is not None:
+            with self._monitor_thread_lock:
+                self._monitor_thread_stop.set()
+                self._monitor_thread.join()
 
-    def _monitor_process(self, process_id):
-        assert process_id is not None
-        process = load_node(process_id)
+        if process_uuid is None:
+            return
+
+        with self._monitor_thread_lock:
+            self._monitor_thread_stop.clear()
+            self._monitor_thread = Thread(
+                target=self._monitor_process, args=(process_uuid,)
+            )
+            self._monitor_thread.start()
+
+    def _monitor_process(self, process_uuid):
+        assert process_uuid is not None
+        process = load_node(process_uuid)
 
         disabled_funcs = set()
 
@@ -735,7 +744,7 @@ class ProcessMonitor(traitlets.HasTraits):
 
                 try:
                     if len(signature(func).parameters) > 0:
-                        func(process_id)
+                        func(process_uuid)
                     else:
                         func()
                 except Exception as error:
@@ -765,7 +774,7 @@ class ProcessMonitor(traitlets.HasTraits):
 class ProcessNodesTreeWidget(ipw.VBox):
     """A tree widget for the structured representation of a process graph."""
 
-    process = traitlets.Instance(ProcessNode, allow_none=True)
+    value = traitlets.Unicode(allow_none=True)
     selected_nodes = traitlets.Tuple(read_only=True).tag(trait=traitlets.Instance(Node))
 
     def __init__(self, title="Process Tree", **kwargs):
@@ -781,10 +790,11 @@ class ProcessNodesTreeWidget(ipw.VBox):
     def update(self, _=None):
         self._tree.update()
 
-    @traitlets.observe("process")
+    @traitlets.observe("value")
     def _observe_process(self, change):
-        process = change["new"]
-        if process:
+        process_uuid = change["new"]
+        if process_uuid:
+            process = load_node(process_uuid)
             self._tree.nodes = [process]
             self._tree.find_node(process.pk).selected = True
         else:
