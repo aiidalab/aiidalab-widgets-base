@@ -513,20 +513,17 @@ class _StructureDataBaseViewer(ipw.VBox):
         """Compute the bonds between atoms."""
         radius = radius / 5
 
-        cutOff = neighborlist.natural_cutoffs(structure)
-        nl = neighborlist.NeighborList(cutOff, self_interaction=False, bothways=False)
-        nl.update(structure)
+        cutOff = neighborlist.natural_cutoffs(structure,mult=1.09)
         bonds = []
-        print("compute bonds")
         if len(structure) > 1:
-            matrix = nl.get_connectivity_matrix()
-            for k in matrix.keys():
-                i = structure[k[0]]
-                j = structure[k[1]]
+            ii, jj, D = neighborlist.neighbor_list('ijD', structure, cutOff, self_interaction=False)
+            for id1,id2,d_mic in zip(ii,jj,D):
+                i = structure[id1]
+                j = structure[id2]
 
                 v1 = np.array([i.x, i.y, i.z])
                 v2 = np.array([j.x, j.y, j.z])
-                mic_vector = structure.get_distance(k[0], k[1], mic=True, vector=True)
+                mic_vector = d_mic
                 if povray:
                     bond = Cylinder(
                         v1,
@@ -539,21 +536,10 @@ class _StructureDataBaseViewer(ipw.VBox):
                         Finish("phong", 0.8, "reflection", 0.05),
                     )
                     bonds.append(bond)
-                    bond = Cylinder(
-                        v2,
-                        v2
-                        - mic_vector
-                        * Radius[j.symbol]
-                        / (Radius[i.symbol] + Radius[j.symbol]),
-                        0.2,
-                        Pigment("color", np.array(Colors[j.symbol])),
-                        Finish("phong", 0.8, "reflection", 0.05),
-                    )
-                    bonds.append(bond)
                 else:
                     if color == "element":
-                        color0 = colors.jmol_colors[structure.numbers[k[0]]].tolist()
-                        color1 = colors.jmol_colors[structure.numbers[k[1]]].tolist()
+                        color0 = colors.jmol_colors[structure.numbers[id1]].tolist()
+                        color1 = colors.jmol_colors[structure.numbers[id2]].tolist()
                     else:
                         color0 = RGB_colors[color]
                         color1 = RGB_colors[color]
@@ -568,20 +554,6 @@ class _StructureDataBaseViewer(ipw.VBox):
                                 / (Radius[i.symbol] + Radius[j.symbol])
                             ).tolist(),
                             color0,
-                            radius,
-                        )
-                    )
-                    bonds.append(
-                        (
-                            "cylinder",
-                            v2.tolist(),
-                            (
-                                v2
-                                - mic_vector
-                                * Radius[j.symbol]
-                                / (Radius[i.symbol] + Radius[j.symbol])
-                            ).tolist(),
-                            color1,
                             radius,
                         )
                     )
