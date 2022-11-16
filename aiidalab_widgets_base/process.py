@@ -695,7 +695,7 @@ class ProcessListWidget(ipw.VBox):
 class ProcessMonitor(traitlets.HasTraits):
     """Monitor a process and execute callback functions at specified intervals."""
 
-    process_uuid = Unicode(allow_none=True)
+    value = Unicode(allow_none=True)
 
     def __init__(self, callbacks=None, on_sealed=None, timeout=None, **kwargs):
         self.callbacks = [] if callbacks is None else list(callbacks)
@@ -708,9 +708,9 @@ class ProcessMonitor(traitlets.HasTraits):
 
         super().__init__(**kwargs)
 
-    @traitlets.observe("process_uuid")
+    @traitlets.observe("value")
     def _observe_process(self, change):
-        """When the process_uuid is changed, stop the previous
+        """When the value (process uuid) is changed, stop the previous
         monitor if exist. Start a new one in thread."""
         process_uuid = change["new"]
 
@@ -774,7 +774,7 @@ class ProcessMonitor(traitlets.HasTraits):
 class ProcessNodesTreeWidget(ipw.VBox):
     """A tree widget for the structured representation of a process graph."""
 
-    process_uuid = traitlets.Unicode(allow_none=True)
+    value = traitlets.Unicode(allow_none=True)
     selected_nodes = traitlets.Tuple(read_only=True).tag(trait=traitlets.Instance(Node))
 
     def __init__(self, title="Process Tree", **kwargs):
@@ -790,7 +790,7 @@ class ProcessNodesTreeWidget(ipw.VBox):
     def update(self, _=None):
         self._tree.update()
 
-    @traitlets.observe("process_uuid")
+    @traitlets.observe("value")
     def _observe_process(self, change):
         process_uuid = change["new"]
         if process_uuid:

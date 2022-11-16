@@ -28,11 +28,9 @@ class ComputationalResourcesWidget(ipw.VBox):
     """Code selection widget.
     Attributes:
 
-    value(Unicode or UUID of the code node): Trait that points to
-    the selected UUID of the code instance.
+    value(code UUID): Trait that points to the selected UUID of the code instance.
     It can be set either to an AiiDA code UUID or to a code label.
-    It is linked to the 'value' trait of
-    the `self.code_select_dropdown` widget.
+    It is linked to the `value` trait of the `self.code_select_dropdown` widget.
 
     codes(Dict): Trait that contains a dictionary (label => Code UUID) for all
     codes found in the AiiDA database for the selected plugin. It is linked
@@ -1141,7 +1139,7 @@ class ComputerDropdownWidget(ipw.VBox):
     """Widget to select a configured computer.
 
     Attributes:
-        selected_computer(Unicode of computer UUID): Trait that points to the selected Computer instance.
+        value(computer UUID): Trait that points to the selected Computer instance.
             It can be set to an AiiDA Computer UUID. It is linked to the
             'value' trait of `self._dropdown` widget.
         computers(Dict): Trait that contains a dictionary (label => Computer UUID) for all
