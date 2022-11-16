@@ -36,9 +36,9 @@ from .data import LigandSelectorWidget
 from .utils import StatusHTML, get_ase_from_file, get_formula
 from .viewers import StructureDataViewer
 
-CifData = DataFactory("cif")
-StructureData = DataFactory("structure")
-TrajectoryData = DataFactory("array.trajectory")
+CifData = DataFactory("core.cif")
+StructureData = DataFactory("core.structure")
+TrajectoryData = DataFactory("core.array.trajectory")
 
 SYMBOL_RADIUS = {key: covalent_radii[i] for i, key in enumerate(chemical_symbols)}
 
@@ -587,7 +587,7 @@ class StructureBrowserWidget(ipw.VBox):
         for item in queryb.all():  # iterall() would interfere with set_extra()
             try:
                 formula = get_formula(item[0])
-                item[0].set_extra("formula", formula)
+                item[0].base.extras.set("formula", formula)
             except ValueError:
                 pass
 
@@ -662,9 +662,9 @@ class StructureBrowserWidget(ipw.VBox):
         options[f"Select a Structure ({len(matches)} found)"] = False
 
         for mch in matches:
-            label = f"PK: {mch.id}"
+            label = f"PK: {mch.pk}"
             label += " | " + mch.ctime.strftime("%Y-%m-%d %H:%M")
-            label += " | " + mch.get_extra("formula", "")
+            label += " | " + mch.base.extras.get("formula", "")
             label += " | " + mch.node_type.split(".")[-2]
             label += " | " + mch.label
             label += " | " + mch.description

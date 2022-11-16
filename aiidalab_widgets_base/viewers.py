@@ -1075,7 +1075,7 @@ class FolderDataViewer(ipw.VBox):
     def __init__(self, folder, downloadable=True, **kwargs):
         self._folder = folder
         self.files = ipw.Dropdown(
-            options=[obj.name for obj in self._folder.list_objects()],
+            options=[obj.name for obj in self._folder.base.repository.list_objects()],
             description="Select file:",
         )
         self.text = ipw.Textarea(
@@ -1094,7 +1094,7 @@ class FolderDataViewer(ipw.VBox):
         super().__init__(children, **kwargs)
 
     def change_file_view(self, change=None):  # pylint: disable=unused-argument
-        with self._folder.open(self.files.value) as fobj:
+        with self._folder.base.repository.open(self.files.value) as fobj:
             self.text.value = fobj.read()
 
     def download(self, change=None):  # pylint: disable=unused-argument

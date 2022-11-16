@@ -10,9 +10,9 @@ from aiida.plugins import DataFactory
 from ase import Atoms
 from ase.io import read
 
-CifData = DataFactory("cif")  # pylint: disable=invalid-name
-StructureData = DataFactory("structure")  # pylint: disable=invalid-name
-TrajectoryData = DataFactory("array.trajectory")  # pylint: disable=invalid-name
+CifData = DataFactory("core.cif")  # pylint: disable=invalid-name
+StructureData = DataFactory("core.structure")  # pylint: disable=invalid-name
+TrajectoryData = DataFactory("core.array.trajectory")  # pylint: disable=invalid-name
 
 
 def valid_arguments(arguments, valid_args):
