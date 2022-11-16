@@ -14,7 +14,7 @@ import traitlets
 from aiida.cmdline.utils.common import get_workchain_report
 from aiida.cmdline.utils.query import formatting
 from aiida.orm import Node
-from ase import Atoms, neighborlist
+from ase import Atoms
 from ase.cell import Cell
 from ase.data import colors
 from IPython.display import clear_output, display
@@ -511,6 +511,7 @@ class _StructureDataBaseViewer(ipw.VBox):
 
     def compute_bonds(self, structure, radius=1.0, color="element", povray=False):
         """Compute the bonds between atoms."""
+        from ase import neighborlist
         radius = radius / 5
 
         cutOff = neighborlist.natural_cutoffs(structure,mult=1.09)
