@@ -512,13 +512,16 @@ class _StructureDataBaseViewer(ipw.VBox):
     def compute_bonds(self, structure, radius=1.0, color="element", povray=False):
         """Compute the bonds between atoms."""
         from ase import neighborlist
+
         radius = radius / 5
 
-        cutOff = neighborlist.natural_cutoffs(structure,mult=1.09)
+        cutOff = neighborlist.natural_cutoffs(structure, mult=1.09)
         bonds = []
         if len(structure) > 1:
-            ii, jj, D = neighborlist.neighbor_list('ijD', structure, cutOff, self_interaction=False)
-            for id1,id2,d_mic in zip(ii,jj,D):
+            ii, jj, D = neighborlist.neighbor_list(
+                "ijD", structure, cutOff, self_interaction=False
+            )
+            for id1, id2, d_mic in zip(ii, jj, D):
                 i = structure[id1]
                 j = structure[id2]
 
