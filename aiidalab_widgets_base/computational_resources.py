@@ -11,7 +11,6 @@ import pexpect
 import shortuuid
 import traitlets
 from aiida import common, orm, plugins
-from aiida.orm.utils.builders.code import CodeBuilder
 from aiida.orm.utils.builders.computer import ComputerBuilder
 from aiida.transports.plugins.ssh import parse_sshconfig
 from humanfriendly import InvalidSize, parse_size
@@ -167,7 +166,7 @@ class ComputationalResourcesWidget(ipw.VBox):
             .append(orm.Code, filters={"attributes.input_plugin": self.input_plugin})
             .all()
             if c[0].computer.is_user_configured(user)
-            and (self.allow_hidden_codes or not c[0].hidden)
+            and (self.allow_hidden_codes or not c[0].is_hidden)
             and (self.allow_disabled_computers or c[0].computer.is_user_enabled(user))
         }
 
@@ -1059,15 +1058,14 @@ class AiidaCodeSetup(ipw.VBox):
                 "label",
                 "computer",
                 "description",
-                "input_plugin",
-                "remote_abs_path",
+                "default_calc_job_plugin",
+                "filepath_executable",
                 "use_double_quotes",
                 "prepend_text",
                 "append_text",
             ]
 
             kwargs = {key: getattr(self, key).value for key in items_to_configure}
-            kwargs["code_type"] = CodeBuilder.CodeType.ON_COMPUTER
 
             # Checking if the code with this name already exists
             qb = orm.QueryBuilder()
@@ -1075,7 +1073,7 @@ class AiidaCodeSetup(ipw.VBox):
                 orm.Computer, filters={"uuid": kwargs["computer"].uuid}, tag="computer"
             )
             qb.append(
-                orm.Code, with_computer="computer", filters={"label": kwargs["label"]}
+                orm.AbstractCode, with_computer="computer", filters={"label": kwargs["label"]}
             )
             if qb.count() > 0:
                 self.message = (
@@ -1084,14 +1082,14 @@ class AiidaCodeSetup(ipw.VBox):
                 return False
 
             try:
-                code = CodeBuilder(**kwargs).new()
+                code = orm.InstalledCode(**kwargs)
             except (common.exceptions.InputValidationError, KeyError) as exception:
                 self.message = f"Invalid inputs: {exception}"
                 return False
 
             try:
                 code.store()
-                code.reveal()
+                code.is_hidden = False
             except common.exceptions.ValidationError as exception:
                 self.message = f"Unable to store the Code: {exception}"
                 return False
