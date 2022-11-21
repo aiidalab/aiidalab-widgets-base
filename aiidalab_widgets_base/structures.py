@@ -57,7 +57,7 @@ class StructureManagerWidget(ipw.VBox):
     structure_node = Instance(Data, allow_none=True, read_only=True)
     node_class = Unicode()
 
-    SUPPORTED_DATA_FORMATS = {"CifData": "cif", "StructureData": "structure"}
+    SUPPORTED_DATA_FORMATS = {"CifData": "core.cif", "StructureData": "core.structure"}
 
     def __init__(
         self,
@@ -273,7 +273,7 @@ class StructureManagerWidget(ipw.VBox):
             # attach its SMILES code as an extra.
             structure_node = structure_node_type(ase=structure)
             if "smiles" in structure.info:
-                structure_node.set_extra("smiles", structure.info["smiles"])
+                structure_node.base.extras.set("smiles", structure.info["smiles"])
             return structure_node
 
         # If the input_structure trait is set to AiiDA node, check what type
@@ -584,7 +584,7 @@ class StructureBrowserWidget(ipw.VBox):
         queryb.append(
             self.query_structure_type, filters={"extras": {"!has_key": "formula"}}
         )
-        for item in queryb.all():  # iterall() would interfere with set_extra()
+        for item in queryb.all():  # iterall() would interfere with base.extras.set()
             try:
                 formula = get_formula(item[0])
                 item[0].base.extras.set("formula", formula)
