@@ -12,8 +12,8 @@ import numpy as np
 import spglib
 import traitlets
 from aiida.cmdline.utils.common import get_workchain_report
-from aiida.cmdline.utils.query import formatting
 from aiida.orm import Node
+from aiida.tools.query import formatting
 from ase import Atoms, neighborlist
 from ase.cell import Cell
 from IPython.display import clear_output, display

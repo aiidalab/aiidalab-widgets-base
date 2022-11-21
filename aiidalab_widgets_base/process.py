@@ -20,7 +20,6 @@ from aiida.cmdline.utils.common import (
     get_process_function_report,
     get_workchain_report,
 )
-from aiida.cmdline.utils.query.calculation import CalculationQueryBuilder
 from aiida.common.exceptions import NotExistentAttributeError
 from aiida.engine import Process, ProcessBuilder, submit
 from aiida.orm import (
@@ -32,6 +31,7 @@ from aiida.orm import (
     WorkFunctionNode,
     load_node,
 )
+from aiida.tools.query.calculation import CalculationQueryBuilder
 from IPython.display import HTML, Javascript, clear_output, display
 from traitlets import Instance, Int, List, Unicode, default, observe, validate
 
@@ -463,7 +463,7 @@ class CalcJobOutputWidget(ipw.Textarea):
         try:
             output_file_path = os.path.join(
                 self.calculation.outputs.remote_folder.get_remote_path(),
-                self.calculation.attributes["output_filename"],
+                self.calculation.base.attributes.get("output_filename"),
             )
         except KeyError:
             self.placeholder = (
