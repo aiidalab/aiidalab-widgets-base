@@ -1073,7 +1073,9 @@ class AiidaCodeSetup(ipw.VBox):
                 orm.Computer, filters={"uuid": kwargs["computer"].uuid}, tag="computer"
             )
             qb.append(
-                orm.AbstractCode, with_computer="computer", filters={"label": kwargs["label"]}
+                orm.AbstractCode,
+                with_computer="computer",
+                filters={"label": kwargs["label"]},
             )
             if qb.count() > 0:
                 self.message = (
