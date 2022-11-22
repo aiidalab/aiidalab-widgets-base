@@ -891,13 +891,22 @@ class BasicCellEditor(ipw.VBox):
             layout={"width": "initial"},
         )
         conventional_cell.on_click(self.def_conventional_cell)
-        cell_parameters = self.structure.get_cell_lengths_and_angles() \
-            if self.structure else [1, 0, 0, 0, 0, 0]
+        cell_parameters = (
+            self.structure.get_cell_lengths_and_angles()
+            if self.structure
+            else [1, 0, 0, 0, 0, 0]
+        )
         self.cell_parameters = ipw.HBox(
             [
                 ipw.VBox(
-                    [ipw.HTML(description=["a(Å)", "b(Å)", "c(Å)", "α", "β", "γ"][i], layout={"width": "30px"}),
-                    ipw.FloatText(value=cell_parameters[i],layout={"width": "100px"})
+                    [
+                        ipw.HTML(
+                            description=["a(Å)", "b(Å)", "c(Å)", "α", "β", "γ"][i],
+                            layout={"width": "30px"},
+                        ),
+                        ipw.FloatText(
+                            value=cell_parameters[i], layout={"width": "100px"}
+                        ),
                     ]
                 )
                 for i in range(6)
@@ -931,7 +940,10 @@ class BasicCellEditor(ipw.VBox):
                 self._status_message,
                 ipw.VBox(
                     [
-                        ipw.HTML("<b>Cell parameters:</b>", layout={"margin": "20px 0px 10px 0px"}),
+                        ipw.HTML(
+                            "<b>Cell parameters:</b>",
+                            layout={"margin": "20px 0px 10px 0px"},
+                        ),
                         self.cell_parameters,
                         apply_cell_parameters,
                     ],
@@ -939,7 +951,10 @@ class BasicCellEditor(ipw.VBox):
                 ),
                 ipw.VBox(
                     [
-                        ipw.HTML("<b>Cell Transformation:</b>", layout={"margin": "20px 0px 10px 0px"}),
+                        ipw.HTML(
+                            "<b>Cell Transformation:</b>",
+                            layout={"margin": "20px 0px 10px 0px"},
+                        ),
                         self.cell_transformation,
                         apply_cell_transformation,
                     ],
@@ -990,16 +1005,20 @@ class BasicCellEditor(ipw.VBox):
             cell_parameters = change["new"].get_cell_lengths_and_angles()
             for i in range(6):
                 self.cell_parameters.children[i].children[1].value = round(
-                        cell_parameters[i], 4)
+                    cell_parameters[i], 4
+                )
         else:
             for i in range(6):
-                    self.cell_parameters.children[i].children[1].value = 0
+                self.cell_parameters.children[i].children[1].value = 0
 
     @_register_structure
     def apply_cell_parameters(self, _=None, atoms=None):
         from ase.cell import Cell
+
         # only update structure when atoms is not None.
-        cell_parameters = [self.cell_parameters.children[i].children[1].value for i in range(6)]
+        cell_parameters = [
+            self.cell_parameters.children[i].children[1].value for i in range(6)
+        ]
         if atoms is not None:
             atoms.cell = Cell.fromcellpar(cell_parameters)
             self.structure = atoms
