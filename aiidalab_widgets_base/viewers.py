@@ -169,7 +169,8 @@ class _StructureDataBaseViewer(ipw.VBox):
     """
 
     selection = List(Int)
-    selection_adv = Unicode()
+    displayed_selection = List(Int)
+    displayed_selection_adv = Unicode()
     supercell = List(Int)
     cell = Instance(Cell, allow_none=True)
     DEFAULT_SELECTION_OPACITY = 0.2
@@ -262,16 +263,17 @@ class _StructureDataBaseViewer(ipw.VBox):
         # clear_selection.on_click(lambda _: self.set_trait('selection', list()))  # lambda cannot contain assignments
         clear_selection.on_click(
             lambda _: (
+                self.set_trait("displayed_selection", list()),
                 self.set_trait("selection", list()),
-                self.set_trait("selection_adv", ""),
+                self.set_trait("displayed_selection_adv", ""),
                 # self.wrong_syntax.layout.visibility = 'hidden'
             )
         )
         # CLEAR self.wrong_syntax.layout.visibility = 'visible'
 
         # 5. Button to apply selection
-        apply_selection = ipw.Button(description="Apply selection")
-        apply_selection.on_click(self.apply_selection)
+        apply_displayed_selection = ipw.Button(description="Apply selection")
+        apply_displayed_selection.on_click(self.apply_displayed_selection)
 
         self.selection_info = ipw.HTML()
 
@@ -287,7 +289,7 @@ class _StructureDataBaseViewer(ipw.VBox):
                     <font style="font-style:italic;font-weight:400;">(x>1 and name not [N,O]) or d_from [1,1,1]>2 or id>=10</font>
                 </p>"""
                 ),
-                ipw.HBox([copy_to_clipboard, clear_selection, apply_selection]),
+                ipw.HBox([copy_to_clipboard, clear_selection, apply_displayed_selection]),
                 self.selection_info,
             ]
         )
@@ -632,17 +634,18 @@ class _StructureDataBaseViewer(ipw.VBox):
         if "atom1" not in self._viewer.picked.keys():
             return  # did not click on atom
         index = self._viewer.picked["atom1"]["index"]
-        selection = self.selection.copy()
+        displayed_selection = self.displayed_selection.copy()
 
-        if selection:
-            if index not in selection:
-                selection.append(index)
+        if displayed_selection:
+            if index not in displayed_selection:
+                displayed_selection.append(index)
             else:
-                selection.remove(index)
+                displayed_selection.remove(index)
         else:
-            selection = [index]
+            displayed_selection = [index]
 
-        self.selection = selection
+        self.displayed_selection = displayed_selection
+        self.selection = [x for x in displayed_selection if x <= self.natom]
 
     def highlight_atoms(
         self,
@@ -677,16 +680,16 @@ class _StructureDataBaseViewer(ipw.VBox):
     def _validate_selection(self, provided):
         return list(provided["value"])
 
-    @observe("selection")
-    def _observe_selection(self, _=None):
-        self.highlight_atoms(self.selection)
-        self._selected_atoms.value = list_to_string_range(self.selection, shift=1)
+    @observe("displayed_selection")
+    def _observe_displayed_selection(self, _=None):
+        self.highlight_atoms(self.displayed_selection)
+        self._selected_atoms.value = list_to_string_range(self.displayed_selection, shift=1)
 
         # if atom is selected from nglview, shift to selection tab
         if self._selected_atoms.value and self.selection_tab_idx is not None:
             self.configuration_box.selected_index = self.selection_tab_idx
 
-    def apply_selection(self, _=None):
+    def apply_displayed_selection(self, _=None):
         """Apply selection specified in the text field."""
         selection_string = self._selected_atoms.value
         expanded_selection, syntax_ok = string_range_to_list(
@@ -695,12 +698,13 @@ class _StructureDataBaseViewer(ipw.VBox):
         # self.wrong_syntax.layout.visibility = 'hidden' if syntax_ok else 'visible'
         if syntax_ok:
             self.wrong_syntax.layout.visibility = "hidden"
-            self.selection = expanded_selection
+            self.displayed_selection = expanded_selection
+            self.selection = [x for x in expanded_selection if x <= self.natom]
             self._selected_atoms.value = (
                 selection_string  # Keep the old string for further editing.
             )
         else:
-            self.selection_adv = selection_string
+            self.displayed_selection_adv = selection_string
 
     def download(self, change=None):  # pylint: disable=unused-argument
         """Prepare a structure for downloading."""
@@ -766,6 +770,7 @@ class StructureDataViewer(_StructureDataBaseViewer):
     def __init__(self, structure=None, **kwargs):
         super().__init__(**kwargs)
         self.structure = structure
+        self.natom = len(self.structure) if self.structure is not None else 0
         # self.supercell.observe(self.repeat, names='value')
 
     @observe("supercell")
@@ -795,6 +800,7 @@ class StructureDataViewer(_StructureDataBaseViewer):
     @observe("structure")
     def _observe_structure(self, change):
         """Update displayed_structure trait after the structure trait has been modified."""
+        self.natom = len(self.structure) if self.structure is not None else 0
         # Remove the current structure(s) from the viewer.
         if change["new"] is not None:
             self.set_trait("displayed_structure", change["new"].repeat(self.supercell))
@@ -811,6 +817,7 @@ class StructureDataViewer(_StructureDataBaseViewer):
                 comp_id
             ) in self._viewer._ngl_component_ids:  # pylint: disable=protected-access
                 self._viewer.remove_component(comp_id)
+            self.displayed_selection = list()
             self.selection = list()
             if change["new"] is not None:
                 self._viewer.add_component(nglview.ASEStructure(change["new"]))
@@ -990,7 +997,7 @@ class StructureDataViewer(_StructureDataBaseViewer):
     def create_selection_info(self):
         """Create information to be displayed with selected atoms"""
 
-        if not self.selection:
+        if not self.displayed_selection:
             return ""
 
         def print_pos(pos):
@@ -1000,48 +1007,47 @@ class StructureDataViewer(_StructureDataBaseViewer):
             return f"Id: {indx + 1}; Symbol: {atom.symbol}; Coordinates: ({print_pos(atom.position)})<br>"
 
         def get_unit_cell_atoms(selection):
-            natom = len(self.structure)
-            return {x % natom for x in selection}
-
+            return {x%self.natom + 1 for x in selection}
+            
         # unit cell atoms
-        unit_cell_selection = get_unit_cell_atoms(self.selection)
+        unit_cell_selection = get_unit_cell_atoms(self.displayed_selection)
         info_unit_cell_atoms = f"Unit cell atoms: {unit_cell_selection}<br>"
         # Find geometric center.
         geom_center = print_pos(
-            np.average(self.displayed_structure[self.selection].get_positions(), axis=0)
+            np.average(self.displayed_structure[self.displayed_selection].get_positions(), axis=0)
         )
 
         # Report coordinates.
-        if len(self.selection) == 1:
+        if len(self.displayed_selection) == 1:
             return info_unit_cell_atoms + add_info(
-                self.selection[0], self.displayed_structure[self.selection[0]]
+                self.displayed_selection[0], self.displayed_structure[self.displayed_selection[0]]
             )
 
         # Report coordinates, distance and center.
-        if len(self.selection) == 2:
+        if len(self.displayed_selection) == 2:
             info = ""
             info += add_info(
-                self.selection[0], self.displayed_structure[self.selection[0]]
+                self.displayed_selection[0], self.displayed_structure[self.displayed_selection[0]]
             )
             info += add_info(
-                self.selection[1], self.displayed_structure[self.selection[1]]
+                self.displayed_selection[1], self.displayed_structure[self.displayed_selection[1]]
             )
-            dist = self.displayed_structure.get_distance(*self.selection)
-            distv = self.displayed_structure.get_distance(*self.selection, vector=True)
+            dist = self.displayed_structure.get_distance(*self.displayed_selection)
+            distv = self.displayed_structure.get_distance(*self.displayed_selection, vector=True)
             info += f"Distance: {dist:.2f} ({print_pos(distv)})<br>Geometric center: ({geom_center})"
             return info_unit_cell_atoms + info
 
         info_natoms_geo_center = (
-            f"{len(self.selection)} atoms selected<br>Geometric center: ({geom_center})"
+            f"{len(self.displayed_selection)} atoms selected<br>Geometric center: ({geom_center})"
         )
 
         # Report angle geometric center and normal.
-        if len(self.selection) == 3:
-            angle = self.displayed_structure.get_angle(*self.selection).round(2)
+        if len(self.displayed_selection) == 3:
+            angle = self.displayed_structure.get_angle(*self.displayed_selection).round(2)
             normal = np.cross(
                 *self.displayed_structure.get_distances(
-                    self.selection[1],
-                    [self.selection[0], self.selection[2]],
+                    self.displayed_selection[1],
+                    [self.displayed_selection[0], self.displayed_selection[2]],
                     mic=False,
                     vector=True,
                 )
@@ -1053,10 +1059,10 @@ class StructureDataViewer(_StructureDataBaseViewer):
             )
 
         # Report dihedral angle and geometric center.
-        if len(self.selection) == 4:
+        if len(self.displayed_selection) == 4:
             try:
                 dihedral = (
-                    self.displayed_structure.get_dihedral(self.selection) * 180 / np.pi
+                    self.displayed_structure.get_dihedral(self.displayed_selection) * 180 / np.pi
                 )
                 dihedral_str = f"{dihedral:.2f}"
             except ZeroDivisionError:
@@ -1068,19 +1074,19 @@ class StructureDataViewer(_StructureDataBaseViewer):
 
         return info_unit_cell_atoms + info_natoms_geo_center
 
-    @observe("selection_adv")
-    def _observe_selection_adv(self, _=None):
+    @observe("displayed_selection_adv")
+    def _observe_displayed_selection_adv(self, _=None):
         """Apply the advanced boolean atom selection"""
         try:
-            sel = self.parse_advanced_sel(condition=self.selection_adv)
+            sel = self.parse_advanced_sel(condition=self.displayed_selection_adv)
             self._selected_atoms.value = list_to_string_range(sel, shift=1)
             self.wrong_syntax.layout.visibility = "hidden"
-            self.apply_selection()
+            self.apply_displayed_selection()
         except (IndexError, TypeError, AttributeError):
             self.wrong_syntax.layout.visibility = "visible"
 
-    @observe("selection")
-    def _observe_selection_2(self, _=None):
+    @observe("displayed_selection")
+    def _observe_displayed_selection_2(self, _=None):
         self.selection_info.value = self.create_selection_info()
 
 
