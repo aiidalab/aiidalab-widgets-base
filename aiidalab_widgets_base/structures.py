@@ -36,9 +36,9 @@ from .data import LigandSelectorWidget
 from .utils import StatusHTML, get_ase_from_file, get_formula
 from .viewers import StructureDataViewer
 
-CifData = DataFactory("cif")
-StructureData = DataFactory("structure")
-TrajectoryData = DataFactory("array.trajectory")
+CifData = DataFactory("core.cif")
+StructureData = DataFactory("core.structure")
+TrajectoryData = DataFactory("core.array.trajectory")
 
 SYMBOL_RADIUS = {key: covalent_radii[i] for i, key in enumerate(chemical_symbols)}
 
@@ -57,7 +57,7 @@ class StructureManagerWidget(ipw.VBox):
     structure_node = Instance(Data, allow_none=True, read_only=True)
     node_class = Unicode()
 
-    SUPPORTED_DATA_FORMATS = {"CifData": "cif", "StructureData": "structure"}
+    SUPPORTED_DATA_FORMATS = {"CifData": "core.cif", "StructureData": "core.structure"}
 
     def __init__(
         self,
@@ -273,7 +273,7 @@ class StructureManagerWidget(ipw.VBox):
             # attach its SMILES code as an extra.
             structure_node = structure_node_type(ase=structure)
             if "smiles" in structure.info:
-                structure_node.set_extra("smiles", structure.info["smiles"])
+                structure_node.base.extras.set("smiles", structure.info["smiles"])
             return structure_node
 
         # If the input_structure trait is set to AiiDA node, check what type
@@ -584,10 +584,10 @@ class StructureBrowserWidget(ipw.VBox):
         queryb.append(
             self.query_structure_type, filters={"extras": {"!has_key": "formula"}}
         )
-        for item in queryb.all():  # iterall() would interfere with set_extra()
+        for item in queryb.all():  # iterall() would interfere with base.extras.set()
             try:
                 formula = get_formula(item[0])
-                item[0].set_extra("formula", formula)
+                item[0].base.extras.set("formula", formula)
             except ValueError:
                 pass
 
@@ -662,9 +662,9 @@ class StructureBrowserWidget(ipw.VBox):
         options[f"Select a Structure ({len(matches)} found)"] = False
 
         for mch in matches:
-            label = f"PK: {mch.id}"
+            label = f"PK: {mch.pk}"
             label += " | " + mch.ctime.strftime("%Y-%m-%d %H:%M")
-            label += " | " + mch.get_extra("formula", "")
+            label += " | " + mch.base.extras.get("formula", "")
             label += " | " + mch.node_type.split(".")[-2]
             label += " | " + mch.label
             label += " | " + mch.description
