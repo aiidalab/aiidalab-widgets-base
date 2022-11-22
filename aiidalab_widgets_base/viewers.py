@@ -1001,13 +1001,11 @@ class StructureDataViewer(_StructureDataBaseViewer):
 
         def get_unit_cell_atoms(selection):
             natom = len(self.structure)
-            return set([x%natom for x in selection])
-            
+            return {x % natom for x in selection}
+
         # unit cell atoms
         unit_cell_selection = get_unit_cell_atoms(self.selection)
-        info_unit_cell_atoms = (
-            f"Unit cell atoms: {unit_cell_selection}<br>"
-        )
+        info_unit_cell_atoms = f"Unit cell atoms: {unit_cell_selection}<br>"
         # Find geometric center.
         geom_center = print_pos(
             np.average(self.displayed_structure[self.selection].get_positions(), axis=0)
@@ -1049,7 +1047,10 @@ class StructureDataViewer(_StructureDataBaseViewer):
                 )
             )
             normal = normal / np.linalg.norm(normal)
-            return info_unit_cell_atoms + f"{info_natoms_geo_center}<br>Angle: {angle}<br>Normal: ({print_pos(normal)})"
+            return (
+                info_unit_cell_atoms
+                + f"{info_natoms_geo_center}<br>Angle: {angle}<br>Normal: ({print_pos(normal)})"
+            )
 
         # Report dihedral angle and geometric center.
         if len(self.selection) == 4:
@@ -1060,7 +1061,10 @@ class StructureDataViewer(_StructureDataBaseViewer):
                 dihedral_str = f"{dihedral:.2f}"
             except ZeroDivisionError:
                 dihedral_str = "nan"
-            return info_unit_cell_atoms + f"{info_natoms_geo_center}<br>Dihedral angle: {dihedral_str}"
+            return (
+                info_unit_cell_atoms
+                + f"{info_natoms_geo_center}<br>Dihedral angle: {dihedral_str}"
+            )
 
         return info_unit_cell_atoms + info_natoms_geo_center
 
