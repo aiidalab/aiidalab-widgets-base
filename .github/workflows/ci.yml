@@ -18,30 +18,44 @@ jobs:
             - name: Setup Python
               uses: actions/setup-python@v2
               with:
-                  python-version: 3.8
+                  python-version: '3.10'
 
             - uses: pre-commit/action@v2.0.0
 
-    test-app:
+    test-notebooks:
 
         needs: [pre-commit]
 
-        runs-on: ubuntu-latest
-        timeout-minutes: 10
-
         strategy:
             matrix:
-                tag: [stable]
-                browser: [chrome, firefox]
+                tag: [latest]
+                browser: [Chrome, Firefox]
+                python-version: ['3.8', '3.10']
             fail-fast: false
+
+        runs-on: ubuntu-latest
+        timeout-minutes: 20
 
         steps:
 
             - name: Check out app
               uses: actions/checkout@v2
 
-            - name: Test app
-              uses: aiidalab/aiidalab-test-app-action@v2
+            - name: Cache Python dependencies
+              uses: actions/cache@v1
               with:
-                  image: aiidalab/aiidalab-docker-stack:${{ matrix.tag }}
-                  browser: ${{ matrix.browser }}
+                  path: ~/.cache/pip
+                  key: pip-${{ matrix.python-version }}-tests-${{ hashFiles('**/setup.json') }}
+                  restore-keys: pip-${{ matrix.python-version }}-tests
+
+            - name: Set up Python ${{ matrix.python-version }}
+              uses: actions/setup-python@v2
+              with:
+                  python-version: ${{ matrix.python-version }}
+
+            - name: Install dependencies for test
+              run: |
+                  pip install -U -e .[tests]
+
+            - name: Run pytest
+              run: TAG=${{ matrix.tag }} JUPYTER_TOKEN=$(openssl rand -hex 32) pytest --driver ${{ matrix.browser }}
