@@ -891,19 +891,16 @@ class BasicCellEditor(ipw.VBox):
             layout={"width": "initial"},
         )
         conventional_cell.on_click(self.def_conventional_cell)
-        self.cell_vectors = ipw.VBox(
+        cell_parameters = self.structure.get_cell_lengths_and_angles() \
+            if self.structure else [1, 0, 0, 0, 0, 0]
+        self.cell_parameters = ipw.HBox(
             [
-                ipw.HBox(
-                    [ipw.HTML(description="abc"[i], layout={"width": "20px"})]
-                    + [
-                        ipw.FloatText(
-                            value=self.structure.cell[i][j] if self.structure else 0,
-                            layout={"width": "100px"},
-                        )
-                        for j in range(3)
+                ipw.VBox(
+                    [ipw.HTML(description=["a(Å)", "b(Å)", "c(Å)", "α", "β", "γ"][i], layout={"width": "30px"}),
+                    ipw.FloatText(value=cell_parameters[i],layout={"width": "100px"})
                     ]
                 )
-                for i in range(3)
+                for i in range(6)
             ]
         )
         #
@@ -919,8 +916,8 @@ class BasicCellEditor(ipw.VBox):
                 for i in range(3)
             ]
         )
-        apply_cell_vectors = ipw.Button(description="Apply vectors")
-        apply_cell_vectors.on_click(self.apply_cell_vectors)
+        apply_cell_parameters = ipw.Button(description="Apply cell parameters")
+        apply_cell_parameters.on_click(self.apply_cell_parameters)
         apply_cell_transformation = ipw.Button(description="Apply transformation")
         apply_cell_transformation.on_click(self.apply_cell_transformation)
         super().__init__(
@@ -932,25 +929,21 @@ class BasicCellEditor(ipw.VBox):
                     ],
                 ),
                 self._status_message,
-                ipw.HBox(
+                ipw.VBox(
                     [
-                        ipw.VBox(
-                            [
-                                ipw.HTML("Cell Vectors:"),
-                                self.cell_vectors,
-                                apply_cell_vectors,
-                            ],
-                            layout={"margin": "0px 0px 0px 20px"},
-                        ),
-                        ipw.VBox(
-                            [
-                                ipw.HTML("Cell Transformation:"),
-                                self.cell_transformation,
-                                apply_cell_transformation,
-                            ],
-                            layout={"margin": "0px 0px 0px 20px"},
-                        ),
+                        ipw.HTML("<b>Cell parameters:</b>", layout={"margin": "20px 0px 10px 0px"}),
+                        self.cell_parameters,
+                        apply_cell_parameters,
                     ],
+                    layout={"margin": "0px 0px 0px 20px"},
+                ),
+                ipw.VBox(
+                    [
+                        ipw.HTML("<b>Cell Transformation:</b>", layout={"margin": "20px 0px 10px 0px"}),
+                        self.cell_transformation,
+                        apply_cell_transformation,
+                    ],
+                    layout={"margin": "0px 0px 0px 20px"},
                 ),
             ],
         )
@@ -994,25 +987,21 @@ class BasicCellEditor(ipw.VBox):
     def _observe_structure(self, change):
         """Update cell after the structure has been modified."""
         if change["new"] is not None:
-            for i in range(3):
-                for j in range(3):
-                    self.cell_vectors.children[i].children[j + 1].value = round(
-                        change["new"].cell[i][j], 4
-                    )
+            cell_parameters = change["new"].get_cell_lengths_and_angles()
+            for i in range(6):
+                self.cell_parameters.children[i].children[1].value = round(
+                        cell_parameters[i], 4)
         else:
-            for i in range(3):
-                for j in range(3):
-                    self.cell_vectors.children[i].children[j + 1].value = 0
+            for i in range(6):
+                    self.cell_parameters.children[i].children[1].value = 0
 
     @_register_structure
-    def apply_cell_vectors(self, _=None, atoms=None):
+    def apply_cell_parameters(self, _=None, atoms=None):
+        from ase.cell import Cell
         # only update structure when atoms is not None.
+        cell_parameters = [self.cell_parameters.children[i].children[1].value for i in range(6)]
         if atoms is not None:
-            for i in range(3):
-                for j in range(3):
-                    atoms.cell[i][j] = (
-                        self.cell_vectors.children[i].children[j + 1].value
-                    )
+            atoms.cell = Cell.fromcellpar(cell_parameters)
             self.structure = atoms
 
     @_register_structure
