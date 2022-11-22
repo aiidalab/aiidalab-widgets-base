@@ -999,6 +999,15 @@ class StructureDataViewer(_StructureDataBaseViewer):
         def add_info(indx, atom):
             return f"Id: {indx + 1}; Symbol: {atom.symbol}; Coordinates: ({print_pos(atom.position)})<br>"
 
+        def get_unit_cell_atoms(selection):
+            natom = len(self.structure)
+            return set([x%natom for x in selection])
+            
+        # unit cell atoms
+        unit_cell_selection = get_unit_cell_atoms(self.selection)
+        info_unit_cell_atoms = (
+            f"Unit cell atoms: {unit_cell_selection}<br>"
+        )
         # Find geometric center.
         geom_center = print_pos(
             np.average(self.displayed_structure[self.selection].get_positions(), axis=0)
@@ -1006,7 +1015,7 @@ class StructureDataViewer(_StructureDataBaseViewer):
 
         # Report coordinates.
         if len(self.selection) == 1:
-            return add_info(
+            return info_unit_cell_atoms + add_info(
                 self.selection[0], self.displayed_structure[self.selection[0]]
             )
 
@@ -1022,7 +1031,7 @@ class StructureDataViewer(_StructureDataBaseViewer):
             dist = self.displayed_structure.get_distance(*self.selection)
             distv = self.displayed_structure.get_distance(*self.selection, vector=True)
             info += f"Distance: {dist:.2f} ({print_pos(distv)})<br>Geometric center: ({geom_center})"
-            return info
+            return info_unit_cell_atoms + info
 
         info_natoms_geo_center = (
             f"{len(self.selection)} atoms selected<br>Geometric center: ({geom_center})"
@@ -1040,7 +1049,7 @@ class StructureDataViewer(_StructureDataBaseViewer):
                 )
             )
             normal = normal / np.linalg.norm(normal)
-            return f"{info_natoms_geo_center}<br>Angle: {angle}<br>Normal: ({print_pos(normal)})"
+            return info_unit_cell_atoms + f"{info_natoms_geo_center}<br>Angle: {angle}<br>Normal: ({print_pos(normal)})"
 
         # Report dihedral angle and geometric center.
         if len(self.selection) == 4:
@@ -1051,9 +1060,9 @@ class StructureDataViewer(_StructureDataBaseViewer):
                 dihedral_str = f"{dihedral:.2f}"
             except ZeroDivisionError:
                 dihedral_str = "nan"
-            return f"{info_natoms_geo_center}<br>Dihedral angle: {dihedral_str}"
+            return info_unit_cell_atoms + f"{info_natoms_geo_center}<br>Dihedral angle: {dihedral_str}"
 
-        return info_natoms_geo_center
+        return info_unit_cell_atoms + info_natoms_geo_center
 
     @observe("selection_adv")
     def _observe_selection_adv(self, _=None):
