@@ -289,7 +289,9 @@ class _StructureDataBaseViewer(ipw.VBox):
                     <font style="font-style:italic;font-weight:400;">(x>1 and name not [N,O]) or d_from [1,1,1]>2 or id>=10</font>
                 </p>"""
                 ),
-                ipw.HBox([copy_to_clipboard, clear_selection, apply_displayed_selection]),
+                ipw.HBox(
+                    [copy_to_clipboard, clear_selection, apply_displayed_selection]
+                ),
                 self.selection_info,
             ]
         )
@@ -683,7 +685,9 @@ class _StructureDataBaseViewer(ipw.VBox):
     @observe("displayed_selection")
     def _observe_displayed_selection(self, _=None):
         self.highlight_atoms(self.displayed_selection)
-        self._selected_atoms.value = list_to_string_range(self.displayed_selection, shift=1)
+        self._selected_atoms.value = list_to_string_range(
+            self.displayed_selection, shift=1
+        )
 
         # if atom is selected from nglview, shift to selection tab
         if self._selected_atoms.value and self.selection_tab_idx is not None:
@@ -1007,43 +1011,51 @@ class StructureDataViewer(_StructureDataBaseViewer):
             return f"Id: {indx + 1}; Symbol: {atom.symbol}; Coordinates: ({print_pos(atom.position)})<br>"
 
         def get_unit_cell_atoms(selection):
-            return {x%self.natom + 1 for x in selection}
-            
+            return {x % self.natom + 1 for x in selection}
+
         # unit cell atoms
         unit_cell_selection = get_unit_cell_atoms(self.displayed_selection)
         info_unit_cell_atoms = f"Unit cell atoms: {unit_cell_selection}<br>"
         # Find geometric center.
         geom_center = print_pos(
-            np.average(self.displayed_structure[self.displayed_selection].get_positions(), axis=0)
+            np.average(
+                self.displayed_structure[self.displayed_selection].get_positions(),
+                axis=0,
+            )
         )
 
         # Report coordinates.
         if len(self.displayed_selection) == 1:
             return info_unit_cell_atoms + add_info(
-                self.displayed_selection[0], self.displayed_structure[self.displayed_selection[0]]
+                self.displayed_selection[0],
+                self.displayed_structure[self.displayed_selection[0]],
             )
 
         # Report coordinates, distance and center.
         if len(self.displayed_selection) == 2:
             info = ""
             info += add_info(
-                self.displayed_selection[0], self.displayed_structure[self.displayed_selection[0]]
+                self.displayed_selection[0],
+                self.displayed_structure[self.displayed_selection[0]],
             )
             info += add_info(
-                self.displayed_selection[1], self.displayed_structure[self.displayed_selection[1]]
+                self.displayed_selection[1],
+                self.displayed_structure[self.displayed_selection[1]],
             )
             dist = self.displayed_structure.get_distance(*self.displayed_selection)
-            distv = self.displayed_structure.get_distance(*self.displayed_selection, vector=True)
+            distv = self.displayed_structure.get_distance(
+                *self.displayed_selection, vector=True
+            )
             info += f"Distance: {dist:.2f} ({print_pos(distv)})<br>Geometric center: ({geom_center})"
             return info_unit_cell_atoms + info
 
-        info_natoms_geo_center = (
-            f"{len(self.displayed_selection)} atoms selected<br>Geometric center: ({geom_center})"
-        )
+        info_natoms_geo_center = f"{len(self.displayed_selection)} atoms selected<br>Geometric center: ({geom_center})"
 
         # Report angle geometric center and normal.
         if len(self.displayed_selection) == 3:
-            angle = self.displayed_structure.get_angle(*self.displayed_selection).round(2)
+            angle = self.displayed_structure.get_angle(*self.displayed_selection).round(
+                2
+            )
             normal = np.cross(
                 *self.displayed_structure.get_distances(
                     self.displayed_selection[1],
@@ -1062,7 +1074,9 @@ class StructureDataViewer(_StructureDataBaseViewer):
         if len(self.displayed_selection) == 4:
             try:
                 dihedral = (
-                    self.displayed_structure.get_dihedral(self.displayed_selection) * 180 / np.pi
+                    self.displayed_structure.get_dihedral(self.displayed_selection)
+                    * 180
+                    / np.pi
                 )
                 dihedral_str = f"{dihedral:.2f}"
             except ZeroDivisionError:
