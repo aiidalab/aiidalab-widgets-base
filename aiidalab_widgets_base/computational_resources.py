@@ -1073,7 +1073,7 @@ class AiidaCodeSetup(ipw.VBox):
                 orm.Computer, filters={"uuid": kwargs["computer"].uuid}, tag="computer"
             )
             qb.append(
-                orm.AbstractCode,
+                orm.InstalledCode,
                 with_computer="computer",
                 filters={"label": kwargs["label"]},
             )
