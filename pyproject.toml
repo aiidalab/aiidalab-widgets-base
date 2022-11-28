@@ -1,4 +1,6 @@
 [build-system]
-# this version is required to support reading of version in setup.cfg
-requires = ["setuptools==65.5.0"]
+requires = [
+    "setuptools>=42",
+    "wheel"
+]
 build-backend = "setuptools.build_meta"
