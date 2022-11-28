@@ -61,7 +61,7 @@ jobs:
             - name: Set jupyter token env
               run: echo "JUPYTER_TOKEN=$(openssl rand -hex 32)" >> $GITHUB_ENV
 
-            # The Firefox and its engine geckodrive need do be installed manually to run 
+            # The Firefox and its engine geckodrive need do be installed manually to run
             # selenium tests.
             - name: Install Firefox
               uses: browser-actions/setup-firefox@latest
