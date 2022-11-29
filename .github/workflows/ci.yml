@@ -56,7 +56,7 @@ jobs:
 
             - name: Install dependencies for test
               run: |
-                  pip install -U -e .[tests]
+                  pip install -U -e .[dev]
 
             - name: Set jupyter token env
               run: echo "JUPYTER_TOKEN=$(openssl rand -hex 32)" >> $GITHUB_ENV
