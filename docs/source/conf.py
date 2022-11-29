@@ -14,7 +14,7 @@ from aiida.manage.configuration import load_documentation_profile
 
 load_documentation_profile()
 
-import aiidalab_widgets_base  # pylint: disable=wrong-import-position
+from aiidalab_widgets_base import __version__  # pylint: disable=wrong-import-position
 
 # Add any Sphinx extension module names here, as strings. They can be
 # extensions coming with Sphinx (named 'sphinx.ext.*') or your custom
@@ -65,7 +65,7 @@ copyright = "{}, {}. All rights reserved".format(
 #
 # The full version, including alpha/beta/rc tags.
 # The short X.Y version.
-version = ".".join(aiidalab_widgets_base.__version__.split(".")[:2])
+version = ".".join(__version__.split(".")[:2])
 
 # If true, sectionauthor and moduleauthor directives will be shown in the
 # output. They are ignored by default.
