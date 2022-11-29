@@ -49,7 +49,7 @@ def selenium_driver(selenium, notebook_service):
             url, f"apps/apps/aiidalab-widgets-base/{nb_path}?token={token}"
         )
         selenium.get(f"{url_with_token}")
-        selenium.implicitly_wait(5)  # must wait until the app loaded
+        selenium.implicitly_wait(10)  # must wait until the app loaded
 
         selenium.find_element(By.ID, "ipython-main-app")
         selenium.find_element(By.ID, "notebook-container")
