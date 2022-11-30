@@ -96,7 +96,7 @@ class SubmitButtonWidget(ipw.VBox):
         else:
             raise TypeError(
                 "The `inputs_generator` argument must be a function that "
-                f"returns input dictionary, got {inputs_generator}"
+                f"returns input dictionary, got {type(inputs_generator)}"
             )
 
         self.disable_after_submit = disable_after_submit
