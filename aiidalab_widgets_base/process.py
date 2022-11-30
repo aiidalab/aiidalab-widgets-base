@@ -94,7 +94,7 @@ class SubmitButtonWidget(ipw.VBox):
         if callable(inputs_generator):
             self.inputs_generator = inputs_generator
         else:
-            raise ValueError(
+            raise TypeError(
                 "The `inputs_generator` argument must be a function that "
                 f"returns input dictionary, got {inputs_generator}"
             )

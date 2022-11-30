@@ -36,14 +36,14 @@ def predefine_settings(obj, **kwargs):
             raise AttributeError(f"'{obj}' object has no attribute '{key}'")
 
 
-def get_ase_from_file(fname, format=None):  # pylint: disable=redefined-builtin
+def get_ase_from_file(fname, file_format=None):  # pylint: disable=redefined-builtin
     """Get ASE structure object."""
     # store_tags parameter is useful for CIF files
     # https://wiki.fysik.dtu.dk/ase/ase/io/formatoptions.html#cif
-    if format == "cif":
-        traj = read(fname, format=format, index=":", store_tags=True)
+    if file_format == "cif":
+        traj = read(fname, format=file_format, index=":", store_tags=True)
     else:
-        traj = read(fname, format=format, index=":")
+        traj = read(fname, format=file_format, index=":")
     if not traj:
         raise ValueError(f"Could not read any information from the file {fname}")
     return traj
@@ -80,13 +80,13 @@ def string_range_to_list(strng, shift=-1):
     singles = [int(s) + shift for s in strng.split() if s.isdigit()]
     ranges = [r for r in strng.split() if ".." in r]
     if len(singles) + len(ranges) != len(strng.split()):
-        return list(), False
+        return [], False
     for rng in ranges:
         try:
             start, end = rng.split("..")
             singles += [i + shift for i in range(int(start), int(end) + 1)]
         except ValueError:
-            return list(), False
+            return [], False
     return singles, True
 
 
@@ -102,7 +102,7 @@ def get_formula(data_node):
     elif isinstance(data_node, CifData):
         return data_node.get_ase().get_chemical_formula()
     else:
-        raise ValueError(f"Cannot get formula from node {type(data_node)}")
+        raise TypeError(f"Cannot get formula from node {type(data_node)}")
 
 
 class PinholeCamera:

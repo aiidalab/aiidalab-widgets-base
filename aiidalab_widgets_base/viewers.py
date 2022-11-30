@@ -46,7 +46,7 @@ from .dicts import Colors, Radius
 from .misc import CopyToClipboardButton, ReversePolishNotation
 from .utils import ase2spglib, list_to_string_range, string_range_to_list
 
-AIIDA_VIEWER_MAPPING = dict()
+AIIDA_VIEWER_MAPPING = {}
 
 
 def register_viewer_widget(key):
@@ -72,7 +72,6 @@ def viewer(obj, downloadable=True, **kwargs):
 
     try:
         _viewer = AIIDA_VIEWER_MAPPING[obj.node_type]
-        return _viewer(obj, downloadable=downloadable, **kwargs)
     except (KeyError) as exc:
         if obj.node_type in str(exc):
             warnings.warn(
@@ -80,7 +79,9 @@ def viewer(obj, downloadable=True, **kwargs):
                 "itself.".format(type(obj))
             )
             return obj
-        raise exc
+        raise
+    else:
+        return _viewer(obj, downloadable=downloadable, **kwargs)
 
 
 class AiidaNodeViewWidget(ipw.VBox):
@@ -262,7 +263,7 @@ class _StructureDataBaseViewer(ipw.VBox):
         # clear_selection.on_click(lambda _: self.set_trait('selection', list()))  # lambda cannot contain assignments
         clear_selection.on_click(
             lambda _: (
-                self.set_trait("selection", list()),
+                self.set_trait("selection", []),
                 self.set_trait("selection_adv", ""),
                 # self.wrong_syntax.layout.visibility = 'hidden'
             )
@@ -531,14 +532,14 @@ class _StructureDataBaseViewer(ipw.VBox):
 
         bonds = []
 
-        cutOff = neighborlist.natural_cutoffs(
+        cutoff = neighborlist.natural_cutoffs(
             bb
         )  # Takes the cutoffs from the ASE database
-        neighborList = neighborlist.NeighborList(
-            cutOff, self_interaction=False, bothways=False
+        neighbor_list = neighborlist.NeighborList(
+            cutoff, self_interaction=False, bothways=False
         )
-        neighborList.update(bb)
-        matrix = neighborList.get_connectivity_matrix()
+        neighbor_list.update(bb)
+        matrix = neighbor_list.get_connectivity_matrix()
 
         for k in matrix.keys():
             i = bb[k[0]]
@@ -659,7 +660,7 @@ class _StructureDataBaseViewer(ipw.VBox):
         )  # pylint:disable=protected-access
         self._viewer.add_ball_and_stick(  # pylint:disable=no-member
             name="selected_atoms",
-            selection=list() if vis_list is None else vis_list,
+            selection=[] if vis_list is None else vis_list,
             color=color,
             aspectRatio=size,
             opacity=opacity,
@@ -671,7 +672,7 @@ class _StructureDataBaseViewer(ipw.VBox):
 
     @default("selection")
     def _default_selection(self):
-        return list()
+        return []
 
     @validate("selection")
     def _validate_selection(self, provided):
@@ -811,7 +812,7 @@ class StructureDataViewer(_StructureDataBaseViewer):
                 comp_id
             ) in self._viewer._ngl_component_ids:  # pylint: disable=protected-access
                 self._viewer.remove_component(comp_id)
-            self.selection = list()
+            self.selection = []
             if change["new"] is not None:
                 self._viewer.add_component(nglview.ASEStructure(change["new"]))
                 self._viewer.clear()

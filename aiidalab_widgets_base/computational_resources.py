@@ -862,9 +862,10 @@ class AiidaComputerSetup(ipw.VBox):
             self.message = f"A computer called {self.label.value} already exists."
             for function in self._on_setup_computer_success:
                 function()
-            return True
         except common.NotExistent:
             pass
+        else:
+            return True
 
         items_to_configure = [
             "label",

@@ -138,9 +138,10 @@ class ReversePolishNotation:
             """Check if string is a number."""
             try:
                 float(string)
-                return True
             except ValueError:
                 return False
+            else:
+                return True
 
         stack = []
         stackposition = -1
