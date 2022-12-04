@@ -46,7 +46,7 @@ class ComputationalResourcesWidget(ipw.VBox):
     codes = traitlets.Dict(allow_none=True)
     allow_hidden_codes = traitlets.Bool(False)
     allow_disabled_computers = traitlets.Bool(False)
-    input_plugin = traitlets.Unicode(allow_none=True)
+    default_calc_job_plugin = traitlets.Unicode(allow_none=True)
 
     def __init__(self, description="Select code:", path_to_root="../", **kwargs):
         """Dropdown for Codes for one input plugin.
@@ -82,7 +82,7 @@ class ComputationalResourcesWidget(ipw.VBox):
 
         # Setting up codes and computers.
         self.comp_resources_database = ComputationalResourcesDatabaseWidget(
-            input_plugin=self.input_plugin
+            default_calc_job_plugin=self.default_calc_job_plugin
         )
 
         self.ssh_computer_setup = SshComputerSetup()
@@ -164,7 +164,10 @@ class ComputationalResourcesWidget(ipw.VBox):
         return {
             self._full_code_label(c[0]): c[0].uuid
             for c in orm.QueryBuilder()
-            .append(orm.Code, filters={"attributes.input_plugin": self.input_plugin})
+            .append(
+                orm.Code,
+                filters={"attributes.input_plugin": self.default_calc_job_plugin},
+            )
             .all()
             if c[0].computer.is_user_configured(user)
             and (self.allow_hidden_codes or not c[0].is_hidden)
@@ -185,9 +188,7 @@ class ComputationalResourcesWidget(ipw.VBox):
         with self.hold_trait_notifications():
             self.code_select_dropdown.options = self._get_codes()
             if not self.code_select_dropdown.options:
-                self.output.value = (
-                    f"No codes found for input plugin '{self.input_plugin}'."
-                )
+                self.output.value = f"No codes found for default calcjob plugin '{self.default_calc_job_plugin}'."
                 self.code_select_dropdown.disabled = True
             else:
                 self.code_select_dropdown.disabled = False
@@ -980,7 +981,7 @@ class AiidaCodeSetup(ipw.VBox):
         )
 
         # Code plugin.
-        self.input_plugin = ipw.Dropdown(
+        self.default_calc_job_plugin = ipw.Dropdown(
             options=sorted(
                 (ep.name, ep.name)
                 for ep in plugins.entry_point.get_entry_points("aiida.calculations")
@@ -1030,7 +1031,7 @@ class AiidaCodeSetup(ipw.VBox):
         children = [
             self.label,
             self.computer,
-            self.input_plugin,
+            self.default_calc_job_plugin,
             self.description,
             self.remote_abs_path,
             self.use_double_quotes,
@@ -1041,10 +1042,10 @@ class AiidaCodeSetup(ipw.VBox):
         ]
         super().__init__(children, **kwargs)
 
-    @traitlets.validate("input_plugin")
-    def _validate_input_plugin(self, proposal):
+    @traitlets.validate("default_calc_job_plugin")
+    def _validate_default_calc_job_plugin(self, proposal):
         plugin = proposal["value"]
-        return plugin if plugin in self.input_plugin.options else None
+        return plugin if plugin in self.default_calc_job_plugin.options else None
 
     def on_setup_code(self, _=None):
         """Setup an AiiDA code."""
@@ -1127,7 +1128,7 @@ class AiidaCodeSetup(ipw.VBox):
             self._reset()
         for key, value in self.code_setup.items():
             if hasattr(self, key):
-                if key == "input_plugin":
+                if key == "default_calc_job_plugin":
                     try:
                         getattr(self, key).label = value
                     except traitlets.TraitError:
