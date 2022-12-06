@@ -852,19 +852,25 @@ class AiidaComputerSetup(ipw.VBox):
 
         return True
 
+    def _run_things_on_existing_computer(self, label):
+        """Run things on an existing computer"""
+        try:
+            orm.Computer.objects.get(label=label)
+            for function in self._on_setup_computer_success:
+                function()
+        except common.NotExistent:
+            return False
+        else:
+            return True
+
     def on_setup_computer(self, _=None):
         """Create a new computer."""
         if self.label.value == "":  # check hostname
             self.message = "Please specify the computer name (for AiiDA)"
             return False
-        try:
-            computer = orm.Computer.objects.get(label=self.label.value)
-            self.message = f"A computer called {self.label.value} already exists."
-            for function in self._on_setup_computer_success:
-                function()
-        except common.NotExistent:
-            pass
-        else:
+
+        # If the computer already exists, we just run the registered functions and return
+        if self._run_things_on_existing_computer(self.label.value):
             return True
 
         items_to_configure = [
@@ -889,17 +895,12 @@ class AiidaComputerSetup(ipw.VBox):
         )
         try:
             computer = computer_builder.new()
+            computer.store()
         except (
             ComputerBuilder.ComputerValidationError,
             common.exceptions.ValidationError,
         ) as err:
             self.message = f"{type(err).__name__}: {err}"
-            return False
-
-        try:
-            computer.store()
-        except common.exceptions.ValidationError as err:
-            self.message = f"Unable to store the computer: {err}."
             return False
 
         if self._configure_computer(computer):

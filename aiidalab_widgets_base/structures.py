@@ -688,7 +688,7 @@ class SmilesWidget(ipw.VBox):
         except ImportError:
             self.disable_openbabel = True
 
-        try:
+        try:  # noqa: TC101
             from rdkit import Chem  # noqa: F401
             from rdkit.Chem import AllChem  # noqa: F401
         except ImportError:
