@@ -788,8 +788,8 @@ class StructureDataViewer(_StructureDataBaseViewer):
         if isinstance(structure, Node):
             self.pk = structure.pk
             return structure.get_ase()
-        raise ValueError(
-            "Unsupported type {}, structure must be one of the following types: "
+        raise TypeError(
+            f"Unsupported type {type(structure)}, structure must be one of the following types: "
             "ASE Atoms object, AiiDA CifData or StructureData."
         )
 
