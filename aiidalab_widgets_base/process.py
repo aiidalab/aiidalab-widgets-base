@@ -36,6 +36,7 @@ from IPython.display import HTML, Javascript, clear_output, display
 from traitlets import Instance, Int, List, Unicode, default, observe, validate
 
 from .nodes import NodesTreeWidget
+from .utils import exceptions
 
 # Local imports.
 from .viewers import viewer
@@ -289,9 +290,7 @@ class ProcessFollowerWidget(ipw.VBox):
     def on_completed(self, function):
         """Run functions after a process has been completed."""
         if self._monitor is not None:
-            raise RuntimeError(
-                "Can not register new on_completed callback functions after following has already been initiated."
-            )
+            raise exceptions.CantRegisterCallbackError(function)
         self._run_after_completed.append(function)
 
 

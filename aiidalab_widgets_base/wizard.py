@@ -11,6 +11,8 @@ from time import sleep, time
 import ipywidgets as ipw
 import traitlets
 
+from .utils import exceptions
+
 
 class WizardAppWidgetStep(traitlets.HasTraits):
     "One step of a WizardAppWidget."
@@ -93,9 +95,7 @@ class WizardAppWidget(ipw.VBox):
         # The number of steps must be greater than one
         # for this app's logic to make sense.
         if len(steps) < 2:
-            raise ValueError(
-                "The number of steps of a WizardAppWidget must be at least two."
-            )
+            raise exceptions.AtLeastTwoStepsError(steps)
 
         self.steps = steps
 

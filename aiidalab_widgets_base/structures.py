@@ -33,7 +33,7 @@ from traitlets import Instance, Int, List, Unicode, Union, default, dlink, link,
 
 # Local imports
 from .data import LigandSelectorWidget
-from .utils import StatusHTML, get_ase_from_file, get_formula
+from .utils import StatusHTML, exceptions, get_ase_from_file, get_formula
 from .viewers import StructureDataViewer
 
 CifData = DataFactory("core.cif")
@@ -149,11 +149,8 @@ class StructureManagerWidget(ipw.VBox):
 
     def _structure_importers(self, importers):
         """Preparing structure importers."""
-        if not importers:
-            raise ValueError(
-                "The parameter importers should contain a list (or tuple) of "
-                "importers, got a falsy object."
-            )
+        if isinstance(importers, (list, tuple)):
+            raise exceptions.ListOrTuppleError(importers)
 
         # If there is only one importer - no need to make tabs.
         if len(importers) == 1:
