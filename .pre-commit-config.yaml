@@ -49,3 +49,8 @@ repos:
       hooks:
           - id: pyupgrade
             args: [--py37-plus]
+
+    - repo: https://github.com/kynan/nbstripout
+      rev: 0.6.0
+      hooks:
+          - id: nbstripout
