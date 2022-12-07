@@ -11,9 +11,9 @@ import pexpect
 import shortuuid
 import traitlets
 from aiida import common, orm, plugins
+from aiida.common.exceptions import NotExistent
 from aiida.orm.utils.builders.computer import ComputerBuilder
 from aiida.transports.plugins.ssh import parse_sshconfig
-from aiida.common.exceptions import NotExistent
 from humanfriendly import InvalidSize, parse_size
 from IPython.display import clear_output, display
 
@@ -999,7 +999,7 @@ class AiidaCodeSetup(ipw.VBox):
             style=STYLE,
         )
 
-        self.remote_abs_path = ipw.Text(
+        self.filepath_executable = ipw.Text(
             placeholder="/path/to/executable",
             description="Absolute path to executable:",
             layout=LAYOUT,
@@ -1033,7 +1033,7 @@ class AiidaCodeSetup(ipw.VBox):
             self.computer,
             self.default_calc_job_plugin,
             self.description,
-            self.remote_abs_path,
+            self.filepath_executable,
             self.use_double_quotes,
             self.prepend_text,
             self.append_text,
@@ -1068,6 +1068,9 @@ class AiidaCodeSetup(ipw.VBox):
             ]
 
             kwargs = {key: getattr(self, key).value for key in items_to_configure}
+
+            # convert computer to AiiDA node from its UUID
+            kwargs["computer"] = orm.load_computer(kwargs["computer"])
 
             # Checking if the code with this name already exists
             qb = orm.QueryBuilder()
@@ -1112,7 +1115,7 @@ class AiidaCodeSetup(ipw.VBox):
         self.label.value = ""
         self.computer.value = ""
         self.description.value = ""
-        self.remote_abs_path.value = ""
+        self.filepath_executable.value = ""
         self.use_double_quotes.value = False
         self.prepend_text.value = ""
         self.append_text.value = ""
