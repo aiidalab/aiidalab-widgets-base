@@ -284,7 +284,7 @@ class ComputationalResourcesDatabaseWidget(ipw.VBox):
 
     def update(self, _=None):
         database = requests.get(
-            "https://aiidateam.github.io/aiida-code-registry/database_v2.json"
+            "https://unkcpz.github.io/aiida-code-registry/database_v2_1.json"
         ).json()
         self.database = (
             self.clean_up_database(database, self.input_plugin)
