@@ -205,7 +205,7 @@ class OptimadeQueryWidget(ipw.VBox):
 class ComputationalResourcesDatabaseWidget(ipw.VBox):
     """Extract the setup of a known computer from the AiiDA code registry."""
 
-    input_plugin = traitlets.Unicode(allow_none=True)
+    default_calc_job_plugin = traitlets.Unicode(allow_none=True)
     ssh_config = traitlets.Dict()
     computer_setup = traitlets.Dict()
     code_setup = traitlets.Dict()
@@ -261,7 +261,10 @@ class ComputationalResourcesDatabaseWidget(ipw.VBox):
                     database[domain][computer].keys()
                     - {"computer-configure", "computer-setup"}
                 ):
-                    if plugin != database[domain][computer][code]["input_plugin"]:
+                    if (
+                        plugin
+                        != database[domain][computer][code]["default_calc_job_plugin"]
+                    ):
                         del database[domain][computer][code]
                 # If no codes remained that correspond to the chosen plugin, remove the computer.
                 if (
@@ -284,11 +287,11 @@ class ComputationalResourcesDatabaseWidget(ipw.VBox):
 
     def update(self, _=None):
         database = requests.get(
-            "https://aiidateam.github.io/aiida-code-registry/database_v2.json"
+            "https://unkcpz.github.io/aiida-code-registry/database_v2_1.json"
         ).json()
         self.database = (
-            self.clean_up_database(database, self.input_plugin)
-            if self.input_plugin
+            self.clean_up_database(database, self.default_calc_job_plugin)
+            if self.default_calc_job_plugin
             else database
         )
 
@@ -375,6 +378,6 @@ class ComputationalResourcesDatabaseWidget(ipw.VBox):
 
             self.code_setup = code_setup
 
-    @default("input_plugin")
-    def _default_input_plugin(self):
+    @default("default_calc_job_plugin")
+    def _default_calc_job_plugin(self):
         return None
