@@ -149,7 +149,7 @@ class StructureManagerWidget(ipw.VBox):
 
     def _structure_importers(self, importers):
         """Preparing structure importers."""
-        if isinstance(importers, (list, tuple)):
+        if not isinstance(importers, (list, tuple)):
             raise exceptions.ListOrTuppleError(importers)
 
         # If there is only one importer - no need to make tabs.
