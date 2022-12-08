@@ -26,9 +26,9 @@ def notebook_service(docker_ip, docker_services):
     chown_command = "exec -T -u root aiidalab bash -c 'chown -R jovyan:users /home/jovyan/apps/aiidalab-widgets-base'"
     docker_compose.execute(chown_command)
 
+    # install the package
     install_command = "bash -c 'pip install -U .'"
     command = f"exec --workdir /home/jovyan/apps/aiidalab-widgets-base -T aiidalab {install_command}"
-
     docker_compose.execute(command)
 
     # `port_for` takes a container port and returns the corresponding host port
@@ -38,13 +38,13 @@ def notebook_service(docker_ip, docker_services):
     docker_services.wait_until_responsive(
         timeout=30.0, pause=0.1, check=lambda: is_responsive(url)
     )
-    return url, token
+    return url, token, docker_compose
 
 
 @pytest.fixture(scope="function")
 def selenium_driver(selenium, notebook_service):
     def _selenium_driver(nb_path):
-        url, token = notebook_service
+        url, token, _ = notebook_service
         url_with_token = urljoin(
             url, f"apps/apps/aiidalab-widgets-base/{nb_path}?token={token}"
         )

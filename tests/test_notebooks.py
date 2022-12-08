@@ -1,9 +1,11 @@
+from urllib.parse import urljoin
+
 import requests
 from selenium.webdriver.common.by import By
 
 
 def test_notebook_service_available(notebook_service):
-    url, token = notebook_service
+    url, token, _ = notebook_service
     response = requests.get(f"{url}/?token={token}")
     assert response.status_code == 200
 
@@ -43,6 +45,52 @@ def test_eln_import(selenium_driver):
     driver.find_element(By.ID, "tooltip")
 
 
-def test_computational_resources(selenium_driver):
-    driver = selenium_driver("notebooks/computational_resources.ipynb")
-    driver.find_element(By.XPATH, '//button[text()="Setup new code"]')
+def test_computational_resources(notebook_service, selenium):
+    """Test the quicksetup of the code"""
+    url, token, docker_compose = notebook_service
+
+    # check the code pw-7.0 is not in code list
+    install_command = "verdi code list"
+    command = f"exec --workdir /home/jovyan/apps/aiidalab-widgets-base --user jovyan -T aiidalab {install_command}"
+    output = docker_compose.execute(command).decode().strip()
+    assert "pw-7.0" not in output
+
+    url_with_token = urljoin(
+        url,
+        f"apps/apps/aiidalab-widgets-base/notebooks/computational_resources.ipynb?token={token}",
+    )
+    selenium.get(f"{url_with_token}")
+    selenium.implicitly_wait(10.0)  # must wait until the app loaded
+    driver = selenium
+
+    # click the "Setup new code" button
+    driver.find_element(By.XPATH, '//button[text()="Setup new code"]').click()
+    selenium.implicitly_wait(2.0)
+
+    # Select daint.cscs.ch domain
+    driver.find_element(By.XPATH, '//option[text()="daint.cscs.ch"]').click()
+    selenium.implicitly_wait(2.0)
+
+    # Select computer multicore
+    driver.find_element(By.XPATH, '//option[text()="multicore"]').click()
+    selenium.implicitly_wait(2.0)
+
+    # select code pw-7.0-multicore
+    driver.find_element(By.XPATH, '//option[text()="pw-7.0-multicore"]').click()
+    selenium.implicitly_wait(2.0)
+
+    # fill the SSH username
+    driver.find_element(
+        By.XPATH, "//label[text()='SSH username:']/following-sibling::input"
+    ).send_keys("dummyuser")
+    selenium.implicitly_wait(2.0)
+
+    # click the quick setup
+    driver.find_element(By.XPATH, '//button[text()="Quick Setup"]').click()
+    selenium.implicitly_wait(2.0)
+
+    # check the code pw-7.0 is not in code list
+    install_command = "verdi code list"
+    command = f"exec --workdir /home/jovyan/apps/aiidalab-widgets-base --user jovyan -T aiidalab {install_command}"
+    output = docker_compose.execute(command).decode().strip()
+    assert "pw-7.0" in output
