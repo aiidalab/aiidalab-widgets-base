@@ -1,5 +1,3 @@
-from urllib.parse import urljoin
-
 import requests
 from selenium.webdriver.common.by import By
 
@@ -45,23 +43,13 @@ def test_eln_import(selenium_driver):
     driver.find_element(By.ID, "tooltip")
 
 
-def test_computational_resources(notebook_service, selenium):
+def test_computational_resources(selenium_driver, aiidalab_exec):
     """Test the quicksetup of the code"""
-    url, token, docker_compose = notebook_service
-
     # check the code pw-7.0 is not in code list
-    install_command = "verdi code list"
-    command = f"exec --workdir /home/jovyan/apps/aiidalab-widgets-base --user jovyan -T aiidalab {install_command}"
-    output = docker_compose.execute(command).decode().strip()
+    output = aiidalab_exec("verdi code list").decode().strip()
     assert "pw-7.0" not in output
 
-    url_with_token = urljoin(
-        url,
-        f"apps/apps/aiidalab-widgets-base/notebooks/computational_resources.ipynb?token={token}",
-    )
-    selenium.get(f"{url_with_token}")
-    selenium.implicitly_wait(10.0)  # must wait until the app loaded
-    driver = selenium
+    driver = selenium_driver("notebooks/computational_resources.ipynb")
 
     # click the "Setup new code" button
     driver.find_element(By.XPATH, '//button[text()="Setup new code"]').click()
@@ -82,10 +70,8 @@ def test_computational_resources(notebook_service, selenium):
 
     # click the quick setup
     driver.find_element(By.XPATH, '//button[text()="Quick Setup"]').click()
-    selenium.implicitly_wait(1.0)
+    driver.implicitly_wait(1.0)
 
     # check the code pw-7.0 is not in code list
-    install_command = "verdi code list"
-    command = f"exec --workdir /home/jovyan/apps/aiidalab-widgets-base --user jovyan -T aiidalab {install_command}"
-    output = docker_compose.execute(command).decode().strip()
+    output = aiidalab_exec("verdi code list").decode().strip()
     assert "pw-7.0@daint-mc" in output
