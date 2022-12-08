@@ -65,29 +65,24 @@ def test_computational_resources(notebook_service, selenium):
 
     # click the "Setup new code" button
     driver.find_element(By.XPATH, '//button[text()="Setup new code"]').click()
-    selenium.implicitly_wait(2.0)
 
     # Select daint.cscs.ch domain
     driver.find_element(By.XPATH, '//option[text()="daint.cscs.ch"]').click()
-    selenium.implicitly_wait(2.0)
 
     # Select computer multicore
     driver.find_element(By.XPATH, '//option[text()="multicore"]').click()
-    selenium.implicitly_wait(2.0)
 
     # select code pw-7.0-multicore
     driver.find_element(By.XPATH, '//option[text()="pw-7.0-multicore"]').click()
-    selenium.implicitly_wait(2.0)
 
     # fill the SSH username
     driver.find_element(
         By.XPATH, "//label[text()='SSH username:']/following-sibling::input"
     ).send_keys("dummyuser")
-    selenium.implicitly_wait(2.0)
 
     # click the quick setup
     driver.find_element(By.XPATH, '//button[text()="Quick Setup"]').click()
-    selenium.implicitly_wait(2.0)
+    selenium.implicitly_wait(1.0)
 
     # check the code pw-7.0 is not in code list
     install_command = "verdi code list"
