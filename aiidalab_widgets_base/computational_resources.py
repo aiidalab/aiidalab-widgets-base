@@ -11,6 +11,7 @@ import pexpect
 import shortuuid
 import traitlets
 from aiida import common, orm, plugins
+from aiida.common.exceptions import NotExistent
 from aiida.orm.utils.builders.computer import ComputerBuilder
 from aiida.transports.plugins.ssh import parse_sshconfig
 from humanfriendly import InvalidSize, parse_size
@@ -163,7 +164,10 @@ class ComputationalResourcesWidget(ipw.VBox):
         return {
             self._full_code_label(c[0]): c[0].uuid
             for c in orm.QueryBuilder()
-            .append(orm.Code, filters={"attributes.input_plugin": self.input_plugin})
+            .append(
+                orm.Code,
+                filters={"attributes.input_plugin": self.input_plugin},
+            )
             .all()
             if c[0].computer.is_user_configured(user)
             and (self.allow_hidden_codes or not c[0].is_hidden)
@@ -1131,6 +1135,17 @@ class AiidaCodeSetup(ipw.VBox):
                         getattr(self, key).label = value
                     except traitlets.TraitError:
                         self.message = f"Input plugin {value} is not installed."
+                elif key == "computer":
+                    # check if the computer is set by load the label.
+                    # if the computer not set put the value to None as placeholder for
+                    # ComputerDropdownWidget it will refresh after the computer set up.
+                    # if the computer is set pass the UUID to ComputerDropdownWdiget.
+                    try:
+                        computer = orm.load_computer(value)
+                    except NotExistent:
+                        getattr(self, key).value = None
+                    else:
+                        getattr(self, key).value = computer.uuid
                 else:
                     getattr(self, key).value = value
 
