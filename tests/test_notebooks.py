@@ -88,4 +88,4 @@ def test_computational_resources(notebook_service, selenium):
     install_command = "verdi code list"
     command = f"exec --workdir /home/jovyan/apps/aiidalab-widgets-base --user jovyan -T aiidalab {install_command}"
     output = docker_compose.execute(command).decode().strip()
-    assert "pw-7.0" in output
+    assert "pw-7.0@daint-mc" in output
