@@ -1069,6 +1069,9 @@ class AiidaCodeSetup(ipw.VBox):
 
             kwargs = {key: getattr(self, key).value for key in items_to_configure}
 
+            # convert computer to AiiDA node from its UUID
+            kwargs["computer"] = orm.load_computer(kwargs["computer"])
+
             # Checking if the code with this name already exists
             qb = orm.QueryBuilder()
             qb.append(
