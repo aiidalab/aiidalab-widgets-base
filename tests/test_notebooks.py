@@ -5,7 +5,7 @@ from selenium.webdriver.common.by import By
 
 
 def test_notebook_service_available(notebook_service):
-    url, token, _ = notebook_service
+    url, token = notebook_service
     response = requests.get(f"{url}/?token={token}")
     assert response.status_code == 200
 

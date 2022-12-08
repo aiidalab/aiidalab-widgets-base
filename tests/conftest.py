@@ -17,20 +17,26 @@ def is_responsive(url):
 
 
 @pytest.fixture(scope="session")
+def docker_compose(docker_services):
+    return docker_services._docker_compose
+
+
+@pytest.fixture
+def aiidalab_exec(docker_compose):
+    def execute(command, user=None, **kwargs):
+        workdir = "/home/jovyan/apps/aiidalab-widgets-base"
+        if user:
+            command = f"exec --workdir {workdir} -T --user={user} aiidalab {command}"
+        else:
+            command = f"exec --workdir {workdir} -T aiidalab {command}"
+        return docker_compose.execute(command, **kwargs)
+
+    return execute
+
+
+@pytest.fixture(scope="session", autouse=True)
 def notebook_service(docker_ip, docker_services):
     """Ensure that HTTP service is up and responsive."""
-
-    docker_compose = docker_services._docker_compose
-
-    # assurance for host user UID other that 1000
-    chown_command = "exec -T -u root aiidalab chown -R jovyan:users /home/jovyan/apps/aiidalab-widgets-base"
-    docker_compose.execute(chown_command)
-
-    # install the package
-    install_command = "pip install -U ."
-    command = f"exec --workdir /home/jovyan/apps/aiidalab-widgets-base -T aiidalab {install_command}"
-    docker_compose.execute(command)
-
     # `port_for` takes a container port and returns the corresponding host port
     port = docker_services.port_for("aiidalab", 8888)
     url = f"http://{docker_ip}:{port}"
@@ -38,13 +44,23 @@ def notebook_service(docker_ip, docker_services):
     docker_services.wait_until_responsive(
         timeout=30.0, pause=0.1, check=lambda: is_responsive(url)
     )
-    return url, token, docker_compose
+    return url, token
+
+
+@pytest.fixture(scope="session", autouse=True)
+def install_package(aiidalab_exec):
+    # assurance for host user UID other that 1000
+    aiidalab_exec(
+        "chown -R jovyan:users /home/jovyan/apps/aiidalab-widgets-base", user="root"
+    )
+    # install the package
+    aiidalab_exec("pip install -U .")
 
 
 @pytest.fixture(scope="function")
 def selenium_driver(selenium, notebook_service):
     def _selenium_driver(nb_path):
-        url, token, _ = notebook_service
+        url, token = notebook_service
         url_with_token = urljoin(
             url, f"apps/apps/aiidalab-widgets-base/{nb_path}?token={token}"
         )
