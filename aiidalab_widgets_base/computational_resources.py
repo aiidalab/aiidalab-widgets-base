@@ -975,7 +975,8 @@ class AiidaCodeSetup(ipw.VBox):
             style=STYLE,
         )
 
-        # Computer on which the code is installed. Two dlinks are needed to make sure we get a Computer instance.
+        # Computer on which the code is installed. The value of this widget is
+        # the UUID of the selected computer.
         self.computer = ComputerDropdownWidget(
             path_to_root=path_to_root,
         )
@@ -1058,7 +1059,6 @@ class AiidaCodeSetup(ipw.VBox):
 
             items_to_configure = [
                 "label",
-                "computer",
                 "description",
                 "default_calc_job_plugin",
                 "filepath_executable",
@@ -1069,14 +1069,12 @@ class AiidaCodeSetup(ipw.VBox):
 
             kwargs = {key: getattr(self, key).value for key in items_to_configure}
 
-            # convert computer to AiiDA node from its UUID
-            kwargs["computer"] = orm.load_computer(kwargs["computer"])
+            # set computer from its widget value the UUID of the computer.
+            computer = orm.load_computer(self.computer.value)
 
             # Checking if the code with this name already exists
             qb = orm.QueryBuilder()
-            qb.append(
-                orm.Computer, filters={"uuid": kwargs["computer"].uuid}, tag="computer"
-            )
+            qb.append(orm.Computer, filters={"uuid": computer.uuid}, tag="computer")
             qb.append(
                 orm.InstalledCode,
                 with_computer="computer",
@@ -1084,12 +1082,12 @@ class AiidaCodeSetup(ipw.VBox):
             )
             if qb.count() > 0:
                 self.message = (
-                    f"Code {kwargs['label']}@{kwargs['computer'].label} already exists."
+                    f"Code {kwargs['label']}@{computer.label} already exists."
                 )
                 return False
 
             try:
-                code = orm.InstalledCode(**kwargs)
+                code = orm.InstalledCode(computer=computer, **kwargs)
             except (common.exceptions.InputValidationError, KeyError) as exception:
                 self.message = f"Invalid inputs: {exception}"
                 return False
