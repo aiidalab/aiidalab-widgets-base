@@ -21,14 +21,21 @@ def docker_compose(docker_services):
     return docker_services._docker_compose
 
 
+def build_command(command, user=None):
+    workdir = "/home/jovyan/apps/aiidalab-widgets-base"
+    if user:
+        command = f"exec --workdir {workdir} -T --user={user} aiidalab {command}"
+    else:
+        command = f"exec --workdir {workdir} -T aiidalab {command}"
+
+    return command
+
+
 @pytest.fixture
 def aiidalab_exec(docker_compose):
     def execute(command, user=None, **kwargs):
-        workdir = "/home/jovyan/apps/aiidalab-widgets-base"
-        if user:
-            command = f"exec --workdir {workdir} -T --user={user} aiidalab {command}"
-        else:
-            command = f"exec --workdir {workdir} -T aiidalab {command}"
+        command = build_command(command, user)
+
         return docker_compose.execute(command, **kwargs)
 
     return execute
@@ -48,13 +55,16 @@ def notebook_service(docker_ip, docker_services):
 
 
 @pytest.fixture(scope="session", autouse=True)
-def install_package(aiidalab_exec):
+def install_package(docker_compose):
     # assurance for host user UID other that 1000
-    aiidalab_exec(
+    command = build_command(
         "chown -R jovyan:users /home/jovyan/apps/aiidalab-widgets-base", user="root"
     )
+    docker_compose.execute(command)
+
     # install the package
-    aiidalab_exec("pip install -U .")
+    command = build_command("pip install -U .")
+    docker_compose.execute(command)
 
 
 @pytest.fixture(scope="function")

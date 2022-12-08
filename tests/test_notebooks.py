@@ -43,7 +43,7 @@ def test_eln_import(selenium_driver):
     driver.find_element(By.ID, "tooltip")
 
 
-def test_computational_resources(selenium_driver, aiidalab_exec):
+def test_computational_resources_code_setup(selenium_driver, aiidalab_exec):
     """Test the quicksetup of the code"""
     # check the code pw-7.0 is not in code list
     output = aiidalab_exec("verdi code list").decode().strip()
@@ -70,8 +70,8 @@ def test_computational_resources(selenium_driver, aiidalab_exec):
 
     # click the quick setup
     driver.find_element(By.XPATH, '//button[text()="Quick Setup"]').click()
-    driver.implicitly_wait(1.0)
+    time.sleep(1.0)
 
-    # check the code pw-7.0 is not in code list
+    # check the new code pw-7.0 is in code list
     output = aiidalab_exec("verdi code list").decode().strip()
     assert "pw-7.0@daint-mc" in output
