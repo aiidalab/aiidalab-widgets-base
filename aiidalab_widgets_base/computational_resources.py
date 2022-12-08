@@ -856,7 +856,7 @@ class AiidaComputerSetup(ipw.VBox):
 
         return True
 
-    def _run_things_on_existing_computer(self, label):
+    def _run_callbacks_if_computer_exists(self, label):
         """Run things on an existing computer"""
         try:
             orm.Computer.objects.get(label=label)
@@ -874,7 +874,8 @@ class AiidaComputerSetup(ipw.VBox):
             return False
 
         # If the computer already exists, we just run the registered functions and return
-        if self._run_things_on_existing_computer(self.label.value):
+        if self._run_callbacks_if_computer_exists(self.label.value):
+            self.message = f"A computer called {self.label.value} already exists."
             return True
 
         items_to_configure = [
@@ -907,11 +908,10 @@ class AiidaComputerSetup(ipw.VBox):
             self.message = f"{type(err).__name__}: {err}"
             return False
 
-        if self._configure_computer(computer):
-            for function in self._on_setup_computer_success:
-                function()
-        self.message = f"Computer<{computer.pk}> {computer.label} created"
-        return True
+        if self._run_callbacks_if_computer_exists(self.label.value):
+            self.message = f"Computer<{computer.pk}> {computer.label} created"
+            return True
+        return False
 
     def on_setup_computer_success(self, function):
         self._on_setup_computer_success.append(function)

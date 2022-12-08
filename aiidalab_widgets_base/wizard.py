@@ -11,7 +11,14 @@ from time import sleep, time
 import ipywidgets as ipw
 import traitlets
 
-from .utils import exceptions
+
+class AtLeastTwoStepsWizardError(ValueError):
+    """Using WizardAppWidget only makes sense if the number of setps is at least two."""
+
+    def __init__(self, steps):
+        super().__init__(
+            f"The number of steps of a WizardAppWidget must be at least two, but {len(steps)} were provided."
+        )
 
 
 class WizardAppWidgetStep(traitlets.HasTraits):
@@ -95,7 +102,7 @@ class WizardAppWidget(ipw.VBox):
         # The number of steps must be greater than one
         # for this app's logic to make sense.
         if len(steps) < 2:
-            raise exceptions.AtLeastTwoStepsError(steps)
+            raise AtLeastTwoStepsWizardError(steps)
 
         self.steps = steps
 
