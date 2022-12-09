@@ -46,7 +46,7 @@ class ComputationalResourcesWidget(ipw.VBox):
     codes = traitlets.Dict(allow_none=True)
     allow_hidden_codes = traitlets.Bool(False)
     allow_disabled_computers = traitlets.Bool(False)
-    input_plugin = traitlets.Unicode(allow_none=True)
+    default_calc_job_plugin = traitlets.Unicode(allow_none=True)
 
     def __init__(self, description="Select code:", path_to_root="../", **kwargs):
         """Dropdown for Codes for one input plugin.
@@ -82,7 +82,7 @@ class ComputationalResourcesWidget(ipw.VBox):
 
         # Setting up codes and computers.
         self.comp_resources_database = ComputationalResourcesDatabaseWidget(
-            input_plugin=self.input_plugin
+            default_calc_job_plugin=self.default_calc_job_plugin
         )
 
         self.ssh_computer_setup = SshComputerSetup()
@@ -166,7 +166,7 @@ class ComputationalResourcesWidget(ipw.VBox):
             for c in orm.QueryBuilder()
             .append(
                 orm.Code,
-                filters={"attributes.input_plugin": self.input_plugin},
+                filters={"attributes.input_plugin": self.default_calc_job_plugin},
             )
             .all()
             if c[0].computer.is_user_configured(user)
@@ -188,9 +188,7 @@ class ComputationalResourcesWidget(ipw.VBox):
         with self.hold_trait_notifications():
             self.code_select_dropdown.options = self._get_codes()
             if not self.code_select_dropdown.options:
-                self.output.value = (
-                    f"No codes found for input plugin '{self.input_plugin}'."
-                )
+                self.output.value = f"No codes found for default calcjob plugin '{self.default_calc_job_plugin}'."
                 self.code_select_dropdown.disabled = True
             else:
                 self.code_select_dropdown.disabled = False
@@ -977,13 +975,14 @@ class AiidaCodeSetup(ipw.VBox):
             style=STYLE,
         )
 
-        # Computer on which the code is installed. Two dlinks are needed to make sure we get a Computer instance.
+        # Computer on which the code is installed. The value of this widget is
+        # the UUID of the selected computer.
         self.computer = ComputerDropdownWidget(
             path_to_root=path_to_root,
         )
 
         # Code plugin.
-        self.input_plugin = ipw.Dropdown(
+        self.default_calc_job_plugin = ipw.Dropdown(
             options=sorted(
                 (ep.name, ep.name)
                 for ep in plugins.entry_point.get_entry_points("aiida.calculations")
@@ -1001,7 +1000,7 @@ class AiidaCodeSetup(ipw.VBox):
             style=STYLE,
         )
 
-        self.remote_abs_path = ipw.Text(
+        self.filepath_executable = ipw.Text(
             placeholder="/path/to/executable",
             description="Absolute path to executable:",
             layout=LAYOUT,
@@ -1033,9 +1032,9 @@ class AiidaCodeSetup(ipw.VBox):
         children = [
             self.label,
             self.computer,
-            self.input_plugin,
+            self.default_calc_job_plugin,
             self.description,
-            self.remote_abs_path,
+            self.filepath_executable,
             self.use_double_quotes,
             self.prepend_text,
             self.append_text,
@@ -1044,10 +1043,10 @@ class AiidaCodeSetup(ipw.VBox):
         ]
         super().__init__(children, **kwargs)
 
-    @traitlets.validate("input_plugin")
-    def _validate_input_plugin(self, proposal):
+    @traitlets.validate("default_calc_job_plugin")
+    def _validate_default_calc_job_plugin(self, proposal):
         plugin = proposal["value"]
-        return plugin if plugin in self.input_plugin.options else None
+        return plugin if plugin in self.default_calc_job_plugin.options else None
 
     def on_setup_code(self, _=None):
         """Setup an AiiDA code."""
@@ -1060,7 +1059,6 @@ class AiidaCodeSetup(ipw.VBox):
 
             items_to_configure = [
                 "label",
-                "computer",
                 "description",
                 "default_calc_job_plugin",
                 "filepath_executable",
@@ -1071,11 +1069,12 @@ class AiidaCodeSetup(ipw.VBox):
 
             kwargs = {key: getattr(self, key).value for key in items_to_configure}
 
+            # set computer from its widget value the UUID of the computer.
+            computer = orm.load_computer(self.computer.value)
+
             # Checking if the code with this name already exists
             qb = orm.QueryBuilder()
-            qb.append(
-                orm.Computer, filters={"uuid": kwargs["computer"].uuid}, tag="computer"
-            )
+            qb.append(orm.Computer, filters={"uuid": computer.uuid}, tag="computer")
             qb.append(
                 orm.InstalledCode,
                 with_computer="computer",
@@ -1083,12 +1082,12 @@ class AiidaCodeSetup(ipw.VBox):
             )
             if qb.count() > 0:
                 self.message = (
-                    f"Code {kwargs['label']}@{kwargs['computer'].label} already exists."
+                    f"Code {kwargs['label']}@{computer.label} already exists."
                 )
                 return False
 
             try:
-                code = orm.InstalledCode(**kwargs)
+                code = orm.InstalledCode(computer=computer, **kwargs)
             except (common.exceptions.InputValidationError, KeyError) as exception:
                 self.message = f"Invalid inputs: {exception}"
                 return False
@@ -1114,7 +1113,7 @@ class AiidaCodeSetup(ipw.VBox):
         self.label.value = ""
         self.computer.value = ""
         self.description.value = ""
-        self.remote_abs_path.value = ""
+        self.filepath_executable.value = ""
         self.use_double_quotes.value = False
         self.prepend_text.value = ""
         self.append_text.value = ""
@@ -1130,7 +1129,7 @@ class AiidaCodeSetup(ipw.VBox):
             self._reset()
         for key, value in self.code_setup.items():
             if hasattr(self, key):
-                if key == "input_plugin":
+                if key == "default_calc_job_plugin":
                     try:
                         getattr(self, key).label = value
                     except traitlets.TraitError:

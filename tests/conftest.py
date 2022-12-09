@@ -28,20 +28,32 @@ def screenshot_dir():
 
 
 @pytest.fixture(scope="session")
-def notebook_service(docker_ip, docker_services):
+def docker_compose(docker_services):
+    return docker_services._docker_compose
+
+
+@pytest.fixture(scope="session")
+def aiidalab_exec(docker_compose):
+    def execute(command, user=None, **kwargs):
+        workdir = "/home/jovyan/apps/aiidalab-widgets-base"
+        if user:
+            command = f"exec --workdir {workdir} -T --user={user} aiidalab {command}"
+        else:
+            command = f"exec --workdir {workdir} -T aiidalab {command}"
+
+        return docker_compose.execute(command, **kwargs)
+
+    return execute
+
+
+@pytest.fixture(scope="session", autouse=True)
+def notebook_service(docker_ip, docker_services, aiidalab_exec):
     """Ensure that HTTP service is up and responsive."""
-
-    docker_compose = docker_services._docker_compose
-
     # Directory ~/apps/aiidalab-widgets-base/ is mounted by docker,
     # make it writeable for jovyan user, needed for `pip install`
-    chmod_command = "exec -T -u root aiidalab bash -c 'chmod -R a+rw /home/jovyan/apps/aiidalab-widgets-base'"
-    docker_compose.execute(chmod_command)
+    aiidalab_exec("chmod -R a+rw /home/jovyan/apps/aiidalab-widgets-base", user="root")
 
-    install_command = "bash -c 'pip install .'"
-    command = f"exec --workdir /home/jovyan/apps/aiidalab-widgets-base -T aiidalab {install_command}"
-
-    docker_compose.execute(command)
+    aiidalab_exec("pip install -U .")
 
     # `port_for` takes a container port and returns the corresponding host port
     port = docker_services.port_for("aiidalab", 8888)
