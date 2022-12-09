@@ -65,8 +65,8 @@ def selenium_driver(selenium, notebook_service):
         # till a given element is loaded, see:
         # https://selenium-python.readthedocs.io/waits.html#implicit-waits
         selenium.implicitly_wait(10)
+        window_width = 800
         window_height = 800
-        window_width = 900
         selenium.set_window_size(window_width, window_height)
 
         selenium.find_element(By.ID, "ipython-main-app")
