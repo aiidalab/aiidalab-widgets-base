@@ -22,8 +22,8 @@ def notebook_service(docker_ip, docker_services):
 
     docker_compose = docker_services._docker_compose
 
-    install_command = "bash -c 'pip install -b /tmp .'"
-    command = f"exec --workdir /home/jovyan/apps/aiidalab-widgets-base -T aiidalab {install_command}"
+    install_command = "bash -c 'pip install ./aiidalab-widgets-base'"
+    command = f"exec --workdir /home/jovyan/apps/ -T aiidalab {install_command}"
 
     docker_compose.execute(command)
 
