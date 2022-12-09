@@ -631,7 +631,7 @@ class ProcessListWidget(ipw.VBox):
                 "description",
             ],
         )
-        dataf = pd.DataFrame(projected[1:], columns=projected[0])  # noqa: F821
+        dataf = pd.DataFrame(projected[1:], columns=projected[0])
 
         # Keep only process that contain the requested string in the description.
         if self.description_contains:
