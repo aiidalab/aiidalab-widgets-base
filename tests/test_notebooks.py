@@ -1,5 +1,3 @@
-import time
-
 import requests
 from selenium.webdriver.common.by import By
 
@@ -72,8 +70,7 @@ def test_computational_resources_code_setup(selenium_driver, aiidalab_exec):
 
     # click the quick setup
     driver.find_element(By.XPATH, '//button[text()="Quick Setup"]').click()
-    time.sleep(1.0)
 
-    # check the new code pw-7.0 is in code list
+    # check the new code pw-7.0@daint-mc is in code list
     output = aiidalab_exec("verdi code list").decode().strip()
     assert "pw-7.0@daint-mc" in output
