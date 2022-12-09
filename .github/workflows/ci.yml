@@ -58,8 +58,7 @@ jobs:
                       **/requirements*.txt
 
             - name: Install dependencies for test
-              run: |
-                  pip install -U -e .[dev]
+              run: pip install -U -e .[dev]
 
             - name: Set jupyter token env
               run: echo "JUPYTER_TOKEN=$(openssl rand -hex 32)" >> $GITHUB_ENV
@@ -79,6 +78,14 @@ jobs:
               if: matrix.browser == 'Firefox'
 
             - name: Run pytest
-              run: pytest --driver ${{ matrix.browser }}
+              run: pytest -v --driver ${{ matrix.browser }}
               env:
                   TAG: ${{ matrix.tag }}
+
+            - name: Upload screenshots as artifacts
+              if: always()
+              uses: actions/upload-artifact@v3
+              with:
+                  name: Screenshots-${{ matrix.tag }}-${{ matrix.browser }}
+                  path: screenshots/
+                  if-no-files-found: error
