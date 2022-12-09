@@ -17,6 +17,13 @@ def is_responsive(url):
 
 
 @pytest.fixture(scope="session")
+def screenshot_dir():
+    #sdir = Path.joinpath(Path.home(), "screenshots")
+    os.mkdir('/home/jovyan/apps/aiidalab-widgets-base/screenshots')
+    return sdir
+
+
+@pytest.fixture(scope="session")
 def notebook_service(docker_ip, docker_services):
     """Ensure that HTTP service is up and responsive."""
 
@@ -42,7 +49,7 @@ def notebook_service(docker_ip, docker_services):
 
 
 @pytest.fixture(scope="function")
-def selenium_driver(selenium, notebook_service):
+def selenium_driver(selenium, notebook_service, screenshot_dir):
     def _selenium_driver(nb_path):
         url, token = notebook_service
         url_with_token = urljoin(
