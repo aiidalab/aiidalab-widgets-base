@@ -22,10 +22,6 @@ def notebook_service(docker_ip, docker_services):
 
     docker_compose = docker_services._docker_compose
 
-    # assurance for host user UID other that 1000
-    chown_command = "exec -T -u root aiidalab bash -c 'chown -R jovyan:users /home/jovyan/apps/aiidalab-widgets-base'"
-    docker_compose.execute(chown_command)
-
     install_command = "bash -c 'pip install -b /tmp .'"
     command = f"exec --workdir /home/jovyan/apps/aiidalab-widgets-base -T aiidalab {install_command}"
 
