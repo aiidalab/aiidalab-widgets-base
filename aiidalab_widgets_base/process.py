@@ -576,6 +576,7 @@ class ProcessListWidget(ipw.VBox):
     def update(self, _=None):
         """Perform the query."""
         import pandas as pd
+
         pd.set_option("max_colwidth", 40)
         # Here we are defining properties of 'df' class (specified while exporting pandas table into html).
         # Since the exported object is nothing more than HTML table, all 'standard' HTML table settings
