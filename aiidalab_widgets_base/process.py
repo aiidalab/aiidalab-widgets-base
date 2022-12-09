@@ -563,11 +563,8 @@ class ProcessListWidget(ipw.VBox):
     description_contains = Unicode(allow_none=True)
 
     def __init__(self, path_to_root="../", **kwargs):
-        import pandas as pd
-
         self.path_to_root = path_to_root
         self.table = ipw.HTML()
-        pd.set_option("max_colwidth", 40)
         self.output = ipw.HTML()
         update_button = ipw.Button(description="Update now")
         update_button.on_click(self.update)
@@ -578,6 +575,8 @@ class ProcessListWidget(ipw.VBox):
 
     def update(self, _=None):
         """Perform the query."""
+        import pandas as pd
+        pd.set_option("max_colwidth", 40)
         # Here we are defining properties of 'df' class (specified while exporting pandas table into html).
         # Since the exported object is nothing more than HTML table, all 'standard' HTML table settings
         # can be applied to it as well.
