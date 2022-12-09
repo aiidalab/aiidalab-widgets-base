@@ -18,10 +18,11 @@ def is_responsive(url):
 
 @pytest.fixture(scope="session")
 def screenshot_dir():
-    # sdir = Path.joinpath(Path.home(), "screenshots")
-    # TODO: Make this better
-    sdir = "/home/runner/work/aiidalab-widgets-base/aiidalab-widgets-base/screenshots"
-    os.mkdir(sdir)
+    sdir = Path.joinpath(Path.cwd(), "screenshots")
+    try:
+        os.mkdir(sdir)
+    except FileExists:
+        pass
     return sdir
 
 
