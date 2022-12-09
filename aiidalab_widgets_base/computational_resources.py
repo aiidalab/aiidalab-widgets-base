@@ -911,6 +911,8 @@ class AiidaComputerSetup(ipw.VBox):
         if self._run_callbacks_if_computer_exists(self.label.value):
             self.message = f"Computer<{computer.pk}> {computer.label} created"
             return True
+
+        self.message = f"Failed to create computer {computer.label}"
         return False
 
     def on_setup_computer_success(self, function):
