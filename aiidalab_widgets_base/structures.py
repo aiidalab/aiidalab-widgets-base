@@ -28,7 +28,6 @@ from aiida.orm import (
 from aiida.plugins import DataFactory
 from ase import Atom, Atoms
 from ase.data import chemical_symbols, covalent_radii
-from sklearn.decomposition import PCA
 from traitlets import Instance, Int, List, Unicode, Union, default, dlink, link, observe
 
 # Local imports
@@ -706,6 +705,8 @@ class SmilesWidget(ipw.VBox):
                 ]
             )
             return
+
+        from sklearn.decomposition import PCA
 
         self.smiles = ipw.Text(placeholder="C=C")
         self.create_structure_btn = ipw.Button(

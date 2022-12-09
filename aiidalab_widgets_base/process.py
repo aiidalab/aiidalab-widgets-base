@@ -10,7 +10,6 @@ from uuid import UUID
 
 # External imports
 import ipywidgets as ipw
-import pandas as pd
 import traitlets
 
 # AiiDA imports.
@@ -564,6 +563,8 @@ class ProcessListWidget(ipw.VBox):
     description_contains = Unicode(allow_none=True)
 
     def __init__(self, path_to_root="../", **kwargs):
+        import pandas as pd
+
         self.path_to_root = path_to_root
         self.table = ipw.HTML()
         pd.set_option("max_colwidth", 40)
