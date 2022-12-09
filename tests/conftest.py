@@ -28,7 +28,7 @@ def screenshot_dir():
 
 
 @pytest.fixture(scope="session")
-def notebook_service(docker_ip, docker_services, screenshot_dir):
+def notebook_service(docker_ip, docker_services):
     """Ensure that HTTP service is up and responsive."""
 
     docker_compose = docker_services._docker_compose
@@ -61,6 +61,9 @@ def selenium_driver(selenium, notebook_service):
         )
         selenium.get(f"{url_with_token}")
         selenium.implicitly_wait(10)  # must wait until the app loaded
+        window_height = 800
+        window_width = 900
+        selenium.set_window_size(window_width, window_height)
 
         selenium.find_element(By.ID, "ipython-main-app")
         selenium.find_element(By.ID, "notebook-container")
