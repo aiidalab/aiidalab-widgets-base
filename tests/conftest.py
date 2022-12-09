@@ -31,7 +31,7 @@ def build_command(command, user=None):
     return command
 
 
-@pytest.fixture
+@pytest.fixture(scope="session")
 def aiidalab_exec(docker_compose):
     def execute(command, user=None, **kwargs):
         command = build_command(command, user)
@@ -55,16 +55,21 @@ def notebook_service(docker_ip, docker_services):
 
 
 @pytest.fixture(scope="session", autouse=True)
-def install_package(docker_compose):
+def install_package(aiidalab_exec):
     # assurance for host user UID other that 1000
-    command = build_command(
+    # command = build_command(
+    #     "chown -R jovyan:users /home/jovyan/apps/aiidalab-widgets-base", user="root"
+    # )
+    # docker_compose.execute(command)
+
+    # # install the package
+    # command = build_command("pip install -U .")
+    # docker_compose.execute(command)
+    aiidalab_exec(
         "chown -R jovyan:users /home/jovyan/apps/aiidalab-widgets-base", user="root"
     )
-    docker_compose.execute(command)
 
-    # install the package
-    command = build_command("pip install -U .")
-    docker_compose.execute(command)
+    aiidalab_exec("pip install -U .")
 
 
 @pytest.fixture(scope="function")
