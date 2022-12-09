@@ -19,7 +19,8 @@ def test_process_list(selenium_driver, screenshot_dir):
 def test_aiida_datatypes_viewers(selenium_driver, screenshot_dir):
     driver = selenium_driver("notebooks/aiida_datatypes_viewers.ipynb")
     driver.find_element(By.CLASS_NAME, "widget-label")
-    driver.find_element(By.XPATH, '//button[text()="Upload Structure (0)"]')
+    # driver.find_element(By.XPATH, '//button[text()="Upload Structure (0)"]')
+    time.sleep(10)
     driver.get_screenshot_as_file(f"{screenshot_dir}/datatypes-viewer.png")
 
 
