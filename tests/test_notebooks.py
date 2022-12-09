@@ -1,4 +1,5 @@
 import requests
+import time
 from selenium.webdriver.common.by import By
 
 
@@ -50,6 +51,7 @@ def test_eln_import(selenium_driver, screenshot_dir):
     # TODO: This find_element is not specific enough it seems,
     # on the screenshot the page is still loading.
     driver.find_element(By.ID, "tooltip")
+    time.sleep(5)
     driver.get_screenshot_as_file(f"{screenshot_dir}/eln-import.png")
 
 
