@@ -18,7 +18,7 @@ def test_process_list(selenium_driver, screenshot_dir):
 
 def test_aiida_datatypes_viewers(selenium_driver, screenshot_dir):
     driver = selenium_driver("notebooks/aiida_datatypes_viewers.ipynb")
-    driver.set_window_size(1000, 1600)
+    driver.set_window_size(1000, 2000)
     driver.find_element(By.CLASS_NAME, "widget-label")
     driver.find_element(By.XPATH, '//button[text()="Clear selection"]')
     time.sleep(5)
@@ -45,6 +45,7 @@ def test_wizard_apps(selenium_driver, screenshot_dir):
 
 def test_structures(selenium_driver, screenshot_dir):
     driver = selenium_driver("notebooks/structures.ipynb")
+    driver.set_window_size(1000, 900)
     driver.find_element(By.XPATH, '//button[text()="Upload Structure (0)"]')
     driver.get_screenshot_as_file(f"{screenshot_dir}/structures.png")
 
