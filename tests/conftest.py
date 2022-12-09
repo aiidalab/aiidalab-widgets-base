@@ -21,20 +21,14 @@ def docker_compose(docker_services):
     return docker_services._docker_compose
 
 
-def build_command(command, user=None):
-    workdir = "/home/jovyan/apps/aiidalab-widgets-base"
-    if user:
-        command = f"exec --workdir {workdir} -T --user={user} aiidalab {command}"
-    else:
-        command = f"exec --workdir {workdir} -T aiidalab {command}"
-
-    return command
-
-
 @pytest.fixture(scope="session")
 def aiidalab_exec(docker_compose):
     def execute(command, user=None, **kwargs):
-        command = build_command(command, user)
+        workdir = "/home/jovyan/apps/aiidalab-widgets-base"
+        if user:
+            command = f"exec --workdir {workdir} -T --user={user} aiidalab {command}"
+        else:
+            command = f"exec --workdir {workdir} -T aiidalab {command}"
 
         return docker_compose.execute(command, **kwargs)
 
@@ -42,8 +36,14 @@ def aiidalab_exec(docker_compose):
 
 
 @pytest.fixture(scope="session", autouse=True)
-def notebook_service(docker_ip, docker_services):
+def notebook_service(docker_ip, docker_services, aiidalab_exec):
     """Ensure that HTTP service is up and responsive."""
+    aiidalab_exec(
+        "chown -R jovyan:users /home/jovyan/apps/aiidalab-widgets-base", user="root"
+    )
+
+    aiidalab_exec("pip install -U .")
+
     # `port_for` takes a container port and returns the corresponding host port
     port = docker_services.port_for("aiidalab", 8888)
     url = f"http://{docker_ip}:{port}"
@@ -52,24 +52,6 @@ def notebook_service(docker_ip, docker_services):
         timeout=30.0, pause=0.1, check=lambda: is_responsive(url)
     )
     return url, token
-
-
-@pytest.fixture(scope="session", autouse=True)
-def install_package(aiidalab_exec):
-    # assurance for host user UID other that 1000
-    # command = build_command(
-    #     "chown -R jovyan:users /home/jovyan/apps/aiidalab-widgets-base", user="root"
-    # )
-    # docker_compose.execute(command)
-
-    # # install the package
-    # command = build_command("pip install -U .")
-    # docker_compose.execute(command)
-    aiidalab_exec(
-        "chown -R jovyan:users /home/jovyan/apps/aiidalab-widgets-base", user="root"
-    )
-
-    aiidalab_exec("pip install -U .")
 
 
 @pytest.fixture(scope="function")
