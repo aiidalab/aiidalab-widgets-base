@@ -26,7 +26,7 @@ def notebook_service(docker_ip, docker_services):
     chown_command = "exec -T -u root aiidalab bash -c 'chown -R jovyan:users /home/jovyan/apps/aiidalab-widgets-base'"
     docker_compose.execute(chown_command)
 
-    install_command = "bash -c 'pip install -U .'"
+    install_command = "bash -c 'pip install -b /tmp .'"
     command = f"exec --workdir /home/jovyan/apps/aiidalab-widgets-base -T aiidalab {install_command}"
 
     docker_compose.execute(command)
