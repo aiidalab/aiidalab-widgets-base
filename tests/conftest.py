@@ -38,7 +38,7 @@ def notebook_service(docker_ip, docker_services):
     chmod_command = "exec -T -u root aiidalab bash -c 'chmod -R a+rw /home/jovyan/apps/aiidalab-widgets-base'"
     docker_compose.execute(chmod_command)
 
-    install_command = "bash -c 'pip install .'"
+    install_command = "bash -c 'pip install .[smiles]'"
     command = f"exec --workdir /home/jovyan/apps/aiidalab-widgets-base -T aiidalab {install_command}"
 
     docker_compose.execute(command)
