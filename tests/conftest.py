@@ -18,8 +18,8 @@ def is_responsive(url):
 
 @pytest.fixture(scope="session")
 def screenshot_dir():
-    #sdir = Path.joinpath(Path.home(), "screenshots")
-    os.mkdir('/home/jovyan/apps/aiidalab-widgets-base/screenshots')
+    # sdir = Path.joinpath(Path.home(), "screenshots")
+    os.mkdir("/home/jovyan/apps/aiidalab-widgets-base/screenshots")
     return sdir
 
 
