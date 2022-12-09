@@ -706,7 +706,7 @@ class SmilesWidget(ipw.VBox):
             )
             return
 
-        from sklearn.decomposition import PCA
+        from sklearn.decomposition import PCA #noqa: F401
 
         self.smiles = ipw.Text(placeholder="C=C")
         self.create_structure_btn = ipw.Button(
@@ -724,7 +724,7 @@ class SmilesWidget(ipw.VBox):
     def _make_ase(self, species, positions, smiles):
         """Create ase Atoms object."""
         # Get the principal axes and realign the molecule along z-axis.
-        positions = PCA(n_components=3).fit_transform(positions)
+        positions = PCA(n_components=3).fit_transform(positions) # noqa: F821
         atoms = Atoms(species, positions=positions, pbc=False)
         atoms.cell = np.ptp(atoms.positions, axis=0) + 10
         atoms.center()
