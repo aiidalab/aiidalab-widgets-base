@@ -1,4 +1,5 @@
 import os
+from pathlib import Path
 from urllib.parse import urljoin
 
 import pytest
@@ -21,7 +22,7 @@ def screenshot_dir():
     sdir = Path.joinpath(Path.cwd(), "screenshots")
     try:
         os.mkdir(sdir)
-    except FileExists:
+    except FileExistsError:
         pass
     return sdir
 
