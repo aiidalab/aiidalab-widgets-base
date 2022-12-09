@@ -78,7 +78,10 @@ jobs:
               if: matrix.browser == 'Firefox'
 
             - name: Run pytest
-              run: pytest --driver ${{ matrix.browser }}
+              run: |
+                  pytest --driver ${{ matrix.browser }}
+                  ls -ltr *
+                  ls -ltr screenshots
               env:
                   TAG: ${{ matrix.tag }}
 
