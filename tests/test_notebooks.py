@@ -1,4 +1,4 @@
-from time import time
+import time
 
 import requests
 from selenium.webdriver.common.by import By
