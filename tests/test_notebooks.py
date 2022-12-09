@@ -56,6 +56,9 @@ def test_structures_generate_from_smiles(selenium_driver, screenshot_dir):
     driver.set_window_size(1000, 900)
     # Switch to SMILES tab in StructureManagerWidget
     driver.find_element(By.XPATH, "//*[text()='SMILES']").click()
+    driver.get_screenshot_as_file(
+        f"{screenshot_dir}/structures_generate_from_smiles_1.png"
+    )
     # Generate methane molecule from SMILES
     smiles_textarea = driver.find_element(By.XPATH, "//input[@placeholder='C=C']")
     smiles_textarea.send_keys("C")
@@ -64,8 +67,9 @@ def test_structures_generate_from_smiles(selenium_driver, screenshot_dir):
     )
     generate_mol_button.click()
     time.sleep(5)
+    # TODO: Figure out how to check for the generated molecule
     driver.get_screenshot_as_file(
-        f"{screenshot_dir}/structures_generate_from_smiles.png"
+        f"{screenshot_dir}/structures_generate_from_smiles_2.png"
     )
 
 
