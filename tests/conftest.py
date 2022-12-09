@@ -26,7 +26,7 @@ def screenshot_dir():
 
 
 @pytest.fixture(scope="session")
-def notebook_service(docker_ip, docker_services):
+def notebook_service(docker_ip, docker_services, screenshot_dir):
     """Ensure that HTTP service is up and responsive."""
 
     docker_compose = docker_services._docker_compose
@@ -51,7 +51,7 @@ def notebook_service(docker_ip, docker_services):
 
 
 @pytest.fixture(scope="function")
-def selenium_driver(selenium, notebook_service, screenshot_dir):
+def selenium_driver(selenium, notebook_service):
     def _selenium_driver(nb_path):
         url, token = notebook_service
         url_with_token = urljoin(
