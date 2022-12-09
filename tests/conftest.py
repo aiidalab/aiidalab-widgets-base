@@ -20,7 +20,7 @@ def is_responsive(url):
 def screenshot_dir():
     # sdir = Path.joinpath(Path.home(), "screenshots")
     # TODO: Make this better
-    sdir = '/home/runner/work/aiidalab-widgets-base/aiidalab-widgets-base/screenshots'
+    sdir = "/home/runner/work/aiidalab-widgets-base/aiidalab-widgets-base/screenshots"
     os.mkdir(sdir)
     return sdir
 
