@@ -82,7 +82,40 @@ def test_eln_import(selenium_driver, screenshot_dir):
     driver.get_screenshot_as_file(f"{screenshot_dir}/eln-import.png")
 
 
-def test_computational_resources(selenium_driver, screenshot_dir):
+def test_computational_resources_code_setup(
+    selenium_driver, aiidalab_exec, screenshot_dir
+):
+    """Test the quicksetup of the code"""
+    # check the code pw-7.0 is not in code list
+    output = aiidalab_exec("verdi code list").decode().strip()
+    assert "pw-7.0" not in output
+
     driver = selenium_driver("notebooks/computational_resources.ipynb")
-    driver.find_element(By.XPATH, '//button[text()="Setup new code"]')
+
+    # click the "Setup new code" button
+    driver.find_element(By.XPATH, '//button[text()="Setup new code"]').click()
+
+    # Select daint.cscs.ch domain
+    driver.find_element(By.XPATH, '//option[text()="daint.cscs.ch"]').click()
+
+    # Select computer multicore
+    driver.find_element(By.XPATH, '//option[text()="multicore"]').click()
+
+    # select code pw-7.0-multicore
+    driver.find_element(By.XPATH, '//option[text()="pw-7.0-multicore"]').click()
+
+    # fill the SSH username
+    driver.find_element(
+        By.XPATH, "//label[text()='SSH username:']/following-sibling::input"
+    ).send_keys("dummyuser")
+
+    # click the quick setup
+    driver.find_element(By.XPATH, '//button[text()="Quick Setup"]').click()
+    time.sleep(1.0)
+
+    # check the new code pw-7.0@daint-mc is in code list
+    output = aiidalab_exec("verdi code list").decode().strip()
+    assert "pw-7.0@daint-mc" in output
+
+    # take screenshots
     driver.get_screenshot_as_file(f"{screenshot_dir}/computational-resources.png")
