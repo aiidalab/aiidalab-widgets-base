@@ -835,14 +835,13 @@ class AiidaComputerSetup(ipw.VBox):
             "use_login_shell": self.use_login_shell.value,
             "safe_interval": self.safe_interval.value,
         }
-        if "user" in sshcfg:
+        try:
             authparams["username"] = sshcfg["user"]
-        else:
-            print(
-                f"SSH username is not provided, please run `verdi computer configure {self.label.value}` "
-                "from the command line."
-            )
-            return False
+        except KeyError as exc:
+            message = "SSH username is not provided"
+            self.message = message
+            raise RuntimeError(message) from exc
+
         if "proxycommand" in sshcfg:
             authparams["proxy_command"] = sshcfg["proxycommand"]
         elif "proxyjump" in sshcfg:
@@ -898,14 +897,18 @@ class AiidaComputerSetup(ipw.VBox):
         )
         try:
             computer = computer_builder.new()
-            computer.store()
+            self._configure_computer(computer)
         except (
             ComputerBuilder.ComputerValidationError,
             common.exceptions.ValidationError,
+            RuntimeError,
         ) as err:
-            self.message = f"{type(err).__name__}: {err}"
+            self.message = f"Failed to setup computer {type(err).__name__}: {err}"
             return False
+        else:
+            computer.store()
 
+        # Callbacks will not run if the computer is not stored
         if self._run_callbacks_if_computer_exists(self.label.value):
             self.message = f"Computer<{computer.pk}> {computer.label} created"
             return True
