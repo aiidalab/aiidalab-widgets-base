@@ -91,6 +91,7 @@ def test_computational_resources_code_setup(
     assert "pw-7.0" not in output
 
     driver = selenium_driver("notebooks/computational_resources.ipynb")
+    driver.set_window_size(800, 2000)
 
     # click the "Setup new code" button
     driver.find_element(By.XPATH, '//button[text()="Setup new code"]').click()
