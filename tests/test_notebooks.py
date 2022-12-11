@@ -68,11 +68,10 @@ def test_structures_generate_from_smiles(selenium_driver, screenshot_dir):
         By.XPATH, "//label[text()='Selected atoms:']/following-sibling::input"
     ).send_keys("1")
     driver.find_element(By.XPATH, '//button[text()="Apply selection"]').click()
-
+    driver.find_element(By.XPATH, "//div[starts-with(text(),'Id: 1; Symbol: C;')]")
     driver.get_screenshot_as_file(
         f"{screenshot_dir}/structures_generate_from_smiles_2.png"
     )
-    driver.find_element(By.XPATH, "//div[starts-with(text(),'Id: 1; Symbol: C;')]")
 
 
 def test_eln_import(selenium_driver, screenshot_dir):
