@@ -58,12 +58,8 @@ def test_structures_generate_from_smiles(selenium_driver, screenshot_dir):
     driver.find_element(By.XPATH, "//*[text()='SMILES']").click()
 
     # Generate methane molecule from SMILES
-    smiles_textarea = driver.find_element(By.XPATH, "//input[@placeholder='C=C']")
-    smiles_textarea.send_keys("C")
-    generate_mol_button = driver.find_element(
-        By.XPATH, "//button[contains(.,'Generate molecule')]"
-    )
-    generate_mol_button.click()
+    driver.find_element(By.XPATH, "//input[@placeholder='C=C']").send_keys("C")
+    driver.find_element(By.XPATH, '//button[text()="Generate molecule"]').click()
     time.sleep(5)
 
     # Select the first atom
@@ -71,10 +67,12 @@ def test_structures_generate_from_smiles(selenium_driver, screenshot_dir):
     driver.find_element(
         By.XPATH, "//label[text()='Selected atoms:']/following-sibling::input"
     ).send_keys("1")
+    driver.find_element(By.XPATH, '//button[text()="Apply selection"]').click()
+
+    driver.find_element(By.XPATH, "//div[starts-with(text(),'Id: 1; Symbol:C;')]")
     driver.get_screenshot_as_file(
         f"{screenshot_dir}/structures_generate_from_smiles_2.png"
     )
-    driver.find_element(By.XPATH, "//div[starts-with(text(),'Id: 1; Symbol:C;')]")
 
 
 def test_eln_import(selenium_driver, screenshot_dir):
