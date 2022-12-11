@@ -72,7 +72,7 @@ def test_structures_generate_from_smiles(selenium_driver, screenshot_dir):
     driver.get_screenshot_as_file(
         f"{screenshot_dir}/structures_generate_from_smiles_2.png"
     )
-    driver.find_element(By.XPATH, "//div[contains(.,'Id: 1; Symbol:C;')]")
+    driver.find_element(By.XPATH, "//*[contains(text(),'Symbol')]")
 
 
 def test_eln_import(selenium_driver, screenshot_dir):
