@@ -694,9 +694,7 @@ class _StructureDataBaseViewer(ipw.VBox):
         if not syntax_ok:
             sel = self.parse_advanced_sel(condition=self._selected_atoms.value)
             sel = list_to_string_range(sel, shift=1)
-            expanded_selection, syntax_ok = string_range_to_list(
-                sel, shift=-1
-            )
+            expanded_selection, syntax_ok = string_range_to_list(sel, shift=-1)
         # self.wrong_syntax.layout.visibility = 'hidden' if syntax_ok else 'visible'
         if syntax_ok:
             self.wrong_syntax.layout.visibility = "hidden"
@@ -1010,8 +1008,10 @@ class StructureDataViewer(_StructureDataBaseViewer):
 
         # unit cell atoms
         unit_cell_selection = get_unit_cell_atoms(self.displayed_selection)
-        info_selected_atoms = f"Selected atoms: {self.displayed_selection}<br>" \
-                            + f"Selected unit cell atoms: {unit_cell_selection}<br>"
+        info_selected_atoms = (
+            f"Selected atoms: {self.displayed_selection}<br>"
+            + f"Selected unit cell atoms: {unit_cell_selection}<br>"
+        )
         # Find geometric center.
         geom_center = print_pos(
             np.average(
@@ -1083,7 +1083,6 @@ class StructureDataViewer(_StructureDataBaseViewer):
             )
 
         return info_selected_atoms + info_natoms_geo_center
-
 
     @observe("displayed_selection")
     def _observe_displayed_selection_2(self, _=None):
