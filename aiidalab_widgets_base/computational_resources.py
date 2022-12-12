@@ -11,7 +11,7 @@ import pexpect
 import shortuuid
 import traitlets
 from aiida import common, orm, plugins
-from aiida.orm.utils.builders.code import CodeBuilder
+from aiida.common.exceptions import NotExistent
 from aiida.orm.utils.builders.computer import ComputerBuilder
 from aiida.transports.plugins.ssh import parse_sshconfig
 from humanfriendly import InvalidSize, parse_size
@@ -46,7 +46,7 @@ class ComputationalResourcesWidget(ipw.VBox):
     codes = traitlets.Dict(allow_none=True)
     allow_hidden_codes = traitlets.Bool(False)
     allow_disabled_computers = traitlets.Bool(False)
-    input_plugin = traitlets.Unicode(allow_none=True)
+    default_calc_job_plugin = traitlets.Unicode(allow_none=True)
 
     def __init__(self, description="Select code:", path_to_root="../", **kwargs):
         """Dropdown for Codes for one input plugin.
@@ -82,7 +82,7 @@ class ComputationalResourcesWidget(ipw.VBox):
 
         # Setting up codes and computers.
         self.comp_resources_database = ComputationalResourcesDatabaseWidget(
-            input_plugin=self.input_plugin
+            default_calc_job_plugin=self.default_calc_job_plugin
         )
 
         self.ssh_computer_setup = SshComputerSetup()
@@ -164,10 +164,13 @@ class ComputationalResourcesWidget(ipw.VBox):
         return {
             self._full_code_label(c[0]): c[0].uuid
             for c in orm.QueryBuilder()
-            .append(orm.Code, filters={"attributes.input_plugin": self.input_plugin})
+            .append(
+                orm.Code,
+                filters={"attributes.input_plugin": self.default_calc_job_plugin},
+            )
             .all()
             if c[0].computer.is_user_configured(user)
-            and (self.allow_hidden_codes or not c[0].hidden)
+            and (self.allow_hidden_codes or not c[0].is_hidden)
             and (self.allow_disabled_computers or c[0].computer.is_user_enabled(user))
         }
 
@@ -185,9 +188,7 @@ class ComputationalResourcesWidget(ipw.VBox):
         with self.hold_trait_notifications():
             self.code_select_dropdown.options = self._get_codes()
             if not self.code_select_dropdown.options:
-                self.output.value = (
-                    f"No codes found for input plugin '{self.input_plugin}'."
-                )
+                self.output.value = f"No codes found for default calcjob plugin '{self.default_calc_job_plugin}'."
                 self.code_select_dropdown.disabled = True
             else:
                 self.code_select_dropdown.disabled = False
@@ -834,14 +835,13 @@ class AiidaComputerSetup(ipw.VBox):
             "use_login_shell": self.use_login_shell.value,
             "safe_interval": self.safe_interval.value,
         }
-        if "user" in sshcfg:
+        try:
             authparams["username"] = sshcfg["user"]
-        else:
-            print(
-                f"SSH username is not provided, please run `verdi computer configure {self.label.value}` "
-                "from the command line."
-            )
-            return False
+        except KeyError as exc:
+            message = "SSH username is not provided"
+            self.message = message
+            raise RuntimeError(message) from exc
+
         if "proxycommand" in sshcfg:
             authparams["proxy_command"] = sshcfg["proxycommand"]
         elif "proxyjump" in sshcfg:
@@ -853,19 +853,27 @@ class AiidaComputerSetup(ipw.VBox):
 
         return True
 
+    def _run_callbacks_if_computer_exists(self, label):
+        """Run things on an existing computer"""
+        try:
+            orm.Computer.objects.get(label=label)
+            for function in self._on_setup_computer_success:
+                function()
+        except common.NotExistent:
+            return False
+        else:
+            return True
+
     def on_setup_computer(self, _=None):
         """Create a new computer."""
         if self.label.value == "":  # check hostname
             self.message = "Please specify the computer name (for AiiDA)"
             return False
-        try:
-            computer = orm.Computer.objects.get(label=self.label.value)
+
+        # If the computer already exists, we just run the registered functions and return
+        if self._run_callbacks_if_computer_exists(self.label.value):
             self.message = f"A computer called {self.label.value} already exists."
-            for function in self._on_setup_computer_success:
-                function()
             return True
-        except common.NotExistent:
-            pass
 
         items_to_configure = [
             "label",
@@ -889,24 +897,24 @@ class AiidaComputerSetup(ipw.VBox):
         )
         try:
             computer = computer_builder.new()
+            self._configure_computer(computer)
         except (
             ComputerBuilder.ComputerValidationError,
             common.exceptions.ValidationError,
+            RuntimeError,
         ) as err:
-            self.message = f"{type(err).__name__}: {err}"
+            self.message = f"Failed to setup computer {type(err).__name__}: {err}"
             return False
-
-        try:
+        else:
             computer.store()
-        except common.exceptions.ValidationError as err:
-            self.message = f"Unable to store the computer: {err}."
-            return False
 
-        if self._configure_computer(computer):
-            for function in self._on_setup_computer_success:
-                function()
-        self.message = f"Computer<{computer.pk}> {computer.label} created"
-        return True
+        # Callbacks will not run if the computer is not stored
+        if self._run_callbacks_if_computer_exists(self.label.value):
+            self.message = f"Computer<{computer.pk}> {computer.label} created"
+            return True
+
+        self.message = f"Failed to create computer {computer.label}"
+        return False
 
     def on_setup_computer_success(self, function):
         self._on_setup_computer_success.append(function)
@@ -974,13 +982,14 @@ class AiidaCodeSetup(ipw.VBox):
             style=STYLE,
         )
 
-        # Computer on which the code is installed. Two dlinks are needed to make sure we get a Computer instance.
+        # Computer on which the code is installed. The value of this widget is
+        # the UUID of the selected computer.
         self.computer = ComputerDropdownWidget(
             path_to_root=path_to_root,
         )
 
         # Code plugin.
-        self.input_plugin = ipw.Dropdown(
+        self.default_calc_job_plugin = ipw.Dropdown(
             options=sorted(
                 (ep.name, ep.name)
                 for ep in plugins.entry_point.get_entry_points("aiida.calculations")
@@ -998,7 +1007,7 @@ class AiidaCodeSetup(ipw.VBox):
             style=STYLE,
         )
 
-        self.remote_abs_path = ipw.Text(
+        self.filepath_executable = ipw.Text(
             placeholder="/path/to/executable",
             description="Absolute path to executable:",
             layout=LAYOUT,
@@ -1030,9 +1039,9 @@ class AiidaCodeSetup(ipw.VBox):
         children = [
             self.label,
             self.computer,
-            self.input_plugin,
+            self.default_calc_job_plugin,
             self.description,
-            self.remote_abs_path,
+            self.filepath_executable,
             self.use_double_quotes,
             self.prepend_text,
             self.append_text,
@@ -1041,10 +1050,10 @@ class AiidaCodeSetup(ipw.VBox):
         ]
         super().__init__(children, **kwargs)
 
-    @traitlets.validate("input_plugin")
-    def _validate_input_plugin(self, proposal):
+    @traitlets.validate("default_calc_job_plugin")
+    def _validate_default_calc_job_plugin(self, proposal):
         plugin = proposal["value"]
-        return plugin if plugin in self.input_plugin.options else None
+        return plugin if plugin in self.default_calc_job_plugin.options else None
 
     def on_setup_code(self, _=None):
         """Setup an AiiDA code."""
@@ -1057,41 +1066,42 @@ class AiidaCodeSetup(ipw.VBox):
 
             items_to_configure = [
                 "label",
-                "computer",
                 "description",
-                "input_plugin",
-                "remote_abs_path",
+                "default_calc_job_plugin",
+                "filepath_executable",
                 "use_double_quotes",
                 "prepend_text",
                 "append_text",
             ]
 
             kwargs = {key: getattr(self, key).value for key in items_to_configure}
-            kwargs["code_type"] = CodeBuilder.CodeType.ON_COMPUTER
+
+            # set computer from its widget value the UUID of the computer.
+            computer = orm.load_computer(self.computer.value)
 
             # Checking if the code with this name already exists
             qb = orm.QueryBuilder()
+            qb.append(orm.Computer, filters={"uuid": computer.uuid}, tag="computer")
             qb.append(
-                orm.Computer, filters={"uuid": kwargs["computer"].uuid}, tag="computer"
-            )
-            qb.append(
-                orm.Code, with_computer="computer", filters={"label": kwargs["label"]}
+                orm.InstalledCode,
+                with_computer="computer",
+                filters={"label": kwargs["label"]},
             )
             if qb.count() > 0:
                 self.message = (
-                    f"Code {kwargs['label']}@{kwargs['computer'].label} already exists."
+                    f"Code {kwargs['label']}@{computer.label} already exists."
                 )
                 return False
 
             try:
-                code = CodeBuilder(**kwargs).new()
+                code = orm.InstalledCode(computer=computer, **kwargs)
             except (common.exceptions.InputValidationError, KeyError) as exception:
                 self.message = f"Invalid inputs: {exception}"
                 return False
 
             try:
                 code.store()
-                code.reveal()
+                code.is_hidden = False
             except common.exceptions.ValidationError as exception:
                 self.message = f"Unable to store the Code: {exception}"
                 return False
@@ -1110,7 +1120,7 @@ class AiidaCodeSetup(ipw.VBox):
         self.label.value = ""
         self.computer.value = ""
         self.description.value = ""
-        self.remote_abs_path.value = ""
+        self.filepath_executable.value = ""
         self.use_double_quotes.value = False
         self.prepend_text.value = ""
         self.append_text.value = ""
@@ -1126,11 +1136,22 @@ class AiidaCodeSetup(ipw.VBox):
             self._reset()
         for key, value in self.code_setup.items():
             if hasattr(self, key):
-                if key == "input_plugin":
+                if key == "default_calc_job_plugin":
                     try:
                         getattr(self, key).label = value
                     except traitlets.TraitError:
                         self.message = f"Input plugin {value} is not installed."
+                elif key == "computer":
+                    # check if the computer is set by load the label.
+                    # if the computer not set put the value to None as placeholder for
+                    # ComputerDropdownWidget it will refresh after the computer set up.
+                    # if the computer is set pass the UUID to ComputerDropdownWdiget.
+                    try:
+                        computer = orm.load_computer(value)
+                    except NotExistent:
+                        getattr(self, key).value = None
+                    else:
+                        getattr(self, key).value = computer.uuid
                 else:
                     getattr(self, key).value = value
 
