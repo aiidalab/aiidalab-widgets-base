@@ -267,7 +267,6 @@ class _StructureDataBaseViewer(ipw.VBox):
                 self.set_trait("displayed_selection", list()),
                 self.set_trait("selection", list()),
                 self.set_trait("displayed_selection_adv", ""),
-                # self.wrong_syntax.layout.visibility = 'hidden'
             )
         )
         # CLEAR self.wrong_syntax.layout.visibility = 'visible'
