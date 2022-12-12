@@ -269,7 +269,6 @@ class _StructureDataBaseViewer(ipw.VBox):
                 self.set_trait("displayed_selection_adv", ""),
             )
         )
-        # CLEAR self.wrong_syntax.layout.visibility = 'visible'
 
         # 5. Button to apply selection
         apply_displayed_selection = ipw.Button(description="Apply selection")
