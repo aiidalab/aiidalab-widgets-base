@@ -171,7 +171,6 @@ class _StructureDataBaseViewer(ipw.VBox):
 
     selection = List(Int)
     displayed_selection = List(Int)
-    displayed_selection_adv = Unicode()
     supercell = List(Int)
     cell = Instance(Cell, allow_none=True)
     DEFAULT_SELECTION_OPACITY = 0.2
@@ -266,7 +265,6 @@ class _StructureDataBaseViewer(ipw.VBox):
             lambda _: (
                 self.set_trait("displayed_selection", list()),
                 self.set_trait("selection", list()),
-                self.set_trait("displayed_selection_adv", ""),
             )
         )
 
@@ -684,30 +682,28 @@ class _StructureDataBaseViewer(ipw.VBox):
     @observe("displayed_selection")
     def _observe_displayed_selection(self, _=None):
         self.highlight_atoms(self.displayed_selection)
-        self._selected_atoms.value = list_to_string_range(
-            self.displayed_selection, shift=1
-        )
-
         # if atom is selected from nglview, shift to selection tab
         if self._selected_atoms.value and self.selection_tab_idx is not None:
             self.configuration_box.selected_index = self.selection_tab_idx
 
     def apply_displayed_selection(self, _=None):
         """Apply selection specified in the text field."""
-        selection_string = self._selected_atoms.value
         expanded_selection, syntax_ok = string_range_to_list(
             self._selected_atoms.value, shift=-1
         )
+        if not syntax_ok:
+            sel = self.parse_advanced_sel(condition=self._selected_atoms.value)
+            sel = list_to_string_range(sel, shift=1)
+            expanded_selection, syntax_ok = string_range_to_list(
+                sel, shift=-1
+            )
         # self.wrong_syntax.layout.visibility = 'hidden' if syntax_ok else 'visible'
         if syntax_ok:
             self.wrong_syntax.layout.visibility = "hidden"
             self.displayed_selection = expanded_selection
             self.selection = [x for x in expanded_selection if x <= self.natom]
-            self._selected_atoms.value = (
-                selection_string  # Keep the old string for further editing.
-            )
         else:
-            self.displayed_selection_adv = selection_string
+            self.wrong_syntax.layout.visibility = "visible"
 
     def download(self, change=None):  # pylint: disable=unused-argument
         """Prepare a structure for downloading."""
@@ -1010,11 +1006,12 @@ class StructureDataViewer(_StructureDataBaseViewer):
             return f"Id: {indx + 1}; Symbol: {atom.symbol}; Coordinates: ({print_pos(atom.position)})<br>"
 
         def get_unit_cell_atoms(selection):
-            return {x % self.natom + 1 for x in selection}
+            return list({x % self.natom + 1 for x in selection})
 
         # unit cell atoms
         unit_cell_selection = get_unit_cell_atoms(self.displayed_selection)
-        info_unit_cell_atoms = f"Unit cell atoms: {unit_cell_selection}<br>"
+        info_selected_atoms = f"Selected atoms: {self.displayed_selection}<br>" \
+                            + f"Selected unit cell atoms: {unit_cell_selection}<br>"
         # Find geometric center.
         geom_center = print_pos(
             np.average(
@@ -1025,7 +1022,7 @@ class StructureDataViewer(_StructureDataBaseViewer):
 
         # Report coordinates.
         if len(self.displayed_selection) == 1:
-            return info_unit_cell_atoms + add_info(
+            return info_selected_atoms + add_info(
                 self.displayed_selection[0],
                 self.displayed_structure[self.displayed_selection[0]],
             )
@@ -1046,7 +1043,7 @@ class StructureDataViewer(_StructureDataBaseViewer):
                 *self.displayed_selection, vector=True
             )
             info += f"Distance: {dist:.2f} ({print_pos(distv)})<br>Geometric center: ({geom_center})"
-            return info_unit_cell_atoms + info
+            return info_selected_atoms + info
 
         info_natoms_geo_center = f"{len(self.displayed_selection)} atoms selected<br>Geometric center: ({geom_center})"
 
@@ -1065,7 +1062,7 @@ class StructureDataViewer(_StructureDataBaseViewer):
             )
             normal = normal / np.linalg.norm(normal)
             return (
-                info_unit_cell_atoms
+                info_selected_atoms
                 + f"{info_natoms_geo_center}<br>Angle: {angle}<br>Normal: ({print_pos(normal)})"
             )
 
@@ -1081,22 +1078,12 @@ class StructureDataViewer(_StructureDataBaseViewer):
             except ZeroDivisionError:
                 dihedral_str = "nan"
             return (
-                info_unit_cell_atoms
+                info_selected_atoms
                 + f"{info_natoms_geo_center}<br>Dihedral angle: {dihedral_str}"
             )
 
-        return info_unit_cell_atoms + info_natoms_geo_center
+        return info_selected_atoms + info_natoms_geo_center
 
-    @observe("displayed_selection_adv")
-    def _observe_displayed_selection_adv(self, _=None):
-        """Apply the advanced boolean atom selection"""
-        try:
-            sel = self.parse_advanced_sel(condition=self.displayed_selection_adv)
-            self._selected_atoms.value = list_to_string_range(sel, shift=1)
-            self.wrong_syntax.layout.visibility = "hidden"
-            self.apply_displayed_selection()
-        except (IndexError, TypeError, AttributeError):
-            self.wrong_syntax.layout.visibility = "visible"
 
     @observe("displayed_selection")
     def _observe_displayed_selection_2(self, _=None):
