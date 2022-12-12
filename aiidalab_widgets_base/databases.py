@@ -98,7 +98,7 @@ class CodQueryWidget(ipw.VBox):
             try:
                 entry_cif = entry.get_cif_node()
                 formula = entry_cif.get_ase().get_chemical_formula()
-            except:  # noqa: E722
+            except Exception:
                 continue
             entry_add = (
                 "{} (id: {})".format(formula, entry.source["id"]),
