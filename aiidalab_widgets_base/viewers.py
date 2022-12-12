@@ -692,9 +692,14 @@ class _StructureDataBaseViewer(ipw.VBox):
             self._selected_atoms.value, shift=-1
         )
         if not syntax_ok:
-            sel = self.parse_advanced_sel(condition=self._selected_atoms.value)
-            sel = list_to_string_range(sel, shift=1)
-            expanded_selection, syntax_ok = string_range_to_list(sel, shift=-1)
+            # advance slection
+            try:
+                sel = self.parse_advanced_sel(condition=self._selected_atoms.value)
+                sel = list_to_string_range(sel, shift=1)
+                expanded_selection, syntax_ok = string_range_to_list(sel, shift=-1)
+            except (IndexError, TypeError, AttributeError):
+                syntax_ok = False
+                self.wrong_syntax.layout.visibility = "visible"
         # self.wrong_syntax.layout.visibility = 'hidden' if syntax_ok else 'visible'
         if syntax_ok:
             self.wrong_syntax.layout.visibility = "hidden"
