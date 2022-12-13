@@ -94,7 +94,7 @@ def test_computational_resources_code_setup(
     output = aiidalab_exec("verdi code list").decode().strip()
     assert "pw-7.0@daint-mc" in output
 
-    # Set the second code of the same comptuer
+    # Set the second code of the same computer
     # issue https://github.com/aiidalab/aiidalab-widgets-base/issues/416
     # click the "Setup new code" button
     driver.find_element(By.XPATH, '(//button[text()="Setup new code"])[2]').click()
