@@ -1126,12 +1126,12 @@ class AiidaCodeSetup(ipw.VBox):
         self.append_text.value = ""
 
     def refresh(self):
-        self.computer.refresh()
         self._observe_code_setup()
 
     @traitlets.observe("code_setup")
     def _observe_code_setup(self, _=None):
         # Setup.
+        self.computer.refresh()
         if not self.code_setup:
             self._reset()
         for key, value in self.code_setup.items():
