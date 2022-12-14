@@ -257,8 +257,8 @@ class _StructureDataBaseViewer(ipw.VBox):
         # clear_selection.on_click(lambda _: self.set_trait('selection', list()))  # lambda cannot contain assignments
         clear_selection.on_click(
             lambda _: (
-                self.set_trait("displayed_selection", list()),
-                self.set_trait("selection", list()),
+                self.set_trait("displayed_selection", []),
+                self.set_trait("selection", []),
             )
         )
 
@@ -810,8 +810,8 @@ class StructureDataViewer(_StructureDataBaseViewer):
                 comp_id
             ) in self._viewer._ngl_component_ids:  # pylint: disable=protected-access
                 self._viewer.remove_component(comp_id)
-            self.displayed_selection = list()
-            self.selection = list()
+            self.displayed_selection = []
+            self.selection = []
             if change["new"] is not None:
                 self._viewer.add_component(nglview.ASEStructure(change["new"]))
                 self._viewer.clear()
