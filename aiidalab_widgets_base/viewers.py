@@ -490,7 +490,7 @@ class _StructureDataBaseViewer(ipw.VBox):
     def _render_structure(self, change=None):
         """Render the structure with POVRAY."""
 
-        if not isinstance(self.structure, Atoms):
+        if not isinstance(self.displayed_structure, Atoms):
             return
 
         self.render_btn.disabled = True
@@ -499,7 +499,7 @@ class _StructureDataBaseViewer(ipw.VBox):
         zfactor = norm(omat[0, 0:3])
         omat[0:3, 0:3] = omat[0:3, 0:3] / zfactor
 
-        bb = deepcopy(self.structure.repeat(self.supercell))
+        bb = deepcopy(self.displayed_structure)
         bb.pbc = (False, False, False)
 
         for i in bb:
@@ -823,7 +823,7 @@ class StructureDataViewer(_StructureDataBaseViewer):
 
     def d_from(self, operand):
         point = np.array([float(i) for i in operand[1:-1].split(",")])
-        return np.linalg.norm(self.structure.positions - point, axis=1)
+        return np.linalg.norm(self.displayed_structure.positions - point, axis=1)
 
     def name_operator(self, operand):
         """Defining the name operator which will handle atom kind names."""
@@ -831,7 +831,7 @@ class StructureDataViewer(_StructureDataBaseViewer):
             names = operand[1:-1].split(",")
         elif not operand.endswith("[") and not operand.startswith("]"):
             names = [operand]
-        symbols = self.structure.get_chemical_symbols()
+        symbols = self.displayed_structure.get_chemical_symbols()
         return np.array([i for i, val in enumerate(symbols) if val in names])
 
     def not_operator(self, operand):
@@ -842,7 +842,9 @@ class StructureDataViewer(_StructureDataBaseViewer):
             names = [operand]
         return (
             "["
-            + ",".join(list(set(self.structure.get_chemical_symbols()) - set(names)))
+            + ",".join(
+                list(set(self.displayed_structure.get_chemical_symbols()) - set(names))
+            )
             + "]"
         )
 
@@ -894,10 +896,10 @@ class StructureDataViewer(_StructureDataBaseViewer):
             return np.union1d(opa, opb)
 
         operandsdict = {
-            "x": self.structure.positions[:, 0],
-            "y": self.structure.positions[:, 1],
-            "z": self.structure.positions[:, 2],
-            "id": np.array([atom.index + 1 for atom in self.structure]),
+            "x": self.displayed_structure.positions[:, 0],
+            "y": self.displayed_structure.positions[:, 1],
+            "z": self.displayed_structure.positions[:, 2],
+            "id": np.array([atom.index + 1 for atom in self.displayed_structure]),
         }
 
         operatorsdict = {
