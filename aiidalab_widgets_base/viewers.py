@@ -1074,10 +1074,8 @@ class StructureDataViewer(_StructureDataBaseViewer):
         # Report dihedral angle and geometric center.
         if len(self.displayed_selection) == 4:
             try:
-                dihedral = (
-                    self.displayed_structure.get_dihedral(self.displayed_selection)
-                    * 180
-                    / np.pi
+                dihedral = self.displayed_structure.get_dihedral(
+                    *self.displayed_selection
                 )
                 dihedral_str = f"{dihedral:.2f}"
             except ZeroDivisionError:
