@@ -28,7 +28,6 @@ from aiida.orm import (
 from aiida.plugins import DataFactory
 from ase import Atom, Atoms
 from ase.data import chemical_symbols, covalent_radii
-from sklearn.decomposition import PCA
 from traitlets import Instance, Int, List, Unicode, Union, default, dlink, link, observe
 
 # Local imports
@@ -717,6 +716,8 @@ class SmilesWidget(ipw.VBox):
 
     def _make_ase(self, species, positions, smiles):
         """Create ase Atoms object."""
+        from sklearn.decomposition import PCA
+
         # Get the principal axes and realign the molecule along z-axis.
         positions = PCA(n_components=3).fit_transform(positions)
         atoms = Atoms(species, positions=positions, pbc=False)

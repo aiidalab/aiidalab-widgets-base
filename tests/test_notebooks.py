@@ -47,7 +47,31 @@ def test_structures(selenium_driver, screenshot_dir):
     driver = selenium_driver("notebooks/structures.ipynb")
     driver.set_window_size(1000, 900)
     driver.find_element(By.XPATH, '//button[text()="Upload Structure (0)"]')
+    time.sleep(5)
     driver.get_screenshot_as_file(f"{screenshot_dir}/structures.png")
+
+
+def test_structures_generate_from_smiles(selenium_driver, screenshot_dir):
+    driver = selenium_driver("notebooks/structures.ipynb")
+    driver.set_window_size(1000, 900)
+    # Switch to SMILES tab in StructureManagerWidget
+    driver.find_element(By.XPATH, "//*[text()='SMILES']").click()
+
+    # Generate methane molecule from SMILES
+    driver.find_element(By.XPATH, "//input[@placeholder='C=C']").send_keys("C")
+    driver.find_element(By.XPATH, '//button[text()="Generate molecule"]').click()
+    time.sleep(5)
+
+    # Select the first atom
+    driver.find_element(By.XPATH, "//*[text()='Selection']").click()
+    driver.find_element(
+        By.XPATH, "//label[text()='Selected atoms:']/following-sibling::input"
+    ).send_keys("1")
+    driver.find_element(By.XPATH, '//button[text()="Apply selection"]').click()
+    driver.find_element(By.XPATH, "//div[starts-with(text(),'Id: 1; Symbol: C;')]")
+    driver.get_screenshot_as_file(
+        f"{screenshot_dir}/structures_generate_from_smiles_2.png"
+    )
 
 
 def test_eln_import(selenium_driver, screenshot_dir):
@@ -68,6 +92,7 @@ def test_computational_resources_code_setup(
     assert "pw-7.0" not in output
 
     driver = selenium_driver("notebooks/computational_resources.ipynb")
+    driver.set_window_size(800, 800)
 
     # click the "Setup new code" button
     driver.find_element(By.XPATH, '(//button[text()="Setup new code"])[1]').click()
