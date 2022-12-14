@@ -53,7 +53,8 @@ def notebook_service(docker_ip, docker_services, aiidalab_exec):
     # make it writeable for jovyan user, needed for `pip install`
     aiidalab_exec("chmod -R a+rw /home/jovyan/apps/aiidalab-widgets-base", user="root")
 
-    aiidalab_exec("pip install -U .")
+    # Install AWB with extra dependencies for SmilesWidget
+    aiidalab_exec("pip install -U .[smiles]")
 
     # `port_for` takes a container port and returns the corresponding host port
     port = docker_services.port_for("aiidalab", 8888)
