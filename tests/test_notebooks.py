@@ -95,29 +95,58 @@ def test_computational_resources_code_setup(
     driver.set_window_size(800, 800)
 
     # click the "Setup new code" button
-    driver.find_element(By.XPATH, '//button[text()="Setup new code"]').click()
+    driver.find_element(By.XPATH, '(//button[text()="Setup new code"])[1]').click()
 
     # Select daint.cscs.ch domain
-    driver.find_element(By.XPATH, '//option[text()="daint.cscs.ch"]').click()
+    driver.find_element(By.XPATH, '(//option[text()="daint.cscs.ch"])[1]').click()
 
     # Select computer multicore
-    driver.find_element(By.XPATH, '//option[text()="multicore"]').click()
+    driver.find_element(By.XPATH, '(//option[text()="multicore"])[1]').click()
 
     # select code pw-7.0-multicore
-    driver.find_element(By.XPATH, '//option[text()="pw-7.0-multicore"]').click()
+    driver.find_element(By.XPATH, '(//option[text()="pw-7.0-multicore"])[1]').click()
 
     # fill the SSH username
     driver.find_element(
-        By.XPATH, "//label[text()='SSH username:']/following-sibling::input"
+        By.XPATH, "(//label[text()='SSH username:'])[1]/following-sibling::input"
     ).send_keys("dummyuser")
 
     # click the quick setup
-    driver.find_element(By.XPATH, '//button[text()="Quick Setup"]').click()
+    driver.find_element(By.XPATH, '(//button[text()="Quick Setup"])[1]').click()
     time.sleep(1.0)
 
     # check the new code pw-7.0@daint-mc is in code list
     output = aiidalab_exec("verdi code list").decode().strip()
     assert "pw-7.0@daint-mc" in output
+
+    # Set the second code of the same computer
+    # issue https://github.com/aiidalab/aiidalab-widgets-base/issues/416
+    # click the "Setup new code" button
+    driver.find_element(By.XPATH, '(//button[text()="Setup new code"])[2]').click()
+
+    # Select daint.cscs.ch domain
+    driver.find_element(By.XPATH, '(//option[text()="daint.cscs.ch"])[2]').click()
+
+    # Select computer multicore
+    driver.find_element(By.XPATH, '(//option[text()="multicore"])[2]').click()
+
+    # select code pw-7.0-multicore
+    driver.find_element(By.XPATH, '(//option[text()="dos-7.0-multicore"])[2]').click()
+
+    # fill the SSH username
+    # Get the element of index 3 which is the SSH username of second widget
+    # the one of index 2 is the SSH username in detail setup of the first widget.
+    driver.find_element(
+        By.XPATH, "(//label[text()='SSH username:'])[3]/following-sibling::input"
+    ).send_keys("dummyuser")
+
+    # click the quick setup
+    driver.find_element(By.XPATH, '(//button[text()="Quick Setup"])[2]').click()
+    time.sleep(1.0)
+
+    # check the new code pw-7.0@daint-mc is in code list
+    output = aiidalab_exec("verdi code list").decode().strip()
+    assert "dos-7.0@daint-mc" in output
 
     # take screenshots
     driver.get_screenshot_as_file(f"{screenshot_dir}/computational-resources.png")

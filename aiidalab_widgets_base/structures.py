@@ -32,7 +32,7 @@ from traitlets import Instance, Int, List, Unicode, Union, default, dlink, link,
 
 # Local imports
 from .data import LigandSelectorWidget
-from .utils import StatusHTML, get_ase_from_file, get_formula
+from .utils import StatusHTML, exceptions, get_ase_from_file, get_formula
 from .viewers import StructureDataViewer
 
 CifData = DataFactory("core.cif")
@@ -148,11 +148,8 @@ class StructureManagerWidget(ipw.VBox):
 
     def _structure_importers(self, importers):
         """Preparing structure importers."""
-        if not importers:
-            raise ValueError(
-                "The parameter importers should contain a list (or tuple) of "
-                "importers, got a falsy object."
-            )
+        if not isinstance(importers, (list, tuple)):
+            raise exceptions.ListOrTuppleError(importers)
 
         # If there is only one importer - no need to make tabs.
         if len(importers) == 1:
@@ -162,7 +159,7 @@ class StructureManagerWidget(ipw.VBox):
 
         # Otherwise making one tab per importer.
         importers_tab = ipw.Tab()
-        importers_tab.children = [i for i in importers]  # One importer per tab.
+        importers_tab.children = list(importers)  # One importer per tab.
         for i, importer in enumerate(importers):
             # Labeling tabs.
             importers_tab.set_title(i, importer.title)
@@ -479,10 +476,8 @@ class StructureExamplesWidget(ipw.VBox):
     def get_example_structures(examples):
         """Get the list of example structures."""
         if not isinstance(examples, list):
-            raise ValueError(
-                "parameter examples should be of type list, {} given".format(
-                    type(examples)
-                )
+            raise TypeError(
+                f"parameter examples should be of type list, {type(examples)} given"
             )
         return [("Select structure", False)] + examples
 
@@ -692,7 +687,7 @@ class SmilesWidget(ipw.VBox):
         except ImportError:
             self.disable_openbabel = True
 
-        try:
+        try:  # noqa: TC101
             from rdkit import Chem  # noqa: F401
             from rdkit.Chem import AllChem  # noqa: F401
         except ImportError:
@@ -1211,13 +1206,13 @@ class BasicStructureEditor(ipw.VBox):  # pylint: disable=too-many-instance-attri
         """Define the action point."""
         self.point.value = self.vec2str(self.sel2com())
         if self.autoclear_selection.value:
-            self.selection = list()
+            self.selection = []
 
     def def_axis_p1(self, _=None):
         """Define the first point of axis."""
         self.axis_p1.value = self.vec2str(self.sel2com())
         if self.autoclear_selection.value:
-            self.selection = list()
+            self.selection = []
 
     def def_axis_p2(self, _=None):
         """Define the second point of axis."""
@@ -1235,7 +1230,7 @@ class BasicStructureEditor(ipw.VBox):  # pylint: disable=too-many-instance-attri
             )
             self.axis_p2.value = self.vec2str(com)
             if self.autoclear_selection.value:
-                self.selection = list()
+                self.selection = []
 
     def def_perpendicular_to_screen(self, _=None):
         """Define a normalized vector perpendicular to the screen."""
@@ -1374,9 +1369,9 @@ class BasicStructureEditor(ipw.VBox):  # pylint: disable=too-many-instance-attri
                 lgnd = initial_ligand.copy()
                 lgnd.translate(position)
                 atoms += lgnd
-            new_selection = [
-                i for i in range(last_atom, last_atom + len(selection) * len(lgnd))
-            ]
+            new_selection = list(
+                range(last_atom, last_atom + len(selection) * len(lgnd))
+            )
 
         self.structure, self.selection = atoms, new_selection
 
@@ -1391,7 +1386,7 @@ class BasicStructureEditor(ipw.VBox):  # pylint: disable=too-many-instance-attri
         add_atoms.translate([1.0, 0, 0])
         atoms += add_atoms
 
-        new_selection = [i for i in range(last_atom, last_atom + len(selection))]
+        new_selection = list(range(last_atom, last_atom + len(selection)))
 
         self.structure, self.selection = atoms, new_selection
 
@@ -1424,9 +1419,7 @@ class BasicStructureEditor(ipw.VBox):  # pylint: disable=too-many-instance-attri
 
             atoms += lgnd
 
-        new_selection = [
-            i for i in range(last_atom, last_atom + len(selection) * len(lgnd))
-        ]
+        new_selection = list(range(last_atom, last_atom + len(selection) * len(lgnd)))
 
         self.structure, self.selection = atoms, new_selection
 
@@ -1436,4 +1429,4 @@ class BasicStructureEditor(ipw.VBox):  # pylint: disable=too-many-instance-attri
         """Remove selected atoms."""
         del [atoms[selection]]
 
-        self.structure, self.selection = atoms, list()
+        self.structure, self.selection = atoms, []

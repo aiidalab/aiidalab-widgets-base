@@ -835,14 +835,13 @@ class AiidaComputerSetup(ipw.VBox):
             "use_login_shell": self.use_login_shell.value,
             "safe_interval": self.safe_interval.value,
         }
-        if "user" in sshcfg:
+        try:
             authparams["username"] = sshcfg["user"]
-        else:
-            print(
-                f"SSH username is not provided, please run `verdi computer configure {self.label.value}` "
-                "from the command line."
-            )
-            return False
+        except KeyError as exc:
+            message = "SSH username is not provided"
+            self.message = message
+            raise RuntimeError(message) from exc
+
         if "proxycommand" in sshcfg:
             authparams["proxy_command"] = sshcfg["proxycommand"]
         elif "proxyjump" in sshcfg:
@@ -854,19 +853,27 @@ class AiidaComputerSetup(ipw.VBox):
 
         return True
 
+    def _run_callbacks_if_computer_exists(self, label):
+        """Run things on an existing computer"""
+        try:
+            orm.Computer.objects.get(label=label)
+            for function in self._on_setup_computer_success:
+                function()
+        except common.NotExistent:
+            return False
+        else:
+            return True
+
     def on_setup_computer(self, _=None):
         """Create a new computer."""
         if self.label.value == "":  # check hostname
             self.message = "Please specify the computer name (for AiiDA)"
             return False
-        try:
-            computer = orm.Computer.objects.get(label=self.label.value)
+
+        # If the computer already exists, we just run the registered functions and return
+        if self._run_callbacks_if_computer_exists(self.label.value):
             self.message = f"A computer called {self.label.value} already exists."
-            for function in self._on_setup_computer_success:
-                function()
             return True
-        except common.NotExistent:
-            pass
 
         items_to_configure = [
             "label",
@@ -890,24 +897,24 @@ class AiidaComputerSetup(ipw.VBox):
         )
         try:
             computer = computer_builder.new()
+            self._configure_computer(computer)
         except (
             ComputerBuilder.ComputerValidationError,
             common.exceptions.ValidationError,
+            RuntimeError,
         ) as err:
-            self.message = f"{type(err).__name__}: {err}"
+            self.message = f"Failed to setup computer {type(err).__name__}: {err}"
             return False
-
-        try:
+        else:
             computer.store()
-        except common.exceptions.ValidationError as err:
-            self.message = f"Unable to store the computer: {err}."
-            return False
 
-        if self._configure_computer(computer):
-            for function in self._on_setup_computer_success:
-                function()
-        self.message = f"Computer<{computer.pk}> {computer.label} created"
-        return True
+        # Callbacks will not run if the computer is not stored
+        if self._run_callbacks_if_computer_exists(self.label.value):
+            self.message = f"Computer<{computer.pk}> {computer.label} created"
+            return True
+
+        self.message = f"Failed to create computer {computer.label}"
+        return False
 
     def on_setup_computer_success(self, function):
         self._on_setup_computer_success.append(function)
@@ -1119,12 +1126,12 @@ class AiidaCodeSetup(ipw.VBox):
         self.append_text.value = ""
 
     def refresh(self):
-        self.computer.refresh()
         self._observe_code_setup()
 
     @traitlets.observe("code_setup")
     def _observe_code_setup(self, _=None):
         # Setup.
+        self.computer.refresh()
         if not self.code_setup:
             self._reset()
         for key, value in self.code_setup.items():
