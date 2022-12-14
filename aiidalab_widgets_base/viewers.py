@@ -213,12 +213,6 @@ class _StructureDataBaseViewer(ipw.VBox):
         if configuration_tabs is None:
             configuration_tabs = ["Selection", "Appearance", "Cell", "Download"]
 
-        self.selection_tab_idx = None
-        if len(configuration_tabs) != 0:
-            try:
-                self.selection_tab_idx = configuration_tabs.index("Selection")
-            except ValueError:
-                pass
             self.configuration_box = ipw.Tab(
                 layout=ipw.Layout(flex="1 1 auto", width="auto")
             )
@@ -682,9 +676,6 @@ class _StructureDataBaseViewer(ipw.VBox):
     @observe("displayed_selection")
     def _observe_displayed_selection(self, _=None):
         self.highlight_atoms(self.displayed_selection)
-        # if atom is selected from nglview, shift to selection tab
-        if self._selected_atoms.value and self.selection_tab_idx is not None:
-            self.configuration_box.selected_index = self.selection_tab_idx
 
     def apply_displayed_selection(self, _=None):
         """Apply selection specified in the text field."""
