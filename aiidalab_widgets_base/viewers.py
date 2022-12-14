@@ -636,9 +636,7 @@ class _StructureDataBaseViewer(ipw.VBox):
                 displayed_selection.remove(index)
         else:
             displayed_selection = [index]
-
         self.displayed_selection = displayed_selection
-        self.selection = [x for x in displayed_selection if x <= self.natom]
 
     def highlight_atoms(
         self,
@@ -675,6 +673,9 @@ class _StructureDataBaseViewer(ipw.VBox):
 
     @observe("displayed_selection")
     def _observe_displayed_selection(self, _=None):
+        seen = set()
+        seq = [x % self.natom for x in self.displayed_selection]
+        self.selection = [x for x in seq if not (x in seen or seen.add(x))]
         self.highlight_atoms(self.displayed_selection)
 
     def apply_displayed_selection(self, _=None):
@@ -695,7 +696,6 @@ class _StructureDataBaseViewer(ipw.VBox):
         if syntax_ok:
             self.wrong_syntax.layout.visibility = "hidden"
             self.displayed_selection = expanded_selection
-            self.selection = [x for x in expanded_selection if x <= self.natom]
         else:
             self.wrong_syntax.layout.visibility = "visible"
 
@@ -810,8 +810,9 @@ class StructureDataViewer(_StructureDataBaseViewer):
                 comp_id
             ) in self._viewer._ngl_component_ids:  # pylint: disable=protected-access
                 self._viewer.remove_component(comp_id)
-            self.displayed_selection = []
-            self.selection = []
+            self.displayed_selection = (
+                []
+            )  # self.selection will be updated automatically
             if change["new"] is not None:
                 self._viewer.add_component(nglview.ASEStructure(change["new"]))
                 self._viewer.clear()
@@ -999,14 +1000,10 @@ class StructureDataViewer(_StructureDataBaseViewer):
         def add_info(indx, atom):
             return f"Id: {indx + 1}; Symbol: {atom.symbol}; Coordinates: ({print_pos(atom.position)})<br>"
 
-        def get_unit_cell_atoms(selection):
-            return list({x % self.natom + 1 for x in selection})
-
-        # unit cell atoms
-        unit_cell_selection = get_unit_cell_atoms(self.displayed_selection)
+        # Unit and displayed cell atoms' selection.
         info_selected_atoms = (
-            f"Selected atoms: {self.displayed_selection}<br>"
-            + f"Selected unit cell atoms: {unit_cell_selection}<br>"
+            f"Selected atoms: {list_to_string_range(self.displayed_selection, shift=1)}<br>"
+            + f"Selected unit cell atoms: {list_to_string_range(self.selection, shift=1)}<br>"
         )
         # Find geometric center.
         geom_center = print_pos(
