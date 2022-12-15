@@ -2,7 +2,6 @@ import time
 
 import requests
 from selenium.webdriver.common.by import By
-from selenium.webdriver.support.ui import Select
 
 
 def test_notebook_service_available(notebook_service):
@@ -94,7 +93,7 @@ def test_structures_generate_from_smiles(selenium_driver, screenshot_dir):
             By.XPATH, "//label[text()='Selected atoms:']/following-sibling::input"
         ).send_keys("1")
         driver.find_element(By.XPATH, '//button[text()="Apply selection"]').click()
-        driver.find_element(By.XPATH, "//div[contains(text(),'Id: 1; Symbol: C;')]")
+        driver.find_element(By.XPATH, "//p[contains(text(),'Id: 1; Symbol: C;')]")
     except Exception:
         raise
     finally:
@@ -113,11 +112,25 @@ def test_structure_from_examples_and_supercell_selection(
         driver.find_element(By.XPATH, "//*[text()='From Examples']").click()
 
         # Select SiO2 example
-        select_element = driver.find_element(
-            By.XPATH, "//select[contains(text(), 'Select structure')]"
+        driver.find_element(By.XPATH, '//option[@value="Silicon oxide"]').click()
+
+        # Expand cell view in z direction
+        driver.find_element(By.XPATH, "//*[text()='Appearance']").click()
+        driver.find_element(By.XPATH, "(//input[@type='number'])[3]").click()
+
+        # Select the 12th atom
+        driver.find_element(By.XPATH, "//*[text()='Selection']").click()
+        driver.find_element(
+            By.XPATH, "//label[text()='Selected atoms:']/following-sibling::input"
+        ).send_keys("12")
+        driver.find_element(By.XPATH, '//button[text()="Apply selection"]').click()
+
+        # Make sure the selection is what we expect
+        driver.find_element(By.XPATH, "//p[contains(text(), 'Selected atoms: 12')]")
+        driver.find_element(
+            By.XPATH, "//p[contains(text(), 'Selected unit cell atoms: 6')]"
         )
-        select = Select(select_element)
-        select.select_by_value("Silicon oxide")
+        driver.find_element(By.XPATH, "//p[contains(text(),'Id: 12; Symbol: O;')]")
 
     except Exception:
         raise

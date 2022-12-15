@@ -1000,12 +1000,12 @@ class StructureDataViewer(_StructureDataBaseViewer):
             return " ".join([str(i) for i in pos.round(2)])
 
         def add_info(indx, atom):
-            return f"Id: {indx + 1}; Symbol: {atom.symbol}; Coordinates: ({print_pos(atom.position)})<br>"
+            return f"<p>Id: {indx + 1}; Symbol: {atom.symbol}; Coordinates: ({print_pos(atom.position)})</p>"
 
         # Unit and displayed cell atoms' selection.
         info_selected_atoms = (
-            f"Selected atoms: {list_to_string_range(self.displayed_selection, shift=1)}<br>"
-            + f"Selected unit cell atoms: {list_to_string_range(self.selection, shift=1)}<br>"
+            f"<p>Selected atoms: {list_to_string_range(self.displayed_selection, shift=1)}</p>"
+            + f"<p>Selected unit cell atoms: {list_to_string_range(self.selection, shift=1)}</p>"
         )
         # Find geometric center.
         geom_center = print_pos(
@@ -1037,10 +1037,10 @@ class StructureDataViewer(_StructureDataBaseViewer):
             distv = self.displayed_structure.get_distance(
                 *self.displayed_selection, vector=True
             )
-            info += f"Distance: {dist:.2f} ({print_pos(distv)})<br>Geometric center: ({geom_center})"
+            info += f"<p>Distance: {dist:.2f} ({print_pos(distv)})</p><p>Geometric center: ({geom_center})</p>"
             return info_selected_atoms + info
 
-        info_natoms_geo_center = f"{len(self.displayed_selection)} atoms selected<br>Geometric center: ({geom_center})"
+        info_natoms_geo_center = f"<p>{len(self.displayed_selection)} atoms selected</p><p>Geometric center: ({geom_center})</p>"
 
         # Report angle geometric center and normal.
         if len(self.displayed_selection) == 3:
@@ -1058,7 +1058,7 @@ class StructureDataViewer(_StructureDataBaseViewer):
             normal = normal / np.linalg.norm(normal)
             return (
                 info_selected_atoms
-                + f"{info_natoms_geo_center}<br>Angle: {angle}<br>Normal: ({print_pos(normal)})"
+                + f"<p>{info_natoms_geo_center}</p><p>Angle: {angle}</p><p>Normal: ({print_pos(normal)})</p>"
             )
 
         # Report dihedral angle and geometric center.
@@ -1072,7 +1072,7 @@ class StructureDataViewer(_StructureDataBaseViewer):
                 dihedral_str = "nan"
             return (
                 info_selected_atoms
-                + f"{info_natoms_geo_center}<br>Dihedral angle: {dihedral_str}"
+                + f"<p>{info_natoms_geo_center}</p><p>Dihedral angle: {dihedral_str}</p>"
             )
 
         return info_selected_atoms + info_natoms_geo_center
