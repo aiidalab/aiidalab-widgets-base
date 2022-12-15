@@ -114,7 +114,7 @@ def test_structure_from_examples_and_supercell_selection(
 
         # Select SiO2 example
         select_element = driver.find_element(
-            By.XPATH, "//select[contains(text(), 'Select structure)]"
+            By.XPATH, "//select[contains(text(), 'Select structure')]"
         )
         select = Select(select_element)
         select.select_by_value("Silicon oxide")
