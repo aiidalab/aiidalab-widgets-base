@@ -2,6 +2,7 @@ import time
 
 import requests
 from selenium.webdriver.common.by import By
+from selenium.webdriver.support.ui import Select
 
 
 def test_notebook_service_available(notebook_service):
@@ -99,6 +100,30 @@ def test_structures_generate_from_smiles(selenium_driver, screenshot_dir):
     finally:
         driver.get_screenshot_as_file(
             f"{screenshot_dir}/structures_generate_from_smiles_2.png"
+        )
+
+
+def test_structure_from_examples_and_supercell_selection(
+    selenium_driver, screenshot_dir
+):
+    try:
+        driver = selenium_driver("notebooks/structures.ipynb")
+        driver.set_window_size(1000, 900)
+        # Switch to "From Examples tab in StructureManagerWidget
+        driver.find_element(By.XPATH, "//*[text()='From Examples']").click()
+
+        # Select SiO2 example
+        select_element = driver.find_element(
+            By.XPATH, "//select[contains(text(), 'Select structure)]"
+        )
+        select = Select(select_element)
+        select.select_by_value("Silicon oxide")
+
+    except Exception:
+        raise
+    finally:
+        driver.get_screenshot_as_file(
+            f"{screenshot_dir}/structure_from_examples_and_supercell_selection.png"
         )
 
 
