@@ -91,6 +91,17 @@ def selenium_driver(selenium, notebook_service):
 
 
 @pytest.fixture
+def screenshot(selenium, screenshot_dir):
+    """Take screenshot at the end of a selenium test,
+    regardless whether it succeeded or not."""
+    ctx = {"name": ""}
+    yield ctx
+    if not ctx["name"]:
+        raise ValueError("Empty the screenshot filename")  # noqa: TC003
+    selenium.get_screenshot_as_file(f"{screenshot_dir}/{ctx['name']}")
+
+
+@pytest.fixture
 def firefox_options(firefox_options):
     firefox_options.add_argument("--headless")
     return firefox_options
