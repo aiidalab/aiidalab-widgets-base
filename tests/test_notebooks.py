@@ -59,7 +59,7 @@ def test_structures(selenium_driver):
 def test_structures_generate_from_smiles(selenium_driver):
     driver = selenium_driver(
         "notebooks/structures.ipynb",
-        screenshot_name="structures_generate_from_smiles_2.png",
+        screenshot_name="structures_generate_from_smiles.png",
     )
     driver.set_window_size(1000, 900)
     # Switch to SMILES tab in StructureManagerWidget
