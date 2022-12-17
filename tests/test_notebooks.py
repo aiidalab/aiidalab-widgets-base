@@ -13,7 +13,7 @@ def test_notebook_service_available(notebook_service):
 def test_process_list(selenium_driver, screenshot):
     driver = selenium_driver("notebooks/process_list.ipynb")
     screenshot["name"] = "process-list.png"
-    driver.find_element(By.XPATH, '//button[text()="invalid button"]')
+    driver.find_element(By.XPATH, '//button[text()="Update now"]')
 
 
 def test_aiida_datatypes_viewers(selenium_driver, screenshot):
