@@ -14,7 +14,7 @@ def test_process_list(selenium_driver):
     driver = selenium_driver(
         "notebooks/process_list.ipynb", screenshot_name="process-list.png"
     )
-    driver.find_element(By.XPATH, '//button[text()="Update now"]')
+    driver.find_element(By.XPATH, '//button[text()="invalid button"]')
 
 
 def test_aiida_datatypes_viewers(selenium_driver):
