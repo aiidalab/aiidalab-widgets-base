@@ -2,6 +2,7 @@ import time
 
 import requests
 from selenium.webdriver.common.by import By
+from selenium.webdriver.common.keys import Keys
 
 
 def test_notebook_service_available(notebook_service):
@@ -102,7 +103,11 @@ def test_structure_from_examples_and_supercell_selection(
 
     # Expand cell view in z direction
     driver.find_element(By.XPATH, "//*[text()='Appearance']").click()
-    driver.find_element(By.XPATH, "(//input[@type='number'])[3]").click()
+    driver.find_element(By.XPATH, "(//input[@type='number'])[3]").send_keys(
+        Keys.BACKSPACE
+    )
+    driver.find_element(By.XPATH, "(//input[@type='number'])[3]").send_keys("2")
+    driver.find_element(By.XPATH, "(//input[@type='number'])[3]").send_keys(Keys.ENTER)
 
     # Select the 12th atom
     driver.find_element(By.XPATH, "//*[text()='Selection']").click()
