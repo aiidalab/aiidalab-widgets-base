@@ -299,9 +299,9 @@ class _StructureDataBaseViewer(ipw.VBox):
             ]
 
         _supercell = [
-            ipw.BoundedIntText(value=1, min=1, layout={"width": "30px"}),
-            ipw.BoundedIntText(value=1, min=1, layout={"width": "30px"}),
-            ipw.BoundedIntText(value=1, min=1, layout={"width": "30px"}),
+            ipw.BoundedIntText(value=1, min=1, layout={"width": "40px"}),
+            ipw.BoundedIntText(value=1, min=1, layout={"width": "40px"}),
+            ipw.BoundedIntText(value=1, min=1, layout={"width": "40px"}),
         ]
         for elem in _supercell:
             elem.observe(change_supercell, names="value")

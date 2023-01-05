@@ -114,6 +114,9 @@ def test_structure_from_examples_and_supercell_selection(
     driver.find_element(
         By.XPATH, "//label[text()='Selected atoms:']/following-sibling::input"
     ).send_keys("12")
+    time.sleep(
+        1
+    )  # This is needed, otherwise selenium often presses "Apply selection" button too fast.
     driver.find_element(By.XPATH, '//button[text()="Apply selection"]').click()
 
     # Make sure the selection is what we expect
