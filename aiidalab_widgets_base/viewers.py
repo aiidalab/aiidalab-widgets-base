@@ -169,6 +169,7 @@ class _StructureDataBaseViewer(ipw.VBox):
 
     """
 
+    input_selection = List(Int, allow_none=True)
     selection = List(Int)
     displayed_selection = List(Int)
     supercell = List(Int)
@@ -663,13 +664,21 @@ class _StructureDataBaseViewer(ipw.VBox):
     def _default_supercell(self):
         return [1, 1, 1]
 
-    @default("selection")
-    def _default_selection(self):
-        return []
+    @observe("input_selection")
+    def _observe_input_selection(self, value):
+        if value["new"] is None:
+            return
 
-    @validate("selection")
-    def _validate_selection(self, provided):
-        return list(provided["value"])
+        # Exclude everything that is beyond the total number of atoms.
+        selection_list = [x for x in value["new"] if x < self.natom]
+
+        # In the case of a super cell, we need to multiply the selection as well
+        multiplier = sum(self.supercell) - 2
+        selection_list = [
+            x + self.natom * i for x in selection_list for i in range(multiplier)
+        ]
+
+        self.displayed_selection = selection_list
 
     @observe("displayed_selection")
     def _observe_displayed_selection(self, _=None):
@@ -684,15 +693,16 @@ class _StructureDataBaseViewer(ipw.VBox):
             self._selected_atoms.value, shift=-1
         )
         if not syntax_ok:
-            # advance slection
             try:
-                sel = self.parse_advanced_sel(condition=self._selected_atoms.value)
+                sel = self._parse_advanced_selection(
+                    condition=self._selected_atoms.value
+                )
                 sel = list_to_string_range(sel, shift=1)
                 expanded_selection, syntax_ok = string_range_to_list(sel, shift=-1)
             except (IndexError, TypeError, AttributeError):
                 syntax_ok = False
                 self.wrong_syntax.layout.visibility = "visible"
-        # self.wrong_syntax.layout.visibility = 'hidden' if syntax_ok else 'visible'
+
         if syntax_ok:
             self.wrong_syntax.layout.visibility = "hidden"
             self.displayed_selection = expanded_selection
@@ -764,7 +774,6 @@ class StructureDataViewer(_StructureDataBaseViewer):
         super().__init__(**kwargs)
         self.structure = structure
         self.natom = len(self.structure) if self.structure is not None else 0
-        # self.supercell.observe(self.repeat, names='value')
 
     @observe("supercell")
     def repeat(self, _=None):
@@ -810,9 +819,7 @@ class StructureDataViewer(_StructureDataBaseViewer):
                 comp_id
             ) in self._viewer._ngl_component_ids:  # pylint: disable=protected-access
                 self._viewer.remove_component(comp_id)
-            self.displayed_selection = (
-                []
-            )  # self.selection will be updated automatically
+            self.displayed_selection = []
             if change["new"] is not None:
                 self._viewer.add_component(nglview.ASEStructure(change["new"]))
                 self._viewer.clear()
@@ -848,7 +855,7 @@ class StructureDataViewer(_StructureDataBaseViewer):
             + "]"
         )
 
-    def parse_advanced_sel(self, condition=None):
+    def _parse_advanced_selection(self, condition=None):
         """Apply advanced selection specified in the text field."""
 
         def addition(opa, opb):
