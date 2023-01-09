@@ -43,7 +43,6 @@ def test_structures(selenium_driver, final_screenshot):
     driver = selenium_driver("notebooks/structures.ipynb")
     driver.set_window_size(1000, 900)
     driver.find_element(By.XPATH, '//button[text()="Upload Structure (0)"]')
-    time.sleep(5)
 
 
 def test_structures_generate_from_smiles(selenium_driver, final_screenshot):
