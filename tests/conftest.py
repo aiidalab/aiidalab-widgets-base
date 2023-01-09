@@ -91,14 +91,15 @@ def selenium_driver(selenium, notebook_service):
 
 
 @pytest.fixture
-def screenshot(selenium, screenshot_dir):
-    """Take screenshot at the end of a selenium test,
-    regardless whether it succeeded or not."""
-    ctx = {"name": ""}
-    yield ctx
-    if not ctx["name"]:
-        raise ValueError("Empty the screenshot filename")  # noqa: TC003
-    selenium.get_screenshot_as_file(f"{screenshot_dir}/{ctx['name']}")
+def final_screenshot(request, screenshot_dir, selenium):
+    """Take screenshot at the end of the test.
+    Screenshot name is generated from the test function name
+    by stripping the 'test_' prefix
+    """
+    screenshot_name = f"{request.function.__name__[5:]}.png"
+    screenshot_path = Path.joinpath(screenshot_dir, screenshot_name)
+    yield
+    selenium.get_screenshot_as_file(screenshot_path)
 
 
 @pytest.fixture
