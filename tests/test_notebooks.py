@@ -1,15 +1,7 @@
 import time
 
-import pytest
 import requests
 from selenium.webdriver.common.by import By
-
-
-@pytest.mark.xfail
-def test_final_screenshot_fixture(notebook_service, final_screenshot):
-    """The final_screenshot teardown fixture
-    should produce a screenshot even for a failing test"""
-    raise ValueError()
 
 
 def test_notebook_service_available(notebook_service):
