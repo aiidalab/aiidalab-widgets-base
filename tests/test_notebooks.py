@@ -2,6 +2,7 @@ import time
 
 import requests
 from selenium.webdriver.common.by import By
+from selenium.webdriver.common.keys import Keys
 
 
 def test_notebook_service_available(notebook_service):
@@ -58,10 +59,48 @@ def test_structures_generate_from_smiles(selenium_driver, final_screenshot):
     # Select the first atom
     driver.find_element(By.XPATH, "//*[text()='Selection']").click()
     driver.find_element(
-        By.XPATH, "//label[text()='Selected atoms:']/following-sibling::input"
+        By.XPATH, "//label[text()='Select atoms:']/following-sibling::input"
     ).send_keys("1")
     driver.find_element(By.XPATH, '//button[text()="Apply selection"]').click()
-    driver.find_element(By.XPATH, "//div[starts-with(text(),'Id: 1; Symbol: C;')]")
+    driver.find_element(By.XPATH, "//p[contains(text(),'Id: 1; Symbol: C;')]")
+
+
+def test_structure_from_examples_and_supercell_selection(
+    selenium_driver, final_screenshot
+):
+
+    driver = selenium_driver("notebooks/structures.ipynb")
+    driver.set_window_size(1000, 900)
+    # Switch to "From Examples tab in StructureManagerWidget
+    driver.find_element(By.XPATH, "//*[text()='From Examples']").click()
+
+    # Select SiO2 example
+    driver.find_element(By.XPATH, '//option[@value="Silicon oxide"]').click()
+
+    # Expand cell view in z direction
+    driver.find_element(By.XPATH, "//*[text()='Appearance']").click()
+    driver.find_element(By.XPATH, "(//input[@type='number'])[3]").send_keys(
+        Keys.BACKSPACE
+    )
+    driver.find_element(By.XPATH, "(//input[@type='number'])[3]").send_keys("2")
+    driver.find_element(By.XPATH, "(//input[@type='number'])[3]").send_keys(Keys.ENTER)
+
+    # Select the 12th atom
+    driver.find_element(By.XPATH, "//*[text()='Selection']").click()
+    driver.find_element(
+        By.XPATH, "//label[text()='Select atoms:']/following-sibling::input"
+    ).send_keys("12")
+    time.sleep(
+        1
+    )  # This is needed, otherwise selenium often presses "Apply selection" button too fast.
+    driver.find_element(By.XPATH, '//button[text()="Apply selection"]').click()
+
+    # Make sure the selection is what we expect
+    driver.find_element(By.XPATH, "//p[contains(text(), 'Selected atoms: 12')]")
+    driver.find_element(
+        By.XPATH, "//p[contains(text(), 'Selected unit cell atoms: 6')]"
+    )
+    driver.find_element(By.XPATH, "//p[contains(text(),'Id: 12; Symbol: O;')]")
 
 
 def test_eln_import(selenium_driver, final_screenshot):
