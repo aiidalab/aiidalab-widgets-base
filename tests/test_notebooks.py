@@ -59,7 +59,7 @@ def test_structures_generate_from_smiles(selenium_driver, final_screenshot):
     # Select the first atom
     driver.find_element(By.XPATH, "//*[text()='Selection']").click()
     driver.find_element(
-        By.XPATH, "//label[text()='Selected atoms:']/following-sibling::input"
+        By.XPATH, "//label[text()='Select atoms:']/following-sibling::input"
     ).send_keys("1")
     driver.find_element(By.XPATH, '//button[text()="Apply selection"]').click()
     driver.find_element(By.XPATH, "//p[contains(text(),'Id: 1; Symbol: C;')]")
@@ -88,7 +88,7 @@ def test_structure_from_examples_and_supercell_selection(
     # Select the 12th atom
     driver.find_element(By.XPATH, "//*[text()='Selection']").click()
     driver.find_element(
-        By.XPATH, "//label[text()='Selected atoms:']/following-sibling::input"
+        By.XPATH, "//label[text()='Select atoms:']/following-sibling::input"
     ).send_keys("12")
     time.sleep(
         1
