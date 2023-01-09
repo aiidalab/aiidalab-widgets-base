@@ -238,7 +238,7 @@ class _StructureDataBaseViewer(ipw.VBox):
 
         # 1. Selected atoms.
         self._selected_atoms = ipw.Text(
-            description="Selected atoms:",
+            description="Select atoms:",
             value="",
             style={"description_width": "initial"},
         )
