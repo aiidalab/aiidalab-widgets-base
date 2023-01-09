@@ -103,11 +103,6 @@ def test_structure_from_examples_and_supercell_selection(
     )
     driver.find_element(By.XPATH, "//p[contains(text(),'Id: 12; Symbol: O;')]")
 
-    # Save screenshot.
-    driver.get_screenshot_as_file(
-        f"{screenshot_dir}/structure_from_examples_and_supercell_selection.png"
-    )
-
 
 def test_eln_import(selenium_driver, final_screenshot):
     driver = selenium_driver("notebooks/eln_import.ipynb")
