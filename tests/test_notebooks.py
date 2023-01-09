@@ -10,48 +10,41 @@ def test_notebook_service_available(notebook_service):
     assert response.status_code == 200
 
 
-def test_process_list(selenium_driver, screenshot_dir):
+def test_process_list(selenium_driver, final_screenshot):
     driver = selenium_driver("notebooks/process_list.ipynb")
     driver.find_element(By.XPATH, '//button[text()="Update now"]')
-    driver.get_screenshot_as_file(f"{screenshot_dir}/process-list.png")
 
 
-def test_aiida_datatypes_viewers(selenium_driver, screenshot_dir):
+def test_aiida_datatypes_viewers(selenium_driver, final_screenshot):
     driver = selenium_driver("notebooks/aiida_datatypes_viewers.ipynb")
     driver.set_window_size(1000, 2000)
     driver.find_element(By.CLASS_NAME, "widget-label")
     driver.find_element(By.XPATH, '//button[text()="Clear selection"]')
     time.sleep(5)
-    driver.get_screenshot_as_file(f"{screenshot_dir}/datatypes-viewer.png")
 
 
-def test_eln_configure(selenium_driver, screenshot_dir):
+def test_eln_configure(selenium_driver, final_screenshot):
     driver = selenium_driver("notebooks/eln_configure.ipynb")
     driver.find_element(By.XPATH, '//button[text()="Set as default"]')
-    driver.get_screenshot_as_file(f"{screenshot_dir}/eln-configure.png")
 
 
-def test_process(selenium_driver, screenshot_dir):
+def test_process(selenium_driver, final_screenshot):
     driver = selenium_driver("notebooks/process.ipynb")
     driver.find_element(By.XPATH, '//label[@title="Select calculation:"]')
-    driver.get_screenshot_as_file(f"{screenshot_dir}/process.png")
 
 
-def test_wizard_apps(selenium_driver, screenshot_dir):
+def test_wizard_apps(selenium_driver, final_screenshot):
     driver = selenium_driver("notebooks/wizard_apps.ipynb")
     driver.find_element(By.XPATH, '//label[@title="Delivery progress:"]')
-    driver.get_screenshot_as_file(f"{screenshot_dir}/wizzard-apps.png")
 
 
-def test_structures(selenium_driver, screenshot_dir):
+def test_structures(selenium_driver, final_screenshot):
     driver = selenium_driver("notebooks/structures.ipynb")
     driver.set_window_size(1000, 900)
     driver.find_element(By.XPATH, '//button[text()="Upload Structure (0)"]')
-    time.sleep(5)
-    driver.get_screenshot_as_file(f"{screenshot_dir}/structures.png")
 
 
-def test_structures_generate_from_smiles(selenium_driver, screenshot_dir):
+def test_structures_generate_from_smiles(selenium_driver, final_screenshot):
     driver = selenium_driver("notebooks/structures.ipynb")
     driver.set_window_size(1000, 900)
     # Switch to SMILES tab in StructureManagerWidget
@@ -69,22 +62,18 @@ def test_structures_generate_from_smiles(selenium_driver, screenshot_dir):
     ).send_keys("1")
     driver.find_element(By.XPATH, '//button[text()="Apply selection"]').click()
     driver.find_element(By.XPATH, "//div[starts-with(text(),'Id: 1; Symbol: C;')]")
-    driver.get_screenshot_as_file(
-        f"{screenshot_dir}/structures_generate_from_smiles_2.png"
-    )
 
 
-def test_eln_import(selenium_driver, screenshot_dir):
+def test_eln_import(selenium_driver, final_screenshot):
     driver = selenium_driver("notebooks/eln_import.ipynb")
     # TODO: This find_element is not specific enough it seems,
     # on the screenshot the page is still loading.
     driver.find_element(By.ID, "tooltip")
     time.sleep(5)
-    driver.get_screenshot_as_file(f"{screenshot_dir}/eln-import.png")
 
 
 def test_computational_resources_code_setup(
-    selenium_driver, aiidalab_exec, screenshot_dir
+    selenium_driver, aiidalab_exec, final_screenshot
 ):
     """Test the quicksetup of the code"""
     # check the code pw-7.0 is not in code list
@@ -147,6 +136,3 @@ def test_computational_resources_code_setup(
     # check the new code pw-7.0@daint-mc is in code list
     output = aiidalab_exec("verdi code list").decode().strip()
     assert "dos-7.0@daint-mc" in output
-
-    # take screenshots
-    driver.get_screenshot_as_file(f"{screenshot_dir}/computational-resources.png")

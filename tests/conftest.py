@@ -91,6 +91,18 @@ def selenium_driver(selenium, notebook_service):
 
 
 @pytest.fixture
+def final_screenshot(request, screenshot_dir, selenium):
+    """Take screenshot at the end of the test.
+    Screenshot name is generated from the test function name
+    by stripping the 'test_' prefix
+    """
+    screenshot_name = f"{request.function.__name__[5:]}.png"
+    screenshot_path = Path.joinpath(screenshot_dir, screenshot_name)
+    yield
+    selenium.get_screenshot_as_file(screenshot_path)
+
+
+@pytest.fixture
 def firefox_options(firefox_options):
     firefox_options.add_argument("--headless")
     return firefox_options
