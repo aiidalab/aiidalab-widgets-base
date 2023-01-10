@@ -17,7 +17,7 @@ Hosted on [aiidalab-widgets-base.readthedocs.io](https://aiidalab-widgets-base.r
 
 ## For maintainers
 
-To create a new release, clone the repository, install development dependencies with `pip install -e '.[dev]'`, and then execute `bumpver update [--major|--minor|--patch] [--tag [alpha|beta|rc]]`.
+To create a new release, clone the repository, install development dependencies with `pip install -e '.[dev]'`, and then execute `bumpver update [--major|--minor|--patch|--tag-num] [--tag [alpha|beta|rc]]`.
 This will:
 
   1. Create a tagged release with bumped version and push it to the repository.

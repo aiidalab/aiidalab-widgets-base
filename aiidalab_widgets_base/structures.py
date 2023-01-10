@@ -28,12 +28,11 @@ from aiida.orm import (
 from aiida.plugins import DataFactory
 from ase import Atom, Atoms
 from ase.data import chemical_symbols, covalent_radii
-from sklearn.decomposition import PCA
 from traitlets import Instance, Int, List, Unicode, Union, default, dlink, link, observe
 
 # Local imports
 from .data import LigandSelectorWidget
-from .utils import StatusHTML, get_ase_from_file, get_formula
+from .utils import StatusHTML, exceptions, get_ase_from_file, get_formula
 from .viewers import StructureDataViewer
 
 CifData = DataFactory("core.cif")
@@ -149,11 +148,8 @@ class StructureManagerWidget(ipw.VBox):
 
     def _structure_importers(self, importers):
         """Preparing structure importers."""
-        if not importers:
-            raise ValueError(
-                "The parameter importers should contain a list (or tuple) of "
-                "importers, got a falsy object."
-            )
+        if not isinstance(importers, (list, tuple)):
+            raise exceptions.ListOrTuppleError(importers)
 
         # If there is only one importer - no need to make tabs.
         if len(importers) == 1:
@@ -163,7 +159,7 @@ class StructureManagerWidget(ipw.VBox):
 
         # Otherwise making one tab per importer.
         importers_tab = ipw.Tab()
-        importers_tab.children = [i for i in importers]  # One importer per tab.
+        importers_tab.children = list(importers)  # One importer per tab.
         for i, importer in enumerate(importers):
             # Labeling tabs.
             importers_tab.set_title(i, importer.title)
@@ -174,13 +170,19 @@ class StructureManagerWidget(ipw.VBox):
         """Preparing structure editors."""
         if editors and len(editors) == 1:
             link((editors[0], "structure"), (self, "structure"))
+
+            if editors[0].has_trait("input_selection"):
+                dlink((editors[0], "input_selection"), (self.viewer, "input_selection"))
+
             if editors[0].has_trait("selection"):
-                link((editors[0], "selection"), (self.viewer, "selection"))
+                dlink((self.viewer, "selection"), (editors[0], "selection"))
+
             if editors[0].has_trait("camera_orientation"):
                 dlink(
                     (self.viewer._viewer, "_camera_orientation"),
                     (editors[0], "camera_orientation"),
                 )  # pylint: disable=protected-access
+
             return editors[0]
 
         # If more than one editor was defined.
@@ -480,10 +482,8 @@ class StructureExamplesWidget(ipw.VBox):
     def get_example_structures(examples):
         """Get the list of example structures."""
         if not isinstance(examples, list):
-            raise ValueError(
-                "parameter examples should be of type list, {} given".format(
-                    type(examples)
-                )
+            raise TypeError(
+                f"parameter examples should be of type list, {type(examples)} given"
             )
         return [("Select structure", False)] + examples
 
@@ -693,7 +693,7 @@ class SmilesWidget(ipw.VBox):
         except ImportError:
             self.disable_openbabel = True
 
-        try:
+        try:  # noqa: TC101
             from rdkit import Chem  # noqa: F401
             from rdkit.Chem import AllChem  # noqa: F401
         except ImportError:
@@ -722,6 +722,8 @@ class SmilesWidget(ipw.VBox):
 
     def _make_ase(self, species, positions, smiles):
         """Create ase Atoms object."""
+        from sklearn.decomposition import PCA
+
         # Get the principal axes and realign the molecule along z-axis.
         positions = PCA(n_components=3).fit_transform(positions)
         atoms = Atoms(species, positions=positions, pbc=False)
@@ -1059,6 +1061,7 @@ class BasicStructureEditor(ipw.VBox):  # pylint: disable=too-many-instance-attri
     position of periodic structure in cell) editing."""
 
     structure = Instance(Atoms, allow_none=True)
+    input_selection = List(Int, allow_none=True)
     selection = List(Int)
     camera_orientation = List()
 
@@ -1323,13 +1326,15 @@ class BasicStructureEditor(ipw.VBox):  # pylint: disable=too-many-instance-attri
         """Define the action point."""
         self.point.value = self.vec2str(self.sel2com())
         if self.autoclear_selection.value:
-            self.selection = list()
+            self.input_selection = None
+            self.input_selection = []
 
     def def_axis_p1(self, _=None):
         """Define the first point of axis."""
         self.axis_p1.value = self.vec2str(self.sel2com())
         if self.autoclear_selection.value:
-            self.selection = list()
+            self.input_selection = None
+            self.input_selection = []
 
     def def_axis_p2(self, _=None):
         """Define the second point of axis."""
@@ -1347,7 +1352,8 @@ class BasicStructureEditor(ipw.VBox):  # pylint: disable=too-many-instance-attri
             )
             self.axis_p2.value = self.vec2str(com)
             if self.autoclear_selection.value:
-                self.selection = list()
+                self.input_selection = None
+                self.input_selection = []
 
     def def_perpendicular_to_screen(self, _=None):
         """Define a normalized vector perpendicular to the screen."""
@@ -1368,7 +1374,7 @@ class BasicStructureEditor(ipw.VBox):  # pylint: disable=too-many-instance-attri
             self.action_vector * self.displacement.value
         )
 
-        self.structure, self.selection = atoms, selection
+        self.structure, self.input_selection = atoms, selection
 
     @_register_structure
     @_register_selection
@@ -1378,7 +1384,7 @@ class BasicStructureEditor(ipw.VBox):  # pylint: disable=too-many-instance-attri
         # The action.
         atoms.positions[self.selection] += np.array(self.str2vec(self.dxyz.value))
 
-        self.structure, self.selection = atoms, selection
+        self.structure, self.input_selection = atoms, selection
 
     @_register_structure
     @_register_selection
@@ -1388,7 +1394,7 @@ class BasicStructureEditor(ipw.VBox):  # pylint: disable=too-many-instance-attri
         geo_center = np.average(self.structure[self.selection].get_positions(), axis=0)
         atoms.positions[self.selection] += self.str2vec(self.dxyz.value) - geo_center
 
-        self.structure, self.selection = atoms, selection
+        self.structure, self.input_selection = atoms, selection
 
     @_register_structure
     @_register_selection
@@ -1400,9 +1406,9 @@ class BasicStructureEditor(ipw.VBox):  # pylint: disable=too-many-instance-attri
         vec = self.str2vec(self.vec2str(self.action_vector))
         center = self.str2vec(self.point.value)
         rotated_subset.rotate(self.phi.value, v=vec, center=center, rotate_cell=False)
-        atoms.positions[list(self.selection)] = rotated_subset.positions
+        atoms.positions[self.selection] = rotated_subset.positions
 
-        self.structure, self.selection = atoms, selection
+        self.structure, self.input_selection = atoms, selection
 
     @_register_structure
     @_register_selection
@@ -1435,7 +1441,7 @@ class BasicStructureEditor(ipw.VBox):  # pylint: disable=too-many-instance-attri
         # Mirror atoms.
         atoms.positions[selection] -= 2 * projections
 
-        self.structure, self.selection = atoms, selection
+        self.structure, self.input_selection = atoms, selection
 
     def mirror_3p(self, _=None):
         """Mirror atoms on the plane containing action vector and action point."""
@@ -1459,7 +1465,7 @@ class BasicStructureEditor(ipw.VBox):  # pylint: disable=too-many-instance-attri
         subset.rotate(self.action_vector, self.str2vec(self.dxyz.value), center=center)
         atoms.positions[selection] = subset.positions
 
-        self.structure, self.selection = atoms, selection
+        self.structure, self.input_selection = atoms, selection
 
     @_register_structure
     @_register_selection
@@ -1486,11 +1492,11 @@ class BasicStructureEditor(ipw.VBox):  # pylint: disable=too-many-instance-attri
                 lgnd = initial_ligand.copy()
                 lgnd.translate(position)
                 atoms += lgnd
-            new_selection = [
-                i for i in range(last_atom, last_atom + len(selection) * len(lgnd))
-            ]
+            new_selection = list(
+                range(last_atom, last_atom + len(selection) * len(lgnd))
+            )
 
-        self.structure, self.selection = atoms, new_selection
+        self.structure, self.input_selection = atoms, new_selection
 
     @_register_structure
     @_register_selection
@@ -1503,9 +1509,8 @@ class BasicStructureEditor(ipw.VBox):  # pylint: disable=too-many-instance-attri
         add_atoms.translate([1.0, 0, 0])
         atoms += add_atoms
 
-        new_selection = [i for i in range(last_atom, last_atom + len(selection))]
-
-        self.structure, self.selection = atoms, new_selection
+        new_selection = list(range(last_atom, last_atom + len(selection)))
+        self.structure, self.input_selection = atoms, new_selection
 
     @_register_structure
     @_register_selection
@@ -1536,11 +1541,9 @@ class BasicStructureEditor(ipw.VBox):  # pylint: disable=too-many-instance-attri
 
             atoms += lgnd
 
-        new_selection = [
-            i for i in range(last_atom, last_atom + len(selection) * len(lgnd))
-        ]
+        new_selection = list(range(last_atom, last_atom + len(selection) * len(lgnd)))
 
-        self.structure, self.selection = atoms, new_selection
+        self.structure, self.input_selection = atoms, new_selection
 
     @_register_structure
     @_register_selection
@@ -1548,4 +1551,6 @@ class BasicStructureEditor(ipw.VBox):  # pylint: disable=too-many-instance-attri
         """Remove selected atoms."""
         del [atoms[selection]]
 
-        self.structure, self.selection = atoms, list()
+        self.structure = atoms
+        self.input_selection = None
+        self.input_selection = []

@@ -10,7 +10,6 @@ from uuid import UUID
 
 # External imports
 import ipywidgets as ipw
-import pandas as pd
 import traitlets
 
 # AiiDA imports.
@@ -36,6 +35,7 @@ from IPython.display import HTML, Javascript, clear_output, display
 from traitlets import Instance, Int, List, Unicode, default, observe, validate
 
 from .nodes import NodesTreeWidget
+from .utils import exceptions
 
 # Local imports.
 from .viewers import viewer
@@ -94,9 +94,9 @@ class SubmitButtonWidget(ipw.VBox):
         if callable(inputs_generator):
             self.inputs_generator = inputs_generator
         else:
-            raise ValueError(
+            raise TypeError(
                 "The `inputs_generator` argument must be a function that "
-                f"returns input dictionary, got {inputs_generator}"
+                f"returns input dictionary, got {type(inputs_generator)}"
             )
 
         self.disable_after_submit = disable_after_submit
@@ -289,9 +289,7 @@ class ProcessFollowerWidget(ipw.VBox):
     def on_completed(self, function):
         """Run functions after a process has been completed."""
         if self._monitor is not None:
-            raise RuntimeError(
-                "Can not register new on_completed callback functions after following has already been initiated."
-            )
+            raise exceptions.CantRegisterCallbackError(function)
         self._run_after_completed.append(function)
 
 
@@ -566,7 +564,6 @@ class ProcessListWidget(ipw.VBox):
     def __init__(self, path_to_root="../", **kwargs):
         self.path_to_root = path_to_root
         self.table = ipw.HTML()
-        pd.set_option("max_colwidth", 40)
         self.output = ipw.HTML()
         update_button = ipw.Button(description="Update now")
         update_button.on_click(self.update)
@@ -577,6 +574,9 @@ class ProcessListWidget(ipw.VBox):
 
     def update(self, _=None):
         """Perform the query."""
+        import pandas as pd
+
+        pd.set_option("max_colwidth", 40)
         # Here we are defining properties of 'df' class (specified while exporting pandas table into html).
         # Since the exported object is nothing more than HTML table, all 'standard' HTML table settings
         # can be applied to it as well.

@@ -1,4 +1,5 @@
 import os
+from pathlib import Path
 from urllib.parse import urljoin
 
 import pytest
@@ -17,19 +18,43 @@ def is_responsive(url):
 
 
 @pytest.fixture(scope="session")
-def notebook_service(docker_ip, docker_services):
+def screenshot_dir():
+    sdir = Path.joinpath(Path.cwd(), "screenshots")
+    try:
+        os.mkdir(sdir)
+    except FileExistsError:
+        pass
+    return sdir
+
+
+@pytest.fixture(scope="session")
+def docker_compose(docker_services):
+    return docker_services._docker_compose
+
+
+@pytest.fixture(scope="session")
+def aiidalab_exec(docker_compose):
+    def execute(command, user=None, **kwargs):
+        workdir = "/home/jovyan/apps/aiidalab-widgets-base"
+        if user:
+            command = f"exec --workdir {workdir} -T --user={user} aiidalab {command}"
+        else:
+            command = f"exec --workdir {workdir} -T aiidalab {command}"
+
+        return docker_compose.execute(command, **kwargs)
+
+    return execute
+
+
+@pytest.fixture(scope="session", autouse=True)
+def notebook_service(docker_ip, docker_services, aiidalab_exec):
     """Ensure that HTTP service is up and responsive."""
+    # Directory ~/apps/aiidalab-widgets-base/ is mounted by docker,
+    # make it writeable for jovyan user, needed for `pip install`
+    aiidalab_exec("chmod -R a+rw /home/jovyan/apps/aiidalab-widgets-base", user="root")
 
-    docker_compose = docker_services._docker_compose
-
-    # assurance for host user UID other that 1000
-    chown_command = "exec -T -u root aiidalab bash -c 'chown -R jovyan:users /home/jovyan/apps/aiidalab-widgets-base'"
-    docker_compose.execute(chown_command)
-
-    install_command = "bash -c 'pip install -U .'"
-    command = f"exec --workdir /home/jovyan/apps/aiidalab-widgets-base -T aiidalab {install_command}"
-
-    docker_compose.execute(command)
+    # Install AWB with extra dependencies for SmilesWidget
+    aiidalab_exec("pip install -U .[smiles]")
 
     # `port_for` takes a container port and returns the corresponding host port
     port = docker_services.port_for("aiidalab", 8888)
@@ -49,7 +74,13 @@ def selenium_driver(selenium, notebook_service):
             url, f"apps/apps/aiidalab-widgets-base/{nb_path}?token={token}"
         )
         selenium.get(f"{url_with_token}")
-        selenium.implicitly_wait(5)  # must wait until the app loaded
+        # By default, let's allow selenium functions to retry for 10s
+        # till a given element is loaded, see:
+        # https://selenium-python.readthedocs.io/waits.html#implicit-waits
+        selenium.implicitly_wait(10)
+        window_width = 800
+        window_height = 600
+        selenium.set_window_size(window_width, window_height)
 
         selenium.find_element(By.ID, "ipython-main-app")
         selenium.find_element(By.ID, "notebook-container")
@@ -57,6 +88,18 @@ def selenium_driver(selenium, notebook_service):
         return selenium
 
     return _selenium_driver
+
+
+@pytest.fixture
+def final_screenshot(request, screenshot_dir, selenium):
+    """Take screenshot at the end of the test.
+    Screenshot name is generated from the test function name
+    by stripping the 'test_' prefix
+    """
+    screenshot_name = f"{request.function.__name__[5:]}.png"
+    screenshot_path = Path.joinpath(screenshot_dir, screenshot_name)
+    yield
+    selenium.get_screenshot_as_file(screenshot_path)
 
 
 @pytest.fixture

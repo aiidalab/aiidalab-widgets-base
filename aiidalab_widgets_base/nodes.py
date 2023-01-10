@@ -73,7 +73,7 @@ SELECTED_APPS = [
 class AiidaNodeTreeNode(TreeNode):
     def __init__(self, pk, name, **kwargs):
         self.pk = pk
-        self.nodes_registry = dict()
+        self.nodes_registry = {}
         super().__init__(name=name, **kwargs)
 
     @traitlets.default("opened")
@@ -103,11 +103,9 @@ class AiidaOutputsTreeNode(TreeNode):
     icon = traitlets.Unicode("folder").tag(sync=True)
     disabled = traitlets.Bool(True).tag(sync=True)
 
-    def __init__(
-        self, name, parent_pk, namespaces: Tuple[str, ...] = tuple(), **kwargs
-    ):
+    def __init__(self, name, parent_pk, namespaces: Tuple[str, ...] = (), **kwargs):
         self.parent_pk = parent_pk
-        self.nodes_registry = dict()
+        self.nodes_registry = {}
         self.namespaces = namespaces
         super().__init__(name=name, **kwargs)
 
@@ -173,13 +171,11 @@ class NodesTreeWidget(ipw.Output):
 
     @traitlets.observe("nodes")
     def _observe_nodes(self, change):
-        self._tree.nodes = list(
-            sorted(
-                self._convert_to_tree_nodes(
-                    old_nodes=self._tree.nodes, new_nodes=change["new"]
-                ),
-                key=lambda node: node.pk,
-            )
+        self._tree.nodes = sorted(
+            self._convert_to_tree_nodes(
+                old_nodes=self._tree.nodes, new_nodes=change["new"]
+            ),
+            key=lambda node: node.pk,
         )
         self.update()
         self._refresh_output()
