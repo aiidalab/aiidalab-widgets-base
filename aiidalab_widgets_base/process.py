@@ -6,10 +6,10 @@ import warnings
 from inspect import isclass, signature
 from threading import Event, Lock, Thread
 from time import sleep
+from uuid import UUID
 
 # External imports
 import ipywidgets as ipw
-import pandas as pd
 import traitlets
 
 # AiiDA imports.
@@ -19,12 +19,7 @@ from aiida.cmdline.utils.common import (
     get_process_function_report,
     get_workchain_report,
 )
-from aiida.cmdline.utils.query.calculation import CalculationQueryBuilder
-from aiida.common.exceptions import (
-    MultipleObjectsError,
-    NotExistent,
-    NotExistentAttributeError,
-)
+from aiida.common.exceptions import NotExistentAttributeError
 from aiida.engine import Process, ProcessBuilder, submit
 from aiida.orm import (
     CalcFunctionNode,
@@ -35,10 +30,12 @@ from aiida.orm import (
     WorkFunctionNode,
     load_node,
 )
+from aiida.tools.query.calculation import CalculationQueryBuilder
 from IPython.display import HTML, Javascript, clear_output, display
-from traitlets import Instance, Int, List, Unicode, Union, default, observe, validate
+from traitlets import Instance, Int, List, Unicode, default, observe, validate
 
 from .nodes import NodesTreeWidget
+from .utils import exceptions
 
 # Local imports.
 from .viewers import viewer
@@ -66,8 +63,7 @@ class SubmitButtonWidget(ipw.VBox):
     def __init__(  # pylint: disable=too-many-arguments
         self,
         process_class,
-        inputs_generator=None,
-        input_dictionary_function=None,
+        inputs_generator,
         description="Submit",
         disable_after_submit=True,
         append_output=False,
@@ -78,8 +74,6 @@ class SubmitButtonWidget(ipw.VBox):
         process_class (Process): Process class to submit.
 
         inputs_generator (func): Function that returns inputs dictionary or inputs builder.
-
-        input_dictionary_function (DEPRECATED): Function that generates input parameters dictionary.
 
         description (str): Description written on the submission button.
 
@@ -96,32 +90,13 @@ class SubmitButtonWidget(ipw.VBox):
                 f"process_class argument must be a sublcass of {Process}, got {process_class}"
             )
 
-        # Handling the deprecation.
-        if inputs_generator is None and input_dictionary_function is None:
-            raise ValueError("The `inputs_generator` argument must be provided.")
-        if inputs_generator and input_dictionary_function:
-            raise ValueError(
-                "You provided both: `inputs_generator` and `input_dictionary_function` "
-                "arguments. Please provide `inpust_generator` only."
-            )
-        if input_dictionary_function:
-            inputs_generator = input_dictionary_function
-            warnings.warn(
-                (
-                    "The `input_dictionary_function` argument is deprecated and "
-                    "will be removed in the release 1.1 of the aiidalab-widgets-base package. "
-                    "Please use the `inputs_generator` argument instead."
-                ),
-                DeprecationWarning,
-            )
-
-        # Checking if the inputs generator is
+        # Checking if the inputs generator is callable
         if callable(inputs_generator):
             self.inputs_generator = inputs_generator
         else:
-            raise ValueError(
+            raise TypeError(
                 "The `inputs_generator` argument must be a function that "
-                f"returns input dictionary, got {inputs_generator}"
+                f"returns input dictionary, got {type(inputs_generator)}"
             )
 
         self.disable_after_submit = disable_after_submit
@@ -314,9 +289,7 @@ class ProcessFollowerWidget(ipw.VBox):
     def on_completed(self, function):
         """Run functions after a process has been completed."""
         if self._monitor is not None:
-            raise RuntimeError(
-                "Can not register new on_completed callback functions after following has already been initiated."
-            )
+            raise exceptions.CantRegisterCallbackError(function)
         self._run_after_completed.append(function)
 
 
@@ -488,7 +461,7 @@ class CalcJobOutputWidget(ipw.Textarea):
         try:
             output_file_path = os.path.join(
                 self.calculation.outputs.remote_folder.get_remote_path(),
-                self.calculation.attributes["output_filename"],
+                self.calculation.base.attributes.get("output_filename"),
             )
         except KeyError:
             self.placeholder = (
@@ -567,10 +540,10 @@ class ProcessListWidget(ipw.VBox):
 
     past_days (int): Sumulations that were submitted in the last `past_days`.
 
-    incoming_node (int, str, Node): Trait that takes node id or uuid and returns the node that must
+    incoming_node (str): Trait that takes node uuid that must
     be among the input nodes of the process of interest.
 
-    outgoing_node (int, str, Node): Trait that takes node id or uuid and returns the node that must
+    outgoing_node (str): Trait that takes node uuid that must
     be among the output nodes of the process of interest.
 
     process_states (list): List of allowed process states.
@@ -582,8 +555,8 @@ class ProcessListWidget(ipw.VBox):
     """
 
     past_days = Int(7)
-    incoming_node = Union([Int(), Unicode(), Instance(Node)], allow_none=True)
-    outgoing_node = Union([Int(), Unicode(), Instance(Node)], allow_none=True)
+    incoming_node = Unicode(allow_none=True)
+    outgoing_node = Unicode(allow_none=True)
     process_states = List()
     process_label = Unicode(allow_none=True)
     description_contains = Unicode(allow_none=True)
@@ -591,7 +564,6 @@ class ProcessListWidget(ipw.VBox):
     def __init__(self, path_to_root="../", **kwargs):
         self.path_to_root = path_to_root
         self.table = ipw.HTML()
-        pd.set_option("max_colwidth", 40)
         self.output = ipw.HTML()
         update_button = ipw.Button(description="Update now")
         update_button.on_click(self.update)
@@ -602,6 +574,9 @@ class ProcessListWidget(ipw.VBox):
 
     def update(self, _=None):
         """Perform the query."""
+        import pandas as pd
+
+        pd.set_option("max_colwidth", 40)
         # Here we are defining properties of 'df' class (specified while exporting pandas table into html).
         # Since the exported object is nothing more than HTML table, all 'standard' HTML table settings
         # can be applied to it as well.
@@ -627,10 +602,16 @@ class ProcessListWidget(ipw.VBox):
         )
         relationships = {}
         if self.incoming_node:
-            relationships = {**relationships, **{"with_outgoing": self.incoming_node}}
+            relationships = {
+                **relationships,
+                **{"with_outgoing": load_node(self.incoming_node)},
+            }
 
         if self.outgoing_node:
-            relationships = {**relationships, **{"with_incoming": self.outgoing_node}}
+            relationships = {
+                **relationships,
+                **{"with_incoming": load_node(self.outgoing_node)},
+            }
 
         query_set = builder.get_query_set(
             filters=filters,
@@ -667,23 +648,27 @@ class ProcessListWidget(ipw.VBox):
 
     @validate("incoming_node")
     def _validate_incoming_node(self, provided):
-        """Validate incoming node. The function load_node takes care of managing ids and uuids."""
-        if provided["value"]:
-            try:
-                return load_node(provided["value"])
-            except (MultipleObjectsError, NotExistent):
-                return None
-        return None
+        """Validate incoming node."""
+        node_uuid = provided["value"]
+        try:
+            _ = UUID(node_uuid, version=4)
+        except ValueError:
+            self.output.value = f"""'<span style="color:red">{node_uuid}</span>'
+            is not a valid UUID."""
+        else:
+            return node_uuid
 
     @validate("outgoing_node")
     def _validate_outgoing_node(self, provided):
         """Validate outgoing node. The function load_node takes care of managing ids and uuids."""
-        if provided["value"]:
-            try:
-                return load_node(provided["value"])
-            except (MultipleObjectsError, NotExistent):
-                return None
-        return None
+        node_uuid = provided["value"]
+        try:
+            _ = UUID(node_uuid, version=4)
+        except ValueError:
+            self.output.value = f"""'<span style="color:red">{node_uuid}</span>'
+            is not a valid UUID."""
+        else:
+            return node_uuid
 
     @default("process_label")
     def _default_process_label(self):
@@ -710,7 +695,7 @@ class ProcessListWidget(ipw.VBox):
 class ProcessMonitor(traitlets.HasTraits):
     """Monitor a process and execute callback functions at specified intervals."""
 
-    process = traitlets.Instance(ProcessNode, allow_none=True)
+    value = Unicode(allow_none=True)
 
     def __init__(self, callbacks=None, on_sealed=None, timeout=None, **kwargs):
         self.callbacks = [] if callbacks is None else list(callbacks)
@@ -723,29 +708,31 @@ class ProcessMonitor(traitlets.HasTraits):
 
         super().__init__(**kwargs)
 
-    @traitlets.observe("process")
+    @traitlets.observe("value")
     def _observe_process(self, change):
-        process = change["new"]
-        if process is None or process.id != getattr(change["old"], "id", None):
-            with self.hold_trait_notifications():
-                with self._monitor_thread_lock:
-                    # stop thread (if running)
-                    if self._monitor_thread is not None:
-                        self._monitor_thread_stop.set()
-                        self._monitor_thread.join()
+        """When the value (process uuid) is changed, stop the previous
+        monitor if exist. Start a new one in thread."""
+        process_uuid = change["new"]
 
-                    # start monitor thread
-                    if process is not None:
-                        self._monitor_thread_stop.clear()
-                        process_id = getattr(process, "id", None)
-                        self._monitor_thread = Thread(
-                            target=self._monitor_process, args=(process_id,)
-                        )
-                        self._monitor_thread.start()
+        # stop thread (if running)
+        if self._monitor_thread is not None:
+            with self._monitor_thread_lock:
+                self._monitor_thread_stop.set()
+                self._monitor_thread.join()
 
-    def _monitor_process(self, process_id):
-        assert process_id is not None
-        process = load_node(process_id)
+        if process_uuid is None:
+            return
+
+        with self._monitor_thread_lock:
+            self._monitor_thread_stop.clear()
+            self._monitor_thread = Thread(
+                target=self._monitor_process, args=(process_uuid,)
+            )
+            self._monitor_thread.start()
+
+    def _monitor_process(self, process_uuid):
+        assert process_uuid is not None
+        process = load_node(process_uuid)
 
         disabled_funcs = set()
 
@@ -757,7 +744,7 @@ class ProcessMonitor(traitlets.HasTraits):
 
                 try:
                     if len(signature(func).parameters) > 0:
-                        func(process_id)
+                        func(process_uuid)
                     else:
                         func()
                 except Exception as error:
@@ -787,7 +774,7 @@ class ProcessMonitor(traitlets.HasTraits):
 class ProcessNodesTreeWidget(ipw.VBox):
     """A tree widget for the structured representation of a process graph."""
 
-    process = traitlets.Instance(ProcessNode, allow_none=True)
+    value = traitlets.Unicode(allow_none=True)
     selected_nodes = traitlets.Tuple(read_only=True).tag(trait=traitlets.Instance(Node))
 
     def __init__(self, title="Process Tree", **kwargs):
@@ -803,10 +790,11 @@ class ProcessNodesTreeWidget(ipw.VBox):
     def update(self, _=None):
         self._tree.update()
 
-    @traitlets.observe("process")
+    @traitlets.observe("value")
     def _observe_process(self, change):
-        process = change["new"]
-        if process:
+        process_uuid = change["new"]
+        if process_uuid:
+            process = load_node(process_uuid)
             self._tree.nodes = [process]
             self._tree.find_node(process.pk).selected = True
         else:

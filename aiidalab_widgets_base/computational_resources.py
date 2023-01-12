@@ -4,15 +4,17 @@ import subprocess
 import threading
 from copy import copy
 from pathlib import Path
+from uuid import UUID
 
 import ipywidgets as ipw
 import pexpect
 import shortuuid
 import traitlets
-from aiida import common, orm, plugins, schedulers, transports
-from aiida.orm.utils.builders.code import CodeBuilder
+from aiida import common, orm, plugins
+from aiida.common.exceptions import NotExistent
 from aiida.orm.utils.builders.computer import ComputerBuilder
 from aiida.transports.plugins.ssh import parse_sshconfig
+from humanfriendly import InvalidSize, parse_size
 from IPython.display import clear_output, display
 
 from .databases import ComputationalResourcesDatabaseWidget
@@ -26,12 +28,11 @@ class ComputationalResourcesWidget(ipw.VBox):
     """Code selection widget.
     Attributes:
 
-    value(Unicode or Code): Trait that points to the selected Code instance.
-    It can be set either to an AiiDA Code instance or to a code label (will automatically
-    be replaced by the corresponding Code instance). It is linked to the 'value' trait of
-    the `self.code_select_dropdown` widget.
+    value(code UUID): Trait that points to the selected UUID of the code instance.
+    It can be set either to an AiiDA code UUID or to a code label.
+    It is linked to the `value` trait of the `self.code_select_dropdown` widget.
 
-    codes(Dict): Trait that contains a dictionary (label => Code instance) for all
+    codes(Dict): Trait that contains a dictionary (label => Code UUID) for all
     codes found in the AiiDA database for the selected plugin. It is linked
     to the 'options' trait of the `self.code_select_dropdown` widget.
 
@@ -41,13 +42,11 @@ class ComputationalResourcesWidget(ipw.VBox):
     computers.
     """
 
-    value = traitlets.Union(
-        [traitlets.Unicode(), traitlets.Instance(orm.Code)], allow_none=True
-    )
+    value = traitlets.Unicode(allow_none=True)
     codes = traitlets.Dict(allow_none=True)
     allow_hidden_codes = traitlets.Bool(False)
     allow_disabled_computers = traitlets.Bool(False)
-    input_plugin = traitlets.Unicode(allow_none=True)
+    default_calc_job_plugin = traitlets.Unicode(allow_none=True)
 
     def __init__(self, description="Select code:", path_to_root="../", **kwargs):
         """Dropdown for Codes for one input plugin.
@@ -55,7 +54,7 @@ class ComputationalResourcesWidget(ipw.VBox):
         description (str): Description to display before the dropdown.
         """
         self.output = ipw.HTML()
-        self.setup_message = StatusHTML()
+        self.setup_message = StatusHTML(clear_after=30)
         self.code_select_dropdown = ipw.Dropdown(
             description=description,
             disabled=True,
@@ -83,7 +82,7 @@ class ComputationalResourcesWidget(ipw.VBox):
 
         # Setting up codes and computers.
         self.comp_resources_database = ComputationalResourcesDatabaseWidget(
-            input_plugin=self.input_plugin
+            default_calc_job_plugin=self.default_calc_job_plugin
         )
 
         self.ssh_computer_setup = SshComputerSetup()
@@ -160,15 +159,18 @@ class ComputationalResourcesWidget(ipw.VBox):
     def _get_codes(self):
         """Query the list of available codes."""
 
-        user = orm.User.objects.get_default()
+        user = orm.User.collection.get_default()
 
         return {
-            self._full_code_label(c[0]): c[0]
+            self._full_code_label(c[0]): c[0].uuid
             for c in orm.QueryBuilder()
-            .append(orm.Code, filters={"attributes.input_plugin": self.input_plugin})
+            .append(
+                orm.Code,
+                filters={"attributes.input_plugin": self.default_calc_job_plugin},
+            )
             .all()
             if c[0].computer.is_user_configured(user)
-            and (self.allow_hidden_codes or not c[0].hidden)
+            and (self.allow_hidden_codes or not c[0].is_hidden)
             and (self.allow_disabled_computers or c[0].computer.is_user_enabled(user))
         }
 
@@ -186,9 +188,7 @@ class ComputationalResourcesWidget(ipw.VBox):
         with self.hold_trait_notifications():
             self.code_select_dropdown.options = self._get_codes()
             if not self.code_select_dropdown.options:
-                self.output.value = (
-                    f"No codes found for input plugin '{self.input_plugin}'."
-                )
+                self.output.value = f"No codes found for default calcjob plugin '{self.default_calc_job_plugin}'."
                 self.code_select_dropdown.disabled = True
             else:
                 self.code_select_dropdown.disabled = False
@@ -196,29 +196,21 @@ class ComputationalResourcesWidget(ipw.VBox):
 
     @traitlets.validate("value")
     def _validate_value(self, change):
-        """If code is provided, set it as it is. If code's label is provided,
-        select the code and set it."""
-        code = change["value"]
+        """Check if the code is valid in DB"""
+        code_uuid = change["value"]
         self.output.value = ""
 
         # If code None, set value to None.
-        if code is None:
+        if code_uuid is None:
             return None
 
-        if isinstance(code, str):  # Check code by label.
-            if code in self.codes:
-                return self.codes[code]
-            self.output.value = f"""No code named '<span style="color:red">{code}</span>'
-            found in the AiiDA database."""
-        elif isinstance(code, orm.Code):  # Check code by value.
-            label = self._full_code_label(code)
-            if label in self.codes:
-                return code
-            self.output.value = f"""The code instance '<span style="color:red">{code}</span>'
-            supplied was not found in the AiiDA database."""
-
-        # This place will never be reached, because the trait's type is checked.
-        return None
+        try:
+            _ = UUID(code_uuid, version=4)
+        except ValueError:
+            self.output.value = f"""'<span style="color:red">{code_uuid}</span>'
+            is not a valid UUID."""
+        else:
+            return code_uuid
 
     def _setup_new_code(self, _=None):
         with self._setup_new_code_output:
@@ -702,10 +694,43 @@ class AiidaComputerSetup(ipw.VBox):
             style=STYLE,
         )
 
+        # Memory per node.
+        self.default_memory_per_machine_widget = ipw.Text(
+            value="",
+            placeholder="not specified",
+            description="Memory per node:",
+            layout=LAYOUT,
+            style=STYLE,
+        )
+        memory_wrong_syntax = ipw.HTML(
+            value="""<i class="fa fa-times" style="color:red;font-size:2em;" ></i> wrong syntax""",
+            layout={"visibility": "hidden"},
+        )
+        self.default_memory_per_machine = None
+
+        def observe_memory_per_machine(change):
+            """Check if the string defining memory is valid."""
+            memory_wrong_syntax.layout.visibility = "hidden"
+            if not self.default_memory_per_machine_widget.value:
+                self.default_memory_per_machine = None
+                return
+            try:
+                self.default_memory_per_machine = (
+                    int(parse_size(change["new"], binary=True) / 1024) or None
+                )
+                memory_wrong_syntax.layout.visibility = "hidden"
+            except InvalidSize:
+                memory_wrong_syntax.layout.visibility = "visible"
+                self.default_memory_per_machine = None
+
+        self.default_memory_per_machine_widget.observe(
+            observe_memory_per_machine, names="value"
+        )
+
         # Transport type.
         self.transport = ipw.Dropdown(
-            value="local",
-            options=transports.Transport.get_valid_transports(),
+            value="core.local",
+            options=plugins.entry_point.get_entry_point_names("aiida.transports"),
             description="Transport type:",
             style=STYLE,
         )
@@ -720,8 +745,8 @@ class AiidaComputerSetup(ipw.VBox):
 
         # Scheduler.
         self.scheduler = ipw.Dropdown(
-            value="slurm",
-            options=schedulers.Scheduler.get_valid_schedulers(),
+            value="core.slurm",
+            options=plugins.entry_point.get_entry_point_names("aiida.schedulers"),
             description="Scheduler:",
             style=STYLE,
         )
@@ -731,6 +756,12 @@ class AiidaComputerSetup(ipw.VBox):
             description="Shebang:",
             layout=LAYOUT,
             style=STYLE,
+        )
+
+        # Use double quotes to escape.
+        self.use_double_quotes = ipw.Checkbox(
+            value=False,
+            description="Use double quotes to escape environment variable of job script.",
         )
 
         # Use login shell.
@@ -765,11 +796,13 @@ class AiidaComputerSetup(ipw.VBox):
             self.work_dir,
             self.mpirun_command,
             self.mpiprocs_per_machine,
+            ipw.HBox([self.default_memory_per_machine_widget, memory_wrong_syntax]),
             self.transport,
             self.safe_interval,
             self.scheduler,
             self.shebang,
             self.use_login_shell,
+            self.use_double_quotes,
             self.prepend_text,
             self.append_text,
             self.setup_button,
@@ -779,7 +812,7 @@ class AiidaComputerSetup(ipw.VBox):
 
         super().__init__(children, **kwargs)
 
-    def _configure_computer(self, computer):
+    def _configure_computer(self, computer: orm.Computer):
         """Configure the computer"""
         sshcfg = parse_sshconfig(self.hostname.value)
         authparams = {
@@ -802,35 +835,45 @@ class AiidaComputerSetup(ipw.VBox):
             "use_login_shell": self.use_login_shell.value,
             "safe_interval": self.safe_interval.value,
         }
-        if "user" in sshcfg:
+        try:
             authparams["username"] = sshcfg["user"]
-        else:
-            print(
-                f"SSH username is not provided, please run `verdi computer configure {self.label.value}` "
-                "from the command line."
-            )
-            return False
+        except KeyError as exc:
+            message = "SSH username is not provided"
+            self.message = message
+            raise RuntimeError(message) from exc
+
         if "proxycommand" in sshcfg:
             authparams["proxy_command"] = sshcfg["proxycommand"]
         elif "proxyjump" in sshcfg:
             authparams["proxy_jump"] = sshcfg["proxyjump"]
 
-        computer.configure(**authparams)
+        # user default AiiDA user
+        user = orm.User.collection.get_default()
+        computer.configure(user=user, **authparams)
+
         return True
+
+    def _run_callbacks_if_computer_exists(self, label):
+        """Run things on an existing computer"""
+        try:
+            orm.Computer.objects.get(label=label)
+            for function in self._on_setup_computer_success:
+                function()
+        except common.NotExistent:
+            return False
+        else:
+            return True
 
     def on_setup_computer(self, _=None):
         """Create a new computer."""
         if self.label.value == "":  # check hostname
             self.message = "Please specify the computer name (for AiiDA)"
             return False
-        try:
-            computer = orm.Computer.objects.get(label=self.label.value)
+
+        # If the computer already exists, we just run the registered functions and return
+        if self._run_callbacks_if_computer_exists(self.label.value):
             self.message = f"A computer called {self.label.value} already exists."
-            for function in self._on_setup_computer_success:
-                function()
             return True
-        except common.NotExistent:
-            pass
 
         items_to_configure = [
             "label",
@@ -840,34 +883,38 @@ class AiidaComputerSetup(ipw.VBox):
             "mpirun_command",
             "mpiprocs_per_machine",
             "transport",
+            "use_double_quotes",
             "scheduler",
             "prepend_text",
             "append_text",
             "shebang",
         ]
+
         kwargs = {key: getattr(self, key).value for key in items_to_configure}
 
-        computer_builder = ComputerBuilder(**kwargs)
+        computer_builder = ComputerBuilder(
+            default_memory_per_machine=self.default_memory_per_machine, **kwargs
+        )
         try:
             computer = computer_builder.new()
+            self._configure_computer(computer)
         except (
             ComputerBuilder.ComputerValidationError,
             common.exceptions.ValidationError,
+            RuntimeError,
         ) as err:
-            self.message = f"{type(err).__name__}: {err}"
+            self.message = f"Failed to setup computer {type(err).__name__}: {err}"
             return False
-
-        try:
+        else:
             computer.store()
-        except common.exceptions.ValidationError as err:
-            self.message = f"Unable to store the computer: {err}."
-            return False
 
-        if self._configure_computer(computer):
-            for function in self._on_setup_computer_success:
-                function()
-        self.message = f"Computer<{computer.pk}> {computer.label} created"
-        return True
+        # Callbacks will not run if the computer is not stored
+        if self._run_callbacks_if_computer_exists(self.label.value):
+            self.message = f"Computer<{computer.pk}> {computer.label} created"
+            return True
+
+        self.message = f"Failed to create computer {computer.label}"
+        return False
 
     def on_setup_computer_success(self, function):
         self._on_setup_computer_success.append(function)
@@ -887,12 +934,14 @@ class AiidaComputerSetup(ipw.VBox):
         self.description.value = ""
         self.work_dir.value = ""
         self.mpirun_command.value = "mpirun -n {tot_num_mpiprocs}"
+        self.default_memory_per_machine_widget.value = ""
         self.mpiprocs_per_machine.value = 1
-        self.transport.value = "ssh"
+        self.transport.value = "core.ssh"
         self.safe_interval.value = 30.0
-        self.scheduler.value = "slurm"
+        self.scheduler.value = "core.slurm"
         self.shebang.value = "#!/usr/bin/env bash"
         self.use_login_shell.value = True
+        self.use_double_quotes.value = False
         self.prepend_text.value = ""
         self.append_text.value = ""
 
@@ -904,8 +953,11 @@ class AiidaComputerSetup(ipw.VBox):
             return
         if "setup" in self.computer_setup:
             for key, value in self.computer_setup["setup"].items():
-                if hasattr(self, key):
+                if key == "default_memory_per_machine":
+                    self.default_memory_per_machine_widget.value = f"{value} KB"
+                elif hasattr(self, key):
                     getattr(self, key).value = value
+
         # Configure.
         if "configure" in self.computer_setup:
             for key, value in self.computer_setup["configure"].items():
@@ -930,15 +982,16 @@ class AiidaCodeSetup(ipw.VBox):
             style=STYLE,
         )
 
-        # Computer on which the code is installed. Two dlinks are needed to make sure we get a Computer instance.
+        # Computer on which the code is installed. The value of this widget is
+        # the UUID of the selected computer.
         self.computer = ComputerDropdownWidget(
             path_to_root=path_to_root,
         )
 
         # Code plugin.
-        self.input_plugin = ipw.Dropdown(
+        self.default_calc_job_plugin = ipw.Dropdown(
             options=sorted(
-                (ep.name, ep)
+                (ep.name, ep.name)
                 for ep in plugins.entry_point.get_entry_points("aiida.calculations")
             ),
             description="Code plugin:",
@@ -954,11 +1007,17 @@ class AiidaCodeSetup(ipw.VBox):
             style=STYLE,
         )
 
-        self.remote_abs_path = ipw.Text(
+        self.filepath_executable = ipw.Text(
             placeholder="/path/to/executable",
             description="Absolute path to executable:",
             layout=LAYOUT,
             style=STYLE,
+        )
+
+        # Use double quotes to escape.
+        self.use_double_quotes = ipw.Checkbox(
+            value=False,
+            description="Use double quotes to escape environment variable of job script.",
         )
 
         self.prepend_text = ipw.Textarea(
@@ -980,9 +1039,10 @@ class AiidaCodeSetup(ipw.VBox):
         children = [
             self.label,
             self.computer,
-            self.input_plugin,
+            self.default_calc_job_plugin,
             self.description,
-            self.remote_abs_path,
+            self.filepath_executable,
+            self.use_double_quotes,
             self.prepend_text,
             self.append_text,
             btn_setup_code,
@@ -990,10 +1050,10 @@ class AiidaCodeSetup(ipw.VBox):
         ]
         super().__init__(children, **kwargs)
 
-    @traitlets.validate("input_plugin")
-    def _validate_input_plugin(self, proposal):
+    @traitlets.validate("default_calc_job_plugin")
+    def _validate_default_calc_job_plugin(self, proposal):
         plugin = proposal["value"]
-        return plugin if plugin in self.input_plugin.options else None
+        return plugin if plugin in self.default_calc_job_plugin.options else None
 
     def on_setup_code(self, _=None):
         """Setup an AiiDA code."""
@@ -1006,40 +1066,42 @@ class AiidaCodeSetup(ipw.VBox):
 
             items_to_configure = [
                 "label",
-                "computer",
                 "description",
-                "input_plugin",
-                "remote_abs_path",
+                "default_calc_job_plugin",
+                "filepath_executable",
+                "use_double_quotes",
                 "prepend_text",
                 "append_text",
             ]
 
             kwargs = {key: getattr(self, key).value for key in items_to_configure}
-            kwargs["code_type"] = CodeBuilder.CodeType.ON_COMPUTER
+
+            # set computer from its widget value the UUID of the computer.
+            computer = orm.load_computer(self.computer.value)
 
             # Checking if the code with this name already exists
             qb = orm.QueryBuilder()
+            qb.append(orm.Computer, filters={"uuid": computer.uuid}, tag="computer")
             qb.append(
-                orm.Computer, filters={"uuid": kwargs["computer"].uuid}, tag="computer"
-            )
-            qb.append(
-                orm.Code, with_computer="computer", filters={"label": kwargs["label"]}
+                orm.InstalledCode,
+                with_computer="computer",
+                filters={"label": kwargs["label"]},
             )
             if qb.count() > 0:
                 self.message = (
-                    f"Code {kwargs['label']}@{kwargs['computer'].label} already exists."
+                    f"Code {kwargs['label']}@{computer.label} already exists."
                 )
                 return False
 
             try:
-                code = CodeBuilder(**kwargs).new()
+                code = orm.InstalledCode(computer=computer, **kwargs)
             except (common.exceptions.InputValidationError, KeyError) as exception:
                 self.message = f"Invalid inputs: {exception}"
                 return False
 
             try:
                 code.store()
-                code.reveal()
+                code.is_hidden = False
             except common.exceptions.ValidationError as exception:
                 self.message = f"Unable to store the Code: {exception}"
                 return False
@@ -1058,23 +1120,38 @@ class AiidaCodeSetup(ipw.VBox):
         self.label.value = ""
         self.computer.value = ""
         self.description.value = ""
-        self.remote_abs_path.value = ""
+        self.filepath_executable.value = ""
+        self.use_double_quotes.value = False
         self.prepend_text.value = ""
         self.append_text.value = ""
 
     def refresh(self):
-        self.computer.refresh()
         self._observe_code_setup()
 
     @traitlets.observe("code_setup")
     def _observe_code_setup(self, _=None):
         # Setup.
+        self.computer.refresh()
         if not self.code_setup:
             self._reset()
         for key, value in self.code_setup.items():
             if hasattr(self, key):
-                if key == "input_plugin":
-                    getattr(self, key).label = value
+                if key == "default_calc_job_plugin":
+                    try:
+                        getattr(self, key).label = value
+                    except traitlets.TraitError:
+                        self.message = f"Input plugin {value} is not installed."
+                elif key == "computer":
+                    # check if the computer is set by load the label.
+                    # if the computer not set put the value to None as placeholder for
+                    # ComputerDropdownWidget it will refresh after the computer set up.
+                    # if the computer is set pass the UUID to ComputerDropdownWdiget.
+                    try:
+                        computer = orm.load_computer(value)
+                    except NotExistent:
+                        getattr(self, key).value = None
+                    else:
+                        getattr(self, key).value = computer.uuid
                 else:
                     getattr(self, key).value = value
 
@@ -1083,21 +1160,16 @@ class ComputerDropdownWidget(ipw.VBox):
     """Widget to select a configured computer.
 
     Attributes:
-        selected_computer(Unicode or Computer): Trait that points to the selected Computer instance.
-            It can be set either to an AiiDA Computer instance or to a computer label (will
-            automatically be replaced by the corresponding Computer instance). It is linked to the
+        value(computer UUID): Trait that points to the selected Computer instance.
+            It can be set to an AiiDA Computer UUID. It is linked to the
             'value' trait of `self._dropdown` widget.
-
-        computers(Dict): Trait that contains a dictionary (label => Computer instance) for all
+        computers(Dict): Trait that contains a dictionary (label => Computer UUID) for all
         computers found in the AiiDA database. It is linked to the 'options' trait of
         `self._dropdown` widget.
-
         allow_select_disabled(Bool):  Trait that defines whether to show disabled computers.
     """
 
-    value = traitlets.Union(
-        [traitlets.Unicode(), traitlets.Instance(orm.Computer)], allow_none=True
-    )
+    value = traitlets.Unicode(allow_none=True)
     computers = traitlets.Dict(allow_none=True)
     allow_select_disabled = traitlets.Bool(False)
 
@@ -1138,10 +1210,10 @@ class ComputerDropdownWidget(ipw.VBox):
         """Get the list of available computers."""
 
         # Getting the current user.
-        user = orm.User.objects.get_default()
+        user = orm.User.collection.get_default()
 
         return {
-            c[0].label: c[0]
+            c[0].label: c[0].uuid
             for c in orm.QueryBuilder().append(orm.Computer).all()
             if c[0].is_user_configured(user)
             and (self.allow_select_disabled or c[0].is_user_enabled(user))
@@ -1162,21 +1234,16 @@ class ComputerDropdownWidget(ipw.VBox):
 
     @traitlets.validate("value")
     def _validate_value(self, change):
-        """Select computer either by label or by class instance."""
-        computer = change["value"]
+        """Select computer by computer UUID."""
+        computer_uuid = change["value"]
         self.output.value = ""
-        if not computer:
-            return None
-        if isinstance(computer, str):
-            if computer in self.computers:
-                return self.computers[computer]
-            self.output.value = f"""Computer instance '<span style="color:red">{computer}</span>'
-            is not configured in your AiiDA profile."""
+        if not computer_uuid:
             return None
 
-        if isinstance(computer, orm.Computer):
-            if computer.label in self.computers:
-                return computer
-            self.output.value = f"""Computer instance '<span style="color:red">{computer.label}</span>'
-            is not configured in your AiiDA profile."""
-        return None
+        try:
+            _ = UUID(computer_uuid, version=4)
+        except ValueError:
+            self.output.value = f"""'<span style="color:red">{computer_uuid}</span>'
+            is not a valid UUID."""
+        else:
+            return computer_uuid

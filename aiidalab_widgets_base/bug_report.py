@@ -111,11 +111,11 @@ def _convert_ansi_codes_to_html(msg):
 def _format_truncated_traceback(traceback, max_num_chars=2000):
     """Truncate the traceback to the given character length."""
     n = 0
-    for i, line in enumerate(reversed(traceback)):
+    for _i, line in enumerate(reversed(traceback)):
         n += len(_strip_ansi_codes(line)) + 2  # add 2 for newline control characters
         if n > max_num_chars:
             break
-    return _strip_ansi_codes("\n".join(traceback[-i:]))
+    return _strip_ansi_codes("\n".join(traceback[-_i:]))
 
 
 _ORIGINAL_EXCEPTION_HANDLER = None

@@ -3,18 +3,11 @@ from aiida import load_profile
 
 load_profile()
 
-from .codes import AiiDACodeSetup, CodeDropdown
 from .computational_resources import (
     ComputationalResourcesWidget,
     ComputerDropdownWidget,
 )
-from .computers import AiidaComputerSetup, ComputerDropdown, SshComputerSetup
-from .databases import (
-    CodeDatabaseWidget,
-    CodQueryWidget,
-    ComputerDatabaseWidget,
-    OptimadeQueryWidget,
-)
+from .databases import CodQueryWidget, OptimadeQueryWidget
 from .elns import ElnConfigureWidget, ElnExportWidget, ElnImportWidget
 from .export import ExportButtonWidget
 from .nodes import NodesTreeWidget, OpenAiidaNodeInAppWidget
@@ -87,4 +80,4 @@ __all__ = [
     "viewer",
 ]
 
-__version__ = "1.4.0"
+__version__ = "2.0.0b0"

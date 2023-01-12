@@ -14,16 +14,7 @@ from aiida.manage.configuration import load_documentation_profile
 
 load_documentation_profile()
 
-# Let's make sure the entry points are up to date
-try:
-    from aiida.plugins.entry_point import ENTRYPOINT_MANAGER as mgr
-
-    mgr.scan()
-except AttributeError:
-    # .scan may be no longer availabe if we switch away from reentry
-    pass
-
-import aiidalab_widgets_base  # pylint: disable=wrong-import-position
+from aiidalab_widgets_base import __version__  # pylint: disable=wrong-import-position
 
 # Add any Sphinx extension module names here, as strings. They can be
 # extensions coming with Sphinx (named 'sphinx.ext.*') or your custom
@@ -40,7 +31,7 @@ extensions = [
 jupyter_execute_notebooks = "off"
 
 intersphinx_mapping = {
-    "python": ("https://docs.python.org/3.7", None),
+    "python": ("https://docs.python.org/3.9", None),
 }
 
 # Add any paths that contain templates here, relative to this directory.
@@ -74,7 +65,7 @@ copyright = "{}, {}. All rights reserved".format(
 #
 # The full version, including alpha/beta/rc tags.
 # The short X.Y version.
-version = ".".join(aiidalab_widgets_base.__version__.split(".")[:2])
+version = ".".join(__version__.split(".")[:2])
 
 # If true, sectionauthor and moduleauthor directives will be shown in the
 # output. They are ignored by default.
