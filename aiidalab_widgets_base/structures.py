@@ -1392,7 +1392,7 @@ class BasicStructureEditor(ipw.VBox):  # pylint: disable=too-many-instance-attri
                 range(last_atom, last_atom + len(selection) * len(lgnd))
             )
 
-        # The order of the traitlets below is important - 
+        # The order of the traitlets below is important -
         # we must be sure trait atoms is set before trait selection
         self.structure, self.input_selection = atoms, new_selection
 
@@ -1408,7 +1408,7 @@ class BasicStructureEditor(ipw.VBox):  # pylint: disable=too-many-instance-attri
         atoms += add_atoms
         new_selection = [i for i in range(last_atom, last_atom + len(selection))]
 
-        # The order of the traitlets below is important - 
+        # The order of the traitlets below is important -
         # we must be sure trait atoms is set before trait selection
         new_selection = list(range(last_atom, last_atom + len(selection)))
         self.structure, self.input_selection = atoms, new_selection
@@ -1443,7 +1443,7 @@ class BasicStructureEditor(ipw.VBox):  # pylint: disable=too-many-instance-attri
 
         new_selection = list(range(last_atom, last_atom + len(selection) * len(lgnd)))
 
-        # The order of the traitlets below is important - 
+        # The order of the traitlets below is important -
         # we must be sure trait atoms is set before trait selection
         self.structure, self.input_selection = atoms, new_selection
 
@@ -1453,7 +1453,7 @@ class BasicStructureEditor(ipw.VBox):  # pylint: disable=too-many-instance-attri
         """Remove selected atoms."""
         del [atoms[selection]]
 
-        # The order of the traitlets below is important - 
+        # The order of the traitlets below is important -
         # we must be sure trait atoms is set before trait selection
         self.structure = atoms
         self.input_selection = None

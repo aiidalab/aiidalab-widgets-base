@@ -52,7 +52,6 @@ BOX_LAYOUT = ipw.Layout(
 )
 
 
-
 def register_viewer_widget(key):
     """Register widget as a viewer for the given key."""
 
@@ -228,7 +227,6 @@ class _StructureDataBaseViewer(ipw.VBox):
 
     """
 
-
     all_representations = traitlets.List()
     natoms = Int()
     input_selection = List(Int, allow_none=True)
@@ -319,8 +317,9 @@ class _StructureDataBaseViewer(ipw.VBox):
 
         # 4. Button to clear selection.
         clear_selection = ipw.Button(description="Clear selection")
-        clear_selection.on_click(lambda _: self.set_trait('displayed_selection', []))  # lambda cannot contain assignments
-
+        clear_selection.on_click(
+            lambda _: self.set_trait("displayed_selection", [])
+        )  # lambda cannot contain assignments
 
         # 5. Button to apply selection
         apply_displayed_selection = ipw.Button(description="Apply selection")
@@ -839,7 +838,6 @@ class _StructureDataBaseViewer(ipw.VBox):
                 displayed_selection = [index]
             self.displayed_selection = displayed_selection
 
-
     def list_to_nglview(self, list):
         """Converts a list of structures to a nglview widget"""
         sele = "none"
@@ -905,7 +903,6 @@ class _StructureDataBaseViewer(ipw.VBox):
             self._viewer.add_unitcell()
             self._viewer.center()
 
-
     @default("supercell")
     def _default_supercell(self):
         return [1, 1, 1]
@@ -932,7 +929,6 @@ class _StructureDataBaseViewer(ipw.VBox):
         seq = [x % self.natoms for x in self.displayed_selection]
         self.selection = [x for x in seq if not (x in seen or seen.add(x))]
         self.highlight_atoms(self.displayed_selection)
-
 
     def apply_displayed_selection(self, _=None):
         """Apply selection specified in the text field."""
@@ -1035,21 +1031,21 @@ class StructureDataViewer(_StructureDataBaseViewer):
         self.clear_selection()
         structure = change["value"]
         if structure is None:
-            return None  # If no structure is provided, the rest of the code can be skipped
+            return (
+                None  # If no structure is provided, the rest of the code can be skipped
+            )
         if isinstance(structure, Atoms):
             self.pk = None
         elif isinstance(structure, Node):
             self.pk = structure.pk
             structure = structure.get_ase()
-        
+
             raise TypeError(
                 f"Unsupported type {type(structure)}, structure must be one of the following types: "
                 "ASE Atoms object, AiiDA CifData or StructureData."
             )
 
-
         return structure
-
 
     @observe("structure")
     def _observe_structure(self, change):
@@ -1071,13 +1067,13 @@ class StructureDataViewer(_StructureDataBaseViewer):
     def _observe_displayed_structure(self, change):
         """Update the view if displayed_structure trait was modified."""
         with self.hold_trait_notifications():
-          if change["new"] is not None:
-              self._viewer.add_component(
-                  nglview.ASEStructure(self.displayed_structure),
-                  default_representation=False,
-                  name="Structure",
-              )
-              self.update_representations()
+            if change["new"] is not None:
+                self._viewer.add_component(
+                    nglview.ASEStructure(self.displayed_structure),
+                    default_representation=False,
+                    name="Structure",
+                )
+                self.update_representations()
         self.displayed_selection = []
 
     def d_from(self, operand):
@@ -1323,8 +1319,10 @@ class StructureDataViewer(_StructureDataBaseViewer):
                 dihedral_str = f"{dihedral:.2f}"
             except ZeroDivisionError:
                 dihedral_str = "nan"
-            info += f"<p>{info_natoms_geo_center}</p><p>Dihedral angle: {dihedral_str}</p>"
-        
+            info += (
+                f"<p>{info_natoms_geo_center}</p><p>Dihedral angle: {dihedral_str}</p>"
+            )
+
         return info + info_natoms_geo_center
 
     @observe("displayed_selection")
