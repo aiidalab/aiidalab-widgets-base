@@ -1406,7 +1406,7 @@ class BasicStructureEditor(ipw.VBox):  # pylint: disable=too-many-instance-attri
         add_atoms = atoms[self.selection].copy()
         add_atoms.translate([1.0, 0, 0])
         atoms += add_atoms
-        new_selection = [i for i in range(last_atom, last_atom + len(selection))]
+        new_selection = list(range(last_atom, last_atom + len(selection)))
 
         # The order of the traitlets below is important -
         # we must be sure trait atoms is set before trait selection

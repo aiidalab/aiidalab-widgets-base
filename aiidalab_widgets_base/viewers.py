@@ -838,11 +838,11 @@ class _StructureDataBaseViewer(ipw.VBox):
                 displayed_selection = [index]
             self.displayed_selection = displayed_selection
 
-    def list_to_nglview(self, list):
+    def list_to_nglview(self, the_list):
         """Converts a list of structures to a nglview widget"""
         sele = "none"
-        if list:
-            sele = "@" + ",".join(str(s) for s in list)
+        if the_list:
+            sele = "@" + ",".join(str(s) for s in the_list)
         return sele
 
     def highlight_atoms(
@@ -1052,10 +1052,10 @@ class StructureDataViewer(_StructureDataBaseViewer):
         """Update displayed_structure trait after the structure trait has been modified."""
         # Remove the current structure(s) from the viewer.
         self.natoms = len(self.structure) if self.structure is not None else 0
-        if "representations" not in structure.arrays:
-            structure.set_array("representations", np.zeros(self.natoms))
-        if "representationsshow" not in structure.arrays:
-            structure.set_array("representationsshow", np.ones(self.natoms))
+        if "representations" not in self.structure.arrays:
+            self.structure.set_array("representations", np.zeros(self.natoms))
+        if "representationsshow" not in self.structure.arrays:
+            self.structure.set_array("representationsshow", np.ones(self.natoms))
         if change["new"] is not None:
             self.set_trait("displayed_structure", change["new"].repeat(self.supercell))
             self.set_trait("cell", change["new"].cell)
