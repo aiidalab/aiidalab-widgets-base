@@ -127,7 +127,7 @@ class WizardAppWidget(ipw.VBox):
         for widget in widgets:
             if not widget.has_trait("state"):
                 raise TypeError(
-                    f"The provided '{widget}' as wizard app step has no `state` trait. "
+                    f"The provided {widget!r} as wizard app step has no `state` trait. "
                     "It is expected that step classes are derived from the WizardAppWidgetStep class."
                 )
             widget.observe(self._update_step_state, names=["state"])

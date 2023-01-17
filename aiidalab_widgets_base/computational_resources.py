@@ -188,7 +188,7 @@ class ComputationalResourcesWidget(ipw.VBox):
         with self.hold_trait_notifications():
             self.code_select_dropdown.options = self._get_codes()
             if not self.code_select_dropdown.options:
-                self.output.value = f"No codes found for default calcjob plugin '{self.default_calc_job_plugin}'."
+                self.output.value = f"No codes found for default calcjob plugin {self.default_calc_job_plugin!r}."
                 self.code_select_dropdown.disabled = True
             else:
                 self.code_select_dropdown.disabled = False
