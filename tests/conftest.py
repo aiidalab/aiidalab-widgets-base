@@ -53,7 +53,8 @@ def notebook_service(docker_ip, docker_services, aiidalab_exec):
     # make it writeable for jovyan user, needed for `pip install`
     aiidalab_exec("chmod -R a+rw /home/jovyan/apps/aiidalab-widgets-base", user="root")
 
-    aiidalab_exec("pip install -U .")
+    # Install AWB with extra dependencies for SmilesWidget
+    aiidalab_exec("pip install -U .[smiles]")
 
     # `port_for` takes a container port and returns the corresponding host port
     port = docker_services.port_for("aiidalab", 8888)
@@ -87,6 +88,18 @@ def selenium_driver(selenium, notebook_service):
         return selenium
 
     return _selenium_driver
+
+
+@pytest.fixture
+def final_screenshot(request, screenshot_dir, selenium):
+    """Take screenshot at the end of the test.
+    Screenshot name is generated from the test function name
+    by stripping the 'test_' prefix
+    """
+    screenshot_name = f"{request.function.__name__[5:]}.png"
+    screenshot_path = Path.joinpath(screenshot_dir, screenshot_name)
+    yield
+    selenium.get_screenshot_as_file(screenshot_path)
 
 
 @pytest.fixture
