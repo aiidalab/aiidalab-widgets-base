@@ -160,54 +160,63 @@ class DictViewer(ipw.VBox):
         super().__init__([self.widget], **kwargs)
 
 
-class NlgViewrRepresentation(ipw.VBox):
+class NglViewrRepresentation(ipw.HBox):
     """Representation for StructureData in nglviewer"""
 
     master_class = None
 
     def __init__(self, indices="1..2"):
+
+        self.show = ipw.Checkbox(
+            value=True,
+            layout={"width": "40px"},
+            style={"description_width": "0px"},
+            disabled=False,
+        )
+
         self.selection = ipw.Text(
-            description="atoms:",
             value="",
-            layout=ipw.Layout(width="35%", height="30px"),
+            layout={"width": "80px"},
+            style={"description_width": "0px"},
         )
         self.repr_type = ipw.Dropdown(
             options=["ball+stick", "spacefill"],
             value="ball+stick",
-            description="type",
             disabled=False,
-            layout=ipw.Layout(width="35%", height="30px"),
+            layout={"width": "100px"},
+            style={"description_width": "0px"},
         )
         self.size = ipw.FloatText(
-            value=3, description="size", layout=ipw.Layout(width="25%", height="30px")
+            value=3,
+            layout={"width": "40px"},
+            style={"description_width": "0px"},
         )
         self.color = ipw.Dropdown(
             options=["element", "red", "green", "blue", "yellow", "orange", "purple"],
             value="element",
-            description="color",
             disabled=False,
-            layout=ipw.Layout(width="35%", height="30px"),
+            layout={"width": "80px"},
+            style={"description_width": "initial"},
         )
-        self.show = ipw.Checkbox(value=True, description="show", disabled=False)
 
         # Delete button.
         self.delete_button = ipw.Button(
-            description="Delete",
+            description="",
+            icon="trash",
             button_style="danger",
-            layout=ipw.Layout(width="15%", height="30px"),
+            layout={"width": "50px"},
+            style={"description_width": "initial"},
         )
         self.delete_button.on_click(self.delete_myself)
 
         super().__init__(
             children=[
-                ipw.HBox(
-                    [
-                        self.selection,
-                        self.show,
-                        self.delete_button,
-                    ]
-                ),
-                ipw.HBox([self.repr_type, self.size, self.color]),
+                self.show,
+                self.selection,
+                self.repr_type,
+                self.size,
+                self.color,
+                self.delete_button,
             ]
         )
 
@@ -393,6 +402,34 @@ class _StructureDataBaseViewer(ipw.VBox):
         center_button.on_click(lambda c: self._viewer.center())
 
         # 5. representations buttons
+        self.representations_header = ipw.HBox(
+            [
+                ipw.HTML(
+                    """<p style="text-align:center">Show</p>""",
+                    layout={"width": "40px"},
+                ),
+                ipw.HTML(
+                    """<p style="text-align:center">Atoms</p>""",
+                    layout={"width": "80px"},
+                ),
+                ipw.HTML(
+                    """<p style="text-align:center">Type</p>""",
+                    layout={"width": "100px"},
+                ),
+                ipw.HTML(
+                    """<p style="text-align:center">Size</p>""",
+                    layout={"width": "40px"},
+                ),
+                ipw.HTML(
+                    """<p style="text-align:center">Color</p>""",
+                    layout={"width": "80px"},
+                ),
+                ipw.HTML(
+                    """<p style="text-align:center">Delete</p>""",
+                    layout={"width": "50px"},
+                ),
+            ]
+        )
         self.atoms_not_represented = ipw.HTML()
         self.add_new_rep_button = ipw.Button(description="Add rep", button_style="info")
         self.add_new_rep_button.on_click(self.add_representation)
@@ -407,6 +444,7 @@ class _StructureDataBaseViewer(ipw.VBox):
                 background_color,
                 camera_type,
                 self.add_new_rep_button,
+                self.representations_header,
                 self.representation_output,
                 self.atoms_not_represented,
                 apply_rep,
@@ -416,7 +454,7 @@ class _StructureDataBaseViewer(ipw.VBox):
 
     def add_representation(self, _):
         """Add a representation to the list of representations."""
-        self.all_representations = self.all_representations + [NlgViewrRepresentation()]
+        self.all_representations = self.all_representations + [NglViewrRepresentation()]
         self.n_all_representations += 1
 
     def delete_representation(self, representation):
@@ -1028,7 +1066,6 @@ class StructureDataViewer(_StructureDataBaseViewer):
     def _valid_structure(self, change):  # pylint: disable=no-self-use
         """Update structure."""
         self.remove_viewer_components()
-        self.clear_selection()
         structure = change["value"]
         if structure is None:
             return (
@@ -1052,6 +1089,10 @@ class StructureDataViewer(_StructureDataBaseViewer):
         """Update displayed_structure trait after the structure trait has been modified."""
         # Remove the current structure(s) from the viewer.
         self.natoms = len(self.structure) if self.structure is not None else 0
+
+        if not self.structure:  # If the structure is not set - do nothing.
+            return
+
         if "representations" not in self.structure.arrays:
             self.structure.set_array("representations", np.zeros(self.natoms))
         if "representationsshow" not in self.structure.arrays:
