@@ -1184,12 +1184,6 @@ class BasicStructureEditor(ipw.VBox):  # pylint: disable=too-many-instance-attri
             ]
         )
 
-    def find_index(self, list_of_lists, element):
-        for i, x in enumerate(list_of_lists):
-            if element in x:
-                return i
-        return -1
-
     def str2vec(self, string):
         return np.array(list(map(float, string.split())))
 
@@ -1392,8 +1386,6 @@ class BasicStructureEditor(ipw.VBox):  # pylint: disable=too-many-instance-attri
                 range(last_atom, last_atom + len(selection) * len(lgnd))
             )
 
-        # The order of the traitlets below is important -
-        # we must be sure trait atoms is set before trait selection
         self.structure, self.input_selection = atoms, new_selection
 
     @_register_structure
@@ -1406,12 +1398,10 @@ class BasicStructureEditor(ipw.VBox):  # pylint: disable=too-many-instance-attri
         add_atoms = atoms[self.selection].copy()
         add_atoms.translate([1.0, 0, 0])
         atoms += add_atoms
-        new_selection = list(range(last_atom, last_atom + len(selection)))
 
-        # The order of the traitlets below is important -
-        # we must be sure trait atoms is set before trait selection
-        new_selection = list(range(last_atom, last_atom + len(selection)))
-        self.structure, self.input_selection = atoms, new_selection
+        self.structure, self.input_selection = atoms, list(
+            range(last_atom, last_atom + len(selection))
+        )
 
     @_register_structure
     @_register_selection

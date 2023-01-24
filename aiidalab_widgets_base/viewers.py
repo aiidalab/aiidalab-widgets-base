@@ -554,11 +554,11 @@ class _StructureDataBaseViewer(ipw.VBox):
         # self.displayed_structure.set_array("representations", arrayrepresentations)
         # self.displayed_structure.set_array("representationsshow", arrayrepresentationsshow)
         # iterate on number of representations
-        self.repr_params = []
+        representation_parameters = []
         current_rep = 0
         for rep in self.all_representations:
             # in representation dictionary indexes start from 0 so we transform '1..4' in '0..3'
-            self.repr_params.append(self.representation_parameters(rep))
+            representation_parameters.append(self.representation_parameters(rep))
             current_rep += 1
 
         missing_atoms = {
@@ -571,7 +571,11 @@ class _StructureDataBaseViewer(ipw.VBox):
             )
         else:
             self.atoms_not_represented.value = ""
-        self.update_viewer()
+
+        if self.displayed_structure:
+            self._viewer.set_representations(representation_parameters, component=0)
+            self._viewer.add_unitcell()
+            self._viewer.center()
 
     @observe("cell")
     def _observe_cell(self, _=None):
@@ -928,18 +932,10 @@ class _StructureDataBaseViewer(ipw.VBox):
                 )
 
     def remove_viewer_components(self, c=None):
-        with self.hold_trait_notifications():
-            while hasattr(self._viewer, "component_0"):
-                self._viewer.component_0.clear_representations()
-                cid = self._viewer.component_0.id
-                self._viewer.remove_component(cid)
-
-    def update_viewer(self, c=None):
-
-        if self.displayed_structure:
-            self._viewer.set_representations(self.repr_params, component=0)
-            self._viewer.add_unitcell()
-            self._viewer.center()
+        if hasattr(self._viewer, "component_0"):
+            self._viewer.component_0.clear_representations()
+            cid = self._viewer.component_0.id
+            self._viewer.remove_component(cid)
 
     @default("supercell")
     def _default_supercell(self):
@@ -1051,10 +1047,9 @@ class StructureDataViewer(_StructureDataBaseViewer):
     displayed_structure = Instance(Atoms, allow_none=True, read_only=True)
     pk = Int(allow_none=True)
 
-    def __init__(self, structure=None, **kwargs):
+    def __init__(self, **kwargs):
         super().__init__(**kwargs)
-        self.structure = structure
-        self.natoms = len(self.structure) if self.structure is not None else 0
+        self.natoms = len(self.structure) if self.structure else 0
 
     @observe("supercell")
     def repeat(self, _=None):
@@ -1088,21 +1083,20 @@ class StructureDataViewer(_StructureDataBaseViewer):
     def _observe_structure(self, change):
         """Update displayed_structure trait after the structure trait has been modified."""
         # Remove the current structure(s) from the viewer.
-        self.natoms = len(self.structure) if self.structure is not None else 0
+        structure = change["new"]
 
-        if not self.structure:  # If the structure is not set - do nothing.
-            return
-
-        if "representations" not in self.structure.arrays:
-            self.structure.set_array("representations", np.zeros(self.natoms))
-        if "representationsshow" not in self.structure.arrays:
-            self.structure.set_array("representationsshow", np.ones(self.natoms))
-        if change["new"] is not None:
-            self.set_trait("displayed_structure", change["new"].repeat(self.supercell))
-            self.set_trait("cell", change["new"].cell)
+        if structure:
+            self.natoms = len(structure)
+            if "representations" not in structure.arrays:
+                structure.set_array("representations", np.zeros(self.natoms))
+            if "representationsshow" not in structure.arrays:
+                structure.set_array("representationsshow", np.ones(self.natoms))
+            self.set_trait("displayed_structure", structure.repeat(self.supercell))
+            self.set_trait("cell", structure.cell)
         else:
             self.set_trait("displayed_structure", None)
             self.set_trait("cell", None)
+            self.natoms = 0
 
     @observe("displayed_structure")
     def _observe_displayed_structure(self, change):
@@ -1310,7 +1304,6 @@ class StructureDataViewer(_StructureDataBaseViewer):
                 axis=0,
             )
         )
-        info_natoms_geo_center = f"<p>{len(self.displayed_selection)} atoms selected</p><p>Geometric center: ({geom_center})</p>"
 
         # Report coordinates.
         if len(self.displayed_selection) == 1:
@@ -1349,7 +1342,7 @@ class StructureDataViewer(_StructureDataBaseViewer):
                 )
             )
             normal = normal / np.linalg.norm(normal)
-            info += f"<p>{info_natoms_geo_center}</p><p>Angle: {angle}</p><p>Normal: ({print_pos(normal)})</p>"
+            info += f"<p>Angle: {angle}, Normal: ({print_pos(normal)})</p>"
 
         # Report dihedral angle and geometric center.
         elif len(self.displayed_selection) == 4:
@@ -1360,11 +1353,13 @@ class StructureDataViewer(_StructureDataBaseViewer):
                 dihedral_str = f"{dihedral:.2f}"
             except ZeroDivisionError:
                 dihedral_str = "nan"
-            info += (
-                f"<p>{info_natoms_geo_center}</p><p>Dihedral angle: {dihedral_str}</p>"
-            )
+            info += f"<p>Dihedral angle: {dihedral_str}</p>"
 
-        return info + info_natoms_geo_center
+        return (
+            info
+            + f"<p>Geometric center: ({geom_center})</p>"
+            + f"<p>{len(self.displayed_selection)} atoms selected</p>"
+        )
 
     @observe("displayed_selection")
     def _observe_displayed_selection_2(self, _=None):
