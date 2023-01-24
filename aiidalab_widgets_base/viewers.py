@@ -47,9 +47,6 @@ from .misc import CopyToClipboardButton, ReversePolishNotation
 from .utils import ase2spglib, list_to_string_range, string_range_to_list
 
 AIIDA_VIEWER_MAPPING = {}
-BOX_LAYOUT = ipw.Layout(
-    display="flex-wrap", flex_flow="row wrap", justify_content="space-between"
-)
 
 
 def register_viewer_widget(key):
@@ -262,7 +259,6 @@ class _StructureDataBaseViewer(ipw.VBox):
         self._viewer.observe(self._on_atom_click, names="picked")
         self._viewer.stage.set_parameters(mouse_preset="pymol")
         self.natoms = 0
-        self.n_all_representations = 0
 
         view_box = ipw.VBox([self._viewer])
 
@@ -431,23 +427,24 @@ class _StructureDataBaseViewer(ipw.VBox):
             ]
         )
         self.atoms_not_represented = ipw.HTML()
-        self.add_new_rep_button = ipw.Button(description="Add rep", button_style="info")
-        self.add_new_rep_button.on_click(self.add_representation)
+        add_new_representation_button = ipw.Button(
+            description="Add representation", button_style="info"
+        )
+        add_new_representation_button.on_click(self.add_representation)
 
-        apply_rep = ipw.Button(description="Apply rep")
+        apply_rep = ipw.Button(description="Apply representations")
         apply_rep.on_click(self.apply_representations)
-        self.representation_output = ipw.Box(layout=BOX_LAYOUT)
+        self.representation_output = ipw.VBox()
 
         return ipw.VBox(
             [
                 supercell_selector,
                 background_color,
                 camera_type,
-                self.add_new_rep_button,
                 self.representations_header,
                 self.representation_output,
                 self.atoms_not_represented,
-                apply_rep,
+                ipw.HBox([apply_rep, add_new_representation_button]),
                 center_button,
             ]
         )
@@ -455,7 +452,6 @@ class _StructureDataBaseViewer(ipw.VBox):
     def add_representation(self, _):
         """Add a representation to the list of representations."""
         self.all_representations = self.all_representations + [NglViewrRepresentation()]
-        self.n_all_representations += 1
 
     def delete_representation(self, representation):
         try:
@@ -468,25 +464,20 @@ class _StructureDataBaseViewer(ipw.VBox):
             self.all_representations[:index] + self.all_representations[index + 1 :]
         )
         del representation
-        self.n_all_representations -= 1
         self.apply_representations()
 
     @observe("all_representations")
     def _observe_all_representations(self, change):
         """Update the list of representations."""
+        self.representation_output.children = change["new"]
         if change["new"]:
-            self.representation_output.children = change["new"]
             self.all_representations[-1].master_class = self
-        else:
-            self.all_representation_output.children = []
 
     def update_representations(self, change=None):
         """Update the representations using the list of representations"""
-        number_of_representation_widgets = len(self.all_representations)
         if self.displayed_structure:
-            if number_of_representation_widgets == 0:
-                self.n_all_representations = 0
-                self.add_representation(None)
+            if not self.all_representations:
+                self.add_representation(None)  # Sasha: what is this?
 
             representations = self.structure.arrays["representations"]
             for rep in set(representations):
@@ -499,7 +490,7 @@ class _StructureDataBaseViewer(ipw.VBox):
                         [int(i) for i in np.where(representations == rep)[0]], shift=1
                     )
             # empty selection field for unused representations
-            for rep in range(number_of_representation_widgets):
+            for rep in range(len(self.all_representations)):
                 if rep not in {int(i) for i in representations}:
                     self.all_representations[rep].selection.value = ""
             self.apply_representations()
@@ -531,13 +522,14 @@ class _StructureDataBaseViewer(ipw.VBox):
 
     def apply_representations(self, change=None):
         """Apply the representations to the displayed structure."""
-        # negative value means an atom is not assigned to a representation
+
+        # Negative value means an atom is not assigned to a representation.
         self._viewer.clear_representations(component=0)
 
-        # initially not atoms are assigned to a representation
+        # Initially no atoms are assigned to a representation.
         arrayrepresentations = -1 * np.ones(self.natoms)
 
-        # the atom is not shown
+        # The atom is not shown
         arrayrepresentationsshow = np.zeros(self.natoms)
 
         for irep, rep in enumerate(self.all_representations):
@@ -864,13 +856,13 @@ class _StructureDataBaseViewer(ipw.VBox):
     def _on_atom_click(self, _=None):
         """Update selection when clicked on atom."""
         if hasattr(self._viewer, "component_0"):
+            # Did not click on atom:
             if "atom1" not in self._viewer.picked.keys():
-                return  # did not click on atom
+                return
+
             index = self._viewer.picked["atom1"]["index"]
-            # component = self._viewer.picked["component"] to be used in case of multiple components will be implemented
 
             displayed_selection = self.displayed_selection.copy()
-
             if displayed_selection:
                 if index not in displayed_selection:
                     displayed_selection.append(index)
@@ -898,13 +890,13 @@ class _StructureDataBaseViewer(ipw.VBox):
         # Map vis_list and self.displayed_structure.arrays["representations"] to a list of strings
         # that goes to the highlight_reps
         # there are N representations defined by the user and N automatically added for highlighting
-        ids = [[] for rep in range(self.n_all_representations)]
+        ids = [[] for _rep in self.all_representations]
 
         for i in vis_list:
             ids[int(self.structure.arrays["representations"][i])].append(i)
 
         # Remove previous highlight_rep representations.
-        for i in range(self.n_all_representations):
+        for i in range(len(self.all_representations)):
             self._viewer._remove_representations_by_name(
                 repr_name="highlight_rep" + str(i), component=0
             )
