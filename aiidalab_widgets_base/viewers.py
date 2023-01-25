@@ -475,9 +475,9 @@ class _StructureDataBaseViewer(ipw.VBox):
 
     def update_representations(self, change=None):
         """Update the representations using the list of representations"""
-        if self.displayed_structure:
+        if self.structure:
             if not self.all_representations:
-                self.add_representation(None)  # Sasha: what is this?
+                self.add_representation(None)
 
             representations = self.structure.arrays["representations"]
             for rep in set(representations):
@@ -1089,18 +1089,20 @@ class StructureDataViewer(_StructureDataBaseViewer):
             self.set_trait("displayed_structure", None)
             self.set_trait("cell", None)
             self.natoms = 0
+        self.update_representations()
 
     @observe("displayed_structure")
     def _observe_displayed_structure(self, change):
         """Update the view if displayed_structure trait was modified."""
         with self.hold_trait_notifications():
+            for component_index in self._viewer._ngl_component_ids:
+                self._viewer.remove_component(component_index)
             if change["new"] is not None:
                 self._viewer.add_component(
                     nglview.ASEStructure(self.displayed_structure),
                     default_representation=False,
                     name="Structure",
                 )
-                self.update_representations()
         self.displayed_selection = []
 
     def d_from(self, operand):
