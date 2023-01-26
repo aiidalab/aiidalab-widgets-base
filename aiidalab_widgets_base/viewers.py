@@ -9,6 +9,7 @@ import warnings
 import ipywidgets as ipw
 import nglview
 import numpy as np
+import shortuuid
 import spglib
 import traitlets
 from aiida.cmdline.utils.common import get_workchain_report
@@ -164,6 +165,8 @@ class NglViewerRepresentation(ipw.HBox):
 
     def __init__(self, indices=None):
 
+        self.uuid = f"_aiidalab_viewer_representation_{shortuuid.uuid()}"
+
         self.show = ipw.Checkbox(
             value=True,
             layout={"width": "40px"},
@@ -219,6 +222,17 @@ class NglViewerRepresentation(ipw.HBox):
 
     def delete_myself(self, _):
         self.master_class.delete_representation(self)
+
+    def add_myself_to_atoms_object(self, structure):
+        """Add representation array to the structure object."""
+        if structure:
+            array_representation = np.zeros(len(structure))
+            selection = string_range_to_list(self.selection.value, shift=-1)[0]
+            if self.show.value:
+                array_representation[selection] = 1
+            structure.set_array(self.uuid, array_representation)
+            return True
+        return False
 
 
 class _StructureDataBaseViewer(ipw.VBox):
@@ -459,6 +473,7 @@ class _StructureDataBaseViewer(ipw.VBox):
             self.all_representations = [
                 NglViewerRepresentation(indices=f"1..{len(self.structure)}")
             ]
+        self._apply_representations()
 
     def delete_representation(self, representation):
         try:
@@ -470,6 +485,9 @@ class _StructureDataBaseViewer(ipw.VBox):
         self.all_representations = (
             self.all_representations[:index] + self.all_representations[index + 1 :]
         )
+
+        if representation.uuid in self.structure.arrays:
+            del self.structure.arrays[representation.uuid]
         del representation
 
     @observe("all_representations")
@@ -501,16 +519,17 @@ class _StructureDataBaseViewer(ipw.VBox):
 
         self._observe_structure({"new": self.structure})
 
-        # missing_atoms = {
-        #     int(i) for i in np.where(self.structure.arrays["representations"] < 0)[0]
-        # }
-        # if missing_atoms:
-        #     self.atoms_not_represented.value = (
-        #         "Atoms excluded from representations: "
-        #         + list_to_string_range(list(missing_atoms), shift=1)
-        #     )
-        # else:
-        #     self.atoms_not_represented.value = ""
+        missing_atoms = np.zeros(self.natoms)
+        for representation in self.all_representations:
+            missing_atoms += self.structure.arrays[representation.uuid]
+        missing_atoms = np.where(missing_atoms == 0)[0]
+        if len(missing_atoms) > 0:
+            self.atoms_not_represented.value = (
+                "Atoms excluded from representations: "
+                + list_to_string_range(list(missing_atoms), shift=1)
+            )
+        else:
+            self.atoms_not_represented.value = ""
 
     @observe("cell")
     def _observe_cell(self, _=None):
@@ -817,10 +836,10 @@ class _StructureDataBaseViewer(ipw.VBox):
 
     def list_to_nglview(self, the_list):
         """Converts a list of structures to a nglview widget"""
-        sele = "none"
+        selection = "none"
         if len(the_list):
-            sele = "@" + ",".join(map(str, the_list))
-        return sele
+            selection = "@" + ",".join(map(str, the_list))
+        return selection
 
     def highlight_atoms(
         self,
@@ -830,35 +849,33 @@ class _StructureDataBaseViewer(ipw.VBox):
         if not hasattr(self._viewer, "component_0"):
             return
 
-        # Map vis_list and self.displayed_structure.arrays["representations"] to a list of strings
-        # that goes to the highlight_reps
-        # there are N representations defined by the user and N automatically added for highlighting
-        ids = [[] for _rep in self.all_representations]
+        # Get the list of representation arrays stored in the ase.Atoms object.
+        representations = [
+            self.displayed_structure.arrays[r.uuid] for r in self.all_representations
+        ]
 
-        for i in vis_list:
-            ids[int(self.structure.arrays["representations"][i])].append(i)
-
-        # Remove previous highlight_rep representations.
-        for i in range(len(self.all_representations)):
+        # Create the dictionaries for highlight_representations.
+        for i, selection in enumerate(representations):
+            # First remove the previous highlight_representation.
             self._viewer._remove_representations_by_name(
-                repr_name="highlight_rep" + str(i), component=0
+                repr_name=f"highlight_representation_{i}", component=0
             )
-
-        # Create the dictionaries for highlight_reps.
-        for i, selection in enumerate(ids):
-            if selection:
-                params = self.representation_parameters(self.all_representations[i])
-                params["params"]["sele"] = self.list_to_nglview(selection)
-                params["params"]["name"] = "highlight_rep" + str(i)
-                params["params"]["color"] = "red"
-                params["params"]["opacity"] = 0.6
+            # Then add the new one if needed.
+            indices = np.intersect1d(vis_list, np.where(selection > 0))
+            if len(indices) > 0:
+                params = self._get_representation_parameters(
+                    indices, self.all_representations[i]
+                )
+                params["params"]["name"] = f"highlight_representation_{i}"
+                params["params"]["color"] = "black"
+                params["params"]["opacity"] = 0.3
                 params["params"]["component_index"] = 0
                 if "radiusScale" in params["params"]:
-                    params["params"]["radiusScale"] += 0.1
+                    params["params"]["radiusScale"] *= 1.4
                 else:
-                    params["params"]["aspectRatio"] += 0.1
+                    params["params"]["aspectRatio"] *= 1.4
 
-                # and use directly teh remote call for more flexibility
+                # Use directly the remote call for more flexibility.
                 self._viewer._remote_call(
                     "addRepresentation",
                     target="compList",
@@ -1015,7 +1032,7 @@ class StructureDataViewer(_StructureDataBaseViewer):
         return structure
 
     @observe("structure")
-    def _observe_structure(self, change):
+    def _observe_structure(self, change=None):
         """Update displayed_structure trait after the structure trait has been modified."""
         structure = change["new"]
 
@@ -1026,17 +1043,9 @@ class StructureDataViewer(_StructureDataBaseViewer):
 
         if structure:
             self.natoms = len(structure)
-            for index, representation in enumerate(self.all_representations):
-                array_representation = np.zeros(self.natoms)
-                selection = string_range_to_list(
-                    representation.selection.value, shift=-1
-                )[0]
-                if representation.show:
-                    array_representation[selection] = 1
-                self.structure.set_array(
-                    f"_aiidalab_viewer_representation_{index}", array_representation
-                )
-
+            # Make sure that the structure has all the representation arrays.
+            for representation in self.all_representations:
+                representation.add_myself_to_atoms_object(structure)
             self._observe_supercell()  # To trigger an update of the displayed structure
             self.set_trait("cell", structure.cell)
         else:
@@ -1056,18 +1065,14 @@ class StructureDataViewer(_StructureDataBaseViewer):
                     name="Structure",
                 )
                 representation_parameters = []
-                for rep_name in [
-                    r
-                    for r in self.displayed_structure.arrays
-                    if r.startswith("_aiidalab_viewer_representation_")
-                ]:
-                    indices = np.where(self.displayed_structure.arrays[rep_name] > 0)[0]
-                    representation = self.all_representations[
-                        int(rep_name[32:])
-                    ]  # Cut of the _aiidalab_viewer_representation_ prefix
+                for representation in self.all_representations:
+                    indices = np.where(
+                        self.displayed_structure.arrays[representation.uuid] > 0
+                    )[0]
                     representation_parameters.append(
                         self._get_representation_parameters(indices, representation)
                     )
+
                 self._viewer.set_representations(representation_parameters, component=0)
                 self._viewer.add_unitcell()
                 self._viewer.center()
