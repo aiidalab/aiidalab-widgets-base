@@ -502,7 +502,7 @@ class _StructureDataBaseViewer(ipw.VBox):
         params = {
             "type": representation.type.value,
             "params": {
-                "sele": self.list_to_nglview(indices),
+                "sele": self._list_to_nglview(indices),
                 "opacity": 1,
                 "color": representation.color.value,
             },
@@ -834,7 +834,7 @@ class _StructureDataBaseViewer(ipw.VBox):
                 displayed_selection = [index]
             self.displayed_selection = displayed_selection
 
-    def list_to_nglview(self, the_list):
+    def _list_to_nglview(self, the_list):
         """Converts a list of structures to a nglview widget"""
         selection = "none"
         if len(the_list):
@@ -867,7 +867,6 @@ class _StructureDataBaseViewer(ipw.VBox):
                     indices, self.all_representations[i]
                 )
                 params["params"]["name"] = f"highlight_representation_{i}"
-                params["params"]["color"] = "black"
                 params["params"]["opacity"] = 0.3
                 params["params"]["component_index"] = 0
                 if "radiusScale" in params["params"]:
@@ -1015,10 +1014,9 @@ class StructureDataViewer(_StructureDataBaseViewer):
     def _valid_structure(self, change):  # pylint: disable=no-self-use
         """Update structure."""
         structure = change["value"]
+        # If no structure is provided, the rest of the code can be skipped.
         if structure is None:
-            return (
-                None  # If no structure is provided, the rest of the code can be skipped
-            )
+            return None
         if isinstance(structure, Atoms):
             self.pk = None
         elif isinstance(structure, Node):
