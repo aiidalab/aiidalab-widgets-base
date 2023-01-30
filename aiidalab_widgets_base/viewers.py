@@ -163,9 +163,9 @@ class NglViewerRepresentation(ipw.HBox):
 
     master_class = None
 
-    def __init__(self, indices=None):
+    def __init__(self, uuid=None, indices=None):
 
-        self.uuid = f"_aiidalab_viewer_representation_{shortuuid.uuid()}"
+        self.uuid = uuid or f"_aiidalab_viewer_representation_{shortuuid.uuid()}"
 
         self.show = ipw.Checkbox(
             value=True,
@@ -175,7 +175,7 @@ class NglViewerRepresentation(ipw.HBox):
         )
 
         self.selection = ipw.Text(
-            value=indices,
+            value=list_to_string_range(indices, shift=1) if indices else "",
             layout={"width": "80px"},
             style={"description_width": "0px"},
         )
@@ -223,8 +223,18 @@ class NglViewerRepresentation(ipw.HBox):
     def delete_myself(self, _):
         self.master_class.delete_representation(self)
 
+    def sync_myself_to_array_from_atoms_object(self, structure):
+        """Update representation from the structure object."""
+        if structure:
+            if self.uuid in structure.arrays:
+                self.selection.value = list_to_string_range(
+                    np.where(structure.arrays[self.uuid] > 0)[0], shift=1
+                )
+                return True
+        return False
+
     def add_myself_to_atoms_object(self, structure):
-        """Add representation array to the structure object."""
+        """Add representation array to the structure object. If the array already exists, update it."""
         if structure:
             array_representation = np.zeros(len(structure))
             selection = string_range_to_list(self.selection.value, shift=-1)[0]
@@ -463,15 +473,17 @@ class _StructureDataBaseViewer(ipw.VBox):
             ]
         )
 
-    def _add_representation(self, _=None):
+    def _add_representation(self, _=None, uuid=None, indices=None):
         """Add a representation to the list of representations."""
         if self.all_representations:
             self.all_representations = self.all_representations + [
-                NglViewerRepresentation()
+                NglViewerRepresentation(uuid=uuid, indices=indices)
             ]
         else:
             self.all_representations = [
-                NglViewerRepresentation(indices=f"1..{len(self.structure)}")
+                NglViewerRepresentation(
+                    uuid=uuid, indices=indices or list(range(self.natoms))
+                )
             ]
         self._apply_representations()
 
@@ -516,12 +528,26 @@ class _StructureDataBaseViewer(ipw.VBox):
 
     def _apply_representations(self, change=None):
         """Apply the representations to the displayed structure."""
-
-        self._observe_structure({"new": self.structure})
-
-        missing_atoms = np.zeros(self.natoms)
+        rep_uuids = []
+        # Add existing representations to the structure.
         for representation in self.all_representations:
-            missing_atoms += self.structure.arrays[representation.uuid]
+            representation.add_myself_to_atoms_object(self.structure)
+            rep_uuids.append(representation.uuid)
+
+        # Remove missing representations from the structure.
+        for array in self.structure.arrays:
+            if (
+                array.startswith("_aiidalab_viewer_representation_")
+                and array not in rep_uuids
+            ):
+                del self.structure.arrays[array]
+        self._observe_structure({"new": self.structure})
+        self._check_missing_atoms_in_representations()
+
+    def _check_missing_atoms_in_representations(self):
+        missing_atoms = np.zeros(self.natoms)
+        for rep in self.all_representations:
+            missing_atoms += self.structure.arrays[rep.uuid]
         missing_atoms = np.where(missing_atoms == 0)[0]
         if len(missing_atoms) > 0:
             self.atoms_not_represented.value = (
@@ -1036,14 +1062,26 @@ class StructureDataViewer(_StructureDataBaseViewer):
 
         self._viewer.clear_representations(component=0)
 
-        if not self.all_representations:
-            self._add_representation()
-
         if structure:
             self.natoms = len(structure)
-            # Make sure that the structure has all the representation arrays.
-            for representation in self.all_representations:
-                representation.add_myself_to_atoms_object(structure)
+            # Make sure that the representation arrays from structure are present in the viewer.
+            uuids = [
+                uuid
+                for uuid in structure.arrays
+                if uuid.startswith("_aiidalab_viewer_representation_")
+            ]
+            rep_uuids = [rep.uuid for rep in self.all_representations]
+            for uuid in uuids:
+                try:
+                    index = rep_uuids.index(uuid)
+                    self.all_representations[
+                        index
+                    ].sync_myself_to_array_from_atoms_object(structure)
+                except ValueError:
+                    self._add_representation(uuid=uuid)
+            # No representations found, adding default one.
+            if not self.all_representations:
+                self._add_representation()
             self._observe_supercell()  # To trigger an update of the displayed structure
             self.set_trait("cell", structure.cell)
         else:
