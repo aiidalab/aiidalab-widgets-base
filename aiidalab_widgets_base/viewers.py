@@ -1120,6 +1120,11 @@ class StructureDataViewer(_StructureDataBaseViewer):
                         uuid=uuid,
                         indices=np.where(structure.arrays[self.uuid] >= 1.0)[0],
                     )
+            # Empty representations that are not present in the structure.
+            for i, uuid in enumerate(rep_uuids):
+                if uuid not in uuids:
+                    self._all_representations[i].selection.value = ""
+
             self._observe_supercell()  # To trigger an update of the displayed structure
             self.set_trait("cell", structure.cell)
         else:
