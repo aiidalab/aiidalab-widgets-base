@@ -1120,7 +1120,8 @@ class StructureDataViewer(_StructureDataBaseViewer):
                         uuid=uuid,
                         indices=np.where(structure.arrays[self.uuid] >= 1.0)[0],
                     )
-            # Empty representations that are not present in the structure.
+            # Empty atoms selection for the representations that are not present in the structure.
+            # Typically this happens when a new structure is imported.
             for i, uuid in enumerate(rep_uuids):
                 if uuid not in uuids:
                     self._all_representations[i].selection.value = ""
