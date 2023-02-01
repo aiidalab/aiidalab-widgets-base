@@ -253,7 +253,7 @@ class NglViewerRepresentation(ipw.HBox):
         if structure:
             array_representation = np.full(len(structure), -1)
             selection = np.array(
-                string_range_to_list(self.selection.value, shift=-1)[0]
+                string_range_to_list(self.selection.value, shift=-1)[0], dtype=int
             )
             # Only attempt to display the existing atoms.
             array_representation[selection[selection < len(structure)]] = 1
