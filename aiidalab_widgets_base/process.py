@@ -2,11 +2,11 @@
 # pylint: disable=no-self-use
 # Built-in imports
 import os
+import traceback
 import warnings
 from inspect import isclass, signature
 from threading import Event, Lock, Thread
 from time import sleep
-import traceback
 from uuid import UUID
 
 # External imports
@@ -747,7 +747,7 @@ class ProcessMonitor(traitlets.HasTraits):
                         func(process_uuid)
                     else:
                         func()
-                except Exception as error:
+                except Exception:
                     warnings.warn(
                         f"WARNING: Callback function {func.__name__!r} disabled due to error:\n{traceback.format_exc()}"
                     )
