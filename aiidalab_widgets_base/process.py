@@ -6,6 +6,7 @@ import warnings
 from inspect import isclass, signature
 from threading import Event, Lock, Thread
 from time import sleep
+import traceback
 from uuid import UUID
 
 # External imports
@@ -748,7 +749,7 @@ class ProcessMonitor(traitlets.HasTraits):
                         func()
                 except Exception as error:
                     warnings.warn(
-                        f"WARNING: Callback function '{func}' disabled due to error: {error}"
+                        f"WARNING: Callback function {func.__name__!r} disabled due to error:\n{traceback.format_exc()}"
                     )
                     disabled_funcs.add(func)
 
