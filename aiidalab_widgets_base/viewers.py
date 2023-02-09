@@ -214,10 +214,7 @@ class _StructureDataBaseViewer(ipw.VBox):
         if configuration_tabs is None:
             configuration_tabs = ["Selection", "Appearance", "Cell", "Download"]
         if len(configuration_tabs) != 0: 
-            try:
-                self.selection_tab_idx = configuration_tabs.index("Selection")
-            except ValueError:
-                pass 
+            self.selection_tab_idx = 0
             self.configuration_box = ipw.Tab(
                 layout=ipw.Layout(flex="1 1 auto", width="auto")
             )
