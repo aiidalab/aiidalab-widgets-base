@@ -49,11 +49,14 @@ from .utils import ase2spglib, list_to_string_range, string_range_to_list
 AIIDA_VIEWER_MAPPING = {}
 
 
-def register_viewer_widget(key):
+def register_viewer_widget(node_type, key=None):
     """Register widget as a viewer for the given key."""
 
     def registration_decorator(widget):
-        AIIDA_VIEWER_MAPPING[key] = widget
+        if key:
+            AIIDA_VIEWER_MAPPING[(node_type, key)] = widget
+        else:
+            AIIDA_VIEWER_MAPPING[node_type] = widget
         return widget
 
     return registration_decorator
@@ -71,7 +74,12 @@ def viewer(obj, downloadable=True, **kwargs):
         return obj
 
     try:
-        _viewer = AIIDA_VIEWER_MAPPING[obj.node_type]
+        try:
+            _viewer = AIIDA_VIEWER_MAPPING[(obj.node_type, obj.process_label)]
+        except (AttributeError, KeyError):
+            # Viewer mapping for non-process node and fallback mapping for if process_label
+            # not specified.
+            _viewer = AIIDA_VIEWER_MAPPING[obj.node_type]
     except (KeyError) as exc:
         if obj.node_type in str(exc):
             warnings.warn(
