@@ -750,7 +750,7 @@ class ProcessMonitor(traitlets.HasTraits):
                         func()
                 except Exception:
                     warnings.warn(
-                        f"WARNING: Callback function {func.__name__!r} disabled due to error:\n{traceback.format_exc()}"
+                        f"WARNING: The callback function {func.__name__!r} was disabled due to an error:\n{traceback.format_exc()}"
                     )
                     disabled_funcs.add(func)
 
