@@ -230,7 +230,7 @@ class ProcessOutputsWidget(ipw.VBox):
 class ProcessFollowerWidget(ipw.VBox):
     """A Widget that follows a process until finished."""
 
-    process = Instance(ProcessNode, allow_none=True)
+    value = traitlets.Unicode(allow_none=True)
 
     def __init__(
         self,
@@ -243,13 +243,13 @@ class ProcessFollowerWidget(ipw.VBox):
         """Initiate all the followers."""
         self._monitor = None
 
-        self.process = process
+        self.value = process.uuid
         self._run_after_completed = []
         self.update_interval = update_interval
         self.followers = []
         if followers is not None:
             for follower in followers:
-                follower.process = self.process
+                follower.process = process
                 follower.path_to_root = path_to_root
                 self.followers.append(
                     ipw.VBox(
@@ -269,20 +269,22 @@ class ProcessFollowerWidget(ipw.VBox):
 
     def follow(self, detach=False):
         """Initiate following the process with or without blocking."""
-        if self.process is None:
+        if self.value is None:
             self.output.value = """<font color="red"> ProcessFollowerWidget: process
             is set to 'None', nothing to follow. </font>"""
             return
         self.output.value = ""
 
+        process = load_node(self.value)
+
         if self._monitor is None:
             self._monitor = ProcessMonitor(
-                process=self.process,
+                process=process,
                 callbacks=[self.update],
                 on_sealed=self._run_after_completed,
                 timeout=self.update_interval,
             )
-            ipw.dlink((self, "process"), (self._monitor, "process"))
+            ipw.dlink((self, "value"), (self._monitor, "value"))
 
         if not detach:
             self._monitor.join()
@@ -750,7 +752,8 @@ class ProcessMonitor(traitlets.HasTraits):
                         func()
                 except Exception:
                     warnings.warn(
-                        f"WARNING: The callback function {func.__name__!r} was disabled due to an error:\n{traceback.format_exc()}"
+                        f"WARNING: The callback function {func.__name__!r} was disabled due to an error:\n{traceback.format_exc()}",
+                        stacklevel=2,
                     )
                     disabled_funcs.add(func)
 
