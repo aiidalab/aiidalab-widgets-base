@@ -1,6 +1,8 @@
 """Widgets to work with processes."""
 # pylint: disable=no-self-use
 # Built-in imports
+from __future__ import annotations
+
 import os
 import traceback
 import warnings
@@ -163,9 +165,10 @@ class ProcessInputsWidget(ipw.VBox):
         self.process = process
         self.output = ipw.Output()
         self.info = ipw.HTML()
-        inputs_list = (
-            [(input_, input_) for input_ in self.process.inputs] if self.process else []
-        )
+
+        self.flat_mapping = self.generate_flat_mapping(process=process)
+        inputs_list = [(key, value) for key, value in self.flat_mapping.items()]
+
         inputs = ipw.Dropdown(
             options=[("Select input", "")] + inputs_list,
             description="Select input:",
@@ -177,14 +180,46 @@ class ProcessInputsWidget(ipw.VBox):
             children=[ipw.HBox([inputs, self.info]), self.output], **kwargs
         )
 
+    def generate_flat_mapping(
+        self, process: ProcessNode | None = None
+    ) -> dict[str, str]:
+        """Generate a dict of input to node uuid mapping.
+
+        If the input port is a namespace, it will further parse the namespace and attach the entity the
+        `<namespace>.<childnamespace>.<node_name>` format.
+
+        :param process: Process node.
+        :return: Dict of flatten embed key name to node UUID."""
+        from collections.abc import Mapping
+
+        from aiida.common.links import LinkType
+
+        nested_dict = process.base.links.get_incoming(
+            link_type=(LinkType.INPUT_CALC, LinkType.INPUT_WORK)
+        ).nested()
+
+        def flatten(d, parent_key="", sep="."):
+            items = []
+            for key, value in d.items():
+                new_key = parent_key + sep + key if parent_key else key
+                if isinstance(value, Mapping):
+                    items.extend(flatten(value, new_key, sep=sep).items())
+                else:
+                    items.append((new_key, value.uuid))
+            return dict(items)
+
+        options_map = flatten(nested_dict)
+
+        return options_map
+
     def show_selected_input(self, change=None):
         """Function that displays process inputs selected in the `inputs` Dropdown widget."""
         with self.output:
             self.info.value = ""
             clear_output()
             if change["new"]:
-                selected_input = self.process.inputs[change["new"]]
-                self.info.value = f"PK: {selected_input.id}"
+                selected_input = load_node(change["new"])
+                self.info.value = f"PK: {selected_input.pk}"
                 display(viewer(selected_input))
 
 
