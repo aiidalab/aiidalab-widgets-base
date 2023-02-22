@@ -164,9 +164,7 @@ class ProcessInputsWidget(ipw.VBox):
         self.output = ipw.Output()
         self.info = ipw.HTML()
         inputs_list = (
-            [(input_.title(), input_) for input_ in self.process.inputs]
-            if self.process
-            else []
+            [(input_, input_) for input_ in self.process.inputs] if self.process else []
         )
         inputs = ipw.Dropdown(
             options=[("Select input", "")] + inputs_list,
@@ -750,7 +748,8 @@ class ProcessMonitor(traitlets.HasTraits):
                         func()
                 except Exception:
                     warnings.warn(
-                        f"WARNING: The callback function {func.__name__!r} was disabled due to an error:\n{traceback.format_exc()}"
+                        f"WARNING: The callback function {func.__name__!r} was disabled due to an error:\n{traceback.format_exc()}",
+                        stacklevel=2,
                     )
                     disabled_funcs.add(func)
 
