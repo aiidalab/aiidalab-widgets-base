@@ -243,7 +243,7 @@ class ProcessFollowerWidget(ipw.VBox):
         """Initiate all the followers."""
         self._monitor = None
 
-        self.value = process.uuid
+        self.value = process.uuid if process else None
         self._run_after_completed = []
         self.update_interval = update_interval
         self.followers = []
