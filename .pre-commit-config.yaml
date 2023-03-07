@@ -28,8 +28,15 @@ repos:
       hooks:
           - id: flake8
             args: [--count, --show-source, --statistics]
-            additional_dependencies: [flake8-bugbear, flake8-builtins, flake8-comprehensions, flake8-debugger, flake8-logging-format, pep8-naming, pyflakes,
-                tryceratops]
+            additional_dependencies:
+                - flake8-bugbear==23.2.13
+                - flake8-builtins==2.1.0
+                - flake8-comprehensions==3.10.1
+                - flake8-debugger==4.1.2
+                - flake8-logging-format==0.9.0
+                - pep8-naming==0.13.3
+                - pyflakes==3.0.1
+                - tryceratops==1.1.0
 
     - repo: https://github.com/pycqa/isort
       rev: 5.12.0
