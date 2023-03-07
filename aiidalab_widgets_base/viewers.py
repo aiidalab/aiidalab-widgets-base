@@ -67,7 +67,9 @@ def viewer(obj, downloadable=True, **kwargs):
 
     Returns the object itself if the viewer wasn't found."""
     if not isinstance(obj, Node):  # only working with AiiDA nodes
-        warnings.warn(f"This viewer works only with AiiDA objects, got {type(obj)}")
+        warnings.warn(
+            f"This viewer works only with AiiDA objects, got {type(obj)}", stacklevel=2
+        )
         return obj
 
     try:
@@ -75,8 +77,9 @@ def viewer(obj, downloadable=True, **kwargs):
     except (KeyError) as exc:
         if obj.node_type in str(exc):
             warnings.warn(
-                "Did not find an appropriate viewer for the {} object. Returning the object "
-                "itself.".format(type(obj))
+                f"Did not find an appropriate viewer for the {type(obj)} object. Returning the object "
+                "itself.",
+                stacklevel=2,
             )
             return obj
         raise
@@ -206,6 +209,7 @@ class _StructureDataBaseViewer(ipw.VBox):
             warnings.warn(
                 "`configure_view` is deprecated, please use `configuration_tabs` instead.",
                 DeprecationWarning,
+                stacklevel=2,
             )
             if not configure_view:
                 configuration_tabs.clear()
