@@ -27,52 +27,22 @@ def screenshot_dir():
     return sdir
 
 
-@pytest.fixture(scope="session")
-def docker_compose(docker_services):
-    return docker_services._docker_compose
-
-
-@pytest.fixture(scope="session")
-def aiidalab_exec(docker_compose):
-    def execute(command, user=None, **kwargs):
-        workdir = "/home/jovyan/apps/aiidalab-widgets-base"
-        if user:
-            command = f"exec --workdir {workdir} -T --user={user} aiidalab {command}"
-        else:
-            command = f"exec --workdir {workdir} -T aiidalab {command}"
-
-        return docker_compose.execute(command, **kwargs)
-
-    return execute
-
-
 @pytest.fixture(scope="session", autouse=True)
-def notebook_service(docker_ip, docker_services, aiidalab_exec):
+def notebook_service():
     """Ensure that HTTP service is up and responsive."""
-    # Directory ~/apps/aiidalab-widgets-base/ is mounted by docker,
-    # make it writeable for jovyan user, needed for `pip install`
-    aiidalab_exec("chmod -R a+rw /home/jovyan/apps/aiidalab-widgets-base", user="root")
 
-    # Install AWB with extra dependencies for SmilesWidget
-    aiidalab_exec("pip install -U .[smiles]")
-
-    # `port_for` takes a container port and returns the corresponding host port
-    port = docker_services.port_for("aiidalab", 8888)
-    url = f"http://{docker_ip}:{port}"
-    token = os.environ["JUPYTER_TOKEN"]
-    docker_services.wait_until_responsive(
-        timeout=30.0, pause=0.1, check=lambda: is_responsive(url)
-    )
+    url = "http://localhost:8888"
+    token = "20e092cbda4c93317ca4787ae202a4d069db66c3a4517ab4"
     return url, token
 
 
 @pytest.fixture(scope="function")
 def selenium_driver(selenium, notebook_service):
+    # Directory ~/apps/aiidalab-widgets-base/ is mounted by docker,
+    # make it writeable for jovyan user, needed for `pip install`
     def _selenium_driver(nb_path):
         url, token = notebook_service
-        url_with_token = urljoin(
-            url, f"apps/apps/aiidalab-widgets-base/{nb_path}?token={token}"
-        )
+        url_with_token = urljoin(url, f"notebooks/{nb_path}?token={token}")
         selenium.get(f"{url_with_token}")
         # By default, let's allow selenium functions to retry for 10s
         # till a given element is loaded, see:
