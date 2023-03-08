@@ -32,7 +32,7 @@ def notebook_service():
     """Ensure that HTTP service is up and responsive."""
 
     url = "http://localhost:8888"
-    token = "730ac243fc259b2e5640de1b93d642a2e5b690187e9299335360f2ad683f45e9"
+    token = "my_test_token"
     return url, token
 
 
