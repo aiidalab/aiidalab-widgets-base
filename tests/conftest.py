@@ -32,7 +32,7 @@ def notebook_service():
     """Ensure that HTTP service is up and responsive."""
 
     url = "http://localhost:8888"
-    token = "20e092cbda4c93317ca4787ae202a4d069db66c3a4517ab4"
+    token = "730ac243fc259b2e5640de1b93d642a2e5b690187e9299335360f2ad683f45e9"
     return url, token
 
 
@@ -42,7 +42,9 @@ def selenium_driver(selenium, notebook_service):
     # make it writeable for jovyan user, needed for `pip install`
     def _selenium_driver(nb_path):
         url, token = notebook_service
-        url_with_token = urljoin(url, f"notebooks/{nb_path}?token={token}")
+        url_with_token = urljoin(
+            url, f"apps/apps/aiidalab-widgets-base/{nb_path}?token={token}"
+        )
         selenium.get(f"{url_with_token}")
         # By default, let's allow selenium functions to retry for 10s
         # till a given element is loaded, see:
@@ -81,4 +83,5 @@ def firefox_options(firefox_options):
 @pytest.fixture
 def chrome_options(chrome_options):
     chrome_options.add_argument("--headless")
+    chrome_options.add_argument("--no-sandbox")
     return chrome_options
