@@ -21,7 +21,7 @@ jobs:
               env:
                   JUPYTER_TOKEN: ${{ secrets.JUPYTER_TOKEN }}
               run: |
-                  DOCKER_ID=$(docker run -it -d --rm -v $(pwd):/home/jovyan/apps/aiidalab-widgets-base -e JUPYTER_TOKEN=${JUPYTER_TOKEN} aiidalab/full-stack-with-browsers:latest)
-                  docker exec -it ${DOCKER_ID} bash -c "cd apps/aiidalab-widgets-base && pip install -e.[dev,smiles]"
-                  docker exec -it ${DOCKER_ID} bash -c "cd apps/aiidalab-widgets-base && pytest --driver Chrome"
+                  DOCKER_ID=$(docker run -d --rm -v $(pwd):/home/jovyan/apps/aiidalab-widgets-base -e JUPYTER_TOKEN=${JUPYTER_TOKEN} aiidalab/full-stack-with-browsers:latest)
+                  docker exec ${DOCKER_ID} bash -c "cd apps/aiidalab-widgets-base && pip install -e.[dev,smiles]"
+                  docker exec ${DOCKER_ID} bash -c "cd apps/aiidalab-widgets-base && pytest --driver Chrome"
                   docker stop ${DOCKER_ID}
