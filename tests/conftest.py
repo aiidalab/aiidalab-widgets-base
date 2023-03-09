@@ -1,4 +1,5 @@
 import os
+import subprocess
 from pathlib import Path
 from urllib.parse import urljoin
 
@@ -27,12 +28,22 @@ def screenshot_dir():
     return sdir
 
 
+@pytest.fixture(scope="session")
+def aiidalab_exec():
+    """Exeute aiidalab command in a subprocess."""
+
+    def _aiidalab_exec(command, **kwargs):
+        if isinstance(command, str):
+            command = command.split()
+        return subprocess.run(command, capture_output=True, **kwargs).stdout
+
+    return _aiidalab_exec
+
+
 @pytest.fixture(scope="session", autouse=True)
 def notebook_service():
-    """Ensure that HTTP service is up and responsive."""
-
     url = "http://localhost:8888"
-    token = "my_test_token"
+    token = os.environ["JUPYTER_TOKEN"]
     return url, token
 
 
@@ -41,11 +52,13 @@ def selenium_driver(selenium, notebook_service):
     # Directory ~/apps/aiidalab-widgets-base/ is mounted by docker,
     # make it writeable for jovyan user, needed for `pip install`
     def _selenium_driver(nb_path):
+
         url, token = notebook_service
-        url_with_token = urljoin(
+
+        full_url = urljoin(
             url, f"apps/apps/aiidalab-widgets-base/{nb_path}?token={token}"
         )
-        selenium.get(f"{url_with_token}")
+        selenium.get(full_url)
         # By default, let's allow selenium functions to retry for 10s
         # till a given element is loaded, see:
         # https://selenium-python.readthedocs.io/waits.html#implicit-waits

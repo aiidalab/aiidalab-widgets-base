@@ -1,4 +1,4 @@
-FROM aiidalab/aiidalab-docker-stack:latest
+FROM aiidalab/full-stack:latest
 
 USER root
 
@@ -7,8 +7,6 @@ RUN apt-get update && apt-get install -y wget gnupg \
     && echo "deb [arch=amd64] http://dl.google.com/linux/chrome/deb/ stable main" >> /etc/apt/sources.list.d/google-chrome.list \
     && apt-get update && apt-get install -y google-chrome-stable \
     && apt-get clean && rm -rf /var/lib/apt/lists/*
-
-RUN pip install selenium
 
 ENV CHROMEDRIVER_VERSION 111.0.5563.64
 RUN wget -q https://chromedriver.storage.googleapis.com/${CHROMEDRIVER_VERSION}/chromedriver_linux64.zip \
