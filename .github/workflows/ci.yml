@@ -13,6 +13,9 @@ jobs:
             - name: Checkout repository
               uses: actions/checkout@v2
 
+            - name: Change folder ownder to 1000
+              run: sudo chown -R 1000 .
+
             - name: Build Docker image
               run: |
                   docker build -t aiidalab/full-stack-with-browsers:latest tests/
@@ -21,7 +24,11 @@ jobs:
               env:
                   JUPYTER_TOKEN: ${{ secrets.JUPYTER_TOKEN }}
               run: |
+                  echo $(pwd)
+                  ls -lan
                   DOCKER_ID=$(docker run -d --rm -v $(pwd):/home/jovyan/apps/aiidalab-widgets-base -e JUPYTER_TOKEN=${JUPYTER_TOKEN} aiidalab/full-stack-with-browsers:latest)
-                  docker exec ${DOCKER_ID} bash -c "cd apps/aiidalab-widgets-base && pip install -e.[dev,smiles]"
+                  docker exec ${DOCKER_ID} bash -c "cd apps/aiidalab-widgets-base && ls -lan"
+                  docker exec ${DOCKER_ID} bash -c "cd apps/aiidalab-widgets-base && ls -la"
+                  docker exec ${DOCKER_ID} bash -c "cd apps/aiidalab-widgets-base && pip install .[dev,smiles]"
                   docker exec ${DOCKER_ID} bash -c "cd apps/aiidalab-widgets-base && pytest --driver Chrome"
                   docker stop ${DOCKER_ID}
