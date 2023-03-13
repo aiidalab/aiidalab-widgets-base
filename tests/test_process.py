@@ -158,6 +158,9 @@ def test_process_inputs(generate_calc_job_node):
         }
     )
 
+    # test the widget can be instantiated with empty inputs
+    process_input_widget = ProcessInputsWidget(process=None)
+
     process_input_widget = ProcessInputsWidget(process=process)
     input_dropdown = process_input_widget._inputs
 

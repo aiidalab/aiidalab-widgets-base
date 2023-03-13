@@ -166,7 +166,7 @@ class ProcessInputsWidget(ipw.VBox):
         self.output = ipw.Output()
         self.info = ipw.HTML()
 
-        self.flat_mapping = self.generate_flat_mapping(process=process)
+        self.flat_mapping = self.generate_flat_mapping(process=process) or {}
         inputs_list = [(key, value) for key, value in self.flat_mapping.items()]
 
         self._inputs = ipw.Dropdown(
@@ -182,7 +182,7 @@ class ProcessInputsWidget(ipw.VBox):
 
     def generate_flat_mapping(
         self, process: ProcessNode | None = None
-    ) -> dict[str, str]:
+    ) -> None | dict[str, str]:
         """Generate a dict of input to node uuid mapping.
 
         If the input port is a namespace, it will further parse the namespace and attach the entity the
@@ -193,6 +193,9 @@ class ProcessInputsWidget(ipw.VBox):
         from collections.abc import Mapping
 
         from aiida.common.links import LinkType
+
+        if process is None:
+            return None
 
         nested_dict = process.base.links.get_incoming(
             link_type=(LinkType.INPUT_CALC, LinkType.INPUT_WORK)
