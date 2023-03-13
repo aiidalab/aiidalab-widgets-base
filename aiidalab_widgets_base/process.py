@@ -218,7 +218,6 @@ class ProcessInputsWidget(ipw.VBox):
             self.info.value = ""
             clear_output()
             if change["new"]:
-                print(f"Selected input: {change['new']}")
                 selected_input = load_node(change["new"])
                 self.info.value = f"PK: {selected_input.pk}"
                 display(viewer(selected_input))
