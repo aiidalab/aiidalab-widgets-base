@@ -169,15 +169,15 @@ class ProcessInputsWidget(ipw.VBox):
         self.flat_mapping = self.generate_flat_mapping(process=process)
         inputs_list = [(key, value) for key, value in self.flat_mapping.items()]
 
-        inputs = ipw.Dropdown(
+        self._inputs = ipw.Dropdown(
             options=[("Select input", "")] + inputs_list,
             description="Select input:",
             style={"description_width": "initial"},
             disabled=False,
         )
-        inputs.observe(self.show_selected_input, names=["value"])
+        self._inputs.observe(self.show_selected_input, names=["value"])
         super().__init__(
-            children=[ipw.HBox([inputs, self.info]), self.output], **kwargs
+            children=[ipw.HBox([self._inputs, self.info]), self.output], **kwargs
         )
 
     def generate_flat_mapping(
@@ -218,6 +218,7 @@ class ProcessInputsWidget(ipw.VBox):
             self.info.value = ""
             clear_output()
             if change["new"]:
+                print(f"Selected input: {change['new']}")
                 selected_input = load_node(change["new"])
                 self.info.value = f"PK: {selected_input.pk}"
                 display(viewer(selected_input))
