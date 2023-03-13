@@ -5,7 +5,7 @@ from collections.abc import Mapping
 import pytest
 from aiida import orm
 
-pytest_plugins = ["aiida.manage.tests.pytest_fixtures"]  # pylint: disable=invalid-name
+pytest_plugins = ["aiida.manage.tests.pytest_fixtures"]
 
 
 @pytest.fixture
