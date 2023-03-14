@@ -69,4 +69,3 @@ def test_structure_browser_widget(structure_data_object):
     structure_data_object.store()
     structure_browser_widget.search()
     assert len(structure_browser_widget.results.options) == 2
-
