@@ -27,18 +27,18 @@ def get_environment_fingerprint(encoding="utf-8"):
             "python_version": platform.python_version(),
             "version": platform.version(),
         },
-        "packages": {package.name: package.version for package in packages},
-        # "packages": {name: package.version for name, package in packages},
+        "packages": {name: package.version for name, package in packages.items()},
     }
     json_data = json.dumps(data, separators=(",", ":"))
     return base64.urlsafe_b64encode(zlib.compress(json_data.encode(encoding), level=9))
 
 
-def parse_environment_fingerprint(data, encoding="utf-8"):
-    packages = json.loads(
-        zlib.decompress(base64.urlsafe_b64decode(data)).decode(encoding)
+def parse_environment_fingerprint(fingerprint, encoding="utf-8"):
+    """decode the environment fingerprint and return the data as a dictionary."""
+    data = json.loads(
+        zlib.decompress(base64.urlsafe_b64decode(fingerprint)).decode(encoding)
     )
-    return packages
+    return data
 
 
 ERROR_MESSAGE = """<div class="alert alert-danger">
