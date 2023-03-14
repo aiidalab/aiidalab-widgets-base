@@ -2,12 +2,12 @@ import ase
 import numpy as np
 import pytest
 
-import aiidalab_widgets_base as awb
-
 
 @pytest.mark.usefixtures("aiida_profile_clean")
 def test_structure_manager_widget(structure_data_object):
     """Test the `StructureManagerWidget`."""
+    import aiidalab_widgets_base as awb
+
     structure_manager_widget = awb.StructureManagerWidget(
         importers=[
             awb.StructureUploadWidget(title="From computer"),
@@ -55,6 +55,8 @@ def test_structure_manager_widget(structure_data_object):
 @pytest.mark.usefixtures("aiida_profile_clean")
 def test_structure_browser_widget(structure_data_object):
     """Test the `StructureBrowserWidget`."""
+    import aiidalab_widgets_base as awb
+
     structure_browser_widget = awb.StructureBrowserWidget()
     assert structure_browser_widget.structure is None
 
