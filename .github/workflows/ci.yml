@@ -129,4 +129,4 @@ jobs:
             - name: Upload coverage reports to Codecov
               uses: codecov/codecov-action@v3
               with:
-                  flags: browser-${{ matrix.browser }}
+                  flags: python-${{ matrix.python-version }}
