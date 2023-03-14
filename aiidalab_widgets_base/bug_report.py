@@ -14,12 +14,20 @@ from textwrap import wrap
 from urllib.parse import urlencode, urlsplit, urlunsplit
 
 import ipywidgets as ipw
-from aiidalab.utils import find_installed_packages
 from ansi2html import Ansi2HTMLConverter
 
 
 def get_environment_fingerprint(encoding="utf-8"):
+    from aiidalab.utils import find_installed_packages
+
     packages = find_installed_packages()
+    try:
+        # To support aiidalab <= 22.11.0
+        # if this fails, we are using aiidalab > 22.11.0
+        packages = {package.name: package.version for package in packages}
+    except AttributeError:
+        packages = {name: package.version for name, package in packages.items()}
+
     data = {
         "version": 1,
         "platform": {
@@ -27,7 +35,7 @@ def get_environment_fingerprint(encoding="utf-8"):
             "python_version": platform.python_version(),
             "version": platform.version(),
         },
-        "packages": {name: package.version for name, package in packages.items()},
+        "packages": packages,
     }
     json_data = json.dumps(data, separators=(",", ":"))
     return base64.urlsafe_b64encode(zlib.compress(json_data.encode(encoding), level=9))
