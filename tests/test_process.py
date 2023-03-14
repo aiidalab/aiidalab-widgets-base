@@ -1,5 +1,6 @@
 from aiida import orm
 
+
 def test_process_inputs(generate_calc_job_node):
     """Test ProcessInputWidget with a simple `CalcJobNode`"""
     from aiidalab_widgets_base.process import ProcessInputsWidget
