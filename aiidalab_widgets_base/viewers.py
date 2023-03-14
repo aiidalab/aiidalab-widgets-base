@@ -172,10 +172,10 @@ class _StructureDataBaseViewer(ipw.VBox):
 
     """
 
-    input_selection = List(Int, allow_none=True)
-    selection = List(Int)
-    displayed_selection = List(Int)
-    supercell = List(Int)
+    input_selection = List(Int(), allow_none=True)
+    selection = List(Int())
+    displayed_selection = List(Int())
+    supercell = List(Int())
     cell = Instance(Cell, allow_none=True)
     DEFAULT_SELECTION_OPACITY = 0.2
     DEFAULT_SELECTION_RADIUS = 6

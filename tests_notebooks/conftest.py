@@ -28,6 +28,11 @@ def screenshot_dir():
 
 
 @pytest.fixture(scope="session")
+def docker_compose_file(pytestconfig):
+    return str(Path(pytestconfig.rootdir) / "tests_notebooks" / "docker-compose.yml")
+
+
+@pytest.fixture(scope="session")
 def docker_compose(docker_services):
     return docker_services._docker_compose
 
