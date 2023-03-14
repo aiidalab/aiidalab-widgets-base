@@ -28,6 +28,7 @@ def get_environment_fingerprint(encoding="utf-8"):
             "version": platform.version(),
         },
         "packages": {package.name: package.version for package in packages},
+        # "packages": {name: package.version for name, package in packages},
     }
     json_data = json.dumps(data, separators=(",", ":"))
     return base64.urlsafe_b64encode(zlib.compress(json_data.encode(encoding), level=9))
@@ -127,6 +128,21 @@ def install_create_github_issue_exception_handler(output, url, labels=None):
     After installing this handler, kernel exception will show a generic error
     message to the user, with the option to file an automatic bug report at the
     given URL.
+
+    This is an example of how to use this function:
+
+    Example:
+    --------
+    ```python
+    output = ipw.Output()
+    install_create_github_issue_exception_handler(
+        output,
+        url='https://github.com/aiidalab/aiidalab-qe/issues/new',
+        labels=('bug', 'automated-report'))
+
+    with output:
+        display(welcome_message, app_with_work_chain_selector, footer)
+    ```
     """
     global _ORIGINAL_EXCEPTION_HANDLER
 
