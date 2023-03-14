@@ -31,7 +31,7 @@ def test_structure_manager_widget(structure_data_object):
     new_structure[0].position += [0, 0, 1]
 
     structure_manager_widget.structure = new_structure
-    assert structure_manager_widget.structure_node.pk is None
+    assert not structure_manager_widget.structure_node.is_stored
     assert np.all(
         structure_manager_widget.structure[0].position == new_structure[0].position
     )
