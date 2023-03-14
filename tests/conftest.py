@@ -142,3 +142,16 @@ def generate_calc_job_node(fixture_localhost):
         return node
 
     return _generate_calc_job_node
+
+
+@pytest.fixture
+def structure_data_object():
+    """Return a `StructureData` object."""
+    from aiida import orm
+
+    structure = orm.StructureData(
+        cell=[[2.0, 0.0, 0.0], [0.0, 2.0, 0.0], [0.0, 0.0, 2.0]]
+    )
+    structure.append_atom(position=(0.0, 0.0, 0.0), symbols="Si")
+    structure.append_atom(position=(1.0, 1.0, 1.0), symbols="Si")
+    return structure

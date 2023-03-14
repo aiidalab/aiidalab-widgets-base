@@ -231,7 +231,7 @@ class StructureManagerWidget(ipw.VBox):
             structure_node = self.structure_node.store()
         self.output.value = f"Stored in AiiDA [{structure_node}]"
 
-    def undo(self, _):
+    def undo(self, _=None):
         """Undo modifications."""
         self.structure_set_by_undo = True
         if self.history:
