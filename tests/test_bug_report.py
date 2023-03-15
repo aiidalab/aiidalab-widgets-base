@@ -2,12 +2,6 @@ import base64
 import json
 import zlib
 
-# TODO: this is a workaround for a import issue of aiida-core fixtures..
-# from aiidalab_widgets_base.bug_report import (
-#     get_environment_fingerprint,
-#     parse_environment_fingerprint,
-# )
-
 
 def test_fingerprint_parser():
     """Test get_environment_fingerprint function and parse it out."""
