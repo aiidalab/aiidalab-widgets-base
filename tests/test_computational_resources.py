@@ -150,7 +150,7 @@ def test_aiida_code_setup(aiida_localhost):
     # Reset the widget and check that a few attributes are reset.
     widget.code_setup = {}
     assert widget.label.value == ""
-    assert widget.computer.value == ""
+    assert widget.computer.value is None
     assert widget.description.value == ""
     assert widget.filepath_executable.value == ""
     assert widget.prepend_text.value == ""
