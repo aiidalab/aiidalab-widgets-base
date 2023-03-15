@@ -424,7 +424,13 @@ class SshComputerSetup(ipw.VBox):
 
     def _write_ssh_config(self, private_key_abs_fname=None):
         """Put host information into the config file."""
-        fpath = Path.home() / ".ssh" / "config"
+        fpath = Path.home() / ".ssh"
+        if not fpath.exists():
+            fpath.mkdir()
+            fpath.chmod(0o700)
+
+        fpath = fpath / "config"
+
         self.message = f"Adding {self.hostname.value} section to {fpath}"
         with open(fpath, "a") as file:
             file.write(f"Host {self.hostname.value}\n")
