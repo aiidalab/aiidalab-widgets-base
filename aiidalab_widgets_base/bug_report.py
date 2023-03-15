@@ -4,12 +4,15 @@ Authors:
 
     * Carl Simon Adorf <simon.adorf@epfl.ch>
 """
+from __future__ import annotations
+
 import base64
 import json
 import platform
 import re
 import sys
 import zlib
+from subprocess import run
 from textwrap import wrap
 from urllib.parse import urlencode, urlsplit, urlunsplit
 
@@ -17,17 +20,20 @@ import ipywidgets as ipw
 from ansi2html import Ansi2HTMLConverter
 
 
+def find_installed_packages(python_bin: str | None = None) -> dict[str, str]:
+    """Return all currently installed packages."""
+    if python_bin is None:
+        python_bin = sys.executable
+    output = run(
+        [python_bin, "-m", "pip", "list", "--format=json"],
+        encoding="utf-8",
+        capture_output=True,
+    ).stdout
+
+    return {package["name"]: package["version"] for package in json.loads(output)}
+
+
 def get_environment_fingerprint(encoding="utf-8"):
-    from aiidalab.utils import find_installed_packages
-
-    packages = find_installed_packages()
-    try:
-        # To support aiidalab <= 22.11.0
-        # if this fails, we are using aiidalab > 22.11.0
-        packages = {package.name: package.version for package in packages}
-    except AttributeError:
-        packages = {name: package.version for name, package in packages.items()}
-
     data = {
         "version": 1,
         "platform": {
@@ -35,7 +41,7 @@ def get_environment_fingerprint(encoding="utf-8"):
             "python_version": platform.python_version(),
             "version": platform.version(),
         },
-        "packages": packages,
+        "packages": find_installed_packages(),
     }
     json_data = json.dumps(data, separators=(",", ":"))
     return base64.urlsafe_b64encode(zlib.compress(json_data.encode(encoding), level=9))
