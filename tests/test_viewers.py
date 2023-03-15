@@ -3,7 +3,7 @@ from aiida import engine, orm
 
 
 @pytest.mark.usefixtures("aiida_profile_clean")
-def test_several_viewer(bands_data_object, folder_data_object):
+def test_several_data_viewers(bands_data_object, folder_data_object):
     from aiidalab_widgets_base import viewer, viewers
 
     v = viewer(orm.Int(1))
