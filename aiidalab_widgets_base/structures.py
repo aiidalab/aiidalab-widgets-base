@@ -111,9 +111,7 @@ class StructureManagerWidget(ipw.VBox):
             self.node_class = node_class
         else:
             raise ValueError(
-                "Unknown data format '{}'. Options: {}".format(
-                    node_class, list(self.SUPPORTED_DATA_FORMATS.keys())
-                )
+                f"Unknown data format '{node_class}'. Options: {list(self.SUPPORTED_DATA_FORMATS.keys())}"
             )
         self.output = ipw.HTML("")
 
@@ -200,8 +198,8 @@ class StructureManagerWidget(ipw.VBox):
         if self.structure_node is None:
             return
         if self.structure_node.is_stored:
-            self.output.value = "Already stored in AiiDA [{}], skipping...".format(
-                self.structure_node
+            self.output.value = (
+                f"Already stored in AiiDA [{self.structure_node}], skipping..."
             )
             return
         self.btn_store.disabled = True
