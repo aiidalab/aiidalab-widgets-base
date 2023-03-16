@@ -105,10 +105,14 @@ def test_aiida_computer_setup_widget():
     assert computer.hostname == "daint.cscs.ch"
 
     # Reset the widget and check that a few attributes are reset.
-    widget._reset()
+    widget.computer_setup = {}
     assert widget.label.value == ""
     assert widget.hostname.value == ""
     assert widget.description.value == ""
+
+    # Check that setup is failing if the configuration is missing.
+    assert not widget.on_setup_computer()
+    assert widget.message.startswith("Please specify the computer name")
 
 
 @pytest.mark.usefixtures("aiida_profile_clean")
