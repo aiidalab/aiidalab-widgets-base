@@ -54,6 +54,7 @@ def generate_calc_job_node(fixture_localhost):
         from aiida import orm
         from aiida.common import LinkType
         from aiida.plugins.entry_point import format_entry_point_string
+        from plumpy import ProcessState
 
         if computer is None:
             computer = fixture_localhost
@@ -140,7 +141,12 @@ def generate_calc_job_node(fixture_localhost):
             remote_folder.base.links.add_incoming(
                 node, link_type=LinkType.CREATE, link_label="remote_folder"
             )
+
             remote_folder.store()
+
+        # Set process state and exit status
+        node.set_process_state(ProcessState.FINISHED)
+        node.set_exit_status(0)
 
         return node
 

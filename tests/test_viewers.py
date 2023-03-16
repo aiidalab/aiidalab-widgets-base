@@ -1,9 +1,11 @@
 import pytest
-from aiida import engine, orm
+from aiida import orm
 
 
 @pytest.mark.usefixtures("aiida_profile_clean")
-def test_several_data_viewers(bands_data_object, folder_data_object):
+def test_several_data_viewers(
+    bands_data_object, folder_data_object, generate_calc_job_node
+):
     from aiidalab_widgets_base import viewer, viewers
 
     v = viewer(orm.Int(1))
@@ -24,12 +26,15 @@ def test_several_data_viewers(bands_data_object, folder_data_object):
     assert isinstance(v, viewers.FolderDataViewer)
 
     # ProcessNodeViewer
-    from aiida.workflows.arithmetic.add_multiply import add_multiply
-
-    result, workfunction = engine.run_get_node(
-        add_multiply, orm.Int(3), orm.Int(4), orm.Int(5)
+    process = generate_calc_job_node(
+        inputs={
+            "parameters": orm.Int(1),
+            "nested": {
+                "inner": orm.Int(2),
+            },
+        }
     )
-    v = viewer(workfunction)
+    v = viewer(process)
     assert isinstance(v, viewers.ProcessNodeViewerWidget)
 
 
