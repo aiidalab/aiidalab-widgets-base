@@ -12,9 +12,7 @@ import numpy as np
 import spglib
 import traitlets as tl
 import vapory
-from aiida.cmdline.utils.common import get_workchain_report
-from aiida.orm import Node
-from aiida.tools.query import formatting
+from aiida import cmdline, orm, tools
 from ase import Atoms, neighborlist
 from ase.cell import Cell
 from IPython.display import clear_output, display
@@ -44,7 +42,7 @@ def viewer(obj, downloadable=True, **kwargs):
     :type downloadable: bool
 
     Returns the object itself if the viewer wasn't found."""
-    if not isinstance(obj, Node):  # only working with AiiDA nodes
+    if not isinstance(obj, orm.Node):  # only working with AiiDA nodes
         warnings.warn(
             f"This viewer works only with AiiDA objects, got {type(obj)}", stacklevel=2
         )
@@ -66,7 +64,7 @@ def viewer(obj, downloadable=True, **kwargs):
 
 
 class AiidaNodeViewWidget(ipw.VBox):
-    node = tl.Instance(Node, allow_none=True)
+    node = tl.Instance(orm.Node, allow_none=True)
 
     def __init__(self, **kwargs):
         self._output = ipw.Output()
@@ -749,7 +747,7 @@ class StructureDataViewer(_StructureDataBaseViewer):
         and can't be set outside of the class.
     """
 
-    structure = tl.Union([tl.Instance(Atoms), tl.Instance(Node)], allow_none=True)
+    structure = tl.Union([tl.Instance(Atoms), tl.Instance(orm.Node)], allow_none=True)
     displayed_structure = tl.Instance(Atoms, allow_none=True, read_only=True)
     pk = tl.Int(allow_none=True)
 
@@ -774,7 +772,7 @@ class StructureDataViewer(_StructureDataBaseViewer):
         if isinstance(structure, Atoms):
             self.pk = None
             return structure
-        if isinstance(structure, Node):
+        if isinstance(structure, orm.Node):
             self.pk = structure.pk
             return structure.get_ase()
         raise TypeError(
@@ -1186,17 +1184,19 @@ class ProcessNodeViewerWidget(ipw.HTML):
 
         # Displaying reports only from the selected process,
         # NOT from its descendants.
-        report = get_workchain_report(self.process, "REPORT", max_depth=1)
+        report = cmdline.utils.common.get_workchain_report(
+            self.process, "REPORT", max_depth=1
+        )
         # Filter out the first column with dates
         filtered_report = re.sub(
             r"^[0-9]{4}.*\| ([A-Z]+)\]", r"\1", report, flags=re.MULTILINE
         )
         header = f"""
             Process {process.process_label},
-            State: {formatting.format_process_state(process.process_state.value)},
+            State: {tools.query.formatting.format_process_state(process.process_state.value)},
             UUID: {process.uuid} (pk: {process.pk})<br>
-            Started {formatting.format_relative_time(process.ctime)},
-            Last modified {formatting.format_relative_time(process.mtime)}<br>
+            Started {tools.query.formatting.format_relative_time(process.ctime)},
+            Last modified {tools.query.formatting.format_relative_time(process.mtime)}<br>
         """
         self.value = f"{header}<pre>{filtered_report}</pre>"
 
