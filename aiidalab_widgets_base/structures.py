@@ -1,5 +1,4 @@
 """Module to provide functionality to import structures."""
-# pylint: disable=no-self-use
 
 import datetime
 import functools
@@ -181,7 +180,7 @@ class StructureManagerWidget(ipw.VBox):
                 dlink(
                     (self.viewer._viewer, "_camera_orientation"),
                     (editors[0], "camera_orientation"),
-                )  # pylint: disable=protected-access
+                )
 
             return editors[0]
 
@@ -198,7 +197,7 @@ class StructureManagerWidget(ipw.VBox):
                     dlink(
                         (self.viewer._viewer, "_camera_orientation"),
                         (editor, "camera_orientation"),
-                    )  # pylint: disable=protected-access
+                    )
             return editors_tab
         return None
 
@@ -222,7 +221,7 @@ class StructureManagerWidget(ipw.VBox):
 
             # Make a link between self.input_structure and self.structure_node
             @calcfunction
-            def user_modifications(source_structure):  # pylint: disable=unused-argument
+            def user_modifications(source_structure):
                 return self.structure_node
 
             structure_node = user_modifications(self.input_structure)
@@ -265,9 +264,7 @@ class StructureManagerWidget(ipw.VBox):
         """Convert structure of any type to the StructureNode object."""
         if structure is None:
             return None
-        structure_node_type = DataFactory(
-            self.SUPPORTED_DATA_FORMATS[self.node_class]
-        )  # pylint: disable=invalid-name
+        structure_node_type = DataFactory(self.SUPPORTED_DATA_FORMATS[self.node_class])
 
         # If the input_structure trait is set to Atoms object, structure node must be created from it.
         if isinstance(structure, Atoms):
@@ -487,7 +484,7 @@ class StructureExamplesWidget(ipw.VBox):
             )
         return [("Select structure", False)] + examples
 
-    def _on_select_structure(self, change):  # pylint: disable=unused-argument
+    def _on_select_structure(self, change=None):
         """When structure is selected."""
 
         self.structure = (
@@ -684,7 +681,6 @@ class SmilesWidget(ipw.VBox):
     SPINNER = """<i class="fa fa-spinner fa-pulse" style="color:red;" ></i>"""
 
     def __init__(self, title=""):
-        # pylint: disable=unused-import
         self.title = title
 
         try:
@@ -751,7 +747,7 @@ class SmilesWidget(ipw.VBox):
         pbmol.localopt(forcefield="gaff", steps=200)
         pbmol.localopt(forcefield="mmff94", steps=100)
 
-        f_f = pb._forcefields["uff"]  # pylint: disable=protected-access
+        f_f = pb._forcefields["uff"]
         f_f.Setup(pbmol.OBMol)
         f_f.ConjugateGradients(steps, 1.0e-9)
         f_f.GetCoordinates(pbmol.OBMol)
@@ -794,7 +790,7 @@ class SmilesWidget(ipw.VBox):
             self.output.value += " Trying OpenBabel..."
             return self._pybel_opt(smiles, steps)
 
-    def _on_button_pressed(self, change):  # pylint: disable=unused-argument
+    def _on_button_pressed(self, change=None):
         """Convert SMILES to ase structure when button is pressed."""
         self.output.value = ""
 
@@ -886,13 +882,13 @@ class BasicCellEditor(ipw.VBox):
             description="Convert to primitive cell",
             layout={"width": "initial"},
         )
-        primitive_cell.on_click(self.def_primitive_cell)
+        primitive_cell.on_click(self._to_primitive_cell)
 
         conventional_cell = ipw.Button(
             description="Convert to conventional cell",
             layout={"width": "initial"},
         )
-        conventional_cell.on_click(self.def_conventional_cell)
+        conventional_cell.on_click(self._to_conventional_cell)
 
         super().__init__(
             children=[
@@ -907,13 +903,13 @@ class BasicCellEditor(ipw.VBox):
         )
 
     @_register_structure
-    def def_primitive_cell(self, _=None, atoms=None):
+    def _to_primitive_cell(self, _=None, atoms=None):
         atoms = self._to_standard_cell(atoms, to_primitive=True)
 
         self.structure = atoms
 
     @_register_structure
-    def def_conventional_cell(self, _=None, atoms=None):
+    def _to_conventional_cell(self, _=None, atoms=None):
         atoms = self._to_standard_cell(atoms, to_primitive=False)
 
         self.structure = atoms
@@ -942,7 +938,7 @@ class BasicCellEditor(ipw.VBox):
         )
 
 
-class BasicStructureEditor(ipw.VBox):  # pylint: disable=too-many-instance-attributes
+class BasicStructureEditor(ipw.VBox):
     """
     Widget that allows for the basic structure (molecule and
     position of periodic structure in cell) editing."""
@@ -1434,7 +1430,7 @@ class BasicStructureEditor(ipw.VBox):  # pylint: disable=too-many-instance-attri
 
     @_register_structure
     @_register_selection
-    def remove(self, _, atoms=None, selection=None):
+    def remove(self, _=None, atoms=None, selection=None):
         """Remove selected atoms."""
         del [atoms[selection]]
 
