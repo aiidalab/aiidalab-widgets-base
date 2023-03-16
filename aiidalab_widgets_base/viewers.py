@@ -6,6 +6,7 @@ import re
 import warnings
 from copy import deepcopy
 
+import ase
 import ipywidgets as ipw
 import nglview
 import numpy as np
@@ -13,8 +14,6 @@ import spglib
 import traitlets as tl
 import vapory
 from aiida import cmdline, orm, tools
-from ase import Atoms, neighborlist
-from ase.cell import Cell
 from IPython.display import clear_output, display
 from matplotlib.colors import to_rgb
 
@@ -151,7 +150,7 @@ class _StructureDataBaseViewer(ipw.VBox):
     selection = tl.List(tl.Int())
     displayed_selection = tl.List(tl.Int())
     supercell = tl.List(tl.Int())
-    cell = tl.Instance(Cell, allow_none=True)
+    cell = tl.Instance(ase.cell.Cell, allow_none=True)
     DEFAULT_SELECTION_OPACITY = 0.2
     DEFAULT_SELECTION_RADIUS = 6
     DEFAULT_SELECTION_COLOR = "green"
@@ -470,7 +469,7 @@ class _StructureDataBaseViewer(ipw.VBox):
     def _render_structure(self, change=None):
         """Render the structure with POVRAY."""
 
-        if not isinstance(self.displayed_structure, Atoms):
+        if not isinstance(self.displayed_structure, ase.Atoms):
             return
 
         self.render_btn.disabled = True
@@ -506,10 +505,10 @@ class _StructureDataBaseViewer(ipw.VBox):
 
         bonds = []
 
-        cutoff = neighborlist.natural_cutoffs(
+        cutoff = ase.neighborlist.natural_cutoffs(
             bb
         )  # Takes the cutoffs from the ASE database
-        neighbor_list = neighborlist.NeighborList(
+        neighbor_list = ase.neighborlist.NeighborList(
             cutoff, self_interaction=False, bothways=False
         )
         neighbor_list.update(bb)
@@ -747,8 +746,10 @@ class StructureDataViewer(_StructureDataBaseViewer):
         and can't be set outside of the class.
     """
 
-    structure = tl.Union([tl.Instance(Atoms), tl.Instance(orm.Node)], allow_none=True)
-    displayed_structure = tl.Instance(Atoms, allow_none=True, read_only=True)
+    structure = tl.Union(
+        [tl.Instance(ase.Atoms), tl.Instance(orm.Node)], allow_none=True
+    )
+    displayed_structure = tl.Instance(ase.Atoms, allow_none=True, read_only=True)
     pk = tl.Int(allow_none=True)
 
     def __init__(self, structure=None, **kwargs):
@@ -769,7 +770,7 @@ class StructureDataViewer(_StructureDataBaseViewer):
         if structure is None:
             return None  # if no structure provided, the rest of the code can be skipped
 
-        if isinstance(structure, Atoms):
+        if isinstance(structure, ase.Atoms):
             self.pk = None
             return structure
         if isinstance(structure, orm.Node):
