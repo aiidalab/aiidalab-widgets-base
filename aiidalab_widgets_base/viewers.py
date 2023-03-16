@@ -131,9 +131,8 @@ class DictViewer(ipw.VBox):
         if downloadable:
             payload = base64.b64encode(dataf.to_csv(index=False).encode()).decode()
             fname = f"{parameter.pk}.csv"
-            to_add = """Download table in csv format: <a download="{filename}"
-            href="data:text/csv;base64,{payload}" target="_blank">{title}</a>"""
-            self.value += to_add.format(filename=fname, payload=payload, title=fname)
+            self.value += f"""Download table in csv format: <a download="{fname}"
+            href="data:text/csv;base64,{payload}" target="_blank">{fname}</a>"""
 
         super().__init__([self.widget], **kwargs)
 
@@ -709,16 +708,14 @@ class _StructureDataBaseViewer(ipw.VBox):
         from IPython.display import Javascript
 
         javas = Javascript(
-            """
+            f"""
             var link = document.createElement('a');
             link.href = "data:;base64,{payload}"
             link.download = "{filename}"
             document.body.appendChild(link);
             link.click();
             document.body.removeChild(link);
-            """.format(
-                payload=payload, filename=filename
-            )
+            """
         )
         display(javas)
 
@@ -1117,16 +1114,14 @@ class FolderDataViewer(ipw.VBox):
             self._folder.get_object_content(self.files.value).encode()
         ).decode()
         javas = Javascript(
-            """
+            f"""
             var link = document.createElement('a');
             link.href = "data:;base64,{payload}"
-            link.download = "{filename}"
+            link.download = "{self.files.value}"
             document.body.appendChild(link);
             link.click();
             document.body.removeChild(link);
-            """.format(
-                payload=payload, filename=self.files.value
-            )
+            """
         )
         display(javas)
 
