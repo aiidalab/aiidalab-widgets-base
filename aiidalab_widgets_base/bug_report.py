@@ -4,22 +4,36 @@ Authors:
 
     * Carl Simon Adorf <simon.adorf@epfl.ch>
 """
+from __future__ import annotations
+
 import base64
 import json
 import platform
 import re
 import sys
 import zlib
+from subprocess import run
 from textwrap import wrap
 from urllib.parse import urlencode, urlsplit, urlunsplit
 
 import ipywidgets as ipw
-from aiidalab.utils import find_installed_packages
 from ansi2html import Ansi2HTMLConverter
 
 
+def find_installed_packages(python_bin: str | None = None) -> dict[str, str]:
+    """Return all currently installed packages."""
+    if python_bin is None:
+        python_bin = sys.executable
+    output = run(
+        [python_bin, "-m", "pip", "list", "--format=json"],
+        encoding="utf-8",
+        capture_output=True,
+    ).stdout
+
+    return {package["name"]: package["version"] for package in json.loads(output)}
+
+
 def get_environment_fingerprint(encoding="utf-8"):
-    packages = find_installed_packages()
     data = {
         "version": 1,
         "platform": {
@@ -27,17 +41,18 @@ def get_environment_fingerprint(encoding="utf-8"):
             "python_version": platform.python_version(),
             "version": platform.version(),
         },
-        "packages": {package.name: package.version for package in packages},
+        "packages": find_installed_packages(),
     }
     json_data = json.dumps(data, separators=(",", ":"))
     return base64.urlsafe_b64encode(zlib.compress(json_data.encode(encoding), level=9))
 
 
-def parse_environment_fingerprint(data, encoding="utf-8"):
-    packages = json.loads(
-        zlib.decompress(base64.urlsafe_b64decode(data)).decode(encoding)
+def parse_environment_fingerprint(fingerprint, encoding="utf-8"):
+    """decode the environment fingerprint and return the data as a dictionary."""
+    data = json.loads(
+        zlib.decompress(base64.urlsafe_b64decode(fingerprint)).decode(encoding)
     )
-    return packages
+    return data
 
 
 ERROR_MESSAGE = """<div class="alert alert-danger">
@@ -127,6 +142,21 @@ def install_create_github_issue_exception_handler(output, url, labels=None):
     After installing this handler, kernel exception will show a generic error
     message to the user, with the option to file an automatic bug report at the
     given URL.
+
+    This is an example of how to use this function:
+
+    Example:
+    --------
+    ```python
+    output = ipw.Output()
+    install_create_github_issue_exception_handler(
+        output,
+        url='https://github.com/aiidalab/aiidalab-qe/issues/new',
+        labels=('bug', 'automated-report'))
+
+    with output:
+        display(welcome_message, app_with_work_chain_selector, footer)
+    ```
     """
     global _ORIGINAL_EXCEPTION_HANDLER
 
