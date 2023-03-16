@@ -233,6 +233,7 @@ def folder_data_object():
 
     return folder_data
 
+
 def aiida_local_code_bash(aiida_local_code_factory):
     """Return a `Code` configured for the bash executable."""
     return aiida_local_code_factory(executable="bash", entry_point="bash")
