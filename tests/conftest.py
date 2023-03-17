@@ -5,7 +5,7 @@ from collections.abc import Mapping
 
 import numpy as np
 import pytest
-from aiida import plugins
+from aiida import engine, orm, plugins
 
 pytest_plugins = ["aiida.manage.tests.pytest_fixtures"]
 
@@ -151,6 +151,34 @@ def generate_calc_job_node(fixture_localhost):
         return node
 
     return _generate_calc_job_node
+
+
+@pytest.fixture
+def multiply_add_completed_workchain(aiida_local_code_bash):
+    """Return a `MultiplyAddWorkChain` instance with a `finished` process state and exit status of 0."""
+    from aiida.workflows.arithmetic.multiply_add import MultiplyAddWorkChain
+
+    inputs = {
+        "x": orm.Int(1),
+        "y": orm.Int(2),
+        "z": orm.Int(3),
+        "code": aiida_local_code_bash,
+    }
+    _, process = engine.run_get_node(MultiplyAddWorkChain, **inputs)
+    return process
+
+
+@pytest.fixture
+def multiply_add_process_builder_ready(aiida_local_code_bash):
+    """Return a `MultiplyAddWorkChain` builder with all inputs set."""
+    from aiida.workflows.arithmetic.multiply_add import MultiplyAddWorkChain
+
+    builder = MultiplyAddWorkChain.get_builder()
+    builder.x = orm.Int(1)
+    builder.y = orm.Int(2)
+    builder.z = orm.Int(3)
+    builder.code = aiida_local_code_bash
+    return builder
 
 
 @pytest.fixture
