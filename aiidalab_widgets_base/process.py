@@ -381,14 +381,10 @@ class ProcessCallStackWidget(ipw.HTML):
             raise TypeError(f"Unknown type: {type(node)}")
 
         process_state = node.process_state.value.capitalize()
-        pk = """<a#space#href={0}aiidalab-widgets-base/notebooks/process.ipynb?id={1}#space#target="_blank">{1}</a>""".format(
-            self.path_to_root, node.pk
-        )
+        pk = f"""<a#space#href={self.path_to_root}aiidalab-widgets-base/notebooks/process.ipynb?id={node.pk}#space#target="_blank">{node.pk}</a>"""
 
         if node.exit_status is not None:
-            string = "{}<{}> {} [{}]".format(
-                node.process_label, pk, process_state, node.exit_status
-            )
+            string = f"{node.process_label}<{pk}> {process_state} [{node.exit_status}]"
         else:
             string = f"{node.process_label}<{pk}> {process_state}"
 
@@ -670,9 +666,7 @@ class ProcessListWidget(ipw.VBox):
 
         # Add HTML links.
         dataf["PK"] = dataf["PK"].apply(
-            lambda x: """<a href={0}aiidalab-widgets-base/notebooks/process.ipynb?id={1} target="_blank">{1}</a>""".format(
-                self.path_to_root, x
-            )
+            lambda x: f"""<a href={self.path_to_root}aiidalab-widgets-base/notebooks/process.ipynb?id={x} target="_blank">{x}</a>"""
         )
         self.table.value += dataf.to_html(classes="df", escape=False, index=False)
 
