@@ -14,7 +14,7 @@ from uuid import UUID
 # External imports
 import ipywidgets as ipw
 import traitlets
-from aiida import orm
+from aiida import engine, orm
 from aiida.cmdline.utils.ascii_vis import format_call_graph
 from aiida.cmdline.utils.common import (
     get_calcjob_report,
@@ -22,7 +22,6 @@ from aiida.cmdline.utils.common import (
     get_workchain_report,
 )
 from aiida.common.exceptions import NotExistentAttributeError
-from aiida.engine import Process, ProcessBuilder, submit
 from aiida.tools.query.calculation import CalculationQueryBuilder
 from IPython.display import HTML, Javascript, clear_output, display
 from traitlets import Instance, Int, List, Unicode, default, observe, validate
@@ -79,11 +78,11 @@ class SubmitButtonWidget(ipw.VBox):
         """
 
         self.path_to_root = kwargs.get("path_to_root", "../")
-        if isclass(process_class) and issubclass(process_class, Process):
+        if isclass(process_class) and issubclass(process_class, engine.Process):
             self._process_class = process_class
         else:
             raise ValueError(
-                f"process_class argument must be a sublcass of {Process}, got {process_class}"
+                f"process_class argument must be a sublcass of {engine.Process}, got {process_class}"
             )
 
         # Checking if the inputs generator is callable
@@ -127,10 +126,10 @@ class SubmitButtonWidget(ipw.VBox):
         else:
             if self.disable_after_submit:
                 self.btn_submit.disabled = True
-            if isinstance(inputs, ProcessBuilder):
-                self.process = submit(inputs)
+            if isinstance(inputs, engine.ProcessBuilder):
+                self.process = engine.submit(inputs)
             else:
-                self.process = submit(self._process_class, **inputs)
+                self.process = engine.submit(self._process_class, **inputs)
 
             if self.append_output:
                 self.submit_out.value += f"""Submitted process {self.process}. Click
