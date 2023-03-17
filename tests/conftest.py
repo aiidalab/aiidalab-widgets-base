@@ -150,10 +150,14 @@ def structure_data_object():
     from aiida import orm
 
     structure = orm.StructureData(
-        cell=[[2.0, 0.0, 0.0], [0.0, 2.0, 0.0], [0.0, 0.0, 2.0]]
+        cell=[
+            [3.84737, 0.0, 0.0],
+            [1.923685, 3.331920, 0.0],
+            [1.923685, 1.110640, 3.141364],
+        ]
     )
     structure.append_atom(position=(0.0, 0.0, 0.0), symbols="Si")
-    structure.append_atom(position=(1.0, 1.0, 1.0), symbols="Si")
+    structure.append_atom(position=(1.923685, 1.110640, 0.785341), symbols="Si")
     return structure
 
 

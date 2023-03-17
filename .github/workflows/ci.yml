@@ -119,7 +119,7 @@ jobs:
                       **/requirements*.txt
 
             - name: Install package
-              run: pip install -e .[dev]
+              run: pip install -e .[dev,smiles]
 
             - name: Run pytest
               run: pytest -v tests --cov
