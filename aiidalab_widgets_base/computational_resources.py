@@ -424,7 +424,13 @@ class SshComputerSetup(ipw.VBox):
 
     def _write_ssh_config(self, private_key_abs_fname=None):
         """Put host information into the config file."""
-        fpath = Path.home() / ".ssh" / "config"
+        fpath = Path.home() / ".ssh"
+        if not fpath.exists():
+            fpath.mkdir()
+            fpath.chmod(0o700)
+
+        fpath = fpath / "config"
+
         self.message = f"Adding {self.hostname.value} section to {fpath}"
         with open(fpath, "a") as file:
             file.write(f"Host {self.hostname.value}\n")
@@ -604,11 +610,12 @@ class SshComputerSetup(ipw.VBox):
         """
         fpath = Path.home() / ".ssh" / private_key_fname
         if fpath.exists():
-            # if file already exist and has the same content
+            # If the file already exist and has the same content, we do nothing.
             if fpath.read_bytes() == private_key_content:
-                return fpath.name
-
+                return fpath
+            # If the content is different, we make a new file with a unique name.
             fpath = fpath / "_" / shortuuid.uuid()
+
         fpath.write_bytes(private_key_content)
 
         fpath.chmod(0o600)

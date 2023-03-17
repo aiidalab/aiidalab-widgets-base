@@ -159,3 +159,9 @@ def structure_data_object():
     structure.append_atom(position=(0.0, 0.0, 0.0), symbols="Si")
     structure.append_atom(position=(1.923685, 1.110640, 0.785341), symbols="Si")
     return structure
+
+
+@pytest.fixture
+def aiida_local_code_bash(aiida_local_code_factory):
+    """Return a `Code` configured for the bash executable."""
+    return aiida_local_code_factory(executable="bash", entry_point="bash")
