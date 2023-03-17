@@ -14,8 +14,7 @@ from uuid import UUID
 # External imports
 import ipywidgets as ipw
 import traitlets
-
-# AiiDA imports.
+from aiida import orm
 from aiida.cmdline.utils.ascii_vis import format_call_graph
 from aiida.cmdline.utils.common import (
     get_calcjob_report,
@@ -24,15 +23,6 @@ from aiida.cmdline.utils.common import (
 )
 from aiida.common.exceptions import NotExistentAttributeError
 from aiida.engine import Process, ProcessBuilder, submit
-from aiida.orm import (
-    CalcFunctionNode,
-    CalcJobNode,
-    Node,
-    ProcessNode,
-    WorkChainNode,
-    WorkFunctionNode,
-    load_node,
-)
 from aiida.tools.query.calculation import CalculationQueryBuilder
 from IPython.display import HTML, Javascript, clear_output, display
 from traitlets import Instance, Int, List, Unicode, default, observe, validate
@@ -48,20 +38,23 @@ def get_running_calcs(process):
     """Takes a process and yeilds running children calculations."""
 
     # If a process is a running calculation - returning it
-    if issubclass(type(process), CalcJobNode) and not process.is_sealed:
+    if issubclass(type(process), orm.CalcJobNode) and not process.is_sealed:
         yield process
 
     # If the process is a running work chain - returning its children
-    elif issubclass(type(process), WorkChainNode) and not process.is_sealed:
+    elif issubclass(type(process), orm.WorkChainNode) and not process.is_sealed:
         for out_link in process.get_outgoing():
-            if isinstance(out_link.node, ProcessNode) and not out_link.node.is_sealed:
+            if (
+                isinstance(out_link.node, orm.ProcessNode)
+                and not out_link.node.is_sealed
+            ):
                 yield from get_running_calcs(out_link.node)
 
 
 class SubmitButtonWidget(ipw.VBox):
     """Submit button class that creates submit button jupyter widget."""
 
-    process = Instance(ProcessNode, allow_none=True)
+    process = Instance(orm.ProcessNode, allow_none=True)
 
     def __init__(  # pylint: disable=too-many-arguments
         self,
@@ -159,7 +152,7 @@ class SubmitButtonWidget(ipw.VBox):
 class ProcessInputsWidget(ipw.VBox):
     """Widget to select and show process inputs."""
 
-    process = Instance(ProcessNode, allow_none=True)
+    process = Instance(orm.ProcessNode, allow_none=True)
 
     def __init__(self, process=None, **kwargs):
         self.process = process
@@ -181,7 +174,7 @@ class ProcessInputsWidget(ipw.VBox):
         )
 
     def generate_flat_mapping(
-        self, process: ProcessNode | None = None
+        self, process: orm.ProcessNode | None = None
     ) -> None | dict[str, str]:
         """Generate a dict of input to node uuid mapping.
 
@@ -221,7 +214,7 @@ class ProcessInputsWidget(ipw.VBox):
             self.info.value = ""
             clear_output()
             if change["new"]:
-                selected_input = load_node(change["new"])
+                selected_input = orm.load_node(change["new"])
                 self.info.value = f"PK: {selected_input.pk}"
                 display(viewer(selected_input))
 
@@ -229,7 +222,7 @@ class ProcessInputsWidget(ipw.VBox):
 class ProcessOutputsWidget(ipw.VBox):
     """Widget to select and show process outputs."""
 
-    process = Instance(ProcessNode, allow_none=True)
+    process = Instance(orm.ProcessNode, allow_none=True)
 
     def __init__(self, process=None, **kwargs):
         self.process = process
@@ -266,7 +259,7 @@ class ProcessOutputsWidget(ipw.VBox):
 class ProcessFollowerWidget(ipw.VBox):
     """A Widget that follows a process until finished."""
 
-    process = Instance(ProcessNode, allow_none=True)
+    process = Instance(orm.ProcessNode, allow_none=True)
 
     def __init__(
         self,
@@ -335,7 +328,7 @@ class ProcessFollowerWidget(ipw.VBox):
 class ProcessReportWidget(ipw.HTML):
     """Widget that shows process report."""
 
-    process = Instance(ProcessNode, allow_none=True)
+    process = Instance(orm.ProcessNode, allow_none=True)
 
     def __init__(self, title="Process Report", **kwargs):
         self.title = title
@@ -350,13 +343,13 @@ class ProcessReportWidget(ipw.HTML):
         if self.process is None:
             return
 
-        if isinstance(self.process, CalcJobNode):
+        if isinstance(self.process, orm.CalcJobNode):
             string = get_calcjob_report(self.process)
-        elif isinstance(self.process, WorkChainNode):
+        elif isinstance(self.process, orm.WorkChainNode):
             string = get_workchain_report(
                 self.process, self.levelname, self.indent_size, self.max_depth
             )
-        elif isinstance(self.process, (CalcFunctionNode, WorkFunctionNode)):
+        elif isinstance(self.process, (orm.CalcFunctionNode, orm.WorkFunctionNode)):
             string = get_process_function_report(self.process)
         else:
             string = f"Nothing to show for node type {self.process.__class__}"
@@ -366,7 +359,7 @@ class ProcessReportWidget(ipw.HTML):
 class ProcessCallStackWidget(ipw.HTML):
     """Widget that shows process call stack."""
 
-    process = Instance(ProcessNode, allow_none=True)
+    process = Instance(orm.ProcessNode, allow_none=True)
 
     def __init__(self, title="Process Call Stack", path_to_root="../", **kwargs):
         self.title = title
@@ -386,7 +379,7 @@ class ProcessCallStackWidget(ipw.HTML):
     def calc_info(self, node):
         """Return a string with the summary of the state of a CalculationNode."""
 
-        if not isinstance(node, ProcessNode):
+        if not isinstance(node, orm.ProcessNode):
             raise TypeError(f"Unknown type: {type(node)}")
 
         process_state = node.process_state.value.capitalize()
@@ -401,7 +394,7 @@ class ProcessCallStackWidget(ipw.HTML):
         else:
             string = f"{node.process_label}<{pk}> {process_state}"
 
-        if isinstance(node, WorkChainNode) and node.stepper_state_info:
+        if isinstance(node, orm.WorkChainNode) and node.stepper_state_info:
             string += f" [{node.stepper_state_info}]"
         return string
 
@@ -409,7 +402,7 @@ class ProcessCallStackWidget(ipw.HTML):
 class ProgressBarWidget(ipw.VBox):
     """A bar showing the proggress of a process."""
 
-    process = Instance(ProcessNode, allow_none=True)
+    process = Instance(orm.ProcessNode, allow_none=True)
 
     def __init__(self, title="Progress Bar", **kwargs):
         """Initialize ProgressBarWidget."""
@@ -461,7 +454,7 @@ class ProgressBarWidget(ipw.VBox):
 class CalcJobOutputWidget(ipw.Textarea):
     """Output of a calculation."""
 
-    calculation = Instance(CalcJobNode, allow_none=True)
+    calculation = Instance(orm.CalcJobNode, allow_none=True)
 
     def __init__(self, **kwargs):
         default_params = {
@@ -543,7 +536,7 @@ class CalcJobOutputWidget(ipw.Textarea):
 class RunningCalcJobOutputWidget(ipw.VBox):
     """Show an output of selected running child calculation."""
 
-    process = Instance(ProcessNode, allow_none=True)
+    process = Instance(orm.ProcessNode, allow_none=True)
 
     def __init__(self, title="Running Job Output", **kwargs):
         self.title = title
@@ -643,13 +636,13 @@ class ProcessListWidget(ipw.VBox):
         if self.incoming_node:
             relationships = {
                 **relationships,
-                **{"with_outgoing": load_node(self.incoming_node)},
+                **{"with_outgoing": orm.load_node(self.incoming_node)},
             }
 
         if self.outgoing_node:
             relationships = {
                 **relationships,
-                **{"with_incoming": load_node(self.outgoing_node)},
+                **{"with_incoming": orm.load_node(self.outgoing_node)},
             }
 
         query_set = builder.get_query_set(
@@ -699,7 +692,7 @@ class ProcessListWidget(ipw.VBox):
 
     @validate("outgoing_node")
     def _validate_outgoing_node(self, provided):
-        """Validate outgoing node. The function load_node takes care of managing ids and uuids."""
+        """Validate outgoing node. The function orm.load_node takes care of managing ids and uuids."""
         node_uuid = provided["value"]
         try:
             _ = UUID(node_uuid, version=4)
@@ -771,7 +764,7 @@ class ProcessMonitor(traitlets.HasTraits):
 
     def _monitor_process(self, process_uuid):
         assert process_uuid is not None
-        process = load_node(process_uuid)
+        process = orm.load_node(process_uuid)
 
         disabled_funcs = set()
 
@@ -815,7 +808,9 @@ class ProcessNodesTreeWidget(ipw.VBox):
     """A tree widget for the structured representation of a process graph."""
 
     value = traitlets.Unicode(allow_none=True)
-    selected_nodes = traitlets.Tuple(read_only=True).tag(trait=traitlets.Instance(Node))
+    selected_nodes = traitlets.Tuple(read_only=True).tag(
+        trait=traitlets.Instance(orm.Node)
+    )
 
     def __init__(self, title="Process Tree", **kwargs):
         self.title = title  # needed for ProcessFollowerWidget
@@ -834,7 +829,7 @@ class ProcessNodesTreeWidget(ipw.VBox):
     def _observe_process(self, change):
         process_uuid = change["new"]
         if process_uuid:
-            process = load_node(process_uuid)
+            process = orm.load_node(process_uuid)
             self._tree.nodes = [process]
             self._tree.find_node(process.pk).selected = True
         else:
