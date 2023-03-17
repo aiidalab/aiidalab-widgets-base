@@ -318,7 +318,9 @@ class ProcessFollowerWidget(ipw.VBox):
                 on_sealed=self._run_after_completed,
                 timeout=self.update_interval,
             )
-            ipw.dlink((self, "process"), (self._monitor, "process"))
+            ipw.dlink(
+                (self, "process"), (self._monitor, "value"), transform=lambda x: x.uuid
+            )
 
         if not detach:
             self._monitor.join()
