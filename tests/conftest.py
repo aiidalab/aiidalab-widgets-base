@@ -1,6 +1,7 @@
 import io
 import os
 import shutil
+import time
 from collections.abc import Mapping
 
 import numpy as np
@@ -272,3 +273,16 @@ def folder_data_object():
 def aiida_local_code_bash(aiida_local_code_factory):
     """Return a `Code` configured for the bash executable."""
     return aiida_local_code_factory(executable="bash", entry_point="bash")
+
+
+@pytest.fixture
+def await_for_process_completeness():
+    """Await for a process to complete and return the process node."""
+
+    def _await_for_process_completeness(process):
+        """Await for a process to complete and return the process node."""
+        while not process.is_sealed:
+            time.sleep(0.1)
+        return process
+
+    return _await_for_process_completeness

@@ -73,58 +73,95 @@ def test_process_outputs_widget(multiply_add_completed_workchain):
 
 
 @pytest.mark.usefixtures("aiida_profile_clean")
-def test_process_follower_widget(multiply_add_process_builder_ready):
+def test_process_follower_widget(multiply_add_process_builder_ready, daemon_client):
     """Test ProcessFollowerWidget with a simple `WorkChainNode`"""
     from aiidalab_widgets_base.process import ProcessFollowerWidget
 
     # Test the widget can be instantiated with empty inputs
     widget = ProcessFollowerWidget()
 
+    daemon_client.stop_daemon(wait=True)
     process = engine.submit(multiply_add_process_builder_ready)
-
-    process.seal()
 
     # Test the widget can be instantiated with a process
     widget = ProcessFollowerWidget(process=process)
+
+    daemon_client.start_daemon()
 
     # Follow the process till it is completed.
     widget.follow()
 
 
 @pytest.mark.usefixtures("aiida_profile_clean")
-def test_process_report_widget(multiply_add_completed_workchain):
+def test_process_report_widget(
+    multiply_add_process_builder_ready, daemon_client, await_for_process_completeness
+):
     """Test ProcessReportWidget with a simple `WorkChainNode`"""
     from aiidalab_widgets_base.process import ProcessReportWidget
 
     # Test the widget can be instantiated with empty inputs
     ProcessReportWidget()
 
+    # Stopping the daemon and submitting the process.
+    daemon_client.stop_daemon(wait=True)
+    process = engine.submit(multiply_add_process_builder_ready)
+
     # Test the widget can be instantiated with a process
-    ProcessReportWidget(process=multiply_add_completed_workchain)
+    widget = ProcessReportWidget(process=process)
+
+    # Starting the daemon and waiting for the process to complete.
+    daemon_client.start_daemon()
+    await_for_process_completeness(process)
+
+    widget.update()
 
 
 @pytest.mark.usefixtures("aiida_profile_clean")
-def test_process_call_stack_widget(multiply_add_completed_workchain):
+def test_process_call_stack_widget(
+    multiply_add_process_builder_ready, daemon_client, await_for_process_completeness
+):
     """Test ProcessCallStackWidget with a simple `WorkChainNode`"""
     from aiidalab_widgets_base.process import ProcessCallStackWidget
 
     # Test the widget can be instantiated with empty inputs
     ProcessCallStackWidget()
 
+    # Stopping the daemon and submitting the process.
+    daemon_client.stop_daemon(wait=True)
+    process = engine.submit(multiply_add_process_builder_ready)
+
     # Test the widget can be instantiated with a process
-    ProcessCallStackWidget(process=multiply_add_completed_workchain)
+    widget = ProcessCallStackWidget(process=process)
+
+    # Starting the daemon and waiting for the process to complete.
+    daemon_client.start_daemon()
+    await_for_process_completeness(process)
+
+    widget.update()
 
 
 @pytest.mark.usefixtures("aiida_profile_clean")
-def test_progress_bar_widget(multiply_add_completed_workchain):
+def test_progress_bar_widget(
+    multiply_add_process_builder_ready, daemon_client, await_for_process_completeness
+):
     """Test ProgressBarWidget with a simple `WorkChainNode`"""
     from aiidalab_widgets_base import ProgressBarWidget
 
     # Test the widget can be instantiated with empty inputs
     ProgressBarWidget()
 
+    # Stopping the daemon and submitting the process.
+    daemon_client.stop_daemon(wait=True)
+    process = engine.submit(multiply_add_process_builder_ready)
+
     # Test the widget can be instantiated with a process
-    ProgressBarWidget(process=multiply_add_completed_workchain)
+    widget = ProgressBarWidget(process=process)
+
+    # Starting the daemon and waiting for the process to complete.
+    daemon_client.start_daemon()
+    await_for_process_completeness(process)
+
+    widget.update()
 
 
 @pytest.mark.usefixtures("aiida_profile_clean")
@@ -168,7 +205,6 @@ def test_running_calcjob_output_widget(generate_calc_job_node):
 @pytest.mark.usefixtures("aiida_profile_clean")
 def test_process_list_widget(multiply_add_completed_workchain):
     """Test ProcessListWidget with a simple `WorkChainNode`"""
-
     from aiidalab_widgets_base.process import ProcessListWidget
 
     ProcessListWidget()

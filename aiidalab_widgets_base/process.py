@@ -284,9 +284,9 @@ class ProcessFollowerWidget(ipw.VBox):
                         ]
                     )
                 )
-        self.update()
         self.output = ipw.HTML()
         super().__init__(children=[self.output] + self.followers, **kwargs)
+        self.update()
 
     def update(self):
         for follower in self.followers:
