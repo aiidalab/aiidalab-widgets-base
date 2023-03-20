@@ -333,8 +333,8 @@ class ProcessReportWidget(ipw.HTML):
         self.max_depth = None
         self.indent_size = 2
         self.levelname = "REPORT"
-        self.update()
         super().__init__(**kwargs)
+        self.update()
 
     def update(self):
         """Update report that is shown."""
@@ -362,8 +362,8 @@ class ProcessCallStackWidget(ipw.HTML):
     def __init__(self, title="Process Call Stack", path_to_root="../", **kwargs):
         self.title = title
         self.path_to_root = path_to_root
-        self.update()
         super().__init__(**kwargs)
+        self.update()
 
     def update(self):
         """Update the call stack that is shown."""
@@ -426,6 +426,7 @@ class ProgressBarWidget(ipw.VBox):
             style={"description_width": "initial"},
         )
         super().__init__(children=[self.progress_bar, self.state], **kwargs)
+        self.update()
 
     def update(self):
         """Update the bar."""
@@ -540,8 +541,8 @@ class RunningCalcJobOutputWidget(ipw.VBox):
             style={"description_width": "initial"},
         )
         self.output = CalcJobOutputWidget()
-        self.update()
         super().__init__(children=[self.selection, self.output], **kwargs)
+        self.update()
 
     def update(self):
         """Update the displayed output."""
@@ -593,10 +594,10 @@ class ProcessListWidget(ipw.VBox):
         self.output = ipw.HTML()
         update_button = ipw.Button(description="Update now")
         update_button.on_click(self.update)
-        self.update()
         super().__init__(
             children=[ipw.HBox([self.output, update_button]), self.table], **kwargs
         )
+        self.update()
 
     def update(self, _=None):
         """Perform the query."""
@@ -808,6 +809,7 @@ class ProcessNodesTreeWidget(ipw.VBox):
         self._tree = NodesTreeWidget()
         self._tree.observe(self._observe_tree_selected_nodes, ["selected_nodes"])
         super().__init__(children=[self._tree], **kwargs)
+        self.update()
 
     def _observe_tree_selected_nodes(self, change):
         self.set_trait("selected_nodes", change["new"])

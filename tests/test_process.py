@@ -97,11 +97,10 @@ def test_process_report_widget(multiply_add_completed_workchain):
     from aiidalab_widgets_base.process import ProcessReportWidget
 
     # Test the widget can be instantiated with empty inputs
-    widget = ProcessReportWidget()
+    ProcessReportWidget()
 
     # Test the widget can be instantiated with a process
-    widget = ProcessReportWidget(process=multiply_add_completed_workchain)
-    widget.update()
+    ProcessReportWidget(process=multiply_add_completed_workchain)
 
 
 @pytest.mark.usefixtures("aiida_profile_clean")
@@ -110,11 +109,10 @@ def test_process_call_stack_widget(multiply_add_completed_workchain):
     from aiidalab_widgets_base.process import ProcessCallStackWidget
 
     # Test the widget can be instantiated with empty inputs
-    widget = ProcessCallStackWidget()
+    ProcessCallStackWidget()
 
     # Test the widget can be instantiated with a process
-    widget = ProcessCallStackWidget(process=multiply_add_completed_workchain)
-    widget.update()
+    ProcessCallStackWidget(process=multiply_add_completed_workchain)
 
 
 @pytest.mark.usefixtures("aiida_profile_clean")
@@ -123,12 +121,10 @@ def test_progress_bar_widget(multiply_add_completed_workchain):
     from aiidalab_widgets_base import ProgressBarWidget
 
     # Test the widget can be instantiated with empty inputs
-    widget = ProgressBarWidget()
+    ProgressBarWidget()
 
     # Test the widget can be instantiated with a process
-    widget = ProgressBarWidget(process=multiply_add_completed_workchain)
-
-    widget.update()
+    ProgressBarWidget(process=multiply_add_completed_workchain)
 
 
 @pytest.mark.usefixtures("aiida_profile_clean")
@@ -145,12 +141,10 @@ def test_calcjob_output_widget(generate_calc_job_node):
         }
     )
     # Test the widget can be instantiated with empty inputs
-    widget = CalcJobOutputWidget()
+    CalcJobOutputWidget()
 
     # Test the widget can be instantiated with a process
-    widget = CalcJobOutputWidget(calculation=process)
-
-    widget.update()
+    CalcJobOutputWidget(calculation=process)
 
 
 @pytest.mark.usefixtures("aiida_profile_clean")
@@ -168,9 +162,7 @@ def test_running_calcjob_output_widget(generate_calc_job_node):
     )
 
     # Test the widget can be instantiated with a process
-    widget = RunningCalcJobOutputWidget(calculation=process)
-
-    widget.update()
+    RunningCalcJobOutputWidget(calculation=process)
 
 
 @pytest.mark.usefixtures("aiida_profile_clean")
@@ -179,9 +171,7 @@ def test_process_list_widget(multiply_add_completed_workchain):
 
     from aiidalab_widgets_base.process import ProcessListWidget
 
-    widget = ProcessListWidget()
-
-    widget.update()
+    ProcessListWidget()
 
 
 @pytest.mark.usefixtures("aiida_profile_clean")
@@ -190,6 +180,4 @@ def test_process_nodes_tree_widget(multiply_add_completed_workchain):
 
     from aiidalab_widgets_base.process import ProcessNodesTreeWidget
 
-    widget = ProcessNodesTreeWidget(value=multiply_add_completed_workchain.uuid)
-
-    widget.update()
+    ProcessNodesTreeWidget(value=multiply_add_completed_workchain.uuid)
