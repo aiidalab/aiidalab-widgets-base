@@ -83,7 +83,7 @@ class CodQueryWidget(ipw.VBox):
             return importer.query(formula=formula)
         return None
 
-    def _on_click_query(self, change):  # pylint: disable=unused-argument
+    def _on_click_query(self, _=None):
         """Call query when the corresponding button is pressed."""
         structures = [("select structure", {"status": False})]
         idn = None
@@ -127,7 +127,7 @@ class CodQueryWidget(ipw.VBox):
         )
 
     @default("structure")
-    def _default_structure(self):  # pylint: disable=no-self-use
+    def _default_structure(self):
         return None
 
 
