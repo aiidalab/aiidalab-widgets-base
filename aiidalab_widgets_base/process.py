@@ -3,15 +3,14 @@
 # Built-in imports
 from __future__ import annotations
 
+import inspect
 import os
+import threading
+import time
 import traceback
+import uuid
 import warnings
-from inspect import isclass, signature
-from threading import Event, Lock, Thread
-from time import sleep
-from uuid import UUID
 
-# External imports
 import ipywidgets as ipw
 import traitlets as tl
 from aiida import engine, orm
@@ -25,10 +24,9 @@ from aiida.common.exceptions import NotExistentAttributeError
 from aiida.tools.query.calculation import CalculationQueryBuilder
 from IPython.display import HTML, Javascript, clear_output, display
 
+# Local imports.
 from .nodes import NodesTreeWidget
 from .utils import exceptions
-
-# Local imports.
 from .viewers import viewer
 
 
@@ -77,7 +75,7 @@ class SubmitButtonWidget(ipw.VBox):
         """
 
         self.path_to_root = kwargs.get("path_to_root", "../")
-        if isclass(process_class) and issubclass(process_class, engine.Process):
+        if inspect.isclass(process_class) and issubclass(process_class, engine.Process):
             self._process_class = process_class
         else:
             raise ValueError(
@@ -676,7 +674,7 @@ class ProcessListWidget(ipw.VBox):
         """Validate incoming node."""
         node_uuid = provided["value"]
         try:
-            _ = UUID(node_uuid, version=4)
+            _ = uuid.UUID(node_uuid, version=4)
         except ValueError:
             self.output.value = f"""'<span style="color:red">{node_uuid}</span>'
             is not a valid UUID."""
@@ -688,7 +686,7 @@ class ProcessListWidget(ipw.VBox):
         """Validate outgoing node. The function orm.load_node takes care of managing ids and uuids."""
         node_uuid = provided["value"]
         try:
-            _ = UUID(node_uuid, version=4)
+            _ = uuid.UUID(node_uuid, version=4)
         except ValueError:
             self.output.value = f"""'<span style="color:red">{node_uuid}</span>'
             is not a valid UUID."""
@@ -708,7 +706,7 @@ class ProcessListWidget(ipw.VBox):
     def _follow(self, update_interval):
         while True:
             self.update()
-            sleep(update_interval)
+            time.sleep(update_interval)
 
     def start_autoupdate(self, update_interval=10):
         import threading
@@ -728,8 +726,8 @@ class ProcessMonitor(tl.HasTraits):
         self.timeout = 0.1 if timeout is None else timeout
 
         self._monitor_thread = None
-        self._monitor_thread_stop = Event()
-        self._monitor_thread_lock = Lock()
+        self._monitor_thread_stop = threading.Event()
+        self._monitor_thread_lock = threading.Lock()
 
         super().__init__(**kwargs)
 
@@ -750,7 +748,7 @@ class ProcessMonitor(tl.HasTraits):
 
         with self._monitor_thread_lock:
             self._monitor_thread_stop.clear()
-            self._monitor_thread = Thread(
+            self._monitor_thread = threading.Thread(
                 target=self._monitor_process, args=(process_uuid,)
             )
             self._monitor_thread.start()
@@ -768,7 +766,7 @@ class ProcessMonitor(tl.HasTraits):
                     continue
 
                 try:
-                    if len(signature(func).parameters) > 0:
+                    if len(inspect.signature(func).parameters) > 0:
                         func(process_uuid)
                     else:
                         func()
