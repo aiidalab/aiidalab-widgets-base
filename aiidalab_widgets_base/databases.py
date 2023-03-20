@@ -101,7 +101,7 @@ class CodQueryWidget(ipw.VBox):
             except Exception:
                 continue
             entry_add = (
-                "{} (id: {})".format(formula, entry.source["id"]),
+                f"{formula} (id: {entry.source['id']})",
                 {
                     "status": True,
                     "cif": entry_cif,
@@ -122,8 +122,8 @@ class CodQueryWidget(ipw.VBox):
             return
         self.structure = selected["cif"].get_ase()
         struct_url = selected["url"].split(".cif")[0] + ".html"
-        self.link.value = '<a href="{}" target="_blank">COD entry {}</a>'.format(
-            struct_url, selected["id"]
+        self.link.value = (
+            f"""<a href="{struct_url}" target="_blank">COD entry {selected["id"]}</a>"""
         )
 
     @default("structure")
