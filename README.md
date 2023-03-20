@@ -1,4 +1,5 @@
 [![Documentation Status](https://readthedocs.org/projects/aiidalab-widgets-base/badge/?version=latest)](https://aiidalab-widgets-base.readthedocs.io/en/latest/?badge=latest)
+[![codecov](https://codecov.io/gh/aiidalab/aiidalab-widgets-base/branch/master/graph/badge.svg)](https://codecov.io/gh/aiidalab/aiidalab-widgets-base)
 
 # AiiDAlab Widgets
 

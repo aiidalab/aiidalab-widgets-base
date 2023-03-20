@@ -6,41 +6,16 @@ import re
 import warnings
 from copy import deepcopy
 
+import ase
 import ipywidgets as ipw
 import nglview
 import numpy as np
 import spglib
-import traitlets
-from aiida.cmdline.utils.common import get_workchain_report
-from aiida.orm import Node
-from aiida.tools.query import formatting
-from ase import Atoms, neighborlist
-from ase.cell import Cell
+import traitlets as tl
+import vapory
+from aiida import cmdline, orm, tools
 from IPython.display import clear_output, display
 from matplotlib.colors import to_rgb
-from numpy.linalg import norm
-from traitlets import (
-    Instance,
-    Int,
-    List,
-    Unicode,
-    Union,
-    default,
-    link,
-    observe,
-    validate,
-)
-from vapory import (
-    Background,
-    Camera,
-    Cylinder,
-    Finish,
-    LightSource,
-    Pigment,
-    Scene,
-    Sphere,
-    Texture,
-)
 
 from .dicts import Colors, Radius
 from .misc import CopyToClipboardButton, ReversePolishNotation
@@ -66,8 +41,10 @@ def viewer(obj, downloadable=True, **kwargs):
     :type downloadable: bool
 
     Returns the object itself if the viewer wasn't found."""
-    if not isinstance(obj, Node):  # only working with AiiDA nodes
-        warnings.warn(f"This viewer works only with AiiDA objects, got {type(obj)}")
+    if not isinstance(obj, orm.Node):  # only working with AiiDA nodes
+        warnings.warn(
+            f"This viewer works only with AiiDA objects, got {type(obj)}", stacklevel=2
+        )
         return obj
 
     try:
@@ -75,8 +52,9 @@ def viewer(obj, downloadable=True, **kwargs):
     except (KeyError) as exc:
         if obj.node_type in str(exc):
             warnings.warn(
-                "Did not find an appropriate viewer for the {} object. Returning the object "
-                "itself.".format(type(obj))
+                f"Did not find an appropriate viewer for the {type(obj)} object. Returning the object "
+                "itself.",
+                stacklevel=2,
             )
             return obj
         raise
@@ -85,7 +63,7 @@ def viewer(obj, downloadable=True, **kwargs):
 
 
 class AiidaNodeViewWidget(ipw.VBox):
-    node = traitlets.Instance(Node, allow_none=True)
+    node = tl.Instance(orm.Node, allow_none=True)
 
     def __init__(self, **kwargs):
         self._output = ipw.Output()
@@ -96,7 +74,7 @@ class AiidaNodeViewWidget(ipw.VBox):
             **kwargs,
         )
 
-    @traitlets.observe("node")
+    @tl.observe("node")
     def _observe_node(self, change):
         if change["new"] != change["old"]:
             with self._output:
@@ -108,7 +86,7 @@ class AiidaNodeViewWidget(ipw.VBox):
 @register_viewer_widget("data.core.dict.Dict.")
 class DictViewer(ipw.VBox):
 
-    value = Unicode()
+    value = tl.Unicode()
     """Viewer class for Dict object.
 
     :param parameter: Dict object to be viewed
@@ -150,9 +128,8 @@ class DictViewer(ipw.VBox):
         if downloadable:
             payload = base64.b64encode(dataf.to_csv(index=False).encode()).decode()
             fname = f"{parameter.pk}.csv"
-            to_add = """Download table in csv format: <a download="{filename}"
-            href="data:text/csv;base64,{payload}" target="_blank">{title}</a>"""
-            self.value += to_add.format(filename=fname, payload=payload, title=fname)
+            self.value += f"""Download table in csv format: <a download="{fname}"
+            href="data:text/csv;base64,{payload}" target="_blank">{fname}</a>"""
 
         super().__init__([self.widget], **kwargs)
 
@@ -169,11 +146,11 @@ class _StructureDataBaseViewer(ipw.VBox):
 
     """
 
-    input_selection = List(Int, allow_none=True)
-    selection = List(Int)
-    displayed_selection = List(Int)
-    supercell = List(Int)
-    cell = Instance(Cell, allow_none=True)
+    input_selection = tl.List(tl.Int(), allow_none=True)
+    selection = tl.List(tl.Int())
+    displayed_selection = tl.List(tl.Int())
+    supercell = tl.List(tl.Int())
+    cell = tl.Instance(ase.cell.Cell, allow_none=True)
     DEFAULT_SELECTION_OPACITY = 0.2
     DEFAULT_SELECTION_RADIUS = 6
     DEFAULT_SELECTION_COLOR = "green"
@@ -206,6 +183,7 @@ class _StructureDataBaseViewer(ipw.VBox):
             warnings.warn(
                 "`configure_view` is deprecated, please use `configuration_tabs` instead.",
                 DeprecationWarning,
+                stacklevel=2,
             )
             if not configure_view:
                 configuration_tabs.clear()
@@ -213,7 +191,7 @@ class _StructureDataBaseViewer(ipw.VBox):
         # Constructing configuration box
         if configuration_tabs is None:
             configuration_tabs = ["Selection", "Appearance", "Cell", "Download"]
-
+        if len(configuration_tabs) != 0:
             self.configuration_box = ipw.Tab(
                 layout=ipw.Layout(flex="1 1 auto", width="auto")
             )
@@ -245,7 +223,7 @@ class _StructureDataBaseViewer(ipw.VBox):
 
         # 2. Copy to clipboard
         copy_to_clipboard = CopyToClipboardButton(description="Copy to clipboard")
-        link((self._selected_atoms, "value"), (copy_to_clipboard, "value"))
+        tl.link((self._selected_atoms, "value"), (copy_to_clipboard, "value"))
 
         # 3. Informing about wrong syntax.
         self.wrong_syntax = ipw.HTML(
@@ -312,7 +290,7 @@ class _StructureDataBaseViewer(ipw.VBox):
 
         # 2. Choose background color.
         background_color = ipw.ColorPicker(description="Background")
-        link((background_color, "value"), (self._viewer, "background"))
+        tl.link((background_color, "value"), (self._viewer, "background"))
         background_color.value = "white"
 
         # 3. Camera switcher
@@ -339,7 +317,7 @@ class _StructureDataBaseViewer(ipw.VBox):
             [supercell_selector, background_color, camera_type, center_button]
         )
 
-    @observe("cell")
+    @tl.observe("cell")
     def _observe_cell(self, _=None):
         # only update cell info when it is a 3D structure.
         if self.cell and all(self.structure.pbc):
@@ -491,13 +469,13 @@ class _StructureDataBaseViewer(ipw.VBox):
     def _render_structure(self, change=None):
         """Render the structure with POVRAY."""
 
-        if not isinstance(self.displayed_structure, Atoms):
+        if not isinstance(self.displayed_structure, ase.Atoms):
             return
 
         self.render_btn.disabled = True
         omat = np.array(self._viewer._camera_orientation).reshape(4, 4).transpose()
 
-        zfactor = norm(omat[0, 0:3])
+        zfactor = np.linalg.norm(omat[0, 0:3])
         omat[0:3, 0:3] = omat[0:3, 0:3] / zfactor
 
         bb = deepcopy(self.displayed_structure)
@@ -527,10 +505,10 @@ class _StructureDataBaseViewer(ipw.VBox):
 
         bonds = []
 
-        cutoff = neighborlist.natural_cutoffs(
+        cutoff = ase.neighborlist.natural_cutoffs(
             bb
         )  # Takes the cutoffs from the ASE database
-        neighbor_list = neighborlist.NeighborList(
+        neighbor_list = ase.neighborlist.NeighborList(
             cutoff, self_interaction=False, bothways=False
         )
         neighbor_list.update(bb)
@@ -545,20 +523,20 @@ class _StructureDataBaseViewer(ipw.VBox):
             midi = v1 + (v2 - v1) * Radius[i.symbol] / (
                 Radius[i.symbol] + Radius[j.symbol]
             )
-            bond = Cylinder(
+            bond = vapory.Cylinder(
                 v1,
                 midi,
                 0.2,
-                Pigment("color", np.array(Colors[i.symbol])),
-                Finish("phong", 0.8, "reflection", 0.05),
+                vapory.Pigment("color", np.array(Colors[i.symbol])),
+                vapory.Finish("phong", 0.8, "reflection", 0.05),
             )
             bonds.append(bond)
-            bond = Cylinder(
+            bond = vapory.Cylinder(
                 v2,
                 midi,
                 0.2,
-                Pigment("color", np.array(Colors[j.symbol])),
-                Finish("phong", 0.8, "reflection", 0.05),
+                vapory.Pigment("color", np.array(Colors[j.symbol])),
+                vapory.Finish("phong", 0.8, "reflection", 0.05),
             )
             bonds.append(bond)
 
@@ -566,36 +544,40 @@ class _StructureDataBaseViewer(ipw.VBox):
         for x, i in enumerate(vertices):
             for j in vertices[x + 1 :]:
                 if (
-                    norm(np.cross(i - j, vertices[1] - vertices[0])) < 0.001
-                    or norm(np.cross(i - j, vertices[2] - vertices[0])) < 0.001
-                    or norm(np.cross(i - j, vertices[3] - vertices[0])) < 0.001
+                    np.linalg.norm(np.cross(i - j, vertices[1] - vertices[0])) < 0.001
+                    or np.linalg.norm(np.cross(i - j, vertices[2] - vertices[0]))
+                    < 0.001
+                    or np.linalg.norm(np.cross(i - j, vertices[3] - vertices[0]))
+                    < 0.001
                 ):
-                    edge = Cylinder(
+                    edge = vapory.Cylinder(
                         i,
                         j,
                         0.06,
-                        Texture(
-                            Pigment("color", [212 / 255.0, 175 / 255.0, 55 / 255.0])
+                        vapory.Texture(
+                            vapory.Pigment(
+                                "color", [212 / 255.0, 175 / 255.0, 55 / 255.0]
+                            )
                         ),
-                        Finish("phong", 0.9, "reflection", 0.01),
+                        vapory.Finish("phong", 0.9, "reflection", 0.01),
                     )
                     edges.append(edge)
 
-        camera = Camera(
+        camera = vapory.Camera(
             "perspective",
             "location",
             [0, 0, -zfactor / 1.5],
             "look_at",
             [0.0, 0.0, 0.0],
         )
-        light = LightSource([0, 0, -100.0], "color", [1.5, 1.5, 1.5])
+        light = vapory.LightSource([0, 0, -100.0], "color", [1.5, 1.5, 1.5])
 
         spheres = [
-            Sphere(
+            vapory.Sphere(
                 [i.x, i.y, i.z],
                 Radius[i.symbol],
-                Texture(Pigment("color", np.array(Colors[i.symbol]))),
-                Finish("phong", 0.9, "reflection", 0.05),
+                vapory.Texture(vapory.Pigment("color", np.array(Colors[i.symbol]))),
+                vapory.Finish("phong", 0.9, "reflection", 0.05),
             )
             for i in bb
         ]
@@ -605,10 +587,10 @@ class _StructureDataBaseViewer(ipw.VBox):
             + spheres
             + edges
             + bonds
-            + [Background("color", np.array(to_rgb(self._viewer.background)))]
+            + [vapory.Background("color", np.array(to_rgb(self._viewer.background)))]
         )
 
-        scene = Scene(camera, objects=objects)
+        scene = vapory.Scene(camera, objects=objects)
         fname = bb.get_chemical_formula() + ".png"
         scene.render(
             fname,
@@ -660,11 +642,11 @@ class _StructureDataBaseViewer(ipw.VBox):
             opacity=opacity,
         )
 
-    @default("supercell")
+    @tl.default("supercell")
     def _default_supercell(self):
         return [1, 1, 1]
 
-    @observe("input_selection")
+    @tl.observe("input_selection")
     def _observe_input_selection(self, value):
         if value["new"] is None:
             return
@@ -680,7 +662,7 @@ class _StructureDataBaseViewer(ipw.VBox):
 
         self.displayed_selection = selection_list
 
-    @observe("displayed_selection")
+    @tl.observe("displayed_selection")
     def _observe_displayed_selection(self, _=None):
         seen = set()
         seq = [x % self.natom for x in self.displayed_selection]
@@ -723,16 +705,14 @@ class _StructureDataBaseViewer(ipw.VBox):
         from IPython.display import Javascript
 
         javas = Javascript(
-            """
+            f"""
             var link = document.createElement('a');
             link.href = "data:;base64,{payload}"
             link.download = "{filename}"
             document.body.appendChild(link);
             link.click();
             document.body.removeChild(link);
-            """.format(
-                payload=payload, filename=filename
-            )
+            """
         )
         display(javas)
 
@@ -766,21 +746,23 @@ class StructureDataViewer(_StructureDataBaseViewer):
         and can't be set outside of the class.
     """
 
-    structure = Union([Instance(Atoms), Instance(Node)], allow_none=True)
-    displayed_structure = Instance(Atoms, allow_none=True, read_only=True)
-    pk = Int(allow_none=True)
+    structure = tl.Union(
+        [tl.Instance(ase.Atoms), tl.Instance(orm.Node)], allow_none=True
+    )
+    displayed_structure = tl.Instance(ase.Atoms, allow_none=True, read_only=True)
+    pk = tl.Int(allow_none=True)
 
     def __init__(self, structure=None, **kwargs):
         super().__init__(**kwargs)
         self.structure = structure
         self.natom = len(self.structure) if self.structure is not None else 0
 
-    @observe("supercell")
+    @tl.observe("supercell")
     def repeat(self, _=None):
         if self.structure is not None:
             self.set_trait("displayed_structure", self.structure.repeat(self.supercell))
 
-    @validate("structure")
+    @tl.validate("structure")
     def _valid_structure(self, change):  # pylint: disable=no-self-use
         """Update structure."""
         structure = change["value"]
@@ -788,10 +770,10 @@ class StructureDataViewer(_StructureDataBaseViewer):
         if structure is None:
             return None  # if no structure provided, the rest of the code can be skipped
 
-        if isinstance(structure, Atoms):
+        if isinstance(structure, ase.Atoms):
             self.pk = None
             return structure
-        if isinstance(structure, Node):
+        if isinstance(structure, orm.Node):
             self.pk = structure.pk
             return structure.get_ase()
         raise TypeError(
@@ -799,7 +781,7 @@ class StructureDataViewer(_StructureDataBaseViewer):
             "ASE Atoms object, AiiDA CifData or StructureData."
         )
 
-    @observe("structure")
+    @tl.observe("structure")
     def _observe_structure(self, change):
         """Update displayed_structure trait after the structure trait has been modified."""
         self.natom = len(self.structure) if self.structure is not None else 0
@@ -811,7 +793,7 @@ class StructureDataViewer(_StructureDataBaseViewer):
             self.set_trait("displayed_structure", None)
             self.set_trait("cell", None)
 
-    @observe("displayed_structure")
+    @tl.observe("displayed_structure")
     def _update_structure_viewer(self, change):
         """Update the view if displayed_structure trait was modified."""
         with self.hold_trait_notifications():
@@ -1084,7 +1066,7 @@ class StructureDataViewer(_StructureDataBaseViewer):
 
         return info_selected_atoms + info_natoms_geo_center
 
-    @observe("displayed_selection")
+    @tl.observe("displayed_selection")
     def _observe_displayed_selection_2(self, _=None):
         self.selection_info.value = self.create_selection_info()
 
@@ -1131,16 +1113,14 @@ class FolderDataViewer(ipw.VBox):
             self._folder.get_object_content(self.files.value).encode()
         ).decode()
         javas = Javascript(
-            """
+            f"""
             var link = document.createElement('a');
             link.href = "data:;base64,{payload}"
-            link.download = "{filename}"
+            link.download = "{self.files.value}"
             document.body.appendChild(link);
             link.click();
             document.body.removeChild(link);
-            """.format(
-                payload=payload, filename=self.files.value
-            )
+            """
         )
         display(javas)
 
@@ -1205,17 +1185,19 @@ class ProcessNodeViewerWidget(ipw.HTML):
 
         # Displaying reports only from the selected process,
         # NOT from its descendants.
-        report = get_workchain_report(self.process, "REPORT", max_depth=1)
+        report = cmdline.utils.common.get_workchain_report(
+            self.process, "REPORT", max_depth=1
+        )
         # Filter out the first column with dates
         filtered_report = re.sub(
             r"^[0-9]{4}.*\| ([A-Z]+)\]", r"\1", report, flags=re.MULTILINE
         )
         header = f"""
             Process {process.process_label},
-            State: {formatting.format_process_state(process.process_state.value)},
+            State: {tools.query.formatting.format_process_state(process.process_state.value)},
             UUID: {process.uuid} (pk: {process.pk})<br>
-            Started {formatting.format_relative_time(process.ctime)},
-            Last modified {formatting.format_relative_time(process.mtime)}<br>
+            Started {tools.query.formatting.format_relative_time(process.ctime)},
+            Last modified {tools.query.formatting.format_relative_time(process.mtime)}<br>
         """
         self.value = f"{header}<pre>{filtered_report}</pre>"
 

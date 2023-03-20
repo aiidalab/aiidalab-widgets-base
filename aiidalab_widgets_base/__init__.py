@@ -37,8 +37,6 @@ from .viewers import AiidaNodeViewWidget, register_viewer_widget, viewer
 from .wizard import WizardAppWidget, WizardAppWidgetStep
 
 __all__ = [
-    "AiiDACodeSetup",
-    "AiidaComputerSetup",
     "AiidaNodeViewWidget",
     "BasicStructureEditor",
     "BasicCellEditor",
@@ -47,7 +45,6 @@ __all__ = [
     "CodQueryWidget",
     "ComputerDatabaseWidget",
     "ComputationalResourcesWidget",
-    "ComputerDropdown",
     "ComputerDropdownWidget",
     "ElnConfigureWidget",
     "ElnExportWidget",
@@ -68,7 +65,6 @@ __all__ = [
     "ProgressBarWidget",
     "RunningCalcJobOutputWidget",
     "SmilesWidget",
-    "SshComputerSetup",
     "StructureBrowserWidget",
     "StructureExamplesWidget",
     "StructureManagerWidget",
@@ -80,4 +76,4 @@ __all__ = [
     "viewer",
 ]
 
-__version__ = "2.0.0b0"
+__version__ = "2.0.0b2"
