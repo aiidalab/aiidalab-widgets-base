@@ -1,7 +1,36 @@
-from aiida import orm
+import pytest
+from aiida import engine, orm
 
 
-def test_process_inputs(generate_calc_job_node):
+@pytest.mark.usefixtures("aiida_profile_clean")
+def test_submit_button_widget(multiply_add_process_builder_ready):
+    """Test SubmitButtonWidget with a simple `WorkChainNode`"""
+    from aiida.workflows.arithmetic.multiply_add import MultiplyAddWorkChain
+
+    import aiidalab_widgets_base as awb
+
+    def hook(_=None):
+        pass
+
+    def return_inputs():
+        return multiply_add_process_builder_ready
+
+    widget = awb.SubmitButtonWidget(
+        process_class=MultiplyAddWorkChain, inputs_generator=return_inputs
+    )
+
+    widget.on_submitted(hook)
+
+    assert widget.process is None  # The process is not yet submitted.
+
+    # Simulate the click on the button.
+    widget.on_btn_submit_press()
+    assert widget.process is not None
+    assert isinstance(widget.process, orm.WorkChainNode)
+
+
+@pytest.mark.usefixtures("aiida_profile_clean")
+def test_process_inputs_widget(generate_calc_job_node):
     """Test ProcessInputWidget with a simple `CalcJobNode`"""
     from aiidalab_widgets_base.process import ProcessInputsWidget
 
@@ -14,8 +43,8 @@ def test_process_inputs(generate_calc_job_node):
         }
     )
 
-    # test the widget can be instantiated with empty inputs
-    process_input_widget = ProcessInputsWidget(process=None)
+    # Test the widget can be instantiated with empty inputs
+    process_input_widget = ProcessInputsWidget()
 
     process_input_widget = ProcessInputsWidget(process=process)
     input_dropdown = process_input_widget._inputs
@@ -30,3 +59,172 @@ def test_process_inputs(generate_calc_job_node):
     selected_input = orm.load_node(uuid)
 
     assert process_input_widget.info.value == f"PK: {selected_input.pk}"
+
+
+@pytest.mark.usefixtures("aiida_profile_clean")
+def test_process_outputs_widget(multiply_add_completed_workchain):
+    """Test ProcessOutputWidget with a simple `WorkChainNode`"""
+    from aiidalab_widgets_base.process import ProcessOutputsWidget
+
+    # Test the widget can be instantiated with empty inputs
+    widget = ProcessOutputsWidget()
+
+    # Test the widget can be instantiated with a process
+    widget = ProcessOutputsWidget(process=multiply_add_completed_workchain)
+
+    # Simulate output selection.
+    widget.show_selected_output(change={"new": "result"})
+
+
+@pytest.mark.usefixtures("aiida_profile_clean")
+def test_process_follower_widget(multiply_add_process_builder_ready, daemon_client):
+    """Test ProcessFollowerWidget with a simple `WorkChainNode`"""
+    from aiidalab_widgets_base.process import ProcessFollowerWidget
+
+    # Test the widget can be instantiated with empty inputs
+    widget = ProcessFollowerWidget()
+
+    daemon_client.stop_daemon(wait=True)
+    process = engine.submit(multiply_add_process_builder_ready)
+
+    # Test the widget can be instantiated with a process
+    widget = ProcessFollowerWidget(process=process)
+
+    daemon_client.start_daemon()
+
+    # Follow the process till it is completed.
+    widget.follow()
+
+
+@pytest.mark.usefixtures("aiida_profile_clean")
+def test_process_report_widget(
+    multiply_add_process_builder_ready, daemon_client, await_for_process_completeness
+):
+    """Test ProcessReportWidget with a simple `WorkChainNode`"""
+    from aiidalab_widgets_base.process import ProcessReportWidget
+
+    # Test the widget can be instantiated with empty inputs
+    ProcessReportWidget()
+
+    # Stopping the daemon and submitting the process.
+    daemon_client.stop_daemon(wait=True)
+    process = engine.submit(multiply_add_process_builder_ready)
+
+    # Test the widget can be instantiated with a process
+    widget = ProcessReportWidget(process=process)
+    assert (
+        widget.value == "No log messages recorded for this entry"
+    )  # No report produced yet.
+
+    # Starting the daemon and waiting for the process to complete.
+    daemon_client.start_daemon()
+    await_for_process_completeness(process)
+
+    widget.update()
+
+
+@pytest.mark.usefixtures("aiida_profile_clean")
+def test_process_call_stack_widget(
+    multiply_add_process_builder_ready, daemon_client, await_for_process_completeness
+):
+    """Test ProcessCallStackWidget with a simple `WorkChainNode`"""
+    from aiidalab_widgets_base.process import ProcessCallStackWidget
+
+    # Test the widget can be instantiated with empty inputs
+    ProcessCallStackWidget()
+
+    # Stopping the daemon and submitting the process.
+    daemon_client.stop_daemon(wait=True)
+    process = engine.submit(multiply_add_process_builder_ready)
+
+    # Test the widget can be instantiated with a process
+    widget = ProcessCallStackWidget(process=process)
+    assert widget.value.endswith("Created")
+
+    # Starting the daemon and waiting for the process to complete.
+    daemon_client.start_daemon()
+    await_for_process_completeness(process)
+
+    widget.update()
+    assert "ArithmeticAddCalculation" in widget.value
+
+
+@pytest.mark.usefixtures("aiida_profile_clean")
+def test_progress_bar_widget(
+    multiply_add_process_builder_ready, daemon_client, await_for_process_completeness
+):
+    """Test ProgressBarWidget with a simple `WorkChainNode`"""
+    from aiidalab_widgets_base import ProgressBarWidget
+
+    # Test the widget can be instantiated with empty inputs
+    ProgressBarWidget()
+
+    # Stopping the daemon and submitting the process.
+    daemon_client.stop_daemon(wait=True)
+    process = engine.submit(multiply_add_process_builder_ready)
+
+    # Test the widget can be instantiated with a process
+    widget = ProgressBarWidget(process=process)
+    assert widget.state.value == "Created"
+
+    # Starting the daemon and waiting for the process to complete.
+    daemon_client.start_daemon()
+    await_for_process_completeness(process)
+
+    widget.update()
+    assert widget.state.value == "Finished"
+
+
+@pytest.mark.usefixtures("aiida_profile_clean")
+def test_calcjob_output_widget(generate_calc_job_node):
+    """Test CalcJobOutputWidget with a simple `WorkChainNode`"""
+    from aiidalab_widgets_base.process import CalcJobOutputWidget
+
+    process = generate_calc_job_node(
+        inputs={
+            "parameters": orm.Int(1),
+            "nested": {
+                "inner": orm.Int(2),
+            },
+        }
+    )
+    # Test the widget can be instantiated with empty inputs
+    CalcJobOutputWidget()
+
+    # Test the widget can be instantiated with a process
+    CalcJobOutputWidget(calculation=process)
+
+
+@pytest.mark.usefixtures("aiida_profile_clean")
+def test_running_calcjob_output_widget(generate_calc_job_node):
+    """Test RunningCalcJobOutputWidget with a simple `WorkChainNode`"""
+    from aiidalab_widgets_base.process import RunningCalcJobOutputWidget
+
+    process = generate_calc_job_node(
+        inputs={
+            "parameters": orm.Int(1),
+            "nested": {
+                "inner": orm.Int(2),
+            },
+        }
+    )
+
+    # Test the widget can be instantiated with a process
+    RunningCalcJobOutputWidget(calculation=process)
+
+
+@pytest.mark.usefixtures("aiida_profile_clean")
+def test_process_list_widget(multiply_add_completed_workchain):
+    """Test ProcessListWidget with a simple `WorkChainNode`"""
+    from aiidalab_widgets_base.process import ProcessListWidget
+
+    ProcessListWidget()
+
+
+@pytest.mark.usefixtures("aiida_profile_clean")
+def test_process_nodes_tree_widget(multiply_add_completed_workchain):
+    """Test ProcessNodesTreeWidget with a simple `WorkChainNode`"""
+
+    from aiidalab_widgets_base.process import ProcessNodesTreeWidget
+
+    ProcessNodesTreeWidget(value=multiply_add_completed_workchain.uuid)

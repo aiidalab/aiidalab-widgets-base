@@ -1,11 +1,12 @@
 import io
 import os
 import shutil
+import time
 from collections.abc import Mapping
 
 import numpy as np
 import pytest
-from aiida import plugins
+from aiida import engine, orm, plugins
 
 pytest_plugins = ["aiida.manage.tests.pytest_fixtures"]
 
@@ -154,6 +155,34 @@ def generate_calc_job_node(fixture_localhost):
 
 
 @pytest.fixture
+def multiply_add_completed_workchain(aiida_local_code_bash):
+    """Return a `MultiplyAddWorkChain` instance with a `finished` process state and exit status of 0."""
+    from aiida.workflows.arithmetic.multiply_add import MultiplyAddWorkChain
+
+    inputs = {
+        "x": orm.Int(1),
+        "y": orm.Int(2),
+        "z": orm.Int(3),
+        "code": aiida_local_code_bash,
+    }
+    _, process = engine.run_get_node(MultiplyAddWorkChain, **inputs)
+    return process
+
+
+@pytest.fixture
+def multiply_add_process_builder_ready(aiida_local_code_bash):
+    """Return a `MultiplyAddWorkChain` builder with all inputs set."""
+    from aiida.workflows.arithmetic.multiply_add import MultiplyAddWorkChain
+
+    builder = MultiplyAddWorkChain.get_builder()
+    builder.x = orm.Int(1)
+    builder.y = orm.Int(2)
+    builder.z = orm.Int(3)
+    builder.code = aiida_local_code_bash
+    return builder
+
+
+@pytest.fixture
 def structure_data_object():
     """Return a `StructureData` object."""
     StructureData = plugins.DataFactory("core.structure")  # noqa: N806
@@ -244,3 +273,16 @@ def folder_data_object():
 def aiida_local_code_bash(aiida_local_code_factory):
     """Return a `Code` configured for the bash executable."""
     return aiida_local_code_factory(executable="bash", entry_point="bash")
+
+
+@pytest.fixture
+def await_for_process_completeness():
+    """Await for a process to complete and return the process node."""
+
+    def _await_for_process_completeness(process):
+        """Await for a process to complete and return the process node."""
+        while not process.is_sealed:
+            time.sleep(0.1)
+        return process
+
+    return _await_for_process_completeness
