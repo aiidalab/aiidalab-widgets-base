@@ -1,18 +1,10 @@
 """Widgets that allow to query online databases."""
+import ase
 import ipywidgets as ipw
 import requests
-import traitlets
+import traitlets as tl
 from aiida.tools.dbimporters.plugins.cod import CodDbImporter
-from ase import Atoms
-from optimade_client.default_parameters import (
-    DISABLE_PROVIDERS,
-    PROVIDER_DATABASE_GROUPINGS,
-    SKIP_DATABASE,
-    SKIP_PROVIDERS,
-)
-from optimade_client.query_filter import OptimadeQueryFilterWidget
-from optimade_client.query_provider import OptimadeQueryProviderWidget
-from traitlets import Instance, default
+from optimade_client import default_parameters, query_filter, query_provider
 
 
 class CodQueryWidget(ipw.VBox):
@@ -20,7 +12,7 @@ class CodQueryWidget(ipw.VBox):
     Useful class members:
     :ivar structure(Atoms): trait that contains the selected structure, None if structure is not selected."""
 
-    structure = Instance(Atoms, allow_none=True)
+    structure = tl.Instance(ase.Atoms, allow_none=True)
 
     def __init__(self, title="", **kwargs):
         description = ipw.HTML(
@@ -83,7 +75,7 @@ class CodQueryWidget(ipw.VBox):
             return importer.query(formula=formula)
         return None
 
-    def _on_click_query(self, change):  # pylint: disable=unused-argument
+    def _on_click_query(self, _=None):
         """Call query when the corresponding button is pressed."""
         structures = [("select structure", {"status": False})]
         idn = None
@@ -101,7 +93,7 @@ class CodQueryWidget(ipw.VBox):
             except Exception:
                 continue
             entry_add = (
-                "{} (id: {})".format(formula, entry.source["id"]),
+                f"{formula} (id: {entry.source['id']})",
                 {
                     "status": True,
                     "cif": entry_cif,
@@ -122,12 +114,12 @@ class CodQueryWidget(ipw.VBox):
             return
         self.structure = selected["cif"].get_ase()
         struct_url = selected["url"].split(".cif")[0] + ".html"
-        self.link.value = '<a href="{}" target="_blank">COD entry {}</a>'.format(
-            struct_url, selected["id"]
+        self.link.value = (
+            f"""<a href="{struct_url}" target="_blank">COD entry {selected["id"]}</a>"""
         )
 
-    @default("structure")
-    def _default_structure(self):  # pylint: disable=no-self-use
+    @tl.default("structure")
+    def _default_structure(self):
         return None
 
 
@@ -151,12 +143,12 @@ class OptimadeQueryWidget(ipw.VBox):
     :type title: str
     """
 
-    structure = Instance(Atoms, allow_none=True)
+    structure = tl.Instance(ase.Atoms, allow_none=True)
 
-    _disable_providers = DISABLE_PROVIDERS
-    _skip_databases = SKIP_DATABASE
-    _skip_providers = SKIP_PROVIDERS
-    _provider_database_groupings = PROVIDER_DATABASE_GROUPINGS
+    _disable_providers = default_parameters.DISABLE_PROVIDERS
+    _skip_databases = default_parameters.SKIP_DATABASE
+    _skip_providers = default_parameters.SKIP_PROVIDERS
+    _provider_database_groupings = default_parameters.PROVIDER_DATABASE_GROUPINGS
 
     def __init__(
         self,
@@ -165,7 +157,7 @@ class OptimadeQueryWidget(ipw.VBox):
         **kwargs,
     ) -> None:
         providers_header = ipw.HTML("<h4>Select a provider</h4>")
-        providers = OptimadeQueryProviderWidget(
+        providers = query_provider.OptimadeQueryProviderWidget(
             embedded=embedded,
             width_ratio=kwargs.pop("width_ratio", None),
             width_space=kwargs.pop("width_space", None),
@@ -177,7 +169,7 @@ class OptimadeQueryWidget(ipw.VBox):
                 "provider_database_groupings", self._provider_database_groupings
             ),
         )
-        filters = OptimadeQueryFilterWidget(
+        filters = query_filter.OptimadeQueryFilterWidget(
             embedded=embedded,
             button_style=kwargs.pop("button_style", None),
             result_limit=kwargs.pop("results_limit", None),
@@ -205,11 +197,11 @@ class OptimadeQueryWidget(ipw.VBox):
 class ComputationalResourcesDatabaseWidget(ipw.VBox):
     """Extract the setup of a known computer from the AiiDA code registry."""
 
-    default_calc_job_plugin = traitlets.Unicode(allow_none=True)
-    ssh_config = traitlets.Dict()
-    computer_setup = traitlets.Dict()
-    code_setup = traitlets.Dict()
-    database = traitlets.Dict()
+    default_calc_job_plugin = tl.Unicode(allow_none=True)
+    ssh_config = tl.Dict()
+    computer_setup = tl.Dict()
+    code_setup = tl.Dict()
+    database = tl.Dict()
 
     def __init__(self, **kwargs):
         # Select domain.
@@ -295,7 +287,7 @@ class ComputationalResourcesDatabaseWidget(ipw.VBox):
             else database
         )
 
-    @traitlets.observe("database")
+    @tl.observe("database")
     def _observer_database_change(self, _=None):
         self.inp_domain.options = self.database.keys()
         self._reset()
@@ -378,6 +370,6 @@ class ComputationalResourcesDatabaseWidget(ipw.VBox):
 
             self.code_setup = code_setup
 
-    @default("default_calc_job_plugin")
+    @tl.default("default_calc_job_plugin")
     def _default_calc_job_plugin(self):
         return None
