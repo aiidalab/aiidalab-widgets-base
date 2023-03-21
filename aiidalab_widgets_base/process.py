@@ -325,6 +325,7 @@ class ProcessReportWidget(ipw.HTML):
     """Widget that shows process report."""
 
     process = tl.Instance(orm.ProcessNode, allow_none=True)
+    value = tl.Unicode(allow_none=True)
 
     def __init__(self, title="Process Report", **kwargs):
         self.title = title

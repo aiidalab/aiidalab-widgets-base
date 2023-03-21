@@ -21,8 +21,12 @@ def test_submit_button_widget(multiply_add_process_builder_ready):
 
     widget.on_submitted(hook)
 
+    assert widget.process is None  # The process is not yet submitted.
+
     # Simulate the click on the button.
     widget.on_btn_submit_press()
+    assert widget.process is not None
+    assert isinstance(widget.process, orm.WorkChainNode)
 
 
 @pytest.mark.usefixtures("aiida_profile_clean")
@@ -108,6 +112,9 @@ def test_process_report_widget(
 
     # Test the widget can be instantiated with a process
     widget = ProcessReportWidget(process=process)
+    assert (
+        widget.value == "No log messages recorded for this entry"
+    )  # No report produced yet.
 
     # Starting the daemon and waiting for the process to complete.
     daemon_client.start_daemon()
@@ -132,12 +139,14 @@ def test_process_call_stack_widget(
 
     # Test the widget can be instantiated with a process
     widget = ProcessCallStackWidget(process=process)
+    assert widget.value.endswith("Created")
 
     # Starting the daemon and waiting for the process to complete.
     daemon_client.start_daemon()
     await_for_process_completeness(process)
 
     widget.update()
+    assert "ArithmeticAddCalculation" in widget.value
 
 
 @pytest.mark.usefixtures("aiida_profile_clean")
@@ -156,12 +165,14 @@ def test_progress_bar_widget(
 
     # Test the widget can be instantiated with a process
     widget = ProgressBarWidget(process=process)
+    assert widget.state.value == "Created"
 
     # Starting the daemon and waiting for the process to complete.
     daemon_client.start_daemon()
     await_for_process_completeness(process)
 
     widget.update()
+    assert widget.state.value == "Finished"
 
 
 @pytest.mark.usefixtures("aiida_profile_clean")
