@@ -98,7 +98,7 @@ class WizardAppWidget(ipw.VBox):
 
     selected_index = traitlets.Int(allow_none=True)
 
-    def __init__(self, steps, **kwargs):
+    def __init__(self, steps, testing=False, **kwargs):
         # The number of steps must be greater than one
         # for this app's logic to make sense.
         if len(steps) < 2:
@@ -121,7 +121,8 @@ class WizardAppWidget(ipw.VBox):
                 sleep(0.1)
                 self._update_titles()
 
-        Thread(target=spinner_thread).start()
+        if not testing:  # pytest is hanging if we start a thread
+            Thread(target=spinner_thread).start()
 
         # Watch for changes to each step's state
         for widget in widgets:
@@ -178,7 +179,6 @@ class WizardAppWidget(ipw.VBox):
         This is performed whenever the current step is within the SUCCESS state and has
         the auto_advance attribute set to True.
         """
-
         with self.hold_trait_notifications():
             index = self.accordion.selected_index
             last_step_selected = index + 1 == len(self.accordion.children)
