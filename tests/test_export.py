@@ -1,5 +1,4 @@
 import pytest
-from aiida import engine, orm
 
 
 @pytest.mark.usefixtures("aiida_profile_clean")
@@ -16,4 +15,4 @@ def test_export_button_widget(multiply_add_completed_workchain, monkeypatch, tmp
     monkeypatch.setattr("tempfile.mkdtemp", lambda: str(tmp_path))
     button.export_aiida_subgraph()
 
-    assert (tmp_path / f"export.aiida").exists()
+    assert (tmp_path / "export.aiida").exists()
