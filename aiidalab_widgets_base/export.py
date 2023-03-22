@@ -28,7 +28,7 @@ class ExportButtonWidget(Button):
 
         fname = os.path.join(mkdtemp(), "export.aiida")
         subprocess.call(
-            ["verdi", "export", "create", fname, "-N", str(self.process.id)]
+            ["verdi", "archive", "create", fname, "-N", str(self.process.id)]
         )
         with open(fname, "rb") as fobj:
             b64 = base64.b64encode(fobj.read())
