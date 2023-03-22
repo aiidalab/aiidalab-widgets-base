@@ -89,7 +89,27 @@ def test_eln_configure_widget(mock_eln_config):
         ),
     )
 
+    assert "https://mydb.cheminfo.org/" in mock_eln_config.get()
+    assert (
+        mock_eln_config.get()["https://mydb.cheminfo.org/"]["token"]
+        == "1234567890abcdef"
+    )
+    assert "default" not in mock_eln_config.get()
+
     widget.eln_instance.label = "https://mydb.cheminfo.org/"
     widget.set_current_eln_as_default()
+    assert "default" in mock_eln_config.get()
+
+    # Update the configuration and check that it is updated.
+    widget.eln.token = "new-1234567890abcdef"
+    widget.save_eln_configuration()
+    assert (
+        mock_eln_config.get()["https://mydb.cheminfo.org/"]["token"]
+        == "new-1234567890abcdef"
+    )
+
+    widget.erase_current_eln_from_configuration()
+
+    assert "https://mydb.cheminfo.org/" not in mock_eln_config.get()
 
     mock_eln_config.restore()
