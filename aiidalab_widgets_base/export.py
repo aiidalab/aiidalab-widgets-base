@@ -1,11 +1,10 @@
 """Widgets to manage AiiDA export."""
 import os
 
-from IPython.display import display
-from ipywidgets import Button
+import ipywidgets as ipw
 
 
-class ExportButtonWidget(Button):
+class ExportButtonWidget(ipw.Button):
     """Export Node button."""
 
     def __init__(self, process, **kwargs):
@@ -22,11 +21,11 @@ class ExportButtonWidget(Button):
         """Perform export when the button is pressed"""
         import base64
         import subprocess
-        from tempfile import mkdtemp
+        import tempfile
 
-        from IPython.display import Javascript
+        from IPython.display import Javascript, display
 
-        fname = os.path.join(mkdtemp(), "export.aiida")
+        fname = os.path.join(tempfile.mkdtemp(), "export.aiida")
         subprocess.call(
             ["verdi", "archive", "create", fname, "-N", str(self.process.id)]
         )
