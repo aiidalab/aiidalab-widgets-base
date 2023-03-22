@@ -15,6 +15,5 @@ def test_export_button_widget(multiply_add_completed_workchain, monkeypatch, tmp
     # temporary directory in the `tmp_path` fixture to store the export file.
     monkeypatch.setattr("tempfile.mkdtemp", lambda: str(tmp_path))
     button.export_aiida_subgraph()
-    
+
     assert (tmp_path / f"export.aiida").exists()
-    
