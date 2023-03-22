@@ -4,12 +4,12 @@ Authors:
 
     * Carl Simon Adorf <simon.adorf@epfl.ch>
 """
-from enum import Enum
-from threading import Thread
-from time import sleep, time
+import enum
+import threading
+import time
 
 import ipywidgets as ipw
-import traitlets
+import traitlets as tl
 
 
 class AtLeastTwoStepsWizardError(ValueError):
@@ -21,10 +21,10 @@ class AtLeastTwoStepsWizardError(ValueError):
         )
 
 
-class WizardAppWidgetStep(traitlets.HasTraits):
+class WizardAppWidgetStep(tl.HasTraits):
     "One step of a WizardAppWidget."
 
-    class State(Enum):
+    class State(enum.Enum):
         """Each step is always in one specific state.
 
         The state is used to determine:
@@ -68,8 +68,8 @@ class WizardAppWidgetStep(traitlets.HasTraits):
         # All error states have negative codes
         FAIL = -1  # the step has unrecoverably failed
 
-    state = traitlets.UseEnum(State)
-    auto_advance = traitlets.Bool()
+    state = tl.UseEnum(State)
+    auto_advance = tl.Bool()
 
     def can_reset(self):
         return hasattr(self, "reset")
@@ -90,13 +90,13 @@ class WizardAppWidget(ipw.VBox):
     @classmethod
     def icons(cls):
         """Return the icon set and return animated icons based on the current time stamp."""
-        t = time()
+        t = time.time()
         return {
             key: item if isinstance(item, str) else item[int(t * len(item) % len(item))]
             for key, item in cls.ICONS.items()
         }
 
-    selected_index = traitlets.Int(allow_none=True)
+    selected_index = tl.Int(allow_none=True)
 
     def __init__(self, steps, testing=False, **kwargs):
         # The number of steps must be greater than one
@@ -118,11 +118,11 @@ class WizardAppWidget(ipw.VBox):
 
         def spinner_thread():
             while True:
-                sleep(0.1)
+                time.sleep(0.1)
                 self._update_titles()
 
         if not testing:  # pytest is hanging if we start a thread
-            Thread(target=spinner_thread).start()
+            threading.Thread(target=spinner_thread).start()
 
         # Watch for changes to each step's state
         for widget in widgets:
@@ -196,7 +196,7 @@ class WizardAppWidget(ipw.VBox):
             self._update_buttons()
             self._consider_auto_advance()
 
-    @traitlets.observe("selected_index")
+    @tl.observe("selected_index")
     def _observe_selected_index(self, change):
         "Activate/deactivate the next-button based on which step is selected."
         self._update_buttons()
