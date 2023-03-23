@@ -3,8 +3,8 @@ from pathlib import Path
 
 import ipywidgets as ipw
 import requests_cache
-import traitlets
-from aiida.orm import Node, QueryBuilder
+import traitlets as tl
+from aiida import orm
 from aiidalab_eln import get_eln_connector
 from IPython.display import clear_output, display
 
@@ -60,7 +60,7 @@ def connect_to_eln(eln_instance=None, **kwargs):
 
 
 class ElnImportWidget(ipw.VBox):
-    node = traitlets.Instance(Node, allow_none=True)
+    node = tl.Instance(orm.Node, allow_none=True)
 
     def __init__(self, path_to_root="../", **kwargs):
         # Used to output additional settings.
@@ -77,14 +77,14 @@ class ElnImportWidget(ipw.VBox):
             error_message.value = f"""Warning! The access to ELN is not configured. Please follow <a href="{url}" target="_blank">the link</a> to configure it.</br> More details: {msg}"""
             return
 
-        traitlets.dlink((eln, "node"), (self, "node"))
+        tl.dlink((eln, "node"), (self, "node"))
         with requests_cache.disabled():
             # Since the cache is enabled in AiiDAlab, we disable it here to get correct results.
             eln.import_data()
 
 
 class ElnExportWidget(ipw.VBox):
-    node = traitlets.Instance(Node, allow_none=True)
+    node = tl.Instance(orm.Node, allow_none=True)
 
     def __init__(self, path_to_root="../", **kwargs):
 
@@ -113,7 +113,7 @@ class ElnExportWidget(ipw.VBox):
         ]
         self.eln, msg = connect_to_eln()
         if self.eln:
-            traitlets.dlink((self, "node"), (self.eln, "node"))
+            tl.dlink((self, "node"), (self.eln, "node"))
         else:
             self.modify_settings.disabled = True
             send_button.disabled = True
@@ -121,7 +121,7 @@ class ElnExportWidget(ipw.VBox):
 
         super().__init__(children=children, **kwargs)
 
-    @traitlets.observe("node")
+    @tl.observe("node")
     def _observe_node(self, _=None):
         if self.node is None or self.eln is None:
             return
@@ -130,14 +130,16 @@ class ElnExportWidget(ipw.VBox):
             info = self.node.extras["eln"]
         else:
             try:
-                q = QueryBuilder().append(
-                    Node,
+                q = orm.QueryBuilder().append(
+                    orm.Node,
                     filters={"extras": {"has_key": "eln"}},
                     tag="source_node",
                     project="extras.eln",
                 )
                 q.append(
-                    Node, filters={"uuid": self.node.uuid}, with_ancestors="source_node"
+                    orm.Node,
+                    filters={"uuid": self.node.uuid},
+                    with_ancestors="source_node",
                 )
                 info = q.all(flat=True)[0]
             except IndexError:
