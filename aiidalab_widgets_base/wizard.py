@@ -98,7 +98,7 @@ class WizardAppWidget(ipw.VBox):
 
     selected_index = tl.Int(allow_none=True)
 
-    def __init__(self, steps, testing=False, **kwargs):
+    def __init__(self, steps, **kwargs):
         # The number of steps must be greater than one
         # for this app's logic to make sense.
         if len(steps) < 2:
@@ -116,13 +116,14 @@ class WizardAppWidget(ipw.VBox):
 
         # Automatically update titles to implement the "spinner"
 
+        self._run_update_thread = True
+
         def spinner_thread():
-            while True:
+            while self._run_update_thread:
                 time.sleep(0.1)
                 self._update_titles()
 
-        if not testing:  # pytest is hanging if we start a thread
-            threading.Thread(target=spinner_thread).start()
+        threading.Thread(target=spinner_thread).start()
 
         # Watch for changes to each step's state
         for widget in widgets:
