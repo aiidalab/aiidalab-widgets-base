@@ -29,7 +29,7 @@ Additional notes:
   - Use the `--dry` option to preview the release change.
   - The release tag (e.g. a/b/rc) is determined from the last release.
     Use the `--tag` option to switch the release tag.
-  - This packages follows semantic versioning.
+  - This packages follows [semantic versioning](https://semver.org/).
 
 ## License
 
