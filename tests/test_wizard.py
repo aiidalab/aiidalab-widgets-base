@@ -69,8 +69,10 @@ def test_wizard_app_widget():
     assert s1.state == s1.State.SUCCESS
     assert s2.state == s2.State.READY
     assert widget.accordion.selected_index == 1
+    assert widget.next_button.disabled is True
 
     # Check state after resetting the app.
     widget.reset()
     assert s1.state == s1.State.INIT
     assert s2.state == s2.State.INIT
+    assert widget.back_button.disabled is True
