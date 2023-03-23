@@ -14,7 +14,6 @@ def test_wizard_app_widget():
             super().__init__(children=[self.order_button], **kwargs)
 
         def submit_order(self, _=None):
-            self.state = self.State.SUCCESS
             self.config = True
 
         @tl.default("config")
@@ -23,7 +22,10 @@ def test_wizard_app_widget():
 
         def reset(self):
             self.config = False
-            self.state = self.State.INIT
+
+        @tl.observe("config")
+        def _observe_config(self, _=None):
+            self.state = self.State.SUCCESS if self.config else self.State.INIT
 
     class Step2(ipw.HBox, WizardAppWidgetStep):
         config = tl.Bool()
@@ -74,3 +76,9 @@ def test_wizard_app_widget():
     widget.reset()
     assert s1.state == s1.State.INIT
     assert s2.state == s2.State.INIT
+
+    # Check state after finishing the first step again.
+    s1.order_button.click()
+    assert s1.state == s1.State.SUCCESS
+    widget.accordion.selected_index = None  # All steps are closed.
+    s1.config = False  # This should trigger an attempt to advance to the next step.

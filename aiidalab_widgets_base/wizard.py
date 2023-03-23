@@ -179,6 +179,9 @@ class WizardAppWidget(ipw.VBox):
         This is performed whenever the current step is within the SUCCESS state and has
         the auto_advance attribute set to True.
         """
+        if self.accordion.selected_index is None:  # All children are hidden
+            return
+
         with self.hold_trait_notifications():
             index = self.accordion.selected_index
             last_step_selected = index + 1 == len(self.accordion.children)
