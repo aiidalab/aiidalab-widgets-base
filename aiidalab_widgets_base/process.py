@@ -811,6 +811,7 @@ class ProcessNodesTreeWidget(ipw.VBox):
 
     value = tl.Unicode(allow_none=True)
     selected_nodes = tl.Tuple(read_only=True).tag(trait=tl.Instance(orm.Node))
+    process = tl.Instance(orm.ProcessNode, allow_none=True)
 
     def __init__(self, title="Process Tree", **kwargs):
         self.title = title  # needed for ProcessFollowerWidget
@@ -827,7 +828,7 @@ class ProcessNodesTreeWidget(ipw.VBox):
         self._tree.update()
 
     @tl.observe("value")
-    def _observe_process(self, change):
+    def _observe_value(self, change):
         process_uuid = change["new"]
         if process_uuid:
             process = orm.load_node(process_uuid)
@@ -835,3 +836,12 @@ class ProcessNodesTreeWidget(ipw.VBox):
             self._tree.find_node(process.pk).selected = True
         else:
             self._tree.nodes = []
+
+        self.process = orm.load_node(process_uuid)
+
+    @tl.observe("process")
+    def _observe_process(self, change):
+        process = change["new"]
+        if process is None:
+            return
+        self.value = process.uuid

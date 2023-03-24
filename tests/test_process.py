@@ -265,3 +265,4 @@ def test_process_nodes_tree_widget(multiply_add_completed_workchain):
     from aiidalab_widgets_base.process import ProcessNodesTreeWidget
 
     ProcessNodesTreeWidget(value=multiply_add_completed_workchain.uuid)
+    ProcessNodesTreeWidget(process=multiply_add_completed_workchain)
