@@ -750,21 +750,23 @@ class ProcessMonitor(tl.HasTraits):
 
         with self._monitor_thread_lock:
             self._monitor_thread_stop.clear()
-            self._monitor_thread = threading.Thread(target=self._monitor_process)
+            self._monitor_thread = threading.Thread(
+                target=self._monitor_process, args=(process_uuid,)
+            )
             self._monitor_thread.start()
 
         self.process = orm.load_node(process_uuid)
 
     @tl.observe("process")
-    def _observe_process(self, change=None):
-        """Change the value trait if the process was changed."""
+    def _observe_process(self, change):
         process = change["new"]
         if process is None:
             return
-
         self.value = process.uuid
 
-    def _monitor_process(self):
+    def _monitor_process(self, process_uuid):
+        assert process_uuid is not None
+        process = orm.load_node(process_uuid)
 
         disabled_funcs = set()
 
@@ -776,7 +778,7 @@ class ProcessMonitor(tl.HasTraits):
 
                 try:
                     if len(inspect.signature(func).parameters) > 0:
-                        func(self.value)
+                        func(process_uuid)
                     else:
                         func()
                 except Exception:
@@ -786,7 +788,7 @@ class ProcessMonitor(tl.HasTraits):
                     )
                     disabled_funcs.add(func)
 
-        while not self.process.is_sealed:
+        while not process.is_sealed:
             _run(self.callbacks)
 
             if self._monitor_thread_stop.wait(timeout=self.timeout):
@@ -796,7 +798,7 @@ class ProcessMonitor(tl.HasTraits):
         _run(self.callbacks)
 
         # Run special 'on_sealed' callback functions in case that process is sealed.
-        if self.process.is_sealed:
+        if process.is_sealed:
             _run(self.on_sealed)
 
     def join(self):
