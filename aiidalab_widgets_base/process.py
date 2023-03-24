@@ -720,6 +720,7 @@ class ProcessMonitor(tl.HasTraits):
     """Monitor a process and execute callback functions at specified intervals."""
 
     value = tl.Unicode(allow_none=True)
+    process = tl.Instance(orm.ProcessNode, allow_none=True)
 
     def __init__(self, callbacks=None, on_sealed=None, timeout=None, **kwargs):
         self.callbacks = [] if callbacks is None else list(callbacks)
@@ -733,7 +734,7 @@ class ProcessMonitor(tl.HasTraits):
         super().__init__(**kwargs)
 
     @tl.observe("value")
-    def _observe_process(self, change):
+    def _observe_value(self, change):
         """When the value (process uuid) is changed, stop the previous
         monitor if exist. Start a new one in thread."""
         process_uuid = change["new"]
@@ -749,14 +750,21 @@ class ProcessMonitor(tl.HasTraits):
 
         with self._monitor_thread_lock:
             self._monitor_thread_stop.clear()
-            self._monitor_thread = threading.Thread(
-                target=self._monitor_process, args=(process_uuid,)
-            )
+            self._monitor_thread = threading.Thread(target=self._monitor_process)
             self._monitor_thread.start()
 
-    def _monitor_process(self, process_uuid):
-        assert process_uuid is not None
-        process = orm.load_node(process_uuid)
+        self.process = orm.load_node(process_uuid)
+
+    @tl.observe("process")
+    def _observe_process(self, change=None):
+        """Change the value trait if the process was changed."""
+        process = change["new"]
+        if process is None:
+            return
+
+        self.value = process.uuid
+
+    def _monitor_process(self):
 
         disabled_funcs = set()
 
@@ -768,7 +776,7 @@ class ProcessMonitor(tl.HasTraits):
 
                 try:
                     if len(inspect.signature(func).parameters) > 0:
-                        func(process_uuid)
+                        func(self.value)
                     else:
                         func()
                 except Exception:
@@ -778,7 +786,7 @@ class ProcessMonitor(tl.HasTraits):
                     )
                     disabled_funcs.add(func)
 
-        while not process.is_sealed:
+        while not self.process.is_sealed:
             _run(self.callbacks)
 
             if self._monitor_thread_stop.wait(timeout=self.timeout):
@@ -788,7 +796,7 @@ class ProcessMonitor(tl.HasTraits):
         _run(self.callbacks)
 
         # Run special 'on_sealed' callback functions in case that process is sealed.
-        if process.is_sealed:
+        if self.process.is_sealed:
             _run(self.on_sealed)
 
     def join(self):
