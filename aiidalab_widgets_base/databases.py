@@ -191,7 +191,9 @@ class OptimadeQueryWidget(ipw.VBox):
 
     def _update_structure(self, change: dict) -> None:
         """New structure chosen"""
-        self.structure = change["new"].as_ase if change["new"] else None
+        self.structure = (
+            change["new"].as_aiida_structuredata.get_ase() if change["new"] else None
+        )
 
 
 class ComputationalResourcesDatabaseWidget(ipw.VBox):
