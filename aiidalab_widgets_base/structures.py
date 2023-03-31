@@ -6,6 +6,7 @@ import io
 import pathlib
 import tempfile
 from collections import OrderedDict
+from copy import deepcopy
 
 import ase
 import ipywidgets as ipw
@@ -13,10 +14,11 @@ import numpy as np
 import spglib
 import traitlets as tl
 from aiida import engine, orm, plugins
-from copy import deepcopy
+
 # Local imports
 from .data import LigandSelectorWidget
-from .utils import StatusHTML, exceptions, get_ase_from_file, get_formula
+
+from .utils import StatusHTML, exceptions, get_ase_from_file, get_formula, string_range_to_list, list_to_string_range'
 from .viewers import StructureDataViewer
 
 CifData = plugins.DataFactory("core.cif")
@@ -1461,20 +1463,32 @@ class AddingTagsEditor(ipw.VBox):
         self.tag = ipw.BoundedIntText(
             description="Tag", value=1, min=0, max=4, layout={"width": "initial"}
         )
-        self.add_tags = ipw.Button(description="Update tags", button_style= 'primary', layout={"width": "initial"})
+        self.add_tags = ipw.Button(
+            description="Update tags",
+            button_style="primary",
+            layout={"width": "initial"},
+        )
         self.add_tags.on_click(self._add_tags)
-        self.clear_tags = ipw.Button(description="Clear tags", button_style= 'primary', layout={"width": "initial"})
-        self.clear_all_tags = ipw.Button(description="Clear all tags", button_style= 'primary', layout={"width": "initial"})
+        self.clear_tags = ipw.Button(
+            description="Clear tags",
+            button_style="primary",
+            layout={"width": "initial"},
+        )
+        self.clear_all_tags = ipw.Button(
+            description="Clear all tags",
+            button_style="primary",
+            layout={"width": "initial"},
+        )
         self.clear_tags.on_click(self._clear_tags)
         self.clear_all_tags.on_click(self._clear_all_tags)
         super().__init__(
-            children = [
+            children=[
                 ipw.HBox([self.atom_selection, self.from_selection, self.tag]),
                 ipw.HBox([self.add_tags, self.clear_tags, self.clear_all_tags]),
                 self._status_message,
-            ]   
+            ]
         )
-    
+
     def _from_selection(self, _=None):
         """Set the atom selection from the current selection."""
         self.atom_selection.value = list_to_string_range(self.selection)
@@ -1500,7 +1514,7 @@ class AddingTagsEditor(ipw.VBox):
             self.structure = deepcopy(new_structure)
             self.input_selection = None
             self.input_selection = deepcopy(self.selection)
-    
+
     def _clear_tags(self, _=None):
         """Clear tags from selected atoms."""
         if not self.atom_selection.value:
