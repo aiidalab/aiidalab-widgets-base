@@ -25,6 +25,7 @@ from .process import (
     SubmitButtonWidget,
 )
 from .structures import (
+    AddingTagsEditor,
     BasicCellEditor,
     BasicStructureEditor,
     SmilesWidget,
@@ -37,6 +38,7 @@ from .viewers import AiidaNodeViewWidget, register_viewer_widget, viewer
 from .wizard import WizardAppWidget, WizardAppWidgetStep
 
 __all__ = [
+    "AddingTagsEditor",
     "AiidaNodeViewWidget",
     "BasicStructureEditor",
     "BasicCellEditor",
