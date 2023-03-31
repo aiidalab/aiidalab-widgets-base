@@ -17,8 +17,14 @@ from aiida import engine, orm, plugins
 
 # Local imports
 from .data import LigandSelectorWidget
-
-from .utils import StatusHTML, exceptions, get_ase_from_file, get_formula, string_range_to_list, list_to_string_range'
+from .utils import (
+    StatusHTML,
+    exceptions,
+    get_ase_from_file,
+    get_formula,
+    list_to_string_range,
+    string_range_to_list,
+)
 from .viewers import StructureDataViewer
 
 CifData = plugins.DataFactory("core.cif")
