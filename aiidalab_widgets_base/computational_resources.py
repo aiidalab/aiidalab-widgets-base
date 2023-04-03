@@ -283,7 +283,6 @@ class SshComputerSetup(ipw.VBox):
     password_message = traitlets.Unicode("The passwordless enabling log.")
 
     def __init__(self, **kwargs):
-
         self._ssh_connection_message = None
         self._password_message = ipw.HTML()
         ipw.dlink((self, "password_message"), (self._password_message, "value"))
@@ -652,7 +651,6 @@ class AiidaComputerSetup(ipw.VBox):
     message = traitlets.Unicode()
 
     def __init__(self, **kwargs):
-
         self._on_setup_computer_success = []
 
         # List of widgets to be displayed.
@@ -979,7 +977,6 @@ class AiidaCodeSetup(ipw.VBox):
     message = traitlets.Unicode()
 
     def __init__(self, path_to_root="../", **kwargs):
-
         self._on_setup_code_success = []
 
         # Code label.

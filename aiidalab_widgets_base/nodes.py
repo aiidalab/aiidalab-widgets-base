@@ -295,7 +295,6 @@ class NodesTreeWidget(ipw.Output):
 
 class _AppIcon:
     def __init__(self, app, path_to_root, node):
-
         name = app["name"]
         app_object = _AiidaLabApp.from_id(name)
         self.logo = app_object.metadata["logo"]
@@ -317,7 +316,6 @@ class _AppIcon:
 
 
 class OpenAiidaNodeInAppWidget(ipw.VBox):
-
     node = tl.Instance(orm.Node, allow_none=True)
 
     def __init__(self, path_to_root="../", **kwargs):
@@ -352,7 +350,6 @@ class OpenAiidaNodeInAppWidget(ipw.VBox):
             self.tab.children = []
 
     def get_tab_content(self, apps_type):
-
         tab_content = ipw.HTML("")
 
         for app in SELECTED_APPS:
