@@ -212,7 +212,6 @@ class StructureManagerWidget(ipw.VBox):
             isinstance(self.input_structure, orm.Data)
             and self.input_structure.is_stored
         ):
-
             # Make a link between self.input_structure and self.structure_node
             @engine.calcfunction
             def user_modifications(source_structure):
@@ -824,7 +823,6 @@ def _register_structure(operator):
 
     @functools.wraps(operator)
     def inner(ref, *args, **kwargs):
-
         if not ref.structure:
             ref._status_message.message = """
             <div class="alert alert-info">
@@ -854,7 +852,6 @@ def _register_selection(operator):
 
     @functools.wraps(operator)
     def inner(ref, *args, **kwargs):
-
         if not ref.selection:
             ref._status_message.message = """
             <div class="alert alert-info">
@@ -953,7 +950,6 @@ class BasicStructureEditor(ipw.VBox):
     camera_orientation = tl.List()
 
     def __init__(self, title=""):
-
         self.title = title
 
         # Define action vector.

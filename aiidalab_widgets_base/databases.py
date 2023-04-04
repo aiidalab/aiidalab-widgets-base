@@ -10,7 +10,8 @@ from optimade_client import default_parameters, query_filter, query_provider
 class CodQueryWidget(ipw.VBox):
     """Query structures in Crystallography Open Database (COD)
     Useful class members:
-    :ivar structure(Atoms): trait that contains the selected structure, None if structure is not selected."""
+    :ivar structure(Atoms): trait that contains the selected structure, None if structure is not selected.
+    """
 
     structure = tl.Instance(ase.Atoms, allow_none=True)
 

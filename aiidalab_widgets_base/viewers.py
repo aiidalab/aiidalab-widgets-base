@@ -49,7 +49,7 @@ def viewer(obj, downloadable=True, **kwargs):
 
     try:
         _viewer = AIIDA_VIEWER_MAPPING[obj.node_type]
-    except (KeyError) as exc:
+    except KeyError as exc:
         if obj.node_type in str(exc):
             warnings.warn(
                 f"Did not find an appropriate viewer for the {type(obj)} object. Returning the object "
@@ -85,7 +85,6 @@ class AiidaNodeViewWidget(ipw.VBox):
 
 @register_viewer_widget("data.core.dict.Dict.")
 class DictViewer(ipw.VBox):
-
     value = tl.Unicode()
     """Viewer class for Dict object.
 
@@ -304,7 +303,6 @@ class _StructureDataBaseViewer(ipw.VBox):
         )
 
         def change_camera(change):
-
             self._viewer.camera = change["new"]
 
         camera_type.observe(change_camera, names="value")

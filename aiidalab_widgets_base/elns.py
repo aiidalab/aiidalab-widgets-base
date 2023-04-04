@@ -15,7 +15,6 @@ ELN_CONFIG.parent.mkdir(
 
 
 def connect_to_eln(eln_instance=None, **kwargs):
-
     # assuming that the connection can only be established to the ELNs
     # with the stored configuration.
     try:
@@ -87,7 +86,6 @@ class ElnExportWidget(ipw.VBox):
     node = tl.Instance(orm.Node, allow_none=True)
 
     def __init__(self, path_to_root="../", **kwargs):
-
         self.path_to_root = path_to_root
 
         # Send to ELN button.
