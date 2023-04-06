@@ -8,6 +8,7 @@ import traitlets as tl
 from aiida import common, engine, orm
 from aiida.cmdline.utils.ascii_vis import calc_info
 from aiidalab.app import _AiidaLabApp
+from aiidalab_restapi.api import restapi_load_node
 from IPython.display import clear_output, display
 
 CALCULATION_TYPES = [
@@ -59,6 +60,35 @@ SELECTED_APPS = [
     },
 ]
 
+NODE_TYPE = {
+        "process.calculation.calcfunction.CalcFunctionNode.": CalcFunctionTreeNode,
+        "process.calculation.calcjob.CalcJobNode.": CalcJobTreeNode,
+        "process.workflow.workfunction.WorkFunctionNode.": WorkFunctionProcessTreeNode,
+        "process.workflow.workchain.WorkChainNode.": WorkChainProcessTreeNode,
+    }
+
+def get_node_name(node) -> str:
+    """Return a string with the summary of the state of a CalculationNode."""
+    from aiida.orm import ProcessNode, WorkChainNode
+
+    if not node["node_type"] in NODE_TYPE.keys():
+        raise TypeError(f'Unknown type: {["node_type"]}')
+
+    process_label = node["attributes"]["process_label"]
+    process_state = node["attributes"]["process_state"].capitalize()
+    exit_status = node["attributes"].get("exit_status", None)
+
+    if exit_status is not None:
+        string = f'{process_label}<{node["id"]}> {process_state} [{exit_status}]'
+    else:
+        string = f'{process_label}<{node["id"]}> {process_state}'
+
+    if node["node_type"]=="process.workflow.workchain.WorkChainNode." and node["attributes"].get("stepper_state_info"):
+        string += f' [{node["attributes"]["stepper_state_info"]}]'
+
+    return string
+
+
 
 class AiidaNodeTreeNode(ipytree.Node):
     def __init__(self, pk, name, **kwargs):
@@ -78,6 +108,9 @@ class AiidaProcessNodeTreeNode(AiidaNodeTreeNode):
 
 
 class WorkChainProcessTreeNode(AiidaProcessNodeTreeNode):
+    icon = tl.Unicode("chain").tag(sync=True)
+
+class WorkFunctionProcessTreeNode(AiidaProcessNodeTreeNode):
     icon = tl.Unicode("chain").tag(sync=True)
 
 
@@ -109,8 +142,9 @@ class UnknownTypeTreeNode(AiidaNodeTreeNode):
 class NodesTreeWidget(ipw.Output):
     """A tree widget for the structured representation of a nodes graph."""
 
-    nodes = tl.Tuple().tag(trait=tl.Instance(orm.Node))
-    selected_nodes = tl.Tuple(read_only=True).tag(trait=tl.Instance(orm.Node))
+    # use dict instead of Node
+    nodes = tl.Tuple().tag(trait=tl.Dict())
+    selected_nodes = tl.Tuple(read_only=True).tag(trait=tl.Dict())
 
     PROCESS_STATE_STYLE = {
         engine.ProcessState.EXCEPTED: "danger",
@@ -122,11 +156,6 @@ class NodesTreeWidget(ipw.Output):
 
     PROCESS_STATE_STYLE_DEFAULT = "default"
 
-    NODE_TYPE = {
-        orm.WorkChainNode: WorkChainProcessTreeNode,
-        orm.CalcFunctionNode: CalcFunctionTreeNode,
-        orm.CalcJobNode: CalcJobTreeNode,
-    }
 
     def __init__(self, **kwargs):
         self._tree = ipytree.Tree()
@@ -146,20 +175,20 @@ class NodesTreeWidget(ipw.Output):
         return self.set_trait(
             "selected_nodes",
             tuple(
-                orm.load_node(pk=node.pk)
+                restapi_load_node_by_pk(pk=node["id"])
                 for node in change["new"]
-                if hasattr(node, "pk")
+                if node.get("id", False)
             ),
         )
 
     def _convert_to_tree_nodes(self, old_nodes, new_nodes):
         "Convert nodes into tree nodes while re-using already converted nodes."
-        old_nodes_ = {node.pk: node for node in old_nodes}
+        old_nodes_ = {node["id"]: node for node in old_nodes}
         assert len(old_nodes_) == len(old_nodes)  # no duplicated nodes
 
         for node in new_nodes:
-            if node.pk in old_nodes_:
-                yield old_nodes_[node.pk]
+            if node["id"] in old_nodes_:
+                yield old_nodes_[node["id"]]
             else:
                 yield self._to_tree_node(node, opened=True)
 
@@ -169,7 +198,7 @@ class NodesTreeWidget(ipw.Output):
             self._convert_to_tree_nodes(
                 old_nodes=self._tree.nodes, new_nodes=change["new"]
             ),
-            key=lambda node: node.pk,
+            key=lambda node: node["id"],
         )
         self.update()
         self._refresh_output()
@@ -182,25 +211,27 @@ class NodesTreeWidget(ipw.Output):
                 name = calc_info(node)
             else:
                 name = str(node)
-        return cls.NODE_TYPE.get(type(node), UnknownTypeTreeNode)(
-            pk=node.pk, name=name, **kwargs
+        return NODE_TYPE.get(node["node_type"], UnknownTypeTreeNode)(
+            pk=node["id"], name=name, **kwargs
         )
 
     @classmethod
     def _find_called(cls, root):
         assert isinstance(root, AiidaProcessNodeTreeNode)
-        process_node = orm.load_node(root.pk)
-        called = process_node.called
+        # process_node = restapi_load_node_by_pk(root.pk)
+        # called = process_node.called
+        called = restapi_get_called_by_pk(root.pk)
+        called = list(called.values())
         called.sort(key=lambda p: p.ctime)
         for node in called:
-            if node.pk not in root.nodes_registry:
+            if node["id"] not in root.nodes_registry:
                 try:
-                    name = calc_info(node)
+                    name = get_node_name(node)
                 except AttributeError:
                     name = str(node)
 
-                root.nodes_registry[node.pk] = cls._to_tree_node(node, name=name)
-            yield root.nodes_registry[node.pk]
+                root.nodes_registry[node["id"]] = cls._to_tree_node(node, name=name)
+            yield root.nodes_registry[node["id"]]
 
     @classmethod
     def _find_outputs(cls, root):
@@ -211,7 +242,7 @@ class NodesTreeWidget(ipw.Output):
         keeping track of the full namespace path to make it accessible via the
         root node in form of a breadth-first search.
         """
-        process_node = orm.load_node(root.parent_pk)
+        process_node = restapi_load_node_by_pk(root.parent_pk)
 
         # Gather outputs from node and its namespaces:
         outputs = functools.reduce(
@@ -236,11 +267,11 @@ class NodesTreeWidget(ipw.Output):
                 )
 
             else:
-                if node.pk not in root.nodes_registry:
-                    root.nodes_registry[node.pk] = cls._to_tree_node(
-                        node, name=f"{key}<{node.pk}>"
+                if node["id"] not in root.nodes_registry:
+                    root.nodes_registry[node["id"]] = cls._to_tree_node(
+                        node, name=f'{key}<{node["id"]}>'
                     )
-                yield root.nodes_registry[node.pk]
+                yield root.nodes_registry[node["id"]]
 
     @classmethod
     def _find_children(cls, root):
@@ -266,7 +297,7 @@ class NodesTreeWidget(ipw.Output):
 
     def _update_tree_node(self, tree_node):
         if isinstance(tree_node, AiidaProcessNodeTreeNode):
-            process_node = orm.load_node(tree_node.pk)
+            process_node = restapi_load_node_by_pk(tree_node["id"])
             tree_node.name = calc_info(process_node)
             # Override the process state in case that the process node has failed:
             # (This could be refactored with structural pattern matching with py>=3.10.)
