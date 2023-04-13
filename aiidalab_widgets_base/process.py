@@ -23,6 +23,7 @@ from aiida.cmdline.utils.common import (
 from aiida.common.exceptions import NotExistentAttributeError
 from aiida.tools.query.calculation import CalculationQueryBuilder
 from IPython.display import HTML, Javascript, clear_output, display
+from aiidalab_restapi.api import restapi_get_inputs_by_pk, restapi_load_node_by_pk
 
 # Local imports.
 from .nodes import NodesTreeWidget
@@ -719,7 +720,7 @@ class ProcessListWidget(ipw.VBox):
 class ProcessMonitor(tl.HasTraits):
     """Monitor a process and execute callback functions at specified intervals."""
 
-    value = tl.Unicode(allow_none=True)
+    value = tl.Int(allow_none=True)
 
     def __init__(self, callbacks=None, on_sealed=None, timeout=None, **kwargs):
         self.callbacks = [] if callbacks is None else list(callbacks)
@@ -736,7 +737,7 @@ class ProcessMonitor(tl.HasTraits):
     def _observe_process(self, change):
         """When the value (process uuid) is changed, stop the previous
         monitor if exist. Start a new one in thread."""
-        process_uuid = change["new"]
+        process_pk = change["new"]
 
         # stop thread (if running)
         if self._monitor_thread is not None:
@@ -744,19 +745,19 @@ class ProcessMonitor(tl.HasTraits):
                 self._monitor_thread_stop.set()
                 self._monitor_thread.join()
 
-        if process_uuid is None:
+        if process_pk is None:
             return
 
         with self._monitor_thread_lock:
             self._monitor_thread_stop.clear()
             self._monitor_thread = threading.Thread(
-                target=self._monitor_process, args=(process_uuid,)
+                target=self._monitor_process, args=(process_pk,)
             )
             self._monitor_thread.start()
 
-    def _monitor_process(self, process_uuid):
-        assert process_uuid is not None
-        process = orm.load_node(process_uuid)
+    def _monitor_process(self, process_pk):
+        assert process_pk is not None
+        process = orm.load_node(process_pk)
 
         disabled_funcs = set()
 
@@ -768,7 +769,7 @@ class ProcessMonitor(tl.HasTraits):
 
                 try:
                     if len(inspect.signature(func).parameters) > 0:
-                        func(process_uuid)
+                        func(process_pk)
                     else:
                         func()
                 except Exception:
@@ -799,7 +800,7 @@ class ProcessMonitor(tl.HasTraits):
 class ProcessNodesTreeWidget(ipw.VBox):
     """A tree widget for the structured representation of a process graph."""
 
-    value = tl.Unicode(allow_none=True)
+    value = tl.Int(allow_none=True)
     selected_nodes = tl.Tuple(read_only=True).tag(trait=tl.Instance(orm.Node))
 
     def __init__(self, title="Process Tree", **kwargs):
@@ -818,10 +819,11 @@ class ProcessNodesTreeWidget(ipw.VBox):
 
     @tl.observe("value")
     def _observe_process(self, change):
-        process_uuid = change["new"]
-        if process_uuid:
-            process = orm.load_node(process_uuid)
+        process_pk = change["new"]
+        if process_pk:
+            process = restapi_load_node_by_pk(process_pk)
             self._tree.nodes = [process]
-            self._tree.find_node(process.pk).selected = True
+            # print("find_node: ", self._tree.find_node(process["id"]))
+            self._tree.find_node(process["id"]).selected = True
         else:
             self._tree.nodes = []

@@ -176,15 +176,18 @@ class NodesTreeWidget(ipw.Output):
         return self.set_trait(
             "selected_nodes",
             tuple(
-                restapi_load_node_by_pk(pk=node["id"])
+                restapi_load_node_by_pk(node.pk)
                 for node in change["new"]
-                if node.get("id", False)
+                if hasattr(node, "pk")
             ),
         )
 
     def _convert_to_tree_nodes(self, old_nodes, new_nodes):
-        "Convert nodes into tree nodes while re-using already converted nodes."
-        old_nodes_ = {node["id"]: node for node in old_nodes}
+        """Convert nodes into tree nodes while re-using already converted nodes.
+        old_nodes are WorkChainProcessTreeNode objects.
+        new_nodes are AiiDA nodes.
+        """
+        old_nodes_ = {node.pk: node for node in old_nodes}
         assert len(old_nodes_) == len(old_nodes)  # no duplicated nodes
 
         for node in new_nodes:
@@ -223,7 +226,6 @@ class NodesTreeWidget(ipw.Output):
         # called = process_node.called
         called = restapi_get_called_by_pk(root.pk)
         called = list(called.values())
-        print(called)
         called.sort(key=lambda p: p["ctime"])
         for node in called:
             if node["id"] not in root.nodes_registry:
@@ -248,15 +250,11 @@ class NodesTreeWidget(ipw.Output):
         outputs = restapi_get_outputs_by_pk(root.parent_pk)
 
         # Gather outputs from node and its namespaces:
-        print(root)
-        print(root.namespaces)
-        print(outputs)
         outputs = functools.reduce(
             lambda attr_dict, namespace: attr_dict[namespace],
             root.namespaces or [],
             outputs,
         )
-        print(outputs)
 
         # Convert aiida.orm.LinkManager or AttributDict (if namespace presented) to dict
         output_nodes = {key: outputs[key] for key in outputs}
@@ -274,7 +272,6 @@ class NodesTreeWidget(ipw.Output):
                 )
 
             else:
-                print(key, node)
                 if node["id"] not in root.nodes_registry:
                     root.nodes_registry[node["id"]] = cls._to_tree_node(
                         node, name=f'{key}<{node["id"]}>'
@@ -311,7 +308,7 @@ class NodesTreeWidget(ipw.Output):
             # (This could be refactored with structural pattern matching with py>=3.10.)
             process_state = (
                 "excepted"
-                if process_node["attributes"]["exit_status"] != 0
+                if process_node["attributes"].get("exit_status", 0) != 0
                 else process_node["attributes"]["process_state"]
             )
             tree_node.icon_style = self.PROCESS_STATE_STYLE.get(

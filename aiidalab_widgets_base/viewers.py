@@ -41,14 +41,14 @@ def viewer(obj, downloadable=True, **kwargs):
     :type downloadable: bool
 
     Returns the object itself if the viewer wasn't found."""
-    if not isinstance(obj, orm.Node):  # only working with AiiDA nodes
+    if obj.get("node_type", "Unknow") not in AIIDA_VIEWER_MAPPING:  # only working with AiiDA nodes
         warnings.warn(
             f"This viewer works only with AiiDA objects, got {type(obj)}", stacklevel=2
         )
         return obj
 
     try:
-        _viewer = AIIDA_VIEWER_MAPPING[obj.node_type]
+        _viewer = AIIDA_VIEWER_MAPPING[obj["node_type"]]
     except KeyError as exc:
         if obj.node_type in str(exc):
             warnings.warn(
@@ -63,7 +63,7 @@ def viewer(obj, downloadable=True, **kwargs):
 
 
 class AiidaNodeViewWidget(ipw.VBox):
-    node = tl.Instance(orm.Node, allow_none=True)
+    node = tl.Dict(allow_none=True)
 
     def __init__(self, **kwargs):
         self._output = ipw.Output()
@@ -117,7 +117,7 @@ class DictViewer(ipw.VBox):
 
         pd.set_option("max_colwidth", 40)
         dataf = pd.DataFrame(
-            [(key, value) for key, value in sorted(parameter.get_dict().items())],
+            [(key, value) for key, value in sorted(parameter.items())],
             columns=["Key", "Value"],
         )
         self.value += dataf.to_html(
@@ -126,7 +126,7 @@ class DictViewer(ipw.VBox):
         # this is used to setup table's appearance using CSS
         if downloadable:
             payload = base64.b64encode(dataf.to_csv(index=False).encode()).decode()
-            fname = f"{parameter.pk}.csv"
+            fname = f"{parameter['id']}.csv"
             self.value += f"""Download table in csv format: <a download="{fname}"
             href="data:text/csv;base64,{payload}" target="_blank">{fname}</a>"""
 
@@ -745,7 +745,7 @@ class StructureDataViewer(_StructureDataBaseViewer):
     """
 
     structure = tl.Union(
-        [tl.Instance(ase.Atoms), tl.Instance(orm.Node)], allow_none=True
+        [tl.Dict(), tl.Instance(ase.Atoms), tl.Instance(orm.Node)], allow_none=True
     )
     displayed_structure = tl.Instance(ase.Atoms, allow_none=True, read_only=True)
     pk = tl.Int(allow_none=True)
@@ -763,11 +763,17 @@ class StructureDataViewer(_StructureDataBaseViewer):
     @tl.validate("structure")
     def _valid_structure(self, change):  # pylint: disable=no-self-use
         """Update structure."""
+        from aiidalab_restapi.utils import create_structure
         structure = change["value"]
 
         if structure is None:
             return None  # if no structure provided, the rest of the code can be skipped
 
+        #TODO why does tl.Dict not work here?
+        if isinstance(structure, dict):
+            self.pk = structure["id"]
+            structure = create_structure(structure)
+            return structure.get_ase()
         if isinstance(structure, ase.Atoms):
             self.pk = None
             return structure
