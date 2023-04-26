@@ -5,8 +5,6 @@ Authors:
     * Carl Simon Adorf <simon.adorf@epfl.ch>
 """
 import enum
-import threading
-import time
 
 import ipywidgets as ipw
 import traitlets as tl
@@ -82,19 +80,10 @@ class WizardAppWidget(ipw.VBox):
         WizardAppWidgetStep.State.INIT: "\u25cb",
         WizardAppWidgetStep.State.READY: "\u25ce",
         WizardAppWidgetStep.State.CONFIGURED: "\u25cf",
-        WizardAppWidgetStep.State.ACTIVE: ["\u25dc", "\u25dd", "\u25de", "\u25df"],
+        WizardAppWidgetStep.State.ACTIVE: "\u231b",
         WizardAppWidgetStep.State.SUCCESS: "\u2713",
         WizardAppWidgetStep.State.FAIL: "\u00d7",
     }
-
-    @classmethod
-    def icons(cls):
-        """Return the icon set and return animated icons based on the current time stamp."""
-        t = time.time()
-        return {
-            key: item if isinstance(item, str) else item[int(t * len(item) % len(item))]
-            for key, item in cls.ICONS.items()
-        }
 
     selected_index = tl.Int(allow_none=True)
 
@@ -113,17 +102,6 @@ class WizardAppWidget(ipw.VBox):
         self.accordion = ipw.Accordion(children=widgets)
         self._update_titles()
         ipw.link((self.accordion, "selected_index"), (self, "selected_index"))
-
-        # Automatically update titles to implement the "spinner"
-
-        self._run_update_thread = True
-
-        def spinner_thread():
-            while self._run_update_thread:
-                time.sleep(0.1)
-                self._update_titles()
-
-        threading.Thread(target=spinner_thread).start()
 
         # Watch for changes to each step's state
         for widget in widgets:
@@ -171,7 +149,7 @@ class WizardAppWidget(ipw.VBox):
 
     def _update_titles(self):
         for i, (title, widget) in enumerate(zip(self.titles, self.accordion.children)):
-            icon = self.icons().get(widget.state, str(widget.state).upper())
+            icon = self.ICONS.get(widget.state, str(widget.state).upper())
             self.accordion.set_title(i, f"{icon} Step {i+1}: {title}")
 
     def _consider_auto_advance(self, _=None):

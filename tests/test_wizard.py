@@ -84,6 +84,3 @@ def test_wizard_app_widget():
     assert s1.state == s1.State.SUCCESS
     widget.accordion.selected_index = None  # All steps are closed.
     s1.config = False  # This should trigger an attempt to advance to the next step.
-
-    # Stop the thread that is running the header update to let pytest finish.
-    widget._run_update_thread = False
