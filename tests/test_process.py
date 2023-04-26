@@ -84,7 +84,8 @@ def test_process_follower_widget(multiply_add_process_builder_ready, daemon_clie
     # Test the widget can be instantiated with empty inputs
     widget = ProcessFollowerWidget()
 
-    daemon_client.stop_daemon(wait=True)
+    if daemon_client.is_daemon_running:
+        daemon_client.stop_daemon(wait=True)
     process = engine.submit(multiply_add_process_builder_ready)
 
     # Test the widget can be instantiated with a process
@@ -94,6 +95,8 @@ def test_process_follower_widget(multiply_add_process_builder_ready, daemon_clie
 
     # Follow the process till it is completed.
     widget.follow()
+
+    daemon_client.stop_daemon(wait=True)
 
 
 @pytest.mark.usefixtures("aiida_profile_clean")
@@ -107,7 +110,8 @@ def test_process_report_widget(
     ProcessReportWidget()
 
     # Stopping the daemon and submitting the process.
-    daemon_client.stop_daemon(wait=True)
+    if daemon_client.is_daemon_running:
+        daemon_client.stop_daemon(wait=True)
     process = engine.submit(multiply_add_process_builder_ready)
 
     # Test the widget can be instantiated with a process
@@ -121,6 +125,7 @@ def test_process_report_widget(
     await_for_process_completeness(process)
 
     widget.update()
+    daemon_client.stop_daemon(wait=True)
 
 
 @pytest.mark.usefixtures("aiida_profile_clean")
@@ -134,7 +139,8 @@ def test_process_call_stack_widget(
     ProcessCallStackWidget()
 
     # Stopping the daemon and submitting the process.
-    daemon_client.stop_daemon(wait=True)
+    if daemon_client.is_daemon_running:
+        daemon_client.stop_daemon(wait=True)
     process = engine.submit(multiply_add_process_builder_ready)
 
     # Test the widget can be instantiated with a process
@@ -147,6 +153,7 @@ def test_process_call_stack_widget(
 
     widget.update()
     assert "ArithmeticAddCalculation" in widget.value
+    daemon_client.stop_daemon(wait=True)
 
 
 @pytest.mark.usefixtures("aiida_profile_clean")
@@ -160,7 +167,8 @@ def test_progress_bar_widget(
     ProgressBarWidget()
 
     # Stopping the daemon and submitting the process.
-    daemon_client.stop_daemon(wait=True)
+    if daemon_client.is_daemon_running:
+        daemon_client.stop_daemon(wait=True)
     process = engine.submit(multiply_add_process_builder_ready)
 
     # Test the widget can be instantiated with a process
@@ -173,6 +181,7 @@ def test_progress_bar_widget(
 
     widget.update()
     assert widget.state.value == "Finished"
+    daemon_client.stop_daemon(wait=True)
 
 
 @pytest.mark.usefixtures("aiida_profile_clean")
@@ -219,6 +228,38 @@ def test_process_list_widget(multiply_add_completed_workchain):
     from aiidalab_widgets_base.process import ProcessListWidget
 
     ProcessListWidget()
+
+
+@pytest.mark.usefixtures("aiida_profile_clean")
+def test_process_monitor(
+    multiply_add_process_builder_ready, daemon_client, await_for_process_completeness
+):
+    """Test ProcessMonitor with a simple `WorkChainNode`"""
+    from aiidalab_widgets_base.process import ProcessMonitor
+
+    ProcessMonitor()
+
+    # Stopping the daemon and submitting the process.
+    if daemon_client.is_daemon_running:
+        daemon_client.stop_daemon(wait=True)
+    process = engine.submit(multiply_add_process_builder_ready)
+
+    test_variable = False
+
+    def f():
+        nonlocal test_variable
+        test_variable = True
+
+    widget = ProcessMonitor(value=process.uuid, callbacks=[f])
+
+    # Starting the daemon and waiting for the process to complete.
+    daemon_client.start_daemon()
+    await_for_process_completeness(process)
+
+    widget.join()  # Make sure the thread is finished.
+
+    assert test_variable
+    daemon_client.stop_daemon(wait=True)
 
 
 @pytest.mark.usefixtures("aiida_profile_clean")
