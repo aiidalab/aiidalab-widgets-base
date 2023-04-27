@@ -37,6 +37,9 @@ def test_wizard_app_widget():
         def submit_order(self, _=None):
             pass
 
+        def reset(self):
+            pass
+
         @tl.default("config")
         def _default_config(self):
             return False
@@ -57,33 +60,61 @@ def test_wizard_app_widget():
             ("Setup", s1),
             ("View results", s2),
         ],
-        testing=True,
     )
 
     # Check initial state.
     assert s1.state == s1.State.INIT
     assert s2.state == s2.State.INIT
     assert widget.accordion.selected_index == 0
-
-    s1.order_button.click()
+    assert widget.next_button.disabled is True
+    assert widget.back_button.disabled is True
+    assert widget.accordion.get_title(0) == "○ Step 1: Setup"
+    assert widget.accordion.get_title(1) == "○ Step 2: View results"
+    assert not widget.can_reset()
 
     # Check state after finishing the first step.
+    s1.order_button.click()
     assert s1.state == s1.State.SUCCESS
     assert s2.state == s2.State.READY
     assert widget.accordion.selected_index == 1
     assert widget.next_button.disabled is True
+    assert widget.back_button.disabled is False
+    assert widget.accordion.get_title(0) == "✓ Step 1: Setup"
+    assert widget.accordion.get_title(1) == "◎ Step 2: View results"
+    assert widget.can_reset()
 
     # Check state after resetting the app.
-    widget.reset()
+    widget.reset_button.click()
     assert s1.state == s1.State.INIT
     assert s2.state == s2.State.INIT
     assert widget.back_button.disabled is True
+    assert widget.next_button.disabled is True
+    assert widget.accordion.get_title(0) == "○ Step 1: Setup"
+    assert widget.accordion.get_title(1) == "○ Step 2: View results"
+    assert not widget.can_reset()
 
     # Check state after finishing the first step again.
-    s1.order_button.click()
+    s1.config = True  # This should trigger an attempt to advance to the next step.
     assert s1.state == s1.State.SUCCESS
-    widget.accordion.selected_index = None  # All steps are closed.
-    s1.config = False  # This should trigger an attempt to advance to the next step.
+    assert s2.state == s2.State.READY
+    assert widget.accordion.selected_index == 1
+    assert widget.next_button.disabled is True
+    assert widget.back_button.disabled is False
+    assert widget.accordion.get_title(0) == "✓ Step 1: Setup"
+    assert widget.accordion.get_title(1) == "◎ Step 2: View results"
+    assert widget.can_reset()
 
-    # Stop the thread that is running the header update to let pytest finish.
-    widget._run_update_thread = False
+    # Click on the back button.
+    widget.back_button.click()
+    assert s1.state == s1.State.SUCCESS
+    assert s2.state == s2.State.READY
+    assert widget.accordion.selected_index == 0
+    assert widget.next_button.disabled is False
+    assert widget.back_button.disabled is True
+    assert widget.can_reset()
+
+    # Click on the next button.
+    widget.next_button.click()
+    assert widget.accordion.selected_index == 1
+    assert widget.next_button.disabled is True
+    assert widget.back_button.disabled is False
