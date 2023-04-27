@@ -92,7 +92,7 @@ def test_wizard_app_widget():
     assert widget.accordion.get_title(1) == "○ Step 2: View results"
 
     # Check state after finishing the first step again.
-    s1.config = False  # This should trigger an attempt to advance to the next step.
+    s1.config = True  # This should trigger an attempt to advance to the next step.
     assert s1.state == s1.State.SUCCESS
     assert s2.state == s2.State.READY
     assert widget.accordion.selected_index == 1
