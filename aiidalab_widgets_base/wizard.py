@@ -188,8 +188,8 @@ class WizardAppWidget(ipw.VBox):
             self.accordion.children[idx] for idx in range(len(self.accordion.children))
         ]
 
-        if any(not step.can_reset() for step in steps):
-            return False
+        if all(step.can_reset() for step in steps):
+            return True
 
         if any(step.state is not WizardAppWidgetStep.State.INIT for step in steps):
             return True
