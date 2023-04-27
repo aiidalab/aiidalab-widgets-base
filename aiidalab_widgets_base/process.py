@@ -724,7 +724,7 @@ class ProcessMonitor(tl.HasTraits):
     def __init__(self, callbacks=None, on_sealed=None, timeout=None, **kwargs):
         self.callbacks = [] if callbacks is None else list(callbacks)
         self.on_sealed = [] if on_sealed is None else list(on_sealed)
-        self.timeout = 0.1 if timeout is None else timeout
+        self.timeout = 1.0 if timeout is None else timeout
 
         self._monitor_thread = None
         self._monitor_thread_stop = threading.Event()
