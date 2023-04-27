@@ -112,3 +112,9 @@ def test_wizard_app_widget():
     assert widget.next_button.disabled is False
     assert widget.back_button.disabled is True
     assert widget.can_reset()
+
+    # Click on the next button.
+    widget.next_button.click()
+    assert widget.accordion.selected_index == 0
+    assert widget.next_button.disabled is True
+    assert widget.back_button.disabled is False
