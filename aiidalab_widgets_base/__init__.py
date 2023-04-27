@@ -76,4 +76,4 @@ __all__ = [
     "viewer",
 ]
 
-__version__ = "2.0.0b6"
+__version__ = "2.0.0"
