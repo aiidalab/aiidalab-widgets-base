@@ -70,7 +70,7 @@ def test_wizard_app_widget():
     assert widget.back_button.disabled is True
     assert widget.accordion.get_title(0) == "○ Step 1: Setup"
     assert widget.accordion.get_title(1) == "○ Step 2: View results"
-    assert widget.can_reset()
+    assert not widget.can_reset()
 
     # Check state after finishing the first step.
     s1.order_button.click()
@@ -81,6 +81,7 @@ def test_wizard_app_widget():
     assert widget.back_button.disabled is False
     assert widget.accordion.get_title(0) == "✓ Step 1: Setup"
     assert widget.accordion.get_title(1) == "◎ Step 2: View results"
+    assert widget.can_reset()
 
     # Check state after resetting the app.
     widget.reset_button.click()
@@ -90,6 +91,7 @@ def test_wizard_app_widget():
     assert widget.next_button.disabled is True
     assert widget.accordion.get_title(0) == "○ Step 1: Setup"
     assert widget.accordion.get_title(1) == "○ Step 2: View results"
+    assert not widget.can_reset()
 
     # Check state after finishing the first step again.
     s1.config = True  # This should trigger an attempt to advance to the next step.
@@ -100,6 +102,7 @@ def test_wizard_app_widget():
     assert widget.back_button.disabled is False
     assert widget.accordion.get_title(0) == "✓ Step 1: Setup"
     assert widget.accordion.get_title(1) == "◎ Step 2: View results"
+    assert widget.can_reset()
 
     # Click on the back button.
     widget.back_button.click()
@@ -108,3 +111,4 @@ def test_wizard_app_widget():
     assert widget.accordion.selected_index == 0
     assert widget.next_button.disabled is False
     assert widget.back_button.disabled is True
+    assert widget.can_reset()
