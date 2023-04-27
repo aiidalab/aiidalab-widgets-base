@@ -115,6 +115,6 @@ def test_wizard_app_widget():
 
     # Click on the next button.
     widget.next_button.click()
-    assert widget.accordion.selected_index == 0
+    assert widget.accordion.selected_index == 1
     assert widget.next_button.disabled is True
     assert widget.back_button.disabled is False
