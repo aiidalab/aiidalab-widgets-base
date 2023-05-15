@@ -2,13 +2,14 @@ import base64
 import json
 import zlib
 
+from aiidalab_widgets_base.bug_report import (
+    get_environment_fingerprint,
+    parse_environment_fingerprint,
+)
+
 
 def test_fingerprint_parser():
     """Test get_environment_fingerprint function and parse it out."""
-    from aiidalab_widgets_base.bug_report import (
-        get_environment_fingerprint,
-        parse_environment_fingerprint,
-    )
 
     encoding = "utf-8"
     fingerprint = get_environment_fingerprint(encoding)
