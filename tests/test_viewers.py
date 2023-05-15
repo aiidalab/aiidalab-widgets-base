@@ -1,28 +1,28 @@
 import pytest
 from aiida import orm
 
+from aiidalab_widgets_base import viewers
+
 
 @pytest.mark.usefixtures("aiida_profile_clean")
 def test_several_data_viewers(
     bands_data_object, folder_data_object, generate_calc_job_node
 ):
-    from aiidalab_widgets_base import viewer, viewers
-
-    v = viewer(orm.Int(1))
+    v = viewers.viewer(orm.Int(1))
 
     # No viewer for Int, so it should return the input
     assert isinstance(v, orm.Int)
 
     # DictViewer
-    v = viewer(orm.Dict(dict={"a": 1}))
+    v = viewers.viewer(orm.Dict(dict={"a": 1}))
     assert isinstance(v, viewers.DictViewer)
 
     # BandsDataViewer
-    v = viewer(bands_data_object)
+    v = viewers.viewer(bands_data_object)
     assert isinstance(v, viewers.BandsDataViewer)
 
     # FolderDataViewer
-    v = viewer(folder_data_object)
+    v = viewers.viewer(folder_data_object)
     assert isinstance(v, viewers.FolderDataViewer)
 
     # ProcessNodeViewer
@@ -40,9 +40,7 @@ def test_several_data_viewers(
 
 @pytest.mark.usefixtures("aiida_profile_clean")
 def test_structure_data_viwer(structure_data_object):
-    from aiidalab_widgets_base import viewer, viewers
-
-    v = viewer(structure_data_object)
+    v = viewers.viewer(structure_data_object)
     assert isinstance(v, viewers.StructureDataViewer)
 
     # Selection of atoms.

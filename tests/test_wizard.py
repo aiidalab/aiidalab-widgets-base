@@ -1,9 +1,9 @@
 import ipywidgets as ipw
 import traitlets as tl
 
+from aiidalab_widgets_base import WizardAppWidget, WizardAppWidgetStep
 
 def test_wizard_app_widget():
-    from aiidalab_widgets_base import WizardAppWidget, WizardAppWidgetStep
 
     class Step1(ipw.HBox, WizardAppWidgetStep):
         config = tl.Bool()
