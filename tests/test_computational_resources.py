@@ -1,11 +1,17 @@
 import pytest
+from aiida import orm
+
+import aiidalab_widgets_base as awb
+from aiidalab_widgets_base.computational_resources import (
+    AiidaCodeSetup,
+    AiidaComputerSetup,
+    SshComputerSetup,
+)
 
 
 @pytest.mark.usefixtures("aiida_profile_clean")
 def test_computaional_resources_widget(aiida_local_code_bash):
     """Test the ComputationalResourcesWidget."""
-    import aiidalab_widgets_base as awb
-
     widget = awb.ComputationalResourcesWidget(default_calc_job_plugin="bash")
 
     # Get the list of currently installed codes.
@@ -16,8 +22,6 @@ def test_computaional_resources_widget(aiida_local_code_bash):
 @pytest.mark.usefixtures("aiida_profile_clean")
 def test_ssh_computer_setup_widget():
     """Test the SshComputerSetup."""
-    from aiidalab_widgets_base.computational_resources import SshComputerSetup
-
     widget = SshComputerSetup()
 
     ssh_config = {
@@ -63,10 +67,6 @@ def test_ssh_computer_setup_widget():
 @pytest.mark.usefixtures("aiida_profile_clean")
 def test_aiida_computer_setup_widget():
     """Test the AiidaComputerSetup."""
-    from aiida import orm
-
-    from aiidalab_widgets_base.computational_resources import AiidaComputerSetup
-
     widget = AiidaComputerSetup()
 
     # At the beginning, the computer_name should be an empty string.
@@ -118,10 +118,6 @@ def test_aiida_computer_setup_widget():
 @pytest.mark.usefixtures("aiida_profile_clean")
 def test_aiida_code_setup(aiida_localhost):
     """Test the AiidaCodeSetup."""
-    from aiida import orm
-
-    from aiidalab_widgets_base.computational_resources import AiidaCodeSetup
-
     widget = AiidaCodeSetup()
 
     # At the beginning, the code_name should be an empty string.
@@ -164,8 +160,6 @@ def test_aiida_code_setup(aiida_localhost):
 @pytest.mark.usefixtures("aiida_profile_clean")
 def test_computer_dropdown_widget(aiida_localhost):
     """Test the ComputerDropdownWidget."""
-    import aiidalab_widgets_base as awb
-
     widget = awb.ComputerDropdownWidget()
 
     assert "localhost" in widget.computers

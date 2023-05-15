@@ -1,10 +1,10 @@
 import ase
 
+from aiidalab_widgets_base import CodQueryWidget, OptimadeQueryWidget
+
 
 def test_cod_query_widget():
     """Test the COD query widget."""
-    from aiidalab_widgets_base import CodQueryWidget
-
     widget = CodQueryWidget()
 
     # Enter the query string.
@@ -23,8 +23,6 @@ def test_cod_query_widget():
 
 def test_optimade_query_widget():
     """Test the OPTIMADE query widget."""
-    from aiidalab_widgets_base import OptimadeQueryWidget
-
     widget = OptimadeQueryWidget()
 
     # At the present state I cannot check much. Most of the variables are locals of the  __init__ method.
