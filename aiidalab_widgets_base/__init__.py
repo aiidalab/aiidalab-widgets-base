@@ -1,7 +1,4 @@
 """Reusable widgets for AiiDAlab applications."""
-from aiida import load_profile
-
-load_profile()
 
 from .computational_resources import (
     ComputationalResourcesWidget,
