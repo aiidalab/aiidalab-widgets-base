@@ -6,6 +6,7 @@ import pytest
 
 import aiidalab_widgets_base as awb
 
+
 @pytest.mark.usefixtures("aiida_profile_clean")
 def test_structure_manager_widget(structure_data_object):
     """Test the `StructureManagerWidget`."""

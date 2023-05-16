@@ -1,5 +1,7 @@
 import pytest
+
 from aiidalab_widgets_base import nodes
+
 
 @pytest.mark.usefixtures("aiida_profile_clean")
 def test_nodes_tree_widget(multiply_add_completed_workchain):

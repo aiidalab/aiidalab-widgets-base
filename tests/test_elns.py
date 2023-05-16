@@ -1,5 +1,7 @@
-from aiidalab_widgets_base import elns
 from aiidalab_eln import CheminfoElnConnector
+
+from aiidalab_widgets_base import elns
+
 
 def test_connect_to_eln(mock_eln_config):
     """Test the connect_to_eln function."""

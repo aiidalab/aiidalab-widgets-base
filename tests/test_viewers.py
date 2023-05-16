@@ -34,7 +34,7 @@ def test_several_data_viewers(
             },
         }
     )
-    v = viewer(process)
+    v = viewers.viewer(process)
     assert isinstance(v, viewers.ProcessNodeViewerWidget)
 
 

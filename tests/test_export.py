@@ -1,5 +1,7 @@
 import pytest
+
 from aiidalab_widgets_base import export
+
 
 @pytest.mark.usefixtures("aiida_profile_clean")
 def test_export_button_widget(multiply_add_completed_workchain, monkeypatch, tmp_path):

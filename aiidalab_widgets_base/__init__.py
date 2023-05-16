@@ -1,5 +1,4 @@
 """Reusable widgets for AiiDAlab applications."""
-
 from .computational_resources import (
     ComputationalResourcesWidget,
     ComputerDropdownWidget,
