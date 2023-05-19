@@ -29,7 +29,7 @@ class QuickSetupWidget(ipw.VBox):
 
     default_calc_job_plugin = traitlets.Unicode(allow_none=True)
 
-    computer_setup = traitlets.Dict()
+    computer_setup = traitlets.Dict().tag(sync=True)
     code_setup = traitlets.Dict()
 
     def __init__(self, **kwargs):
@@ -114,9 +114,10 @@ class QuickSetupWidget(ipw.VBox):
         The actual setup will be triggered from DetailedSetupWidget from ComputationalResourcesWidget.
         """
         from jinja2 import ChainableUndefined, Environment, meta
+        import copy
 
         # From the remote original setup, fill the template
-        computer_setup = self.computer_setup
+        computer_setup = copy.deepcopy(self.computer_setup) # The dict is nested, so we need deepcopy
 
         for key, value in computer_setup.get("setup", {}).items():
             env = Environment(undefined=ChainableUndefined)
@@ -134,12 +135,12 @@ class QuickSetupWidget(ipw.VBox):
             else:
                 computer_setup["setup"][key] = value
 
-        self.computer_setup = {**self.computer_setup}
+        self.computer_setup = computer_setup
         print(self.computer_setup)
 
 
 class DetailedSetupWidget(ipw.VBox):
-    computer_setup = traitlets.Dict()
+    computer_setup = traitlets.Dict().tag(sync=True)
     code_setup = traitlets.Dict()
 
     def __init__(self, **kargs):
@@ -318,7 +319,9 @@ class ComputationalResourcesWidget(ipw.VBox):
 
     def _quick_setup(self, change):
         if change["new"] is not None:
+            print("HETNNNNN")
             self.detailed_setup.aiida_computer_setup.computer_setup = change["new"]
+            self.detailed_setup.aiida_computer_setup._observe_computer_setup()
             # self.detailed_setup.code_setup = self.comp_resources_database.code_setup
 
     def quick_setup(self, _=None):
@@ -814,7 +817,7 @@ class SshComputerSetup(ipw.VBox):
 class AiidaComputerSetup(ipw.VBox):
     """Inform AiiDA about a computer."""
 
-    computer_setup = traitlets.Dict(allow_none=True)
+    computer_setup = traitlets.Dict(allow_none=True).tag(sync=True)
     message = traitlets.Unicode()
 
     def __init__(self, **kwargs):
