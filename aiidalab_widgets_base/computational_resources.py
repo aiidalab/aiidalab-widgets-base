@@ -23,6 +23,149 @@ from .utils import StatusHTML
 STYLE = {"description_width": "180px"}
 LAYOUT = {"width": "400px"}
 
+class QuickSetupWidget(ipw.VBox):
+    """Quick setup widget."""
+    default_calc_job_plugin = traitlets.Unicode(allow_none=True)
+    
+    computer_setup = traitlets.Dict()
+    code_setup = traitlets.Dict()
+    
+    def __init__(self, **kwargs):
+        quick_setup_button = ipw.Button(description="Quick Setup")
+        quick_setup_button.on_click(self.quick_setup)
+        self.comp_resources_database = ComputationalResourcesDatabaseWidget(
+            default_calc_job_plugin=self.default_calc_job_plugin
+        )
+        self.comp_resources_database.observe(self._on_select_computer, names="computer_setup")
+        self.comp_resources_database.observe(self._on_select_code, names="code_setup")
+        
+        # The placeholder for the template variables
+        self.template_variables = ipw.VBox(
+            children=[], layout=ipw.Layout(display="flex", flex_flow="column")
+        )
+        self.template_variables_dict = {}
+        
+        self.ssh_computer_setup = SshComputerSetup()
+        
+        # Set the initial value to computer/code setup template
+        self.computer_setup = self.comp_resources_database.computer_setup
+        self.code_setup = self.comp_resources_database.code_setup
+        
+        super().__init__(
+            children=[
+                ipw.HTML(
+                    """Please select the computer/code from a database to pre-fill the fields below."""
+                ),
+                self.comp_resources_database,
+                self.ssh_computer_setup.username,
+                self.template_variables,
+                quick_setup_button,
+                self.ssh_computer_setup.password_box,
+                # self.aiida_code_setup.setup_code_out, # TODO: add this back using interfacet to update
+            ]
+        )
+        
+    def _on_select_computer(self, change):
+        """Update the computer setup template."""
+        from jinja2 import Environment, meta
+        from jinja2.nodes import Filter
+        
+        if change["new"] is None:
+            return
+        
+        # Set the initial value to computer/code setup template when new computer is selected
+        self.computer_setup = self.comp_resources_database.computer_setup
+        
+        for _, template_str in change["new"].get('setup', {}).items():
+            env = Environment()
+            parsed_template = env.parse(template_str)
+            # vars is a set of all variables in the template
+            # while filters is a list of all filters in the template, not all variables have filter.
+            vars = meta.find_undeclared_variables(parsed_template)
+            filters = [node for node in parsed_template.find_all(Filter)]
+            
+            default_values = {ftr.node.name: ftr.args[0].value for ftr in filters if ftr.name == 'default'}
+            
+            for var in vars:
+                self.template_variables_dict[var] = ipw.Text(
+                    description=f"{var}:",
+                    value=default_values.get(var, ""),
+                    layout=LAYOUT, style=STYLE,
+                )
+                
+        self.template_variables.children = tuple(self.template_variables_dict.values())
+        
+    def _on_select_code(self, change):
+        """Update the code setup template."""
+        # TODO: add this
+        
+    def quick_setup(self, _=None):
+        """Fill the tempalte and setup the computer and code to interface
+        This action will only trigger the setup of the widget, not the actual setup of the computer and code.
+        The actual setup will be triggered from DetailedSetupWidget from ComputationalResourcesWidget.
+        """
+        from jinja2 import Environment, ChainableUndefined, meta
+        
+        # From the remote original setup, fill the template 
+        computer_setup = self.computer_setup
+        
+        for key, value in computer_setup.get('setup',{}).items():
+            env = Environment(undefined=ChainableUndefined)
+            template_vars = meta.find_undeclared_variables(env.parse(value))
+            vars_dict = {}
+                
+            if template_vars:
+                # Read the template variables from the widget
+                for var in template_vars:
+                    vars_dict[var] = self.template_variables_dict.get(var).value
+                    
+                # re-render the template
+                value = env.from_string(value).render(**vars_dict)
+                computer_setup['setup'][key] = value
+            else:
+                computer_setup['setup'][key] = value
+            
+        self.computer_setup = {**self.computer_setup}
+        print(self.computer_setup)
+        
+class DetailedSetupWidget(ipw.VBox):
+    
+    computer_setup = traitlets.Dict()
+    code_setup = traitlets.Dict()
+    
+    def __init__(self, **kargs):
+        
+        self.ssh_computer_setup = SshComputerSetup()
+        # TODO: link
+        
+        self.aiida_computer_setup = AiidaComputerSetup()
+        
+        self.aiida_code_setup = AiidaCodeSetup()
+
+        self.detailed_setup = ipw.Accordion(
+            children=[
+                self.ssh_computer_setup,
+                self.aiida_computer_setup,
+                self.aiida_code_setup,
+            ],
+        )
+        
+        self.detailed_setup.set_title(0, "Set up password-less SSH connection")
+        self.detailed_setup.set_title(1, "Set up a computer in AiiDA")
+        self.detailed_setup.set_title(2, "Set up a code in AiiDA")
+        
+        super().__init__(
+            children=[
+                self.detailed_setup,
+            ],
+        )
+        
+    @traitlets.observe('computer_setup')
+    def _computer_setup_changed(self, change):
+        print("WHANTABOUTME")
+        self.aiida_computer_setup.computer_setup = change['new']
+    
+
 
 class ComputationalResourcesWidget(ipw.VBox):
     """Code selection widget.
@@ -96,15 +239,15 @@ class ComputationalResourcesWidget(ipw.VBox):
             (self.ssh_computer_setup, "ssh_config"),
         )
 
-        self.aiida_computer_setup = AiidaComputerSetup()
-        ipw.dlink(
-            (self.aiida_computer_setup, "message"),
-            (self.setup_message, "message"),
-        )
-        ipw.dlink(
-            (self.comp_resources_database, "computer_setup"),
-            (self.aiida_computer_setup, "computer_setup"),
-        )
+        # self.aiida_computer_setup = AiidaComputerSetup()
+        # ipw.dlink(
+        #     (self.aiida_computer_setup, "message"),
+        #     (self.setup_message, "message"),
+        # )
+        # ipw.dlink(
+        #     (self.comp_resources_database, "computer_setup"),
+        #     (self.aiida_computer_setup, "computer_setup"),
+        # )
 
         # Set up AiiDA code.
         self.aiida_code_setup = AiidaCodeSetup()
@@ -120,34 +263,56 @@ class ComputationalResourcesWidget(ipw.VBox):
 
         # After a successfull computer setup the codes widget should be refreshed.
         # E.g. the list of available computers needs to be updated.
-        self.aiida_computer_setup.on_setup_computer_success(
-            self.aiida_code_setup.refresh
-        )
+        # self.aiida_computer_setup.on_setup_computer_success(
+        #     self.aiida_code_setup.refresh
+        # )
 
         # Quick setup.
-        quick_setup_button = ipw.Button(description="Quick Setup")
-        quick_setup_button.on_click(self.quick_setup)
-        self.quick_setup = ipw.VBox(
-            children=[
-                self.ssh_computer_setup.username,
-                quick_setup_button,
-                self.aiida_code_setup.setup_code_out,
-            ]
-        )
+        # quick_setup_button = ipw.Button(description="Quick Setup")
+        # quick_setup_button.on_click(self.quick_setup)
+        # self.quick_setup = ipw.VBox(
+        #     children=[
+        #         ipw.HTML(
+        #             """Please select the computer/code from a database to pre-fill the fields below."""
+        #         ),
+        #         self.comp_resources_database,
+        #         self.ssh_computer_setup.username,
+        #         quick_setup_button,
+        #         self.ssh_computer_setup.password_box,
+        #         self.aiida_code_setup.setup_code_out,
+        #     ]
+        # )
+        self.quick_setup = QuickSetupWidget()
+        self.quick_setup.observe(self._quick_setup, "computer_setup")
 
         # Detailed setup.
-        self.detailed_setup = ipw.Accordion(
-            children=[
-                self.ssh_computer_setup,
-                self.aiida_computer_setup,
-                self.aiida_code_setup,
-            ]
-        )
-        self.detailed_setup.set_title(0, "Set up password-less SSH connection")
-        self.detailed_setup.set_title(1, "Set up a computer in AiiDA")
-        self.detailed_setup.set_title(2, "Set up a code in AiiDA")
+        # self.detailed_setup = ipw.Accordion(
+        #     children=[
+        #         self.ssh_computer_setup,
+        #         self.aiida_computer_setup,
+        #         self.aiida_code_setup,
+        #     ]
+        # )
+        # self.detailed_setup.set_title(0, "Set up password-less SSH connection")
+        # self.detailed_setup.set_title(1, "Set up a computer in AiiDA")
+        # self.detailed_setup.set_title(2, "Set up a code in AiiDA")
+        self.detailed_setup = DetailedSetupWidget()
+        
+        # ipw.dlink(
+        #     (self.quick_setup, "computer_setup"),
+        #     (self.detailed_setup, "computer_setup"),
+        # )
+        # ipw.dlink(
+        #     (self.quick_setup, "code_setup"),
+        #     (self.detailed_setup, "code_setup"),
+        # )
 
         self.refresh()
+        
+    def _quick_setup(self, change):
+        if change["new"] is not None:
+            self.detailed_setup.aiida_computer_setup.computer_setup = change["new"]
+            # self.detailed_setup.code_setup = self.comp_resources_database.code_setup
 
     def quick_setup(self, _=None):
         """Go through all the setup steps automatically."""
@@ -227,11 +392,6 @@ class ComputationalResourcesWidget(ipw.VBox):
                     setup_tab.set_title(0, "Quick Setup")
                     setup_tab.set_title(1, "Detailed Setup")
                     children = [
-                        ipw.HTML(
-                            """Please select the computer/code from a database to pre-fill the fields below."""
-                        ),
-                        self.comp_resources_database,
-                        self.ssh_computer_setup.password_box,
                         self.setup_message,
                         setup_tab,
                     ]
@@ -953,6 +1113,7 @@ class AiidaComputerSetup(ipw.VBox):
     @traitlets.observe("computer_setup")
     def _observe_computer_setup(self, _=None):
         # Setup.
+        print("THISSHOULDNOTBEHERE")
         if not self.computer_setup:
             self._reset()
             return
