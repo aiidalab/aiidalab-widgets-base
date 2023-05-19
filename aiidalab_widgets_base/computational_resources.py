@@ -113,11 +113,14 @@ class QuickSetupWidget(ipw.VBox):
         This action will only trigger the setup of the widget, not the actual setup of the computer and code.
         The actual setup will be triggered from DetailedSetupWidget from ComputationalResourcesWidget.
         """
-        from jinja2 import ChainableUndefined, Environment, meta
         import copy
 
+        from jinja2 import ChainableUndefined, Environment, meta
+
         # From the remote original setup, fill the template
-        computer_setup = copy.deepcopy(self.computer_setup) # The dict is nested, so we need deepcopy
+        computer_setup = copy.deepcopy(
+            self.computer_setup
+        )  # The dict is nested, so we need deepcopy
 
         for key, value in computer_setup.get("setup", {}).items():
             env = Environment(undefined=ChainableUndefined)
