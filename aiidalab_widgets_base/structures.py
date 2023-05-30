@@ -890,7 +890,7 @@ class BasicCellEditor(ipw.VBox):
             layout={"width": "initial"},
         )
         conventional_cell.on_click(self._to_conventional_cell)
-        #change PR 372
+        # change PR 372
         cell_parameters = (
             self.structure.get_cell_lengths_and_angles()
             if self.structure
@@ -929,7 +929,7 @@ class BasicCellEditor(ipw.VBox):
         apply_cell_parameters.on_click(self.apply_cell_parameters)
         apply_cell_transformation = ipw.Button(description="Apply transformation")
         apply_cell_transformation.on_click(self.apply_cell_transformation)
-        #change ends
+        # change ends
         super().__init__(
             children=[
                 ipw.HBox(
@@ -939,7 +939,7 @@ class BasicCellEditor(ipw.VBox):
                     ],
                 ),
                 self._status_message,
-                ipw.VBox(  #Change here
+                ipw.VBox(  # Change here
                     [
                         ipw.HTML(
                             "<b>Cell parameters:</b>",
@@ -960,7 +960,7 @@ class BasicCellEditor(ipw.VBox):
                         apply_cell_transformation,
                     ],
                     layout={"margin": "0px 0px 0px 20px"},
-                ), #change here
+                ),  # change here
             ],
         )
 
@@ -999,7 +999,7 @@ class BasicCellEditor(ipw.VBox):
             pbc=[True, True, True],
         )
 
-    @observe("structure") #change here
+    @observe("structure")  # change here
     def _observe_structure(self, change):
         """Update cell after the structure has been modified."""
         if change["new"] is not None:
@@ -1051,7 +1051,7 @@ class BasicCellEditor(ipw.VBox):
                 return
             # translate
             atoms.translate(-atoms.cell.array.dot(translate))
-            self.structure = atoms #change here
+            self.structure = atoms  # change here
 
 
 class BasicStructureEditor(ipw.VBox):
