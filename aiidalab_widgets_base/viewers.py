@@ -318,7 +318,7 @@ class _StructureDataBaseViewer(ipw.VBox):
     @tl.observe("cell")
     def _observe_cell(self, _=None):
         # only update cell info when it is a 3D structure.
-        if self.cell and all(self.structure.pbc):
+        if self.cell and any(self.structure.pbc):
             self.cell_a.value = "<i><b>a</b></i>: {:.4f} {:.4f} {:.4f}".format(
                 *self.cell.array[0]
             )
@@ -348,8 +348,18 @@ class _StructureDataBaseViewer(ipw.VBox):
                 spglib_structure, symprec=1e-5, angle_tolerance=1.0
             )
 
+            periodicity_map = {
+                (True, True, True): 'xyz',
+                (True, False, False): 'x',
+                (False, True, False): 'y',
+                (False, False, True): 'z',
+                (True, True, False): 'xy',
+                (True, False, True): 'xz',
+                (False, True, True): 'yz',
+            }
             self.cell_spacegroup.value = f"Spacegroup: {symmetry_dataset['international']} (No.{symmetry_dataset['number']})"
             self.cell_hall.value = f"Hall: {symmetry_dataset['hall']} (No.{symmetry_dataset['hall_number']})"
+            self.periodicity.value = f"Periodicity: {periodicity_map[tuple(self.structure.pbc)]}"
         else:
             self.cell_a.value = "<i><b>a</b></i>:"
             self.cell_b.value = "<i><b>b</b></i>:"
@@ -378,6 +388,7 @@ class _StructureDataBaseViewer(ipw.VBox):
 
         self.cell_spacegroup = ipw.HTML()
         self.cell_hall = ipw.HTML()
+        self.periodicity = ipw.HTML()
 
         self._observe_cell()
 
@@ -420,6 +431,7 @@ class _StructureDataBaseViewer(ipw.VBox):
                                 ipw.HTML("Symmetry information:"),
                                 self.cell_spacegroup,
                                 self.cell_hall,
+                                self.periodicity,
                             ],
                             layout={"margin": "0 0 0 50px"},
                         ),
