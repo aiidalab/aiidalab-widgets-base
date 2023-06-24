@@ -349,17 +349,19 @@ class _StructureDataBaseViewer(ipw.VBox):
             )
 
             periodicity_map = {
-                (True, True, True): 'xyz',
-                (True, False, False): 'x',
-                (False, True, False): 'y',
-                (False, False, True): 'z',
-                (True, True, False): 'xy',
-                (True, False, True): 'xz',
-                (False, True, True): 'yz',
+                (True, True, True): "xyz",
+                (True, False, False): "x",
+                (False, True, False): "y",
+                (False, False, True): "z",
+                (True, True, False): "xy",
+                (True, False, True): "xz",
+                (False, True, True): "yz",
             }
             self.cell_spacegroup.value = f"Spacegroup: {symmetry_dataset['international']} (No.{symmetry_dataset['number']})"
             self.cell_hall.value = f"Hall: {symmetry_dataset['hall']} (No.{symmetry_dataset['hall_number']})"
-            self.periodicity.value = f"Periodicity: {periodicity_map[tuple(self.structure.pbc)]}"
+            self.periodicity.value = (
+                f"Periodicity: {periodicity_map[tuple(self.structure.pbc)]}"
+            )
         else:
             self.cell_a.value = "<i><b>a</b></i>:"
             self.cell_b.value = "<i><b>b</b></i>:"
