@@ -724,7 +724,8 @@ class SmilesWidget(ipw.VBox):
         from sklearn.decomposition import PCA
 
         # Get the principal axes and realign the molecule along z-axis.
-        positions = PCA(n_components=3).fit_transform(positions)
+        if len(species) > 2:
+            positions = PCA(n_components=3).fit_transform(positions)
         atoms = ase.Atoms(species, positions=positions, pbc=False)
         atoms.cell = np.ptp(atoms.positions, axis=0) + 10
         atoms.center()
