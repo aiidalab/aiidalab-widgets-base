@@ -373,7 +373,9 @@ class ProcessCallStackWidget(ipw.HTML):
             string.replace("\n", "<br/>").replace(" ", "&nbsp;").replace("#space#", " ")
         )
 
-    def calc_info(self, node):
+    # The third parameter 'call_link_label', added in AiiDA 2.4, is not used here.
+    # https://github.com/aiidateam/aiida-core/pull/6056
+    def calc_info(self, node, _=False):
         """Return a string with the summary of the state of a CalculationNode."""
 
         if not isinstance(node, orm.ProcessNode):
