@@ -142,6 +142,17 @@ def test_smiles_widget():
     assert isinstance(widget.structure, ase.Atoms)
     assert widget.structure.get_chemical_formula() == "CH4"
 
+    # Regression test that we can generate 1-atom and 2-atom molecules
+    widget.smiles.value = "[O]"
+    widget._on_button_pressed()
+    assert isinstance(widget.structure, ase.Atoms)
+    assert widget.structure.get_chemical_formula() == "O"
+
+    widget.smiles.value = "N#N"
+    widget._on_button_pressed()
+    assert isinstance(widget.structure, ase.Atoms)
+    assert widget.structure.get_chemical_formula() == "N2"
+
 
 @pytest.mark.usefixtures("aiida_profile_clean")
 def test_basic_cell_editor_widget(structure_data_object):
