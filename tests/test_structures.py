@@ -23,6 +23,17 @@ def test_structure_manager_widget(structure_data_object):
     assert structure_manager_widget.structure is not None
     assert isinstance(structure_manager_widget.structure, ase.Atoms)
 
+    #Text the periodicity of the structure
+    assert structure_manager_widget.viewer.periodicity.value == "Periodicity: xyz"
+
+    # Simulate the periodicity modification. 
+    periodicity_structure = structure_manager_widget.structure.copy()
+    periodicity_structure.pbc = [True, True, False]
+    structure_manager_widget.structure = None
+    structure_manager_widget.structure = periodicity_structure
+
+    assert structure_manager_widget.viewer.periodicity.value == "Periodicity: xy"
+
     # Store structure and check that it is stored.
     structure_manager_widget.store_structure()
     assert structure_manager_widget.structure_node.is_stored
@@ -31,9 +42,6 @@ def test_structure_manager_widget(structure_data_object):
     # Simulate the structure modification.
     new_structure = structure_manager_widget.structure.copy()
     new_structure[0].position += [0, 0, 1]
-
-    # Simulate the modification of the periodicity
-    new_structure.pbc = [True, True, False]
 
     structure_manager_widget.structure = new_structure
     assert not structure_manager_widget.structure_node.is_stored
