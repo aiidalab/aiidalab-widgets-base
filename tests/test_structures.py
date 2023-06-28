@@ -32,7 +32,7 @@ def test_structure_manager_widget(structure_data_object):
     new_structure = structure_manager_widget.structure.copy()
     new_structure[0].position += [0, 0, 1]
 
-    #Simulate the modification of the periodicity
+    # Simulate the modification of the periodicity
     new_structure.pbc = [True, True, False]
 
     structure_manager_widget.structure = new_structure
@@ -41,7 +41,7 @@ def test_structure_manager_widget(structure_data_object):
         structure_manager_widget.structure[0].position == new_structure[0].position
     )
 
-    assert structure_manager_widget.viewer.periodicity.value == 'Periodicity: xy'
+    assert structure_manager_widget.viewer.periodicity.value == "Periodicity: xy"
 
     # Undo the structure modification.
     structure_manager_widget.undo()
