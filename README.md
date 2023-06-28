@@ -3,7 +3,7 @@
 
 # AiiDAlab Widgets
 
-[AiiDAlab](https://materialscloud.org/aiidalab) applications typically involve some of following steps:
+[AiiDAlab](https://www.aiidalab.net/) applications typically involve some of following steps:
 
  * Prepare the input for a calculation (e.g. an atomic structure).
  * Select computational resources and submit a calculation to AiiDA.
@@ -29,7 +29,7 @@ Additional notes:
   - Use the `--dry` option to preview the release change.
   - The release tag (e.g. a/b/rc) is determined from the last release.
     Use the `--tag` option to switch the release tag.
-  - This packages follows [semantic versioning](https://semver.org/).
+  - This package follows [semantic versioning](https://semver.org/).
 
 ## License
 
@@ -48,8 +48,8 @@ aiidalab@materialscloud.org
 
 ## Acknowledgements
 
-This work is supported by the [MARVEL National Centre for Competency in Research](<http://nccr-marvel.ch>)
-funded by the [Swiss National Science Foundation](<http://www.snf.ch/en>), as well as by the [MaX
+This work is supported by the [MARVEL National Centre for Competency in Research](<https://nccr-marvel.ch>)
+funded by the [Swiss National Science Foundation](<https://www.snf.ch/en>), as well as by the [MaX
 European Centre of Excellence](<http://www.max-centre.eu/>) funded by the Horizon 2020 EINFRA-5 program,
 Grant No. 676598.
 
