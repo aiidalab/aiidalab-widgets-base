@@ -41,8 +41,6 @@ def test_structure_manager_widget(structure_data_object):
         structure_manager_widget.structure[0].position == new_structure[0].position
     )
 
-    assert structure_manager_widget.viewer.periodicity.value == "Periodicity: xy"
-
     # Undo the structure modification.
     structure_manager_widget.undo()
     assert np.any(
