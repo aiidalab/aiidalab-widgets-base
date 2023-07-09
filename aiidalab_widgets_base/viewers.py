@@ -1024,16 +1024,14 @@ class StructureDataViewer(_StructureDataBaseViewer):
             distv = self.displayed_structure.get_distance(
                 *self.displayed_selection, vector=True
             )
-            info += f"<p>Distance: {dist:.2f} ({print_pos(distv)})</p><p>Geometric center: ({geom_center})</p>"
+            info += f"<p>Distance: {dist:.3f} ({print_pos(distv)})</p><p>Geometric center: ({geom_center})</p>"
             return info_selected_atoms + info
 
         info_natoms_geo_center = f"<p>{len(self.displayed_selection)} atoms selected</p><p>Geometric center: ({geom_center})</p>"
 
         # Report angle geometric center and normal.
         if len(self.displayed_selection) == 3:
-            angle = self.displayed_structure.get_angle(*self.displayed_selection).round(
-                2
-            )
+            angle = self.displayed_structure.get_angle(*self.displayed_selection)
             normal = np.cross(
                 *self.displayed_structure.get_distances(
                     self.displayed_selection[1],
@@ -1045,7 +1043,7 @@ class StructureDataViewer(_StructureDataBaseViewer):
             normal = normal / np.linalg.norm(normal)
             return (
                 info_selected_atoms
-                + f"<p>{info_natoms_geo_center}</p><p>Angle: {angle}</p><p>Normal: ({print_pos(normal)})</p>"
+                + f"<p>{info_natoms_geo_center}</p><p>Angle: {angle: .3f}</p><p>Normal: ({print_pos(normal)})</p>"
             )
 
         # Report dihedral angle and geometric center.
@@ -1054,7 +1052,7 @@ class StructureDataViewer(_StructureDataBaseViewer):
                 dihedral = self.displayed_structure.get_dihedral(
                     *self.displayed_selection
                 )
-                dihedral_str = f"{dihedral:.2f}"
+                dihedral_str = f"{dihedral:.3f}"
             except ZeroDivisionError:
                 dihedral_str = "nan"
             return (
