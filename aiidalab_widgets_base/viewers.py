@@ -376,6 +376,10 @@ class _StructureDataBaseViewer(ipw.VBox):
             self.cell_beta.value = "&beta;:"
             self.cell_gamma.value = "&gamma;:"
 
+            self.cell_spacegroup.value = ""
+            self.cell_hall.value = ""
+            self.periodicity.value = ""
+
     def _cell_tab(self):
         self.cell_a = ipw.HTML()
         self.cell_b = ipw.HTML()
