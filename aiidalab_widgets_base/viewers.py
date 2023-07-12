@@ -317,8 +317,8 @@ class _StructureDataBaseViewer(ipw.VBox):
 
     @tl.observe("cell")
     def _observe_cell(self, _=None):
-        # only update cell info when it is a 3D structure.
-        if self.cell and any(self.structure.pbc):
+        # Updtate the Cell and Periodicity.
+        if self.cell:
             self.cell_a.value = "<i><b>a</b></i>: {:.4f} {:.4f} {:.4f}".format(
                 *self.cell.array[0]
             )
@@ -356,6 +356,7 @@ class _StructureDataBaseViewer(ipw.VBox):
                 (True, True, False): "xy",
                 (True, False, True): "xz",
                 (False, True, True): "yz",
+                (False, False, False): "-",
             }
             self.cell_spacegroup.value = f"Spacegroup: {symmetry_dataset['international']} (No.{symmetry_dataset['number']})"
             self.cell_hall.value = f"Hall: {symmetry_dataset['hall']} (No.{symmetry_dataset['hall_number']})"
