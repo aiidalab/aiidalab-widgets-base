@@ -154,22 +154,24 @@ class OptimadeQueryWidget(ipw.VBox):
     ) -> None:
         from optimade_client import default_parameters, query_filter, query_provider
 
-        _disable_providers = default_parameters.DISABLE_PROVIDERS
-        _skip_databases = default_parameters.SKIP_DATABASE
-        _skip_providers = default_parameters.SKIP_PROVIDERS
-        _provider_database_groupings = default_parameters.PROVIDER_DATABASE_GROUPINGS
-
         providers_header = ipw.HTML("<h4>Select a provider</h4>")
         providers = query_provider.OptimadeQueryProviderWidget(
             embedded=embedded,
             width_ratio=kwargs.pop("width_ratio", None),
             width_space=kwargs.pop("width_space", None),
             database_limit=kwargs.pop("database_limit", None),
-            disable_providers=kwargs.pop("disable_providers", _disable_providers),
-            skip_databases=kwargs.pop("skip_databases", _skip_databases),
-            skip_providers=kwargs.pop("skip_providers", _skip_providers),
+            disable_providers=kwargs.pop(
+                "disable_providers", default_parameters.DISABLE_PROVIDERS
+            ),
+            skip_databases=kwargs.pop(
+                "skip_databases", default_parameters.SKIP_DATABASE
+            ),
+            skip_providers=kwargs.pop(
+                "skip_providers", default_parameters.SKIP_DATABASE
+            ),
             provider_database_groupings=kwargs.pop(
-                "provider_database_groupings", _provider_database_groupings
+                "provider_database_groupings",
+                default_parameters.PROVIDER_DATABASE_GROUPINGS,
             ),
         )
         filters = query_filter.OptimadeQueryFilterWidget(
