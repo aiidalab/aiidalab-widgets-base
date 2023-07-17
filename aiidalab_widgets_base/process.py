@@ -3,19 +3,17 @@
 # Built-in imports
 from __future__ import annotations
 
+import inspect
 import os
+import threading
+import time
 import traceback
+import uuid
 import warnings
-from inspect import isclass, signature
-from threading import Event, Lock, Thread
-from time import sleep
-from uuid import UUID
 
-# External imports
 import ipywidgets as ipw
-import traitlets
-
-# AiiDA imports.
+import traitlets as tl
+from aiida import engine, orm
 from aiida.cmdline.utils.ascii_vis import format_call_graph
 from aiida.cmdline.utils.common import (
     get_calcjob_report,
@@ -23,24 +21,12 @@ from aiida.cmdline.utils.common import (
     get_workchain_report,
 )
 from aiida.common.exceptions import NotExistentAttributeError
-from aiida.engine import Process, ProcessBuilder, submit
-from aiida.orm import (
-    CalcFunctionNode,
-    CalcJobNode,
-    Node,
-    ProcessNode,
-    WorkChainNode,
-    WorkFunctionNode,
-    load_node,
-)
 from aiida.tools.query.calculation import CalculationQueryBuilder
 from IPython.display import HTML, Javascript, clear_output, display
-from traitlets import Instance, Int, List, Unicode, default, observe, validate
-
-from .nodes import NodesTreeWidget
-from .utils import exceptions
 
 # Local imports.
+from .nodes import NodesTreeWidget
+from .utils import exceptions
 from .viewers import viewer
 
 
@@ -48,20 +34,23 @@ def get_running_calcs(process):
     """Takes a process and yeilds running children calculations."""
 
     # If a process is a running calculation - returning it
-    if issubclass(type(process), CalcJobNode) and not process.is_sealed:
+    if issubclass(type(process), orm.CalcJobNode) and not process.is_sealed:
         yield process
 
     # If the process is a running work chain - returning its children
-    elif issubclass(type(process), WorkChainNode) and not process.is_sealed:
+    elif issubclass(type(process), orm.WorkChainNode) and not process.is_sealed:
         for out_link in process.get_outgoing():
-            if isinstance(out_link.node, ProcessNode) and not out_link.node.is_sealed:
+            if (
+                isinstance(out_link.node, orm.ProcessNode)
+                and not out_link.node.is_sealed
+            ):
                 yield from get_running_calcs(out_link.node)
 
 
 class SubmitButtonWidget(ipw.VBox):
     """Submit button class that creates submit button jupyter widget."""
 
-    process = Instance(ProcessNode, allow_none=True)
+    process = tl.Instance(orm.ProcessNode, allow_none=True)
 
     def __init__(  # pylint: disable=too-many-arguments
         self,
@@ -86,11 +75,11 @@ class SubmitButtonWidget(ipw.VBox):
         """
 
         self.path_to_root = kwargs.get("path_to_root", "../")
-        if isclass(process_class) and issubclass(process_class, Process):
+        if inspect.isclass(process_class) and issubclass(process_class, engine.Process):
             self._process_class = process_class
         else:
             raise ValueError(
-                f"process_class argument must be a sublcass of {Process}, got {process_class}"
+                f"process_class argument must be a sublcass of {engine.Process}, got {process_class}"
             )
 
         # Checking if the inputs generator is callable
@@ -134,10 +123,10 @@ class SubmitButtonWidget(ipw.VBox):
         else:
             if self.disable_after_submit:
                 self.btn_submit.disabled = True
-            if isinstance(inputs, ProcessBuilder):
-                self.process = submit(inputs)
+            if isinstance(inputs, engine.ProcessBuilder):
+                self.process = engine.submit(inputs)
             else:
-                self.process = submit(self._process_class, **inputs)
+                self.process = engine.submit(self._process_class, **inputs)
 
             if self.append_output:
                 self.submit_out.value += f"""Submitted process {self.process}. Click
@@ -159,7 +148,7 @@ class SubmitButtonWidget(ipw.VBox):
 class ProcessInputsWidget(ipw.VBox):
     """Widget to select and show process inputs."""
 
-    process = Instance(ProcessNode, allow_none=True)
+    process = tl.Instance(orm.ProcessNode, allow_none=True)
 
     def __init__(self, process=None, **kwargs):
         self.process = process
@@ -181,7 +170,7 @@ class ProcessInputsWidget(ipw.VBox):
         )
 
     def generate_flat_mapping(
-        self, process: ProcessNode | None = None
+        self, process: orm.ProcessNode | None = None
     ) -> None | dict[str, str]:
         """Generate a dict of input to node uuid mapping.
 
@@ -221,7 +210,7 @@ class ProcessInputsWidget(ipw.VBox):
             self.info.value = ""
             clear_output()
             if change["new"]:
-                selected_input = load_node(change["new"])
+                selected_input = orm.load_node(change["new"])
                 self.info.value = f"PK: {selected_input.pk}"
                 display(viewer(selected_input))
 
@@ -229,7 +218,7 @@ class ProcessInputsWidget(ipw.VBox):
 class ProcessOutputsWidget(ipw.VBox):
     """Widget to select and show process outputs."""
 
-    process = Instance(ProcessNode, allow_none=True)
+    process = tl.Instance(orm.ProcessNode, allow_none=True)
 
     def __init__(self, process=None, **kwargs):
         self.process = process
@@ -266,7 +255,7 @@ class ProcessOutputsWidget(ipw.VBox):
 class ProcessFollowerWidget(ipw.VBox):
     """A Widget that follows a process until finished."""
 
-    process = Instance(ProcessNode, allow_none=True)
+    process = tl.Instance(orm.ProcessNode, allow_none=True)
 
     def __init__(
         self,
@@ -295,9 +284,9 @@ class ProcessFollowerWidget(ipw.VBox):
                         ]
                     )
                 )
-        self.update()
         self.output = ipw.HTML()
         super().__init__(children=[self.output] + self.followers, **kwargs)
+        self.update()
 
     def update(self):
         for follower in self.followers:
@@ -318,7 +307,9 @@ class ProcessFollowerWidget(ipw.VBox):
                 on_sealed=self._run_after_completed,
                 timeout=self.update_interval,
             )
-            ipw.dlink((self, "process"), (self._monitor, "process"))
+            ipw.dlink(
+                (self, "process"), (self._monitor, "value"), transform=lambda x: x.uuid
+            )
 
         if not detach:
             self._monitor.join()
@@ -333,28 +324,29 @@ class ProcessFollowerWidget(ipw.VBox):
 class ProcessReportWidget(ipw.HTML):
     """Widget that shows process report."""
 
-    process = Instance(ProcessNode, allow_none=True)
+    process = tl.Instance(orm.ProcessNode, allow_none=True)
+    value = tl.Unicode(allow_none=True)
 
     def __init__(self, title="Process Report", **kwargs):
         self.title = title
         self.max_depth = None
         self.indent_size = 2
         self.levelname = "REPORT"
-        self.update()
         super().__init__(**kwargs)
+        self.update()
 
     def update(self):
         """Update report that is shown."""
         if self.process is None:
             return
 
-        if isinstance(self.process, CalcJobNode):
+        if isinstance(self.process, orm.CalcJobNode):
             string = get_calcjob_report(self.process)
-        elif isinstance(self.process, WorkChainNode):
+        elif isinstance(self.process, orm.WorkChainNode):
             string = get_workchain_report(
                 self.process, self.levelname, self.indent_size, self.max_depth
             )
-        elif isinstance(self.process, (CalcFunctionNode, WorkFunctionNode)):
+        elif isinstance(self.process, (orm.CalcFunctionNode, orm.WorkFunctionNode)):
             string = get_process_function_report(self.process)
         else:
             string = f"Nothing to show for node type {self.process.__class__}"
@@ -364,13 +356,13 @@ class ProcessReportWidget(ipw.HTML):
 class ProcessCallStackWidget(ipw.HTML):
     """Widget that shows process call stack."""
 
-    process = Instance(ProcessNode, allow_none=True)
+    process = tl.Instance(orm.ProcessNode, allow_none=True)
 
     def __init__(self, title="Process Call Stack", path_to_root="../", **kwargs):
         self.title = title
         self.path_to_root = path_to_root
-        self.update()
         super().__init__(**kwargs)
+        self.update()
 
     def update(self):
         """Update the call stack that is shown."""
@@ -381,25 +373,23 @@ class ProcessCallStackWidget(ipw.HTML):
             string.replace("\n", "<br/>").replace(" ", "&nbsp;").replace("#space#", " ")
         )
 
-    def calc_info(self, node):
+    # The third parameter 'call_link_label', added in AiiDA 2.4, is not used here.
+    # https://github.com/aiidateam/aiida-core/pull/6056
+    def calc_info(self, node, _=False):
         """Return a string with the summary of the state of a CalculationNode."""
 
-        if not isinstance(node, ProcessNode):
+        if not isinstance(node, orm.ProcessNode):
             raise TypeError(f"Unknown type: {type(node)}")
 
         process_state = node.process_state.value.capitalize()
-        pk = """<a#space#href={0}aiidalab-widgets-base/notebooks/process.ipynb?id={1}#space#target="_blank">{1}</a>""".format(
-            self.path_to_root, node.pk
-        )
+        pk = f"""<a#space#href={self.path_to_root}aiidalab-widgets-base/notebooks/process.ipynb?id={node.pk}#space#target="_blank">{node.pk}</a>"""
 
         if node.exit_status is not None:
-            string = "{}<{}> {} [{}]".format(
-                node.process_label, pk, process_state, node.exit_status
-            )
+            string = f"{node.process_label}<{pk}> {process_state} [{node.exit_status}]"
         else:
             string = f"{node.process_label}<{pk}> {process_state}"
 
-        if isinstance(node, WorkChainNode) and node.stepper_state_info:
+        if isinstance(node, orm.WorkChainNode) and node.stepper_state_info:
             string += f" [{node.stepper_state_info}]"
         return string
 
@@ -407,7 +397,7 @@ class ProcessCallStackWidget(ipw.HTML):
 class ProgressBarWidget(ipw.VBox):
     """A bar showing the proggress of a process."""
 
-    process = Instance(ProcessNode, allow_none=True)
+    process = tl.Instance(orm.ProcessNode, allow_none=True)
 
     def __init__(self, title="Progress Bar", **kwargs):
         """Initialize ProgressBarWidget."""
@@ -437,6 +427,7 @@ class ProgressBarWidget(ipw.VBox):
             style={"description_width": "initial"},
         )
         super().__init__(children=[self.progress_bar, self.state], **kwargs)
+        self.update()
 
     def update(self):
         """Update the bar."""
@@ -459,7 +450,7 @@ class ProgressBarWidget(ipw.VBox):
 class CalcJobOutputWidget(ipw.Textarea):
     """Output of a calculation."""
 
-    calculation = Instance(CalcJobNode, allow_none=True)
+    calculation = tl.Instance(orm.CalcJobNode, allow_none=True)
 
     def __init__(self, **kwargs):
         default_params = {
@@ -478,7 +469,7 @@ class CalcJobOutputWidget(ipw.Textarea):
 
         super().__init__(**default_params)
 
-    @observe("calculation")
+    @tl.observe("calculation")
     def _change_calculation(self, _=None):
         """Reset things if the observed calculation has changed."""
         self.output = []
@@ -541,7 +532,7 @@ class CalcJobOutputWidget(ipw.Textarea):
 class RunningCalcJobOutputWidget(ipw.VBox):
     """Show an output of selected running child calculation."""
 
-    process = Instance(ProcessNode, allow_none=True)
+    process = tl.Instance(orm.ProcessNode, allow_none=True)
 
     def __init__(self, title="Running Job Output", **kwargs):
         self.title = title
@@ -551,8 +542,8 @@ class RunningCalcJobOutputWidget(ipw.VBox):
             style={"description_width": "initial"},
         )
         self.output = CalcJobOutputWidget()
-        self.update()
         super().__init__(children=[self.selection, self.output], **kwargs)
+        self.update()
 
     def update(self):
         """Update the displayed output."""
@@ -591,12 +582,12 @@ class ProcessListWidget(ipw.VBox):
 
     """
 
-    past_days = Int(7)
-    incoming_node = Unicode(allow_none=True)
-    outgoing_node = Unicode(allow_none=True)
-    process_states = List()
-    process_label = Unicode(allow_none=True)
-    description_contains = Unicode(allow_none=True)
+    past_days = tl.Int(7)
+    incoming_node = tl.Unicode(allow_none=True)
+    outgoing_node = tl.Unicode(allow_none=True)
+    process_states = tl.List()
+    process_label = tl.Unicode(allow_none=True)
+    description_contains = tl.Unicode(allow_none=True)
 
     def __init__(self, path_to_root="../", **kwargs):
         self.path_to_root = path_to_root
@@ -604,10 +595,10 @@ class ProcessListWidget(ipw.VBox):
         self.output = ipw.HTML()
         update_button = ipw.Button(description="Update now")
         update_button.on_click(self.update)
-        self.update()
         super().__init__(
             children=[ipw.HBox([self.output, update_button]), self.table], **kwargs
         )
+        self.update()
 
     def update(self, _=None):
         """Perform the query."""
@@ -641,13 +632,13 @@ class ProcessListWidget(ipw.VBox):
         if self.incoming_node:
             relationships = {
                 **relationships,
-                **{"with_outgoing": load_node(self.incoming_node)},
+                **{"with_outgoing": orm.load_node(self.incoming_node)},
             }
 
         if self.outgoing_node:
             relationships = {
                 **relationships,
-                **{"with_incoming": load_node(self.outgoing_node)},
+                **{"with_incoming": orm.load_node(self.outgoing_node)},
             }
 
         query_set = builder.get_query_set(
@@ -677,41 +668,39 @@ class ProcessListWidget(ipw.VBox):
 
         # Add HTML links.
         dataf["PK"] = dataf["PK"].apply(
-            lambda x: """<a href={0}aiidalab-widgets-base/notebooks/process.ipynb?id={1} target="_blank">{1}</a>""".format(
-                self.path_to_root, x
-            )
+            lambda x: f"""<a href={self.path_to_root}aiidalab-widgets-base/notebooks/process.ipynb?id={x} target="_blank">{x}</a>"""
         )
         self.table.value += dataf.to_html(classes="df", escape=False, index=False)
 
-    @validate("incoming_node")
+    @tl.validate("incoming_node")
     def _validate_incoming_node(self, provided):
         """Validate incoming node."""
         node_uuid = provided["value"]
         try:
-            _ = UUID(node_uuid, version=4)
+            _ = uuid.UUID(node_uuid, version=4)
         except ValueError:
             self.output.value = f"""'<span style="color:red">{node_uuid}</span>'
             is not a valid UUID."""
         else:
             return node_uuid
 
-    @validate("outgoing_node")
+    @tl.validate("outgoing_node")
     def _validate_outgoing_node(self, provided):
-        """Validate outgoing node. The function load_node takes care of managing ids and uuids."""
+        """Validate outgoing node. The function orm.load_node takes care of managing ids and uuids."""
         node_uuid = provided["value"]
         try:
-            _ = UUID(node_uuid, version=4)
+            _ = uuid.UUID(node_uuid, version=4)
         except ValueError:
             self.output.value = f"""'<span style="color:red">{node_uuid}</span>'
             is not a valid UUID."""
         else:
             return node_uuid
 
-    @default("process_label")
+    @tl.default("process_label")
     def _default_process_label(self):
         return None
 
-    @validate("process_label")
+    @tl.validate("process_label")
     def _validate_process_label(self, provided):
         if provided["value"]:
             return provided["value"]
@@ -720,7 +709,7 @@ class ProcessListWidget(ipw.VBox):
     def _follow(self, update_interval):
         while True:
             self.update()
-            sleep(update_interval)
+            time.sleep(update_interval)
 
     def start_autoupdate(self, update_interval=10):
         import threading
@@ -729,23 +718,23 @@ class ProcessListWidget(ipw.VBox):
         update_state.start()
 
 
-class ProcessMonitor(traitlets.HasTraits):
+class ProcessMonitor(tl.HasTraits):
     """Monitor a process and execute callback functions at specified intervals."""
 
-    value = Unicode(allow_none=True)
+    value = tl.Unicode(allow_none=True)
 
     def __init__(self, callbacks=None, on_sealed=None, timeout=None, **kwargs):
         self.callbacks = [] if callbacks is None else list(callbacks)
         self.on_sealed = [] if on_sealed is None else list(on_sealed)
-        self.timeout = 0.1 if timeout is None else timeout
+        self.timeout = 1.0 if timeout is None else timeout
 
         self._monitor_thread = None
-        self._monitor_thread_stop = Event()
-        self._monitor_thread_lock = Lock()
+        self._monitor_thread_stop = threading.Event()
+        self._monitor_thread_lock = threading.Lock()
 
         super().__init__(**kwargs)
 
-    @traitlets.observe("value")
+    @tl.observe("value")
     def _observe_process(self, change):
         """When the value (process uuid) is changed, stop the previous
         monitor if exist. Start a new one in thread."""
@@ -762,14 +751,14 @@ class ProcessMonitor(traitlets.HasTraits):
 
         with self._monitor_thread_lock:
             self._monitor_thread_stop.clear()
-            self._monitor_thread = Thread(
+            self._monitor_thread = threading.Thread(
                 target=self._monitor_process, args=(process_uuid,)
             )
             self._monitor_thread.start()
 
     def _monitor_process(self, process_uuid):
         assert process_uuid is not None
-        process = load_node(process_uuid)
+        process = orm.load_node(process_uuid)
 
         disabled_funcs = set()
 
@@ -780,7 +769,7 @@ class ProcessMonitor(traitlets.HasTraits):
                     continue
 
                 try:
-                    if len(signature(func).parameters) > 0:
+                    if len(inspect.signature(func).parameters) > 0:
                         func(process_uuid)
                     else:
                         func()
@@ -812,8 +801,8 @@ class ProcessMonitor(traitlets.HasTraits):
 class ProcessNodesTreeWidget(ipw.VBox):
     """A tree widget for the structured representation of a process graph."""
 
-    value = traitlets.Unicode(allow_none=True)
-    selected_nodes = traitlets.Tuple(read_only=True).tag(trait=traitlets.Instance(Node))
+    value = tl.Unicode(allow_none=True)
+    selected_nodes = tl.Tuple(read_only=True).tag(trait=tl.Instance(orm.Node))
 
     def __init__(self, title="Process Tree", **kwargs):
         self.title = title  # needed for ProcessFollowerWidget
@@ -821,6 +810,7 @@ class ProcessNodesTreeWidget(ipw.VBox):
         self._tree = NodesTreeWidget()
         self._tree.observe(self._observe_tree_selected_nodes, ["selected_nodes"])
         super().__init__(children=[self._tree], **kwargs)
+        self.update()
 
     def _observe_tree_selected_nodes(self, change):
         self.set_trait("selected_nodes", change["new"])
@@ -828,11 +818,11 @@ class ProcessNodesTreeWidget(ipw.VBox):
     def update(self, _=None):
         self._tree.update()
 
-    @traitlets.observe("value")
+    @tl.observe("value")
     def _observe_process(self, change):
         process_uuid = change["new"]
         if process_uuid:
-            process = load_node(process_uuid)
+            process = orm.load_node(process_uuid)
             self._tree.nodes = [process]
             self._tree.find_node(process.pk).selected = True
         else:

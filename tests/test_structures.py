@@ -23,6 +23,9 @@ def test_structure_manager_widget(structure_data_object):
     assert structure_manager_widget.structure is not None
     assert isinstance(structure_manager_widget.structure, ase.Atoms)
 
+    # Test the structure periodicity
+    assert structure_manager_widget.viewer.periodicity.value == "Periodicity: xyz"
+
     # Store structure and check that it is stored.
     structure_manager_widget.store_structure()
     assert structure_manager_widget.structure_node.is_stored
@@ -141,6 +144,17 @@ def test_smiles_widget():
     widget._on_button_pressed()
     assert isinstance(widget.structure, ase.Atoms)
     assert widget.structure.get_chemical_formula() == "CH4"
+
+    # Regression test that we can generate 1-atom and 2-atom molecules
+    widget.smiles.value = "[O]"
+    widget._on_button_pressed()
+    assert isinstance(widget.structure, ase.Atoms)
+    assert widget.structure.get_chemical_formula() == "O"
+
+    widget.smiles.value = "N#N"
+    widget._on_button_pressed()
+    assert isinstance(widget.structure, ase.Atoms)
+    assert widget.structure.get_chemical_formula() == "N2"
 
 
 @pytest.mark.usefixtures("aiida_profile_clean")

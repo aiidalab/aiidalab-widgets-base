@@ -68,7 +68,6 @@ def test_structures_generate_from_smiles(selenium_driver, final_screenshot):
 def test_structure_from_examples_and_supercell_selection(
     selenium_driver, final_screenshot
 ):
-
     driver = selenium_driver("notebooks/structures.ipynb")
     driver.set_window_size(1000, 900)
     # Switch to "From Examples tab in StructureManagerWidget

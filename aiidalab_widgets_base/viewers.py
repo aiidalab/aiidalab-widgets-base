@@ -49,7 +49,7 @@ def viewer(obj, downloadable=True, **kwargs):
 
     try:
         _viewer = AIIDA_VIEWER_MAPPING[obj.node_type]
-    except (KeyError) as exc:
+    except KeyError as exc:
         if obj.node_type in str(exc):
             warnings.warn(
                 f"Did not find an appropriate viewer for the {type(obj)} object. Returning the object "
@@ -85,7 +85,6 @@ class AiidaNodeViewWidget(ipw.VBox):
 
 @register_viewer_widget("data.core.dict.Dict.")
 class DictViewer(ipw.VBox):
-
     value = tl.Unicode()
     """Viewer class for Dict object.
 
@@ -304,7 +303,6 @@ class _StructureDataBaseViewer(ipw.VBox):
         )
 
         def change_camera(change):
-
             self._viewer.camera = change["new"]
 
         camera_type.observe(change_camera, names="value")
@@ -319,8 +317,8 @@ class _StructureDataBaseViewer(ipw.VBox):
 
     @tl.observe("cell")
     def _observe_cell(self, _=None):
-        # only update cell info when it is a 3D structure.
-        if self.cell and all(self.structure.pbc):
+        # Updtate the Cell and Periodicity.
+        if self.cell:
             self.cell_a.value = "<i><b>a</b></i>: {:.4f} {:.4f} {:.4f}".format(
                 *self.cell.array[0]
             )
@@ -350,8 +348,21 @@ class _StructureDataBaseViewer(ipw.VBox):
                 spglib_structure, symprec=1e-5, angle_tolerance=1.0
             )
 
+            periodicity_map = {
+                (True, True, True): "xyz",
+                (True, False, False): "x",
+                (False, True, False): "y",
+                (False, False, True): "z",
+                (True, True, False): "xy",
+                (True, False, True): "xz",
+                (False, True, True): "yz",
+                (False, False, False): "-",
+            }
             self.cell_spacegroup.value = f"Spacegroup: {symmetry_dataset['international']} (No.{symmetry_dataset['number']})"
             self.cell_hall.value = f"Hall: {symmetry_dataset['hall']} (No.{symmetry_dataset['hall_number']})"
+            self.periodicity.value = (
+                f"Periodicity: {periodicity_map[tuple(self.structure.pbc)]}"
+            )
         else:
             self.cell_a.value = "<i><b>a</b></i>:"
             self.cell_b.value = "<i><b>b</b></i>:"
@@ -364,6 +375,10 @@ class _StructureDataBaseViewer(ipw.VBox):
             self.cell_alpha.value = "&alpha;:"
             self.cell_beta.value = "&beta;:"
             self.cell_gamma.value = "&gamma;:"
+
+            self.cell_spacegroup.value = ""
+            self.cell_hall.value = ""
+            self.periodicity.value = ""
 
     def _cell_tab(self):
         self.cell_a = ipw.HTML()
@@ -380,6 +395,7 @@ class _StructureDataBaseViewer(ipw.VBox):
 
         self.cell_spacegroup = ipw.HTML()
         self.cell_hall = ipw.HTML()
+        self.periodicity = ipw.HTML()
 
         self._observe_cell()
 
@@ -422,6 +438,7 @@ class _StructureDataBaseViewer(ipw.VBox):
                                 ipw.HTML("Symmetry information:"),
                                 self.cell_spacegroup,
                                 self.cell_hall,
+                                self.periodicity,
                             ],
                             layout={"margin": "0 0 0 50px"},
                         ),
@@ -1026,16 +1043,14 @@ class StructureDataViewer(_StructureDataBaseViewer):
             distv = self.displayed_structure.get_distance(
                 *self.displayed_selection, vector=True
             )
-            info += f"<p>Distance: {dist:.2f} ({print_pos(distv)})</p><p>Geometric center: ({geom_center})</p>"
+            info += f"<p>Distance: {dist:.3f} ({print_pos(distv)})</p><p>Geometric center: ({geom_center})</p>"
             return info_selected_atoms + info
 
         info_natoms_geo_center = f"<p>{len(self.displayed_selection)} atoms selected</p><p>Geometric center: ({geom_center})</p>"
 
         # Report angle geometric center and normal.
         if len(self.displayed_selection) == 3:
-            angle = self.displayed_structure.get_angle(*self.displayed_selection).round(
-                2
-            )
+            angle = self.displayed_structure.get_angle(*self.displayed_selection)
             normal = np.cross(
                 *self.displayed_structure.get_distances(
                     self.displayed_selection[1],
@@ -1047,7 +1062,7 @@ class StructureDataViewer(_StructureDataBaseViewer):
             normal = normal / np.linalg.norm(normal)
             return (
                 info_selected_atoms
-                + f"<p>{info_natoms_geo_center}</p><p>Angle: {angle}</p><p>Normal: ({print_pos(normal)})</p>"
+                + f"<p>{info_natoms_geo_center}</p><p>Angle: {angle: .3f}</p><p>Normal: ({print_pos(normal)})</p>"
             )
 
         # Report dihedral angle and geometric center.
@@ -1056,7 +1071,7 @@ class StructureDataViewer(_StructureDataBaseViewer):
                 dihedral = self.displayed_structure.get_dihedral(
                     *self.displayed_selection
                 )
-                dihedral_str = f"{dihedral:.2f}"
+                dihedral_str = f"{dihedral:.3f}"
             except ZeroDivisionError:
                 dihedral_str = "nan"
             return (

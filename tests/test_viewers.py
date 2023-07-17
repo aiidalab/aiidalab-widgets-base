@@ -3,6 +3,26 @@ from aiida import orm
 
 
 @pytest.mark.usefixtures("aiida_profile_clean")
+def test_pbc_structure_data_viewer(structure_data_object):
+    """Test the periodicity of the structure viewer widget."""
+
+    import ase
+
+    from aiidalab_widgets_base import viewers
+
+    # Prepare a structure with periodicity xy
+    ase_input = ase.Atoms(
+        symbols="Li2",
+        positions=[(0.0, 0.0, 0.0), (1.5, 1.5, 1.5)],
+        pbc=[True, True, False],
+        cell=[3.5, 3.5, 3.5],
+    )
+    viewer = viewers.StructureDataViewer()
+    viewer.structure = ase_input
+    assert viewer.periodicity.value == "Periodicity: xy"
+
+
+@pytest.mark.usefixtures("aiida_profile_clean")
 def test_several_data_viewers(
     bands_data_object, folder_data_object, generate_calc_job_node
 ):

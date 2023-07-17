@@ -1,11 +1,14 @@
 import io
+import json
 import os
 import shutil
+import time
+import uuid
 from collections.abc import Mapping
 
 import numpy as np
 import pytest
-from aiida import plugins
+from aiida import engine, orm, plugins
 
 pytest_plugins = ["aiida.manage.tests.pytest_fixtures"]
 
@@ -154,6 +157,34 @@ def generate_calc_job_node(fixture_localhost):
 
 
 @pytest.fixture
+def multiply_add_completed_workchain(aiida_local_code_bash):
+    """Return a `MultiplyAddWorkChain` instance with a `finished` process state and exit status of 0."""
+    from aiida.workflows.arithmetic.multiply_add import MultiplyAddWorkChain
+
+    inputs = {
+        "x": orm.Int(1),
+        "y": orm.Int(2),
+        "z": orm.Int(3),
+        "code": aiida_local_code_bash,
+    }
+    _, process = engine.run_get_node(MultiplyAddWorkChain, **inputs)
+    return process
+
+
+@pytest.fixture
+def multiply_add_process_builder_ready(aiida_local_code_bash):
+    """Return a `MultiplyAddWorkChain` builder with all inputs set."""
+    from aiida.workflows.arithmetic.multiply_add import MultiplyAddWorkChain
+
+    builder = MultiplyAddWorkChain.get_builder()
+    builder.x = orm.Int(1)
+    builder.y = orm.Int(2)
+    builder.z = orm.Int(3)
+    builder.code = aiida_local_code_bash
+    return builder
+
+
+@pytest.fixture
 def structure_data_object():
     """Return a `StructureData` object."""
     StructureData = plugins.DataFactory("core.structure")  # noqa: N806
@@ -166,6 +197,9 @@ def structure_data_object():
     )
     structure.append_atom(position=(0.0, 0.0, 0.0), symbols="Si")
     structure.append_atom(position=(1.923685, 1.110640, 0.785341), symbols="Si")
+    structure.base.extras.set_many(
+        {"eln": {"file_name": "file.xyz", "sample_uuid": "12345abcde"}}
+    )
     return structure
 
 
@@ -244,3 +278,66 @@ def folder_data_object():
 def aiida_local_code_bash(aiida_local_code_factory):
     """Return a `Code` configured for the bash executable."""
     return aiida_local_code_factory(executable="bash", entry_point="bash")
+
+
+@pytest.fixture
+def await_for_process_completeness():
+    """Await for a process to complete and return the process node."""
+
+    def _await_for_process_completeness(process):
+        """Await for a process to complete and return the process node."""
+        while not process.is_sealed:
+            time.sleep(0.1)
+        return process
+
+    return _await_for_process_completeness
+
+
+@pytest.fixture
+def mock_eln_config():
+    """Backup the ELN_CONFIG file and restore it after the test."""
+
+    class _MockElnConfig:
+        """Mock the ELN_CONFIG file."""
+
+        def mock(self, original_config):
+            """Backup the eln config file if it exists."""
+            self.original_config = original_config
+            self.backup_config_name = None
+            if self.original_config.exists():
+                self.backup_config_name = self.original_config.with_suffix(
+                    f".bak.{uuid.uuid4()}"
+                )
+                self.original_config.rename(self.backup_config_name)
+
+        def restore(self):
+            """Restore the eln config file if it existed and delete the test one."""
+            if self.original_config.exists():
+                self.original_config.unlink()
+
+            if self.backup_config_name and self.backup_config_name.exists():
+                self.backup_config_name.rename(self.original_config)
+
+        def populate_mock_config_with_cheminfo(self):
+            """Populate the mock config file with cheminfo credentials."""
+
+            dictionary = {
+                "https://mydb.cheminfo.org/": {
+                    "eln_type": "cheminfo",
+                    "token": "1234567890abcdef",
+                },
+                "default": "https://mydb.cheminfo.org/",
+            }
+            self.write(dictionary)
+
+        def write(self, config_dictionary):
+            """Write a config dictionary to the config file."""
+            with open(self.original_config, "w") as f:
+                json.dump(config_dictionary, f)
+
+        def get(self):
+            """Return the path to the config file."""
+            with open(self.original_config) as f:
+                return json.load(f)
+
+    return _MockElnConfig()

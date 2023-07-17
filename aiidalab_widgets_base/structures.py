@@ -212,7 +212,6 @@ class StructureManagerWidget(ipw.VBox):
             isinstance(self.input_structure, orm.Data)
             and self.input_structure.is_stored
         ):
-
             # Make a link between self.input_structure and self.structure_node
             @engine.calcfunction
             def user_modifications(source_structure):
@@ -725,7 +724,8 @@ class SmilesWidget(ipw.VBox):
         from sklearn.decomposition import PCA
 
         # Get the principal axes and realign the molecule along z-axis.
-        positions = PCA(n_components=3).fit_transform(positions)
+        if len(species) > 2:
+            positions = PCA(n_components=3).fit_transform(positions)
         atoms = ase.Atoms(species, positions=positions, pbc=False)
         atoms.cell = np.ptp(atoms.positions, axis=0) + 10
         atoms.center()
@@ -824,7 +824,6 @@ def _register_structure(operator):
 
     @functools.wraps(operator)
     def inner(ref, *args, **kwargs):
-
         if not ref.structure:
             ref._status_message.message = """
             <div class="alert alert-info">
@@ -854,7 +853,6 @@ def _register_selection(operator):
 
     @functools.wraps(operator)
     def inner(ref, *args, **kwargs):
-
         if not ref.selection:
             ref._status_message.message = """
             <div class="alert alert-info">
@@ -953,7 +951,6 @@ class BasicStructureEditor(ipw.VBox):
     camera_orientation = tl.List()
 
     def __init__(self, title=""):
-
         self.title = title
 
         # Define action vector.
