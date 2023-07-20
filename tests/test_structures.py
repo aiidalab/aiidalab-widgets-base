@@ -23,6 +23,9 @@ def test_structure_manager_widget(structure_data_object):
     assert structure_manager_widget.structure is not None
     assert isinstance(structure_manager_widget.structure, ase.Atoms)
 
+    # Test the structure periodicity
+    assert structure_manager_widget.viewer.periodicity.value == "Periodicity: xyz"
+
     # Store structure and check that it is stored.
     structure_manager_widget.store_structure()
     assert structure_manager_widget.structure_node.is_stored
