@@ -15,13 +15,13 @@ load_profile();</pre>
 if get_profile() is None:
     # if no profile is loaded, load the default profile and raise a deprecation warning
     from aiida import load_profile
-    from IPython.display import display, HTML
-    
+    from IPython.display import HTML, display
+
     load_profile()
-    
+
     profile = get_profile()
     assert profile is not None, "Failed to load the default profile"
-    
+
     # raise a deprecation warning
     warning = HTML(_WARNING_TEMPLATE.format(profile=profile.name, version="v3.0.0"))
     display(warning)
