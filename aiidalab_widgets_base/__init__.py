@@ -1,4 +1,6 @@
 """Reusable widgets for AiiDAlab applications."""
+import os
+
 from aiida.manage import get_profile
 
 _WARNING_TEMPLATE = """
@@ -11,8 +13,15 @@ load_profile();</pre>
 </div>
 """
 
+# use the environment variable to control the automatic profile loading
+# so it can be disabled for testing, e.g. in the CI
+# use `TESTING=1 pytest` to disable the automatic profile loading
+TESTING = os.environ.get("TESTING", "False").lower() in ["true", "1"]
 
-if get_profile() is None:
+# load the default profile if no profile is loaded, and raise a deprecation warning
+# this is a temporary solution to avoid breaking existing notebooks
+# this will be removed in the next major release
+if not TESTING and get_profile() is None:
     # if no profile is loaded, load the default profile and raise a deprecation warning
     from aiida import load_profile
     from IPython.display import HTML, display

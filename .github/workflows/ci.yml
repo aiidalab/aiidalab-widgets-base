@@ -126,7 +126,8 @@ jobs:
               run: pip install -e .[dev,smiles]
 
             - name: Run pytest
-              run: pytest -v tests --cov
+              # use TESTING=true to disable the automatic load of the aiida profile
+              run: TESTING=true pytest -v tests --cov
               env:
                   TAG: ${{ matrix.tag }}
 
