@@ -1,18 +1,15 @@
 import pytest
 from aiida import orm
 
-import aiidalab_widgets_base as awb
-from aiidalab_widgets_base.computational_resources import (
-    AiidaCodeSetup,
-    AiidaComputerSetup,
-    SshComputerSetup,
-)
+from aiidalab_widgets_base import computational_resources
 
 
 @pytest.mark.usefixtures("aiida_profile_clean")
 def test_computaional_resources_widget(aiida_local_code_bash):
     """Test the ComputationalResourcesWidget."""
-    widget = awb.ComputationalResourcesWidget(default_calc_job_plugin="bash")
+    widget = computational_resources.ComputationalResourcesWidget(
+        default_calc_job_plugin="bash"
+    )
 
     # Get the list of currently installed codes.
     codes_dict = widget._get_codes()
@@ -22,7 +19,7 @@ def test_computaional_resources_widget(aiida_local_code_bash):
 @pytest.mark.usefixtures("aiida_profile_clean")
 def test_ssh_computer_setup_widget():
     """Test the SshComputerSetup."""
-    widget = SshComputerSetup()
+    widget = computational_resources.SshComputerSetup()
 
     ssh_config = {
         "hostname": "daint.cscs.ch",
@@ -67,7 +64,7 @@ def test_ssh_computer_setup_widget():
 @pytest.mark.usefixtures("aiida_profile_clean")
 def test_aiida_computer_setup_widget():
     """Test the AiidaComputerSetup."""
-    widget = AiidaComputerSetup()
+    widget = computational_resources.AiidaComputerSetup()
 
     # At the beginning, the computer_name should be an empty string.
     assert widget.label.value == ""
@@ -118,7 +115,7 @@ def test_aiida_computer_setup_widget():
 @pytest.mark.usefixtures("aiida_profile_clean")
 def test_aiida_code_setup(aiida_localhost):
     """Test the AiidaCodeSetup."""
-    widget = AiidaCodeSetup()
+    widget = computational_resources.AiidaCodeSetup()
 
     # At the beginning, the code_name should be an empty string.
     assert widget.label.value == ""
@@ -160,7 +157,7 @@ def test_aiida_code_setup(aiida_localhost):
 @pytest.mark.usefixtures("aiida_profile_clean")
 def test_computer_dropdown_widget(aiida_localhost):
     """Test the ComputerDropdownWidget."""
-    widget = awb.ComputerDropdownWidget()
+    widget = computational_resources.ComputerDropdownWidget()
 
     assert "localhost" in widget.computers
 
