@@ -67,22 +67,29 @@ def test_structure_data_viwer(structure_data_object):
 
     # Selection of atoms.
 
-    # Direct selection
+    # Direct selection.
     v._selected_atoms.value = "1..2"
     v.apply_displayed_selection()
     assert v.selection == [0, 1]
 
-    # x coordinate lower than 0.5
+    # The x coordinate lower than 0.5.
     v._selected_atoms.value = "x<0.5"
     v.apply_displayed_selection()
     assert v.selection == [0]
 
-    # id of the second atom
+    # The id of the second atom
     v._selected_atoms.value = "id > 1"
     v.apply_displayed_selection()
     assert v.selection == [1]
 
-    # or of the two selections
+    # or of the two selections.
     v._selected_atoms.value = "x>0.5 or x<0.5"
     v.apply_displayed_selection()
     assert v.selection == [0, 1]
+
+    # Check the `_prepare_payload` function used for downloading.
+    output = v._prepare_payload()
+    assert (
+        output
+        == """MgpMYXR0aWNlPSIzLjg0NzM3IDAuMCAwLjAgMS45MjM2ODUgMy4zMzE5MiAwLjAgMS45MjM2ODUgMS4xMTA2NCAzLjE0MTM2NCIgUHJvcGVydGllcz1zcGVjaWVzOlM6MTpwb3M6UjozOm1hc3NlczpSOjEgcGJjPSJUIFQgVCIKU2kgICAgICAgMC4wMDAwMDAwMCAgICAgICAwLjAwMDAwMDAwICAgICAgIDAuMDAwMDAwMDAgICAgICAyOC4wODU1MDAwMApTaSAgICAgICAxLjkyMzY4NTAwICAgICAgIDEuMTEwNjQwMDAgICAgICAgMC43ODUzNDEwMCAgICAgIDI4LjA4NTUwMDAwCg=="""
+    )
