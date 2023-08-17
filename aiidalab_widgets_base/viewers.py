@@ -452,7 +452,14 @@ class _StructureDataBaseViewer(ipw.VBox):
 
         # 1. Choose download file format.
         self.file_format = ipw.Dropdown(
-            options=["xyz", "cif"],
+            label="Extended xyz",
+            # File extension and format may be differen. Therefore, we define both.
+            options=(
+                ("xyz", {"extension": "xyz", "format": "xyz"}),
+                ("cif", {"extension": "cif", "format": "cif"}),
+                ("Extended xyz", {"extension": "xyz", "format": "extxyz"}),
+                ("xsf", {"extension": "xsf", "format": "xsf"}),
+            ),
             layout={"width": "200px"},
             description="File format:",
         )
@@ -710,10 +717,13 @@ class _StructureDataBaseViewer(ipw.VBox):
 
     def download(self, change=None):  # pylint: disable=unused-argument
         """Prepare a structure for downloading."""
-        suffix = f"-pk-{self.pk}" if self.pk else ""
+        payload = self._prepare_payload()
+        if payload is None:
+            return
+        suffix = f"pk-{self.pk}" if self.pk else "not-stored"
         self._download(
             payload=self._prepare_payload(),
-            filename=f"structure{suffix}.{self.file_format.value}",
+            filename=f"""structure-{suffix}.{self.file_format.value["extension"]}""",
         )
 
     @staticmethod
@@ -737,7 +747,10 @@ class _StructureDataBaseViewer(ipw.VBox):
         """Prepare binary information."""
         from tempfile import NamedTemporaryFile
 
-        file_format = file_format if file_format else self.file_format.value
+        if not self.structure:
+            return None
+
+        file_format = file_format if file_format else self.file_format.value["format"]
         tmp = NamedTemporaryFile()
         self.structure.write(tmp.name, format=file_format)  # pylint: disable=no-member
         with open(tmp.name, "rb") as raw:
