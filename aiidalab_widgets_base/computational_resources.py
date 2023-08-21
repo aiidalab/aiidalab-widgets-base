@@ -733,8 +733,9 @@ class AiidaComputerSetup(ipw.VBox):
         )
 
         # Transport type.
-        self.transport = ipw.HTML(
-            value="SSH",
+        self.transport = ipw.Dropdown(
+            value="core.local",
+            options=plugins.entry_point.get_entry_point_names("aiida.transports"),
             description="Transport type:",
             style=STYLE,
         )
@@ -940,6 +941,7 @@ class AiidaComputerSetup(ipw.VBox):
         self.mpirun_command.value = "mpirun -n {tot_num_mpiprocs}"
         self.default_memory_per_machine_widget.value = ""
         self.mpiprocs_per_machine.value = 1
+        self.transport.value = "core.ssh"
         self.safe_interval.value = 30.0
         self.scheduler.value = "core.slurm"
         self.shebang.value = "#!/usr/bin/env bash"
