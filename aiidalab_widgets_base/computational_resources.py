@@ -817,8 +817,8 @@ class AiidaComputerSetup(ipw.VBox):
 
         super().__init__(children, **kwargs)
 
-    def _configure_computer(self, computer: orm.Computer):
-        """Configure the computer"""
+    def _configure_computer_ssh(self, computer: orm.Computer):
+        """Configure the computer with SSH transport"""
         sshcfg = parse_sshconfig(self.hostname.value)
         authparams = {
             "port": int(sshcfg.get("port", 22)),
@@ -853,6 +853,17 @@ class AiidaComputerSetup(ipw.VBox):
             authparams["proxy_jump"] = sshcfg["proxyjump"]
 
         # user default AiiDA user
+        user = orm.User.collection.get_default()
+        computer.configure(user=user, **authparams)
+
+        return True
+
+    def _configure_computer_local(self, computer: orm.Computer):
+        """Configure the computer with local transport"""
+        authparams = {
+            "use_login_shell": self.use_login_shell.value,
+            "safe_interval": self.safe_interval.value,
+        }
         user = orm.User.collection.get_default()
         computer.configure(user=user, **authparams)
 
@@ -902,7 +913,14 @@ class AiidaComputerSetup(ipw.VBox):
         )
         try:
             computer = computer_builder.new()
-            self._configure_computer(computer)
+            if self.transport.value == "core.ssh":
+                self._configure_computer_ssh(computer)
+            if self.transport.value == "core.local":
+                self._configure_computer_local(computer)
+            else:
+                self.message = (
+                    f"WARNING: Transport value {self.transport.value} not recognized!"
+                )
         except (
             ComputerBuilder.ComputerValidationError,
             common.exceptions.ValidationError,
