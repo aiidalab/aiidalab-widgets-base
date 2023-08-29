@@ -453,7 +453,7 @@ class _StructureDataBaseViewer(ipw.VBox):
         # 1. Choose download file format.
         self.file_format = ipw.Dropdown(
             label="Extended xyz",
-            # File extension and format may be differen. Therefore, we define both.
+            # File extension and format may be different. Therefore, we define both.
             options=(
                 ("xyz", {"extension": "xyz", "format": "xyz"}),
                 ("cif", {"extension": "cif", "format": "cif"}),
@@ -717,12 +717,12 @@ class _StructureDataBaseViewer(ipw.VBox):
 
     def download(self, change=None):  # pylint: disable=unused-argument
         """Prepare a structure for downloading."""
-        payload = self._prepare_payload()
+        payload = self._prepare_payload(self.file_format.value["format"])
         if payload is None:
             return
         suffix = f"pk-{self.pk}" if self.pk else "not-stored"
         self._download(
-            payload=self._prepare_payload(),
+            payload=payload,
             filename=f"""structure-{suffix}.{self.file_format.value["extension"]}""",
         )
 
