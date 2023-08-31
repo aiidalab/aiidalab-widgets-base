@@ -820,7 +820,7 @@ class AiidaComputerSetup(ipw.VBox):
     def _configure_computer(self, computer: orm.Computer, transport: str):
         if transport == "core.ssh":
             self._configure_computer_ssh(computer)
-        if transport == "core.local":
+        elif transport == "core.local":
             self._configure_computer_local(computer)
         else:
             msg = f"invalid transport type '{transport}'"
