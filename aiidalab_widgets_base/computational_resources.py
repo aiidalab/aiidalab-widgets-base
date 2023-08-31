@@ -677,7 +677,7 @@ class AiidaComputerSetup(ipw.VBox):
         # Directory where to run the simulations.
         self.work_dir = ipw.Text(
             value="/scratch/{username}/aiida_run",
-            description="Workdir:",
+            description="Working directory:",
             layout=LAYOUT,
             style=STYLE,
         )
@@ -817,6 +817,15 @@ class AiidaComputerSetup(ipw.VBox):
 
         super().__init__(children, **kwargs)
 
+    def _configure_computer(self, computer: orm.Computer, transport: str):
+        if transport == "core.ssh":
+            self._configure_computer_ssh(computer)
+        if transport == "core.local":
+            self._configure_computer_local(computer)
+        else:
+            msg = f"invalid transport type '{transport}'"
+            raise common.exceptions.ValidationError(msg)
+
     def _configure_computer_ssh(self, computer: orm.Computer):
         """Configure the computer with SSH transport"""
         sshcfg = parse_sshconfig(self.hostname.value)
@@ -844,7 +853,6 @@ class AiidaComputerSetup(ipw.VBox):
             authparams["username"] = sshcfg["user"]
         except KeyError as exc:
             message = "SSH username is not provided"
-            self.message = message
             raise RuntimeError(message) from exc
 
         if "proxycommand" in sshcfg:
@@ -880,10 +888,25 @@ class AiidaComputerSetup(ipw.VBox):
         else:
             return True
 
+    def _validate_computer_settings(self):
+        if self.label.value == "":  # check computer label
+            self.message = "Please specify the computer name (for AiiDA)"
+            return False
+
+        if self.work_dir.value == "":
+            self.message = "Please specify working directory"
+            return False
+
+        if self.hostname.value == "":
+            self.message = "Please specify hostname"
+            return False
+
+        return True
+
     def on_setup_computer(self, _=None):
         """Create a new computer."""
-        if self.label.value == "":  # check hostname
-            self.message = "Please specify the computer name (for AiiDA)"
+
+        if not self._validate_computer_settings():
             return False
 
         # If the computer already exists, we just run the registered functions and return
@@ -913,23 +936,15 @@ class AiidaComputerSetup(ipw.VBox):
         )
         try:
             computer = computer_builder.new()
-            if self.transport.value == "core.ssh":
-                self._configure_computer_ssh(computer)
-            if self.transport.value == "core.local":
-                self._configure_computer_local(computer)
-            else:
-                self.message = (
-                    f"WARNING: Transport value {self.transport.value} not recognized!"
-                )
+            self._configure_computer(computer, self.transport.value)
+            computer.store()
         except (
             ComputerBuilder.ComputerValidationError,
             common.exceptions.ValidationError,
             RuntimeError,
         ) as err:
-            self.message = f"Failed to setup computer {type(err).__name__}: {err}"
+            self.message = f"Computer setup failed! {type(err).__name__}: {err}"
             return False
-        else:
-            computer.store()
 
         # Callbacks will not run if the computer is not stored
         if self._run_callbacks_if_computer_exists(self.label.value):
@@ -955,7 +970,7 @@ class AiidaComputerSetup(ipw.VBox):
         self.label.value = ""
         self.hostname.value = ""
         self.description.value = ""
-        self.work_dir.value = ""
+        self.work_dir.value = "/home/{username}/aiida_run"
         self.mpirun_command.value = "mpirun -n {tot_num_mpiprocs}"
         self.default_memory_per_machine_widget.value = ""
         self.mpiprocs_per_machine.value = 1
