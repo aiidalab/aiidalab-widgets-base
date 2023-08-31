@@ -927,11 +927,20 @@ class AiidaComputerSetup(ipw.VBox):
     def test(self, _=None):
         with self._test_out:
             clear_output()
-            print(
-                subprocess.check_output(
-                    ["verdi", "computer", "test", "--print-traceback", self.label.value]
-                ).decode("utf-8")
-            )
+            try:
+                print(
+                    subprocess.check_output(
+                        [
+                            "verdi",
+                            "computer",
+                            "test",
+                            "--print-traceback",
+                            self.label.value,
+                        ]
+                    ).decode("utf-8")
+                )
+            except subprocess.CalledProcessError as error:
+                print(error)
 
     def _reset(self):
         self.label.value = ""
