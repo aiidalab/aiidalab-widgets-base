@@ -223,7 +223,7 @@ class ComputationalResourcesDatabaseWidget(ipw.VBox):
         self.inp_computer = ipw.Dropdown(
             options=[],
             description="Computer:",
-            disable=False,
+            disabled=False,
         )
         self.inp_computer.observe(self._computer_changed, names=["value", "options"])
 
@@ -231,7 +231,7 @@ class ComputationalResourcesDatabaseWidget(ipw.VBox):
         self.inp_code = ipw.Dropdown(
             options=[],
             description="Code:",
-            disable=False,
+            disabled=False,
         )
         self.inp_code.observe(self._code_changed, names=["value", "options"])
 
