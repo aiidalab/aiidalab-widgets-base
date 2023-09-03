@@ -218,8 +218,8 @@ def test_running_calcjob_output_widget(generate_calc_job_node):
         }
     )
 
-    # Test the widget can be instantiated with a process
-    RunningCalcJobOutputWidget(calculation=process)
+    widget = RunningCalcJobOutputWidget()
+    widget.process = process
 
 
 @pytest.mark.usefixtures("aiida_profile_clean")

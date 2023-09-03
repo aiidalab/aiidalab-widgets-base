@@ -34,7 +34,10 @@ class FunctionalGroupSelectorWidget(ipw.Dropdown):
         self.style = {"description_width": "initial"}
         self.layout = {"width": "initial"}
         super().__init__(
-            value=value, description=description, options=FUNCTIONAL_GROUPS, **kwargs
+            value=value,
+            description=description,
+            options=[(key, value) for key, value in FUNCTIONAL_GROUPS.items()],
+            **kwargs,
         )
 
     def rotate(self, align_to=(0, 0, 1), remove_anchor=False):

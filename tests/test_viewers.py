@@ -59,7 +59,7 @@ def test_several_data_viewers(
 
 
 @pytest.mark.usefixtures("aiida_profile_clean")
-def test_structure_data_viwer(structure_data_object):
+def test_structure_data_viewer(structure_data_object):
     v = viewers.viewer(structure_data_object)
     assert isinstance(v, viewers.StructureDataViewer)
 

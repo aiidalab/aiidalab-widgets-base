@@ -13,7 +13,10 @@ def test_cod_query_widget():
     # Run the query.
     widget._on_click_query()
 
-    # Select on of the results.
+    # Select one of the results.
+    # TODO: Select a different structure to get rid of the ASE warning:
+    # "ase/io/cif.py:401: UserWarning: crystal system 'cubic' is not interpreted
+    # for space group 'Pm-3m'. This may result in wrong setting!"
     widget.drop_structure.label = "NiTi (id: 1100132)"
 
     # Check that the structure was loaded.
