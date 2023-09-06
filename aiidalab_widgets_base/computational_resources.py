@@ -11,7 +11,6 @@ import pexpect
 import shortuuid
 import traitlets
 from aiida import common, orm, plugins
-from aiida.common.exceptions import NotExistent
 from aiida.orm.utils.builders.computer import ComputerBuilder
 from aiida.transports.plugins.ssh import parse_sshconfig
 from humanfriendly import InvalidSize, parse_size
@@ -684,8 +683,9 @@ class AiidaComputerSetup(ipw.VBox):
 
         # Directory where to run the simulations.
         self.work_dir = ipw.Text(
-            value="/scratch/{username}/aiida_run",
-            description="Working directory:",
+            value="",
+            placeholder="/home/{username}/aiida_run",
+            description="AiiDA working directory:",
             layout=LAYOUT,
             style=STYLE,
         )
@@ -826,15 +826,17 @@ class AiidaComputerSetup(ipw.VBox):
         super().__init__(children, **kwargs)
 
     def _configure_computer(self, computer: orm.Computer, transport: str):
+        # Use default AiiDA user
+        user = orm.User.collection.get_default()
         if transport == "core.ssh":
-            self._configure_computer_ssh(computer)
+            self._configure_computer_ssh(computer, user)
         elif transport == "core.local":
-            self._configure_computer_local(computer)
+            self._configure_computer_local(computer, user)
         else:
             msg = f"invalid transport type '{transport}'"
-            raise common.exceptions.ValidationError(msg)
+            raise common.ValidationError(msg)
 
-    def _configure_computer_ssh(self, computer: orm.Computer):
+    def _configure_computer_ssh(self, computer: orm.Computer, user: orm.User):
         """Configure the computer with SSH transport"""
         sshcfg = parse_sshconfig(self.hostname.value)
         authparams = {
@@ -868,21 +870,16 @@ class AiidaComputerSetup(ipw.VBox):
         elif "proxyjump" in sshcfg:
             authparams["proxy_jump"] = sshcfg["proxyjump"]
 
-        # user default AiiDA user
-        user = orm.User.collection.get_default()
         computer.configure(user=user, **authparams)
-
         return True
 
-    def _configure_computer_local(self, computer: orm.Computer):
+    def _configure_computer_local(self, computer: orm.Computer, user: orm.User):
         """Configure the computer with local transport"""
         authparams = {
             "use_login_shell": self.use_login_shell.value,
             "safe_interval": self.safe_interval.value,
         }
-        user = orm.User.collection.get_default()
         computer.configure(user=user, **authparams)
-
         return True
 
     def _run_callbacks_if_computer_exists(self, label):
@@ -978,7 +975,7 @@ class AiidaComputerSetup(ipw.VBox):
         self.label.value = ""
         self.hostname.value = ""
         self.description.value = ""
-        self.work_dir.value = "/home/{username}/aiida_run"
+        self.work_dir.value = ""
         self.mpirun_command.value = "mpirun -n {tot_num_mpiprocs}"
         self.default_memory_per_machine_widget.value = ""
         self.mpiprocs_per_machine.value = 1
@@ -1193,7 +1190,7 @@ class AiidaCodeSetup(ipw.VBox):
                     # if the computer is set pass the UUID to ComputerDropdownWdiget.
                     try:
                         computer = orm.load_computer(value)
-                    except NotExistent:
+                    except common.NotExistent:
                         getattr(self, key).value = None
                     else:
                         getattr(self, key).value = computer.uuid
