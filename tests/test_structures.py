@@ -158,6 +158,27 @@ def test_smiles_widget():
 
 
 @pytest.mark.usefixtures("aiida_profile_clean")
+def test_smiles_canonicalization():
+    """Test the SMILES canonicalization via RdKit."""
+    widget = awb.SmilesWidget()
+
+    # Should not change canonical smiles
+    assert widget.canonicalize_smiles("C") == "C"
+
+    # Should canonicalize this
+    canonical = widget.canonicalize_smiles("O=CC=C")
+    assert canonical == "C=CC=O"
+
+    # Should be idempotent
+    assert canonical == widget.canonicalize_smiles(canonical)
+
+    # Regression test for https://github.com/aiidalab/aiidalab-widgets-base/issues/505
+    # Throwing in this non-canonical string should not raise
+    nasty_smiles = "C=CC1=C(C2=CC=C(C3=CC=CC=C3)C=C2)C=C(C=C)C(C4=CC=C(C(C=C5)=CC=C5C(C=C6C=C)=C(C=C)C=C6C7=CC=C(C(C=C8)=CC=C8C(C=C9C=C)=C(C=C)C=C9C%10=CC=CC=C%10)C=C7)C=C4)=C1"
+    widget._rdkit_opt(nasty_smiles, steps=1)
+
+
+@pytest.mark.usefixtures("aiida_profile_clean")
 def test_basic_cell_editor_widget(structure_data_object):
     """Test the `BasicCellEditor`."""
     import aiidalab_widgets_base as awb
