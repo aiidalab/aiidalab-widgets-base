@@ -5,15 +5,15 @@ from aiidalab_widgets_base import computational_resources
 
 
 @pytest.mark.usefixtures("aiida_profile_clean")
-def test_computaional_resources_widget(aiida_local_code_bash):
+def test_computational_resources_widget(aiida_local_code_bash):
     """Test the ComputationalResourcesWidget."""
     widget = computational_resources.ComputationalResourcesWidget(
         default_calc_job_plugin="bash"
     )
 
     # Get the list of currently installed codes.
-    codes_dict = widget._get_codes()
-    assert "bash@localhost" in codes_dict
+    codes = widget._get_codes()
+    assert "bash@localhost" == codes[0][0]
 
 
 @pytest.mark.usefixtures("aiida_profile_clean")
