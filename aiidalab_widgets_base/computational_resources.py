@@ -11,7 +11,6 @@ import pexpect
 import shortuuid
 import traitlets
 from aiida import common, orm, plugins
-from aiida.common.exceptions import NotExistent
 from aiida.orm.utils.builders.computer import ComputerBuilder
 from aiida.transports.plugins.ssh import parse_sshconfig
 from humanfriendly import InvalidSize, parse_size
@@ -684,8 +683,9 @@ class AiidaComputerSetup(ipw.VBox):
 
         # Directory where to run the simulations.
         self.work_dir = ipw.Text(
-            value="/scratch/{username}/aiida_run",
-            description="Workdir:",
+            value="",
+            placeholder="/home/{username}/aiida_run",
+            description="AiiDA working directory:",
             layout=LAYOUT,
             style=STYLE,
         )
@@ -825,8 +825,19 @@ class AiidaComputerSetup(ipw.VBox):
 
         super().__init__(children, **kwargs)
 
-    def _configure_computer(self, computer: orm.Computer):
-        """Configure the computer"""
+    def _configure_computer(self, computer: orm.Computer, transport: str):
+        # Use default AiiDA user
+        user = orm.User.collection.get_default()
+        if transport == "core.ssh":
+            self._configure_computer_ssh(computer, user)
+        elif transport == "core.local":
+            self._configure_computer_local(computer, user)
+        else:
+            msg = f"invalid transport type '{transport}'"
+            raise common.ValidationError(msg)
+
+    def _configure_computer_ssh(self, computer: orm.Computer, user: orm.User):
+        """Configure the computer with SSH transport"""
         sshcfg = parse_sshconfig(self.hostname.value)
         authparams = {
             "port": int(sshcfg.get("port", 22)),
@@ -852,7 +863,6 @@ class AiidaComputerSetup(ipw.VBox):
             authparams["username"] = sshcfg["user"]
         except KeyError as exc:
             message = "SSH username is not provided"
-            self.message = message
             raise RuntimeError(message) from exc
 
         if "proxycommand" in sshcfg:
@@ -860,10 +870,16 @@ class AiidaComputerSetup(ipw.VBox):
         elif "proxyjump" in sshcfg:
             authparams["proxy_jump"] = sshcfg["proxyjump"]
 
-        # user default AiiDA user
-        user = orm.User.collection.get_default()
         computer.configure(user=user, **authparams)
+        return True
 
+    def _configure_computer_local(self, computer: orm.Computer, user: orm.User):
+        """Configure the computer with local transport"""
+        authparams = {
+            "use_login_shell": self.use_login_shell.value,
+            "safe_interval": self.safe_interval.value,
+        }
+        computer.configure(user=user, **authparams)
         return True
 
     def _run_callbacks_if_computer_exists(self, label):
@@ -877,10 +893,25 @@ class AiidaComputerSetup(ipw.VBox):
         else:
             return True
 
+    def _validate_computer_settings(self):
+        if self.label.value == "":  # check computer label
+            self.message = "Please specify the computer name (for AiiDA)"
+            return False
+
+        if self.work_dir.value == "":
+            self.message = "Please specify working directory"
+            return False
+
+        if self.hostname.value == "":
+            self.message = "Please specify hostname"
+            return False
+
+        return True
+
     def on_setup_computer(self, _=None):
         """Create a new computer."""
-        if self.label.value == "":  # check hostname
-            self.message = "Please specify the computer name (for AiiDA)"
+
+        if not self._validate_computer_settings():
             return False
 
         # If the computer already exists, we just run the registered functions and return
@@ -910,16 +941,15 @@ class AiidaComputerSetup(ipw.VBox):
         )
         try:
             computer = computer_builder.new()
-            self._configure_computer(computer)
+            self._configure_computer(computer, self.transport.value)
+            computer.store()
         except (
             ComputerBuilder.ComputerValidationError,
             common.exceptions.ValidationError,
             RuntimeError,
         ) as err:
-            self.message = f"Failed to setup computer {type(err).__name__}: {err}"
+            self.message = f"Computer setup failed! {type(err).__name__}: {err}"
             return False
-        else:
-            computer.store()
 
         # Callbacks will not run if the computer is not stored
         if self._run_callbacks_if_computer_exists(self.label.value):
@@ -1160,7 +1190,7 @@ class AiidaCodeSetup(ipw.VBox):
                     # if the computer is set pass the UUID to ComputerDropdownWdiget.
                     try:
                         computer = orm.load_computer(value)
-                    except NotExistent:
+                    except common.NotExistent:
                         getattr(self, key).value = None
                     else:
                         getattr(self, key).value = computer.uuid
