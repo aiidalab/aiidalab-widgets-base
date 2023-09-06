@@ -968,10 +968,12 @@ class AiidaComputerSetup(ipw.VBox):
 
     def test(self, _=None):
         if self.label.value == "":
-            self._test_out = "Please specify the computer name (for AiiDA)"
+            self._test_out.value = "Please specify the computer name (for AiiDA)."
             return False
         elif not self._computer_exists(self.label.value):
-            self._test_out = f"A computer called {self.label.value} does not exist."
+            self._test_out.value = (
+                f"A computer called <b>{self.label.value}</b> does not exist."
+            )
             return False
 
         process_result = subprocess.run(
@@ -980,10 +982,14 @@ class AiidaComputerSetup(ipw.VBox):
         )
 
         if process_result.returncode == 0:
-            self._test_out = process_result.stdout.decode("utf-8")
+            self._test_out.value = process_result.stdout.decode("utf-8").replace(
+                "\n", "<br>"
+            )
             return True
         else:
-            self._test_out = process_result.stderr.decode("utf-8")
+            self._test_out.value = process_result.stderr.decode("utf-8").replace(
+                "\n", "<br>"
+            )
             return False
 
     def _reset(self):
