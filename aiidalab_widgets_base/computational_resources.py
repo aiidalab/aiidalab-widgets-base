@@ -799,7 +799,7 @@ class AiidaComputerSetup(ipw.VBox):
         self.setup_button.on_click(self.on_setup_computer)
         test_button = ipw.Button(description="Test computer")
         test_button.on_click(self.test)
-        self._test_out = ipw.Output(layout=LAYOUT)
+        self._test_out = ipw.HTML(layout=LAYOUT)
 
         # Organize the widgets
         children = [
@@ -884,14 +884,18 @@ class AiidaComputerSetup(ipw.VBox):
 
     def _run_callbacks_if_computer_exists(self, label):
         """Run things on an existing computer"""
-        try:
-            orm.Computer.objects.get(label=label)
+        if self._computer_exists(label):
             for function in self._on_setup_computer_success:
                 function()
+            return True
+        return False
+
+    def _computer_exists(self, label):
+        try:
+            orm.Computer.objects.get(label=label)
         except common.NotExistent:
             return False
-        else:
-            return True
+        return True
 
     def _validate_computer_settings(self):
         if self.label.value == "":  # check computer label
@@ -963,22 +967,24 @@ class AiidaComputerSetup(ipw.VBox):
         self._on_setup_computer_success.append(function)
 
     def test(self, _=None):
-        with self._test_out:
-            clear_output()
-            try:
-                print(
-                    subprocess.check_output(
-                        [
-                            "verdi",
-                            "computer",
-                            "test",
-                            "--print-traceback",
-                            self.label.value,
-                        ]
-                    ).decode("utf-8")
-                )
-            except subprocess.CalledProcessError as error:
-                print(error)
+        if self.label.value == "":
+            self._test_out = "Please specify the computer name (for AiiDA)"
+            return False
+        elif not self._computer_exists(self.label.value):
+            self._test_out = f"A computer called {self.label.value} does not exist."
+            return False
+
+        process_result = subprocess.run(
+            ["verdi", "computer", "test", "--print-traceback", self.label.value],
+            capture_output=True,
+        )
+
+        if process_result.returncode == 0:
+            self._test_out = process_result.stdout.decode("utf-8")
+            return True
+        else:
+            self._test_out = process_result.stderr.decode("utf-8")
+            return False
 
     def _reset(self):
         self.label.value = ""
