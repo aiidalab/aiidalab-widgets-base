@@ -11,6 +11,7 @@ filterwarnings = [
     "ignore::DeprecationWarning:bokeh.core.property.primitive",
     "ignore:Creating AiiDA configuration:UserWarning:aiida",
     "ignore:crystal system:UserWarning:ase.io.cif",
+    'ignore::DeprecationWarning:ase.atoms',
     # https://github.com/CasperWA/ipywidgets-extended/issues/85
     "ignore:metadata:DeprecationWarning:ipywidgets_extended.dropdown",
     # For some reason we get this error, perhaps because we do
