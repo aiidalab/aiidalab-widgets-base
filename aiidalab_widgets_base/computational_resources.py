@@ -61,7 +61,16 @@ class ComputationalResourcesWidget(ipw.VBox):
             value=None,
             style={"description_width": "initial"},
         )
-        traitlets.link((self, "codes"), (self.code_select_dropdown, "options"))
+        traitlets.directional_link(
+            (self, "codes"),
+            (self.code_select_dropdown, "options"),
+            transform=lambda x: [(key, x[key]) for key in x],
+        )
+        traitlets.directional_link(
+            (self.code_select_dropdown, "options"),
+            (self, "codes"),
+            transform=lambda x: {c[0]: c[1] for c in x},
+        )
         traitlets.link((self.code_select_dropdown, "value"), (self, "value"))
 
         self.observe(
@@ -161,8 +170,8 @@ class ComputationalResourcesWidget(ipw.VBox):
 
         user = orm.User.collection.get_default()
 
-        return {
-            self._full_code_label(c[0]): c[0].uuid
+        return [
+            (self._full_code_label(c[0]), c[0].uuid)
             for c in orm.QueryBuilder()
             .append(
                 orm.Code,
@@ -172,7 +181,7 @@ class ComputationalResourcesWidget(ipw.VBox):
             if c[0].computer.is_user_configured(user)
             and (self.allow_hidden_codes or not c[0].is_hidden)
             and (self.allow_disabled_computers or c[0].computer.is_user_enabled(user))
-        }
+        ]
 
     @staticmethod
     def _full_code_label(code):
@@ -335,7 +344,6 @@ class SshComputerSetup(ipw.VBox):
         self._inp_private_key = ipw.FileUpload(
             accept="",
             layout=LAYOUT,
-            style=STYLE,
             description="Private key",
             multiple=False,
         )
@@ -1187,14 +1195,22 @@ class ComputerDropdownWidget(ipw.VBox):
 
         self.output = ipw.HTML()
         self._dropdown = ipw.Dropdown(
-            options={},
             value=None,
             description=description,
             style=STYLE,
             layout=LAYOUT,
             disabled=True,
         )
-        traitlets.link((self, "computers"), (self._dropdown, "options"))
+        traitlets.directional_link(
+            (self, "computers"),
+            (self._dropdown, "options"),
+            transform=lambda x: [(key, x[key]) for key in x],
+        )
+        traitlets.directional_link(
+            (self._dropdown, "options"),
+            (self, "computers"),
+            transform=lambda x: {c[0]: c[1] for c in x},
+        )
         traitlets.link((self._dropdown, "value"), (self, "value"))
 
         self.observe(self.refresh, names="allow_select_disabled")
@@ -1210,18 +1226,18 @@ class ComputerDropdownWidget(ipw.VBox):
         self.refresh()
         super().__init__(children=children, **kwargs)
 
-    def _get_computers(self):
+    def _get_computers(self) -> list:
         """Get the list of available computers."""
 
         # Getting the current user.
         user = orm.User.collection.get_default()
 
-        return {
-            c[0].label: c[0].uuid
+        return [
+            (c[0].label, c[0].uuid)
             for c in orm.QueryBuilder().append(orm.Computer).all()
             if c[0].is_user_configured(user)
             and (self.allow_select_disabled or c[0].is_user_enabled(user))
-        }
+        ]
 
     def refresh(self, _=None):
         """Refresh the list of configured computers."""
