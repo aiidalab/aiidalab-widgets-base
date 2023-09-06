@@ -1,8 +1,11 @@
+from __future__ import annotations
+
 import enum
 import os
 import subprocess
 import threading
-from copy import copy
+from collections import namedtuple
+from copy import copy, deepcopy
 from pathlib import Path
 from uuid import UUID
 
@@ -15,12 +18,13 @@ from aiida.orm.utils.builders.computer import ComputerBuilder
 from aiida.transports.plugins import ssh as aiida_ssh_plugin
 from humanfriendly import InvalidSize, parse_size
 from IPython.display import clear_output, display
+from jinja2 import Environment, meta
 
-from .databases import ComputationalResourcesDatabaseWidget
+from .databases import NewComputationalResourcesDatabaseWidget
 from .utils import StatusHTML
 
-STYLE = {"description_width": "180px"}
-LAYOUT = {"width": "400px"}
+STYLE = {"description_width": "140px"}
+LAYOUT = {"width": "300px"}
 
 
 class ComputationalResourcesWidget(ipw.VBox):
@@ -45,15 +49,24 @@ class ComputationalResourcesWidget(ipw.VBox):
     codes = traitlets.Dict(allow_none=True)
     allow_hidden_codes = traitlets.Bool(False)
     allow_disabled_computers = traitlets.Bool(False)
-    default_calc_job_plugin = traitlets.Unicode(allow_none=True)
 
-    def __init__(self, description="Select code:", path_to_root="../", **kwargs):
+    def __init__(
+        self,
+        description="Select code:",
+        quick_setup=True,
+        clear_after=None,
+        default_calc_job_plugin=None,
+        **kwargs,
+    ):
         """Dropdown for Codes for one input plugin.
 
         description (str): Description to display before the dropdown.
         """
+        clear_after = clear_after or 15
+        self.default_calc_job_plugin = default_calc_job_plugin
+        self.enable_quick_setup = quick_setup
         self.output = ipw.HTML()
-        self.setup_message = StatusHTML(clear_after=30)
+        self.setup_message = StatusHTML(clear_after=clear_after)
         self.code_select_dropdown = ipw.Dropdown(
             description=description,
             disabled=True,
@@ -88,93 +101,70 @@ class ComputationalResourcesWidget(ipw.VBox):
         ]
         super().__init__(children=children, **kwargs)
 
-        # Setting up codes and computers.
-        self.comp_resources_database = ComputationalResourcesDatabaseWidget(
+        # Quick setup.
+        self.quick_setup = QuickSetupWidget(
             default_calc_job_plugin=self.default_calc_job_plugin
         )
-
-        self.ssh_computer_setup = SshComputerSetup()
+        self.quick_setup.observe(self.refresh, "success")
         ipw.dlink(
-            (self.ssh_computer_setup, "message"),
+            (self.quick_setup, "message"),
             (self.setup_message, "message"),
-        )
-
-        ipw.dlink(
-            (self.comp_resources_database, "ssh_config"),
-            (self.ssh_computer_setup, "ssh_config"),
-        )
-
-        self.aiida_computer_setup = AiidaComputerSetup()
-        ipw.dlink(
-            (self.aiida_computer_setup, "message"),
-            (self.setup_message, "message"),
-        )
-        ipw.dlink(
-            (self.comp_resources_database, "computer_setup"),
-            (self.aiida_computer_setup, "computer_setup"),
-        )
-
-        # Set up AiiDA code.
-        self.aiida_code_setup = AiidaCodeSetup()
-        ipw.dlink(
-            (self.aiida_code_setup, "message"),
-            (self.setup_message, "message"),
-        )
-        ipw.dlink(
-            (self.comp_resources_database, "code_setup"),
-            (self.aiida_code_setup, "code_setup"),
-        )
-        self.aiida_code_setup.on_setup_code_success(self.refresh)
-
-        # After a successfull computer setup the codes widget should be refreshed.
-        # E.g. the list of available computers needs to be updated.
-        self.aiida_computer_setup.on_setup_computer_success(
-            self.aiida_code_setup.refresh
-        )
-
-        # Quick setup.
-        quick_setup_button = ipw.Button(description="Quick Setup")
-        quick_setup_button.on_click(self.quick_setup)
-        self.quick_setup = ipw.VBox(
-            children=[
-                self.ssh_computer_setup.username,
-                quick_setup_button,
-                self.aiida_code_setup.setup_code_out,
-            ]
+            # Add a prefix "quick setup: " to the message.
+            transform=lambda x: f"Quick setup: {x}" if x else "",
         )
 
         # Detailed setup.
-        self.detailed_setup = ipw.Accordion(
-            children=[
-                self.ssh_computer_setup,
-                self.aiida_computer_setup,
-                self.aiida_code_setup,
-            ]
+        self.detailed_setup = DetailedSetupWidget()
+        self.detailed_setup.observe(self.refresh, "success")
+        ipw.dlink(
+            (self.detailed_setup, "message"),
+            (self.setup_message, "message"),
+            # Add a prefix "detailed setup: " to the message.
+            transform=lambda x: f"Detailed setup: {x}" if x else "",
         )
-        self.detailed_setup.set_title(0, "Set up password-less SSH connection")
-        self.detailed_setup.set_title(1, "Set up a computer in AiiDA")
-        self.detailed_setup.set_title(2, "Set up a code in AiiDA")
+
+        # link the trait of quick setup to detailed setup because they are
+        # synchronized
+        ipw.dlink(
+            (self.quick_setup, "ssh_config"),
+            (self.detailed_setup, "ssh_config"),
+        )
+        # link the password and username fields to sync the updates
+        ipw.dlink(
+            (self.quick_setup.ssh_computer_setup.username, "value"),
+            (self.detailed_setup.ssh_computer_setup.username, "value"),
+        )
+        ipw.dlink(
+            (self.quick_setup.ssh_computer_setup._ssh_password, "value"),
+            (self.detailed_setup.ssh_computer_setup._ssh_password, "value"),
+        )
+
+        ipw.dlink(
+            (self.quick_setup, "computer_setup"),
+            (self.detailed_setup, "computer_setup"),
+        )
+        ipw.dlink(
+            (self.quick_setup, "code_setup"),
+            (self.detailed_setup, "code_setup"),
+        )
 
         self.refresh()
-
-    def quick_setup(self, _=None):
-        """Go through all the setup steps automatically."""
-        with self.hold_trait_notifications():
-            self.ssh_computer_setup._on_setup_ssh_button_pressed()
-            if self.aiida_computer_setup.on_setup_computer():
-                self.aiida_code_setup.on_setup_code()
 
     def _get_codes(self):
         """Query the list of available codes."""
 
         user = orm.User.collection.get_default()
+        if self.default_calc_job_plugin is None:
+            filters = {}
+        else:
+            filters = {"attributes.input_plugin": self.default_calc_job_plugin}
 
         return [
             (self._full_code_label(c[0]), c[0].uuid)
             for c in orm.QueryBuilder()
             .append(
                 orm.Code,
-                filters={"attributes.input_plugin": self.default_calc_job_plugin},
+                filters=filters,
             )
             .all()
             if c[0].computer.is_user_configured(user)
@@ -228,26 +218,28 @@ class ComputationalResourcesWidget(ipw.VBox):
                     "width": "500px",
                     "border": "1px solid gray",
                 }
-                if self.comp_resources_database.database:
+                # Using database to check if the quick setup should be displayed is for
+                # backward compatibility. In the future, please only use quick_setup variable.
+                # Deperecate in v3.0.0
+                # if self.quick_setup.comp_resources_database.database is None and not self.enable_quick_setup:
+                #     # raise deprecate warning
+                #     pass
+                if (
+                    self.quick_setup.comp_resources_database.database is None
+                    or not self.enable_quick_setup
+                ):
+                    # Display only Detailed Setup if DB is empty
+                    children = [self.setup_message, self.detailed_setup]
+                else:
                     setup_tab = ipw.Tab(
                         children=[self.quick_setup, self.detailed_setup]
                     )
                     setup_tab.set_title(0, "Quick Setup")
                     setup_tab.set_title(1, "Detailed Setup")
                     children = [
-                        ipw.HTML(
-                            """Please select the computer/code from a database to pre-fill the fields below."""
-                        ),
-                        self.comp_resources_database,
-                        self.ssh_computer_setup.password_box,
                         self.setup_message,
                         setup_tab,
                     ]
-                else:
-                    # Display only Detailed Setup if DB is empty
-                    setup_tab = ipw.Tab(children=[self.detailed_setup])
-                    setup_tab.set_title(0, "Detailed Setup")
-                    children = [self.setup_message, setup_tab]
                 display(*children)
             else:
                 self._setup_new_code_output.layout = {
@@ -304,27 +296,34 @@ class SshComputerSetup(ipw.VBox):
         self._ssh_connection_message = None
         self._password_message = ipw.HTML()
         ipw.dlink((self, "password_message"), (self._password_message, "value"))
-        self._ssh_password = ipw.Password(layout={"width": "150px"}, disabled=True)
+        self._ssh_password = ipw.Password(
+            description="password:",
+            disabled=False,
+            layout=LAYOUT,
+            style=STYLE,
+        )
+        # Don't show the continue button until it ask for password the
+        # second time, which happened when the proxy jump is set. The
+        # first time it ask for password is for the jump host.
         self._continue_with_password_button = ipw.Button(
-            description="Continue", layout={"width": "100px"}, disabled=True
+            description="Continue",
+            layout={"width": "100px", "display": "none"},
         )
         self._continue_with_password_button.on_click(self._send_password)
 
         self.password_box = ipw.VBox(
             [
-                self._password_message,
                 ipw.HBox([self._ssh_password, self._continue_with_password_button]),
+                self._password_message,
             ]
         )
 
         # Username.
-        self.username = ipw.Text(
-            description="SSH username:", layout=LAYOUT, style=STYLE
-        )
+        self.username = ipw.Text(description="username:", layout=LAYOUT, style=STYLE)
 
         # Port.
         self.port = ipw.IntText(
-            description="SSH port:",
+            description="port:",
             value=22,
             layout=LAYOUT,
             style=STYLE,
@@ -464,26 +463,30 @@ class SshComputerSetup(ipw.VBox):
                 file.write(f"  IdentityFile {private_key_abs_fname}\n")
             file.write("  ServerAliveInterval 5\n")
 
-    def _on_setup_ssh_button_pressed(self, _=None):
+    def key_pair_prepare(self):
+        """Prepare key pair for the ssh connection."""
         # Always start by generating a key pair if they are not present.
         self._ssh_keygen()
 
         # If hostname & username are not provided - do not do anything.
         if self.hostname.value == "":  # check hostname
-            self.message = "Please specify the computer hostname."
-            return False
+            message = "Please specify the computer name (for SSH)"
+
+            raise ValueError(message)
 
         if self.username.value == "":  # check username
-            self.message = "Please specify your SSH username."
-            return False
+            message = "Please specify your SSH username."
+
+            raise ValueError(message)
 
         private_key_abs_fname = None
         if self._verification_mode.value == "private_key":
             # unwrap private key file and setting temporary private_key content
             private_key_abs_fname, private_key_content = self._private_key
             if private_key_abs_fname is None:  # check private key file
-                self.message = "Please upload your private key file."
-                return False
+                message = "Please upload your private key file."
+
+                raise ValueError(message)
 
             # Write private key in ~/.ssh/ and use the name of upload file,
             # if exist, generate random string and append to filename then override current name.
@@ -499,13 +502,24 @@ class SshComputerSetup(ipw.VBox):
         if not self._is_in_config():
             self._write_ssh_config(private_key_abs_fname=private_key_abs_fname)
 
-        # Copy public key on the remote computer.
+    def thread_ssh_copy_id(self):
+        """Copy public key on the remote computer, on a separate thread."""
         ssh_connection_thread = threading.Thread(target=self._ssh_copy_id)
         ssh_connection_thread.start()
 
+    def _on_setup_ssh_button_pressed(self, _=None):
+        """Setup ssh connection."""
+        try:
+            self.key_pair_prepare()
+        except ValueError as exc:
+            self.message = str(exc)
+            return
+
+        self.thread_ssh_copy_id()
+
     def _ssh_copy_id(self):
         """Run the ssh-copy-id command and follow it until it is completed."""
-        timeout = 30
+        timeout = 10
         self.password_message = f"Sending public key to {self.hostname.value}... "
         self._ssh_connection_process = pexpect.spawn(
             f"ssh-copy-id {self.hostname.value}"
@@ -518,11 +532,7 @@ class SshComputerSetup(ipw.VBox):
                 )
                 self.ssh_connection_state = SshConnectionState(idx)
             except pexpect.TIMEOUT:
-                self._ssh_password.disabled = True
-                self._continue_with_password_button.disabled = True
-                self.password_message = (
-                    f"Exceeded {timeout} s timeout. Please start again."
-                )
+                self.password_message = f"Exceeded {timeout} s timeout. Please check you username and password and try again."
                 break
 
             # Terminating the process when nothing else can be done.
@@ -540,7 +550,6 @@ class SshComputerSetup(ipw.VBox):
         self._ssh_connection_process = None
 
     def _send_password(self, _=None):
-        self._ssh_password.disabled = True
         self._continue_with_password_button.disabled = True
         self._ssh_connection_process.sendline(self._ssh_password.value)
 
@@ -596,7 +605,12 @@ class SshComputerSetup(ipw.VBox):
             self._continue_with_password_button.disabled = False
             self._ssh_connection_message = message
 
-        self.ssh_connection_state = SshConnectionState.waiting_for_input
+        # If user did not provide a password, we wait for the input.
+        # Otherwise, we send the password.
+        if self._ssh_password.value == "":
+            self.ssh_connection_state = SshConnectionState.waiting_for_input
+        else:
+            self._send_password()
 
     def _on_verification_mode_change(self, change):
         """which verification mode is chosen."""
@@ -1053,7 +1067,7 @@ class AiidaCodeSetup(ipw.VBox):
     code_setup = traitlets.Dict(allow_none=True)
     message = traitlets.Unicode()
 
-    def __init__(self, path_to_root="../", **kwargs):
+    def __init__(self, **kwargs):
         self._on_setup_code_success = []
 
         # Code label.
@@ -1065,9 +1079,7 @@ class AiidaCodeSetup(ipw.VBox):
 
         # Computer on which the code is installed. The value of this widget is
         # the UUID of the selected computer.
-        self.computer = ComputerDropdownWidget(
-            path_to_root=path_to_root,
-        )
+        self.computer = ComputerDropdownWidget()
 
         # Code plugin.
         self.default_calc_job_plugin = ipw.Dropdown(
@@ -1219,9 +1231,13 @@ class AiidaCodeSetup(ipw.VBox):
             if hasattr(self, key):
                 if key == "default_calc_job_plugin":
                     try:
-                        getattr(self, key).label = value
+                        self.default_calc_job_plugin.value = value
                     except traitlets.TraitError:
-                        self.message = f"Input plugin {value} is not installed."
+                        import re
+
+                        # If is a template then don't raise the error message.
+                        if not re.match(r".*{{.+}}.*", value):
+                            self.message = f"Input plugin {value} is not installed."
                 elif key == "computer":
                     # check if the computer is set by load the label.
                     # if the computer not set put the value to None as placeholder for
@@ -1250,12 +1266,10 @@ class ComputerDropdownWidget(ipw.VBox):
     computers = traitlets.Dict(allow_none=True)
     allow_select_disabled = traitlets.Bool(False)
 
-    def __init__(self, description="Select computer:", path_to_root="../", **kwargs):
+    def __init__(self, description="Select computer:", **kwargs):
         """Dropdown for configured AiiDA Computers.
 
         description (str): Text to display before dropdown.
-
-        path_to_root (str): Path to the app's root folder.
         """
 
         self.output = ipw.HTML()
@@ -1332,3 +1346,510 @@ class ComputerDropdownWidget(ipw.VBox):
             is not a valid UUID."""
         else:
             return computer_uuid
+
+
+TemplateVariableLine = namedtuple("TemplateVariableLine", ["key", "str", "vars"])
+
+TemplateVariable = namedtuple("TemplateVariable", ["widget", "lines"])
+
+
+class TemplateVariablesWidget(ipw.VBox):
+    # The input template is a dictionary of keyname and template string.
+    templates = traitlets.Dict(allow_none=True)
+
+    # The output template is a dictionary of keyname and filled string.
+    filled_templates = traitlets.Dict(allow_none=True)
+
+    def __init__(self):
+        # A placeholder for the template variables widget.
+        self.template_variables = ipw.VBox()
+
+        # A dictionary of mapping variables.
+        # the key is the variable name, and the value is a tuple of (template value and widget).
+        self._template_variables = {}
+        self._help_text = ipw.HTML(
+            """<div>Please fill the template variables below.</div>"""
+        )
+        self._help_text.layout.display = "none"
+
+        super().__init__(
+            children=[
+                self._help_text,
+                self.template_variables,
+            ]
+        )
+
+    def reset(self):
+        """Reset the widget."""
+        self.templates = {}
+        self.filled_templates = {}
+        self._template_variables = {}
+        self._help_text.layout.display = "none"
+        self.template_variables.children = []
+
+    @traitlets.observe("templates")
+    def _templates_changed(self, _=None):
+        """Render the template variables widget."""
+        # reset traits and then render the widget.
+        self._template_variables = {}
+        self.filled_templates = {}
+        self._help_text.layout.display = "none"
+
+        self._render()
+
+        # Update the output filled template.
+        filled_templates = deepcopy(self.templates)
+        if "metadata" in filled_templates:
+            del filled_templates["metadata"]
+
+        self.filled_templates = filled_templates
+
+    def _render(self):
+        """Render the template variables widget."""
+        metadata = self.templates.get("metadata", {})
+        tooltip = metadata.get("tooltip", None)
+
+        if tooltip:
+            self._help_text.value = f"""<div>{tooltip}</div>"""
+
+        for line_key, line_str in self.templates.items():
+            env = Environment()
+            parsed_content = env.parse(line_str)
+
+            # vars is a set of variables in the template
+            line_vars = meta.find_undeclared_variables(parsed_content)
+
+            # Create a widget for each variable.
+            # The var is the name in a template string
+            for var in line_vars:
+                # one var can be used in multiple templates, so we need to keep track of the mapping with the set of variables.
+                var_meta = metadata.get(var, {})
+                if var in self._template_variables:
+                    # use the same widget for the same variable.
+                    temp_var = self._template_variables[var]
+                    w = temp_var.widget
+                    lines = temp_var.lines
+                    lines.append(TemplateVariableLine(line_key, line_str, line_vars))
+                    template_var = TemplateVariable(w, lines)
+
+                    self._template_variables[var] = template_var
+                else:
+                    # create a new widget for the variable.
+                    description = var_meta.get("key_display", f"{var}:")
+                    widget_type = var_meta.get("type", "text")
+                    if widget_type == "text":
+                        w = ipw.Text(
+                            description=description,
+                            value=var_meta.get("default", ""),
+                            # delay notifying the observers until the user stops typing
+                            continuous_update=False,
+                            layout=LAYOUT,
+                            style=STYLE,
+                        )
+                    elif widget_type == "list":
+                        w = ipw.Dropdown(
+                            description=description,
+                            options=var_meta.get("options", ()),
+                            value=var_meta.get("default", None),
+                            layout=LAYOUT,
+                            style=STYLE,
+                        )
+                    else:
+                        raise ValueError(f"Invalid widget type {widget_type}")
+
+                    # Every time the value of the widget changes, we update the filled template.
+                    # This migth be too much to sync the final filled template every time.
+                    w.observe(self._on_template_variable_filled, names="value")
+
+                    template_var = TemplateVariable(
+                        w, [TemplateVariableLine(line_key, line_str, line_vars)]
+                    )
+                    self._template_variables[var] = template_var
+
+        # Render by change the VBox children of placeholder.
+        self.template_variables.children = [
+            # widget is shared so we only need to get the first one.
+            template_var.widget
+            for template_var in self._template_variables.values()
+        ]
+
+        # Show the help text if there are template variables.
+        if self.template_variables.children:
+            self._help_text.layout.display = "block"
+
+    def _on_template_variable_filled(self, change):
+        """Callback when a template variable is filled."""
+        # Update the changed filled template for the widget that is changed.
+        for template_var in self._template_variables.values():
+            if template_var.widget is not change["owner"]:
+                continue
+
+            for line in template_var.lines:
+                # See if all variables are set in widget and ready from the mapping
+                # If not continue to wait for the inputs.
+                for _var in line.vars:
+                    # Be careful that here we cannot conditional on whether still there is un-filled template, because the template with default is valid to pass as output filled template.
+                    if self._template_variables[_var].widget.value == "":
+                        return
+
+                # If all variables are ready, update the filled template.
+                inp_dict = {
+                    _var: self._template_variables[_var].widget.value
+                    for _var in line.vars
+                }
+
+                # re-render the template
+                env = Environment()
+                filled_str = env.from_string(line.str).render(**inp_dict)
+
+                # Update the filled template.
+                # use deepcopy to assure the trait change is triggered.
+                filled_templates = deepcopy(self.filled_templates)
+                filled_templates[line.key] = filled_str
+                self.filled_templates = filled_templates
+
+
+class QuickSetupWidget(ipw.VBox):
+    """The widget that allows to quickly setup a computer and code."""
+
+    success = traitlets.Bool(False)
+    message = traitlets.Unicode()
+
+    ssh_config = traitlets.Dict(allow_none=True)
+    computer_setup = traitlets.Dict(
+        allow_none=True
+    )  # In the format of {setup: {}, configure: {}}
+    code_setup = traitlets.Dict(allow_none=True)
+
+    def __init__(self, default_calc_job_plugin=None, **kwargs):
+        quick_setup_button = ipw.Button(description="Quick setup")
+        quick_setup_button.on_click(self._on_quick_setup)
+
+        # resource database for setup computer/code.
+        self.comp_resources_database = NewComputationalResourcesDatabaseWidget(
+            default_calc_job_plugin=default_calc_job_plugin
+        )
+        self.comp_resources_database.observe(
+            self._on_select_computer, names="computer_setup"
+        )
+        self.comp_resources_database.observe(self._on_select_code, names="code_setup")
+
+        self.ssh_computer_setup = SshComputerSetup()
+        self.ssh_computer_setup.observe(self._on_ssh_computer_setup, names="ssh_config")
+        ipw.dlink(
+            (self.ssh_computer_setup, "message"),
+            (self, "message"),
+        )
+        ipw.dlink(
+            (self, "ssh_config"),
+            (self.ssh_computer_setup, "ssh_config"),
+        )
+
+        self.aiida_computer_setup = AiidaComputerSetup()
+        self.aiida_computer_setup.on_setup_computer_success(
+            self._on_setup_computer_success
+        )
+        # link two traits so only one of them needs to be set (in the widget only manipulate with `self.computer_setup``)
+        ipw.dlink(
+            (self, "computer_setup"),
+            (self.aiida_computer_setup, "computer_setup"),
+        )
+        ipw.dlink(
+            (self.aiida_computer_setup, "message"),
+            (self, "message"),
+        )
+
+        self.aiida_code_setup = AiidaCodeSetup()
+        self.aiida_code_setup.on_setup_code_success(self._on_setup_code_success)
+        # link two traits so only one of them needs to be set (in the widget only manipulate with `self.code_setup``)
+        ipw.dlink(
+            (self, "code_setup"),
+            (self.aiida_code_setup, "code_setup"),
+        )
+        ipw.dlink(
+            (self.aiida_code_setup, "message"),
+            (self, "message"),
+        )
+
+        # The placeholder widget for the template variable of config.
+        self.template_variables_computer = TemplateVariablesWidget()
+        self.template_variables_computer.observe(
+            self._on_template_variables_computer_filled, names="filled_templates"
+        )
+        self.template_variables_code = TemplateVariablesWidget()
+        self.template_variables_code.observe(
+            self._on_template_variables_code_filled, names="filled_templates"
+        )
+
+        self.ssh_credential_help = ipw.HTML(
+            """<div>SSH credential to the remote machine</div>"""
+        )
+
+        super().__init__(
+            children=[
+                ipw.HTML(
+                    """<div>Please select the computer/code from a database to pre-fill the fields below.</div>
+                    """
+                ),
+                self.comp_resources_database,
+                self.template_variables_computer,
+                self.template_variables_code,
+                self.ssh_credential_help,
+                self.ssh_computer_setup.username,
+                self.ssh_computer_setup.password_box,
+                quick_setup_button,
+            ],
+            **kwargs,
+        )
+
+    def _on_ssh_computer_setup(self, change=None):
+        """Callback when the ssh config is set."""
+        # Update the ssh config.
+        self.ssh_config = change["new"]
+
+    def _on_template_variables_computer_filled(self, change):
+        """Callback when the template variables of computer are filled."""
+        # Update the filled template.
+        computer_setup = deepcopy(self.computer_setup)
+        computer_setup["setup"] = change["new"]
+        self.computer_setup = computer_setup
+
+    def _on_template_variables_code_filled(self, change):
+        """Callback when the template variables of code are filled."""
+        # Update the filled template.
+        code_setup = deepcopy(self.code_setup)
+        code_setup = change["new"]
+        self.code_setup = code_setup
+
+    def _on_select_computer(self, change):
+        """Update the computer trait"""
+        # reset the widget first to clean all the input fields (ssh_config, computer_setup, code_setup).
+        self.reset()
+
+        if not change["new"]:
+            return
+
+        new_setup = change["new"]
+
+        # Read from template and prepare the widgets for the template variables.
+        self.template_variables_computer.templates = new_setup["setup"]
+
+        # pre-set the input fields no matter if the template variables are set.
+        self.computer_setup = new_setup
+
+        # ssh config need to sync hostname etc to resource database.
+        self.ssh_config = self.comp_resources_database.ssh_config
+
+        # decide whether to show the ssh password box widget.
+        # Since for 2FA ssh credential, the password are not needed but set from
+        # independent mechanism.
+        if new_setup["setup"].get("metadata", {}).get("ssh_auth", None) == "2FA":
+            self.ssh_computer_setup.password_box.layout.display = "none"
+        else:
+            self.ssh_computer_setup.password_box.layout.display = "block"
+
+    def _on_select_code(self, change):
+        """Update the code trait"""
+        self.message = ""
+        self.success = False
+
+        self.template_variables_code.reset()
+        self.aiida_code_setup._reset()
+        self.code_setup = {}
+
+        if change["new"] is None:
+            return
+
+        new_setup = change["new"]
+        self.template_variables_code.templates = new_setup
+
+        self.code_setup = new_setup
+
+    def _on_quick_setup(self, _=None):
+        """Go through all the setup steps automatically."""
+        # Use default values for the template variables if not set.
+        # and the same time check if all templates are filled.
+        # Be careful there are same key in both template_variables_computer and template_variables_code, e.g. label.
+        # So can not combine them by {**a, **b}
+        for w_tmp in [self.template_variables_computer, self.template_variables_code]:
+            metadata = w_tmp.templates.get("metadata", {})
+            filled_templates = deepcopy(w_tmp.filled_templates)
+
+            for k, v in w_tmp.filled_templates.items():
+                env = Environment()
+                parsed_content = env.parse(v)
+                vs = meta.find_undeclared_variables(parsed_content)
+
+                # No variables in the template, all filled.
+                if len(vs) == 0:
+                    continue
+
+                default_values = {}
+                for var in vs:
+                    # check if the default value is exist for this variable.
+                    default = metadata.get(var, {}).get("default", None)
+                    if default is None:
+                        self.message = f"Please fill missing variable: {var}"
+                        return
+                    else:
+                        default_values[var] = default
+
+                filled_templates[k] = env.from_string(v).render(**default_values)
+
+            # Update the filled template to trigger the trait change.
+            w_tmp.filled_templates = filled_templates
+
+        # Fill text fields with template variables.
+        with self.hold_trait_notifications():
+            computer_setup = deepcopy(self.computer_setup)
+            computer_setup["setup"] = self.template_variables_computer.filled_templates
+            self.computer_setup = computer_setup
+
+            code_setup = deepcopy(self.code_setup)
+            code_setup = self.template_variables_code.filled_templates
+            self.code_setup = code_setup
+
+        # Setup the computer and code.
+        try:
+            self.ssh_computer_setup.key_pair_prepare()
+        except ValueError as exc:
+            self.message = f"Invalid inputs: {exc}"
+
+        if self.aiida_computer_setup.on_setup_computer():
+            self.aiida_code_setup.on_setup_code()
+
+        self.ssh_computer_setup.thread_ssh_copy_id()
+
+    def _on_setup_computer_success(self):
+        """Callback that is called when the computer is successfully set up."""
+        # update the computer dropdown list of code setup
+        self.aiida_code_setup.refresh()
+
+        # and set the computer in the code_setup
+        code_setup = deepcopy(self.code_setup)
+        code_setup["computer"] = self.computer_setup["setup"]["label"]
+        self.code_setup = code_setup
+
+    def _on_setup_code_success(self):
+        """Callback that is called when the code is successfully set up."""
+        self.success = True
+
+    def reset(self):
+        """Reset the widget."""
+        self.message = ""
+        self.success = False
+
+        # reset template variables
+        self.template_variables_computer.reset()
+        self.template_variables_code.reset()
+
+        # reset sub widgets
+        self.aiida_code_setup._reset()
+        self.aiida_computer_setup._reset()
+        self.ssh_computer_setup._reset()
+
+        # reset traits
+        self.ssh_config = {}
+        self.computer_setup = {}
+        self.code_setup = {}
+
+
+class DetailedSetupWidget(ipw.VBox):
+    """The widget that allows to setup a computer and code step by step in details."""
+
+    # input to pre-fill the fields.
+    ssh_config = traitlets.Dict(allow_none=True)
+    computer_setup = traitlets.Dict(allow_none=True)
+    code_setup = traitlets.Dict(allow_none=True)
+
+    message = traitlets.Unicode()
+    success = traitlets.Bool(False)
+
+    _description_text = """<div>Setup a computer and code step by step in details. </br>
+        Go through the steps to setup SSH connection to remote machine, computer, and code into database. </br>
+        The SSH connection step can be skipped and setup afterwards.</br>
+        </div>"""
+
+    def __init__(self, **kwargs):
+        self.ssh_computer_setup = SshComputerSetup()
+
+        self.aiida_computer_setup = AiidaComputerSetup()
+        self.aiida_computer_setup.on_setup_computer_success(
+            self._on_setup_computer_success
+        )
+
+        self.aiida_code_setup = AiidaCodeSetup()
+        self.aiida_code_setup.on_setup_code_success(self._on_setup_code_success)
+
+        ipw.dlink(
+            (self.ssh_computer_setup, "message"),
+            (self, "message"),
+        )
+
+        ipw.dlink(
+            (self.aiida_computer_setup, "message"),
+            (self, "message"),
+        )
+
+        ipw.dlink(
+            (self.aiida_code_setup, "message"),
+            (self, "message"),
+        )
+
+        description = ipw.HTML(self._description_text)
+
+        detailed_setup = ipw.Accordion(
+            children=[
+                self.ssh_computer_setup,
+                self.aiida_computer_setup,
+                self.aiida_code_setup,
+            ],
+        )
+        detailed_setup.set_title(0, "Set up password-less SSH connection")
+        detailed_setup.set_title(1, "Set up a computer in AiiDA")
+        detailed_setup.set_title(2, "Set up a code in AiiDA")
+
+        super().__init__(
+            children=[
+                description,
+                detailed_setup,
+            ],
+            **kwargs,
+        )
+
+    @traitlets.observe("ssh_config")
+    def _on_ssh_config(self, change=None):
+        """Pre-filling the input fields."""
+        if change["new"] is None:
+            return
+        self.ssh_computer_setup.ssh_config = self.ssh_config
+
+    @traitlets.observe("computer_setup")
+    def _on_computer_setup(self, change=None):
+        """Pre-filling the input fields."""
+        if change["new"] is None:
+            return
+        self.aiida_computer_setup.computer_setup = self.computer_setup
+
+    @traitlets.observe("code_setup")
+    def _on_code_setup(self, change=None):
+        """Pre-filling the input fields."""
+        if change["new"] is None:
+            return
+
+        self.reset()
+        self.aiida_code_setup.code_setup = self.code_setup
+
+    def _on_setup_computer_success(self):
+        """Callback that is called when the computer is successfully set up."""
+        # update the computer dropdown list of code setup
+        self.aiida_code_setup.refresh()
+
+    def _on_setup_code_success(self):
+        """Callback that is called when the code is successfully set up."""
+        self.success = True
+
+    def reset(self):
+        """Reset widget."""
+        self.success = False
+        self.message = ""
