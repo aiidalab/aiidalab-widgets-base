@@ -116,6 +116,52 @@ def test_aiida_computer_setup_widget():
 
 
 @pytest.mark.usefixtures("aiida_profile_clean")
+def test_aiida_localhost_setup_widget():
+    """Test the AiidaComputerSetup with core.local Trasport."""
+    widget = computational_resources.AiidaComputerSetup()
+
+    # At the beginning, the computer_name should be an empty string.
+    assert widget.label.value == ""
+
+    # Preparing the computer setup.
+    computer_setup = {
+        "setup": {
+            "label": "localhosttest",
+            "hostname": "localhost",
+            "description": "locahost computer",
+            "work_dir": "/home/jovyan/aiida_run",
+            "mpirun_command": "srun -n {tot_num_mpiprocs}",
+            "default_memory_per_machine": 2000000000,
+            "mpiprocs_per_machine": 2,
+            "transport": "core.local",
+            "scheduler": "core.direct",
+            "shebang": "#!/bin/bash",
+            "use_double_quotes": True,
+            "prepend_text": "",
+            "append_text": "",
+        },
+        "configure": {
+            "safe_interval": 10,
+            "use_login_shell": True,
+        },
+    }
+
+    widget.computer_setup = computer_setup
+    assert widget.on_setup_computer()
+
+    # Check that the computer is created.
+    computer = orm.load_computer("localhosttest")
+    assert computer.label == "localhosttest"
+    assert computer.hostname == "localhost"
+
+    # Reset the widget and check that a few attributes are reset.
+    widget.computer_setup = {}
+    assert widget.label.value == ""
+    assert widget.hostname.value == ""
+    assert widget.description.value == ""
+
+
+@pytest.mark.usefixtures("aiida_profile_clean")
 def test_aiida_code_setup(aiida_localhost):
     """Test the AiidaCodeSetup."""
     from aiida import orm
