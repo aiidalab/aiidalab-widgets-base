@@ -1,11 +1,12 @@
 import ase
 
+import aiidalab_widgets_base as awb
+
 
 def test_cod_query_widget():
     """Test the COD query widget."""
-    from aiidalab_widgets_base import CodQueryWidget
 
-    widget = CodQueryWidget()
+    widget = awb.CodQueryWidget()
 
     # Enter the query string.
     widget.inp_elements.value = "Ni Ti"
@@ -26,9 +27,8 @@ def test_cod_query_widget():
 
 def test_optimade_query_widget():
     """Test the OPTIMADE query widget."""
-    from aiidalab_widgets_base import OptimadeQueryWidget
 
-    widget = OptimadeQueryWidget()
+    widget = awb.OptimadeQueryWidget()
 
     # At the present state I cannot check much. Most of the variables are locals of the  __init__ method.
 
@@ -37,14 +37,15 @@ def test_optimade_query_widget():
 
 def test_computational_resources_database_widget():
     """Test the structure browser widget."""
-    from aiidalab_widgets_base.databases import ComputationalResourcesDatabaseWidget
 
     # Initiate the widget with no arguments.
-    widget = ComputationalResourcesDatabaseWidget()
+    widget = awb.databases.ComputationalResourcesDatabaseWidget()
     assert "merlin.psi.ch" in widget.database
 
     # Initialize the widget with default_calc_job_plugin="cp2k"
-    widget = ComputationalResourcesDatabaseWidget(default_calc_job_plugin="cp2k")
+    widget = awb.databases.ComputationalResourcesDatabaseWidget(
+        default_calc_job_plugin="cp2k"
+    )
     assert (
         "merlin.psi.ch" not in widget.database
     )  # Merlin does not have CP2K installed.

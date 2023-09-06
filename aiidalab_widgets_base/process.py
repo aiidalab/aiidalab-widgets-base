@@ -501,13 +501,14 @@ class CalcJobOutputWidget(ipw.Textarea):
                 "Nothing to show."
             )
         else:
-            if os.path.exists(output_file_path):
-                with open(output_file_path) as fobj:
-                    difference = fobj.readlines()[
-                        len(self.output) : -1
-                    ]  # Only adding the difference
-                    self.output += difference
-                    self.value += "".join(difference)
+            if not os.path.exists(output_file_path):
+                return
+
+        with open(output_file_path) as fobj:
+            # Only adding the difference
+            difference = fobj.readlines()[len(self.output) : -1]
+            self.output += difference
+            self.value += "".join(difference)
 
         # Auto scroll down. Doesn't work in detached mode.
         # Also a hack as it is applied to all the textareas

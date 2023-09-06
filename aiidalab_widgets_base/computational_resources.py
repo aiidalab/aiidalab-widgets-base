@@ -426,7 +426,8 @@ class SshComputerSetup(ipw.VBox):
         fpath = Path.home() / ".ssh" / "config"
         if not fpath.exists():
             return False
-        cfglines = open(fpath).read().split("\n")
+        with open(fpath) as f:
+            cfglines = f.read().split("\n")
         return "Host " + self.hostname.value in cfglines
 
     def _write_ssh_config(self, private_key_abs_fname=None):

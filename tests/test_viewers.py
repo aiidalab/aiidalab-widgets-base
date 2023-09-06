@@ -10,8 +10,6 @@ def test_pbc_structure_data_viewer(structure_data_object):
 
     import ase
 
-    from aiidalab_widgets_base import viewers
-
     # Prepare a structure with periodicity xy
     ase_input = ase.Atoms(
         symbols="Li2",
