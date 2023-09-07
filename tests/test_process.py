@@ -1,13 +1,13 @@
 import pytest
 from aiida import engine, orm
+from aiida.workflows.arithmetic.multiply_add import MultiplyAddWorkChain
+
+import aiidalab_widgets_base as awb
 
 
 @pytest.mark.usefixtures("aiida_profile_clean")
 def test_submit_button_widget(multiply_add_process_builder_ready):
     """Test SubmitButtonWidget with a simple `WorkChainNode`"""
-    from aiida.workflows.arithmetic.multiply_add import MultiplyAddWorkChain
-
-    import aiidalab_widgets_base as awb
 
     def hook(_=None):
         pass

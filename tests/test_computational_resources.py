@@ -1,24 +1,25 @@
 import pytest
+from aiida import orm
+
+from aiidalab_widgets_base import computational_resources
 
 
 @pytest.mark.usefixtures("aiida_profile_clean")
-def test_computaional_resources_widget(aiida_local_code_bash):
+def test_computational_resources_widget(aiida_local_code_bash):
     """Test the ComputationalResourcesWidget."""
-    import aiidalab_widgets_base as awb
-
-    widget = awb.ComputationalResourcesWidget(default_calc_job_plugin="bash")
+    widget = computational_resources.ComputationalResourcesWidget(
+        default_calc_job_plugin="bash"
+    )
 
     # Get the list of currently installed codes.
-    codes_dict = widget._get_codes()
-    assert "bash@localhost" in codes_dict
+    codes = widget._get_codes()
+    assert "bash@localhost" == codes[0][0]
 
 
 @pytest.mark.usefixtures("aiida_profile_clean")
 def test_ssh_computer_setup_widget():
     """Test the SshComputerSetup."""
-    from aiidalab_widgets_base.computational_resources import SshComputerSetup
-
-    widget = SshComputerSetup()
+    widget = computational_resources.SshComputerSetup()
 
     ssh_config = {
         "hostname": "daint.cscs.ch",
@@ -63,11 +64,7 @@ def test_ssh_computer_setup_widget():
 @pytest.mark.usefixtures("aiida_profile_clean")
 def test_aiida_computer_setup_widget():
     """Test the AiidaComputerSetup."""
-    from aiida import orm
-
-    from aiidalab_widgets_base.computational_resources import AiidaComputerSetup
-
-    widget = AiidaComputerSetup()
+    widget = computational_resources.AiidaComputerSetup()
 
     # At the beginning, the computer_name should be an empty string.
     assert widget.label.value == ""
@@ -116,13 +113,55 @@ def test_aiida_computer_setup_widget():
 
 
 @pytest.mark.usefixtures("aiida_profile_clean")
+def test_aiida_localhost_setup_widget():
+    """Test the AiidaComputerSetup with core.local Trasport."""
+    widget = computational_resources.AiidaComputerSetup()
+
+    # At the beginning, the computer_name should be an empty string.
+    assert widget.label.value == ""
+
+    # Preparing the computer setup.
+    computer_setup = {
+        "setup": {
+            "label": "localhosttest",
+            "hostname": "localhost",
+            "description": "locahost computer",
+            "work_dir": "/home/jovyan/aiida_run",
+            "mpirun_command": "srun -n {tot_num_mpiprocs}",
+            "default_memory_per_machine": 2000000000,
+            "mpiprocs_per_machine": 2,
+            "transport": "core.local",
+            "scheduler": "core.direct",
+            "shebang": "#!/bin/bash",
+            "use_double_quotes": True,
+            "prepend_text": "",
+            "append_text": "",
+        },
+        "configure": {
+            "safe_interval": 10,
+            "use_login_shell": True,
+        },
+    }
+
+    widget.computer_setup = computer_setup
+    assert widget.on_setup_computer()
+
+    # Check that the computer is created.
+    computer = orm.load_computer("localhosttest")
+    assert computer.label == "localhosttest"
+    assert computer.hostname == "localhost"
+
+    # Reset the widget and check that a few attributes are reset.
+    widget.computer_setup = {}
+    assert widget.label.value == ""
+    assert widget.hostname.value == ""
+    assert widget.description.value == ""
+
+
+@pytest.mark.usefixtures("aiida_profile_clean")
 def test_aiida_code_setup(aiida_localhost):
     """Test the AiidaCodeSetup."""
-    from aiida import orm
-
-    from aiidalab_widgets_base.computational_resources import AiidaCodeSetup
-
-    widget = AiidaCodeSetup()
+    widget = computational_resources.AiidaCodeSetup()
 
     # At the beginning, the code_name should be an empty string.
     assert widget.label.value == ""
@@ -164,9 +203,7 @@ def test_aiida_code_setup(aiida_localhost):
 @pytest.mark.usefixtures("aiida_profile_clean")
 def test_computer_dropdown_widget(aiida_localhost):
     """Test the ComputerDropdownWidget."""
-    import aiidalab_widgets_base as awb
-
-    widget = awb.ComputerDropdownWidget()
+    widget = computational_resources.ComputerDropdownWidget()
 
     assert "localhost" in widget.computers
 

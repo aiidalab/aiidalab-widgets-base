@@ -1,14 +1,14 @@
 import pytest
 
+from aiidalab_widgets_base import nodes
+
 
 @pytest.mark.usefixtures("aiida_profile_clean")
 def test_nodes_tree_widget(multiply_add_completed_workchain):
     """Test ProcessNodesTreeWidget with a simple `WorkChainNode`"""
 
-    from aiidalab_widgets_base.nodes import NodesTreeWidget
-
     process = multiply_add_completed_workchain
-    tree = NodesTreeWidget()
+    tree = nodes.NodesTreeWidget()
     tree.nodes = [process]
 
     # main node is selected
@@ -28,10 +28,9 @@ def test_nodes_tree_widget(multiply_add_completed_workchain):
 @pytest.mark.usefixtures("aiida_profile_clean")
 def test_open_aiida_node_in_app_widget(multiply_add_completed_workchain):
     """ "Test OpenAiidaNodeInAppWidget with a simple `WorkChainNode`"""
-    from aiidalab_widgets_base.nodes import OpenAiidaNodeInAppWidget
 
     process = multiply_add_completed_workchain
-    open_node_in_app = OpenAiidaNodeInAppWidget()
+    open_node_in_app = nodes.OpenAiidaNodeInAppWidget()
 
     assert len(open_node_in_app.tab.children) == 0
 

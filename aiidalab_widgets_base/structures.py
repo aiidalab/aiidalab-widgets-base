@@ -772,7 +772,10 @@ class SmilesWidget(ipw.VBox):
             return None
         mol = Chem.AddHs(mol)
 
-        AllChem.EmbedMolecule(mol, maxAttempts=20, randomSeed=42)
+        conf_id = AllChem.EmbedMolecule(mol, maxAttempts=20, randomSeed=42)
+        if conf_id < 0:
+            self.output.value = "RDKit ERROR: Could not generate conformer"
+            return None
         if AllChem.UFFHasAllMoleculeParams(mol):
             AllChem.UFFOptimizeMolecule(mol, maxIters=steps)
         else:
@@ -785,8 +788,18 @@ class SmilesWidget(ipw.VBox):
 
     def _mol_from_smiles(self, smiles, steps=1000):
         """Convert SMILES to ase structure try rdkit then pybel"""
+
+        # Canonicalize the SMILES code
+        # https://en.wikipedia.org/wiki/Simplified_molecular-input_line-entry_system#Terminology
+        canonical_smiles = self.canonicalize_smiles(smiles)
+        if not canonical_smiles:
+            return None
+
+        if canonical_smiles != smiles:
+            self.output.value = f"Canonical SMILES: {canonical_smiles}"
+
         try:
-            return self._rdkit_opt(smiles, steps)
+            return self._rdkit_opt(canonical_smiles, steps)
         except ValueError as e:
             self.output.value = str(e)
             if self.disable_openbabel:
@@ -802,10 +815,26 @@ class SmilesWidget(ipw.VBox):
             return
         spinner = f"Screening possible conformers {self.SPINNER}"  # font-size:20em;
         self.output.value = spinner
+
         self.structure = self._mol_from_smiles(self.smiles.value)
         # Don't overwrite possible error/warning messages
         if self.output.value == spinner:
             self.output.value = ""
+
+    def canonicalize_smiles(self, smiles):
+        from rdkit import Chem
+
+        mol = Chem.MolFromSmiles(smiles, sanitize=True)
+        if mol is None:
+            # Something is seriously wrong with the SMILES code,
+            # just return None and don't attempt anything else.
+            self.output.value = "RDkit ERROR: Invalid SMILES string"
+            return None
+        canonical_smiles = Chem.MolToSmiles(mol, isomericSmiles=True, canonical=True)
+        if not canonical_smiles:
+            self.output.value = "RDkit ERROR: Could not canonicalize SMILES"
+            return None
+        return canonical_smiles
 
     @tl.default("structure")
     def _default_structure(self):
