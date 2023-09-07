@@ -892,7 +892,7 @@ class AiidaComputerSetup(ipw.VBox):
 
     def _computer_exists(self, label):
         try:
-            orm.Computer.objects.get(label=label)
+            orm.load_computer(label=label)
         except common.NotExistent:
             return False
         return True
@@ -976,6 +976,7 @@ class AiidaComputerSetup(ipw.VBox):
             )
             return False
 
+        self._test_out.value = '<i class="fa fa-spinner fa-pulse"></i>'
         process_result = subprocess.run(
             ["verdi", "computer", "test", "--print-traceback", self.label.value],
             capture_output=True,
