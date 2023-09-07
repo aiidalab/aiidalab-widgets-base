@@ -261,7 +261,7 @@ class ProcessFollowerWidget(ipw.VBox):
         self,
         process=None,
         followers=None,
-        update_interval=1.0,
+        update_interval=0.1,
         path_to_root="../",
         **kwargs,
     ):

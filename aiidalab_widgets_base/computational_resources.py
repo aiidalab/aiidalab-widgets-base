@@ -425,15 +425,8 @@ class SshComputerSetup(ipw.VBox):
         fpath = Path.home() / ".ssh" / "config"
         if not fpath.exists():
             return False
-        sshcfg = parse_sshconfig(self.hostname.value)
-        # Confusingly, parse_sshconfig returns a dict with a hostname
-        # even if it is not in the config file.
-        if len(sshcfg.keys()) < 2:
-            return False
-        # We require at least the user to be specified.
-        if "user" not in sshcfg:
-            return False
-        return True
+        cfglines = open(fpath).read().split("\n")
+        return "Host " + self.hostname.value in cfglines
 
     def _write_ssh_config(self, private_key_abs_fname=None):
         """Put host information into the config file."""
@@ -484,12 +477,8 @@ class SshComputerSetup(ipw.VBox):
 
             # Write private key in ~/.ssh/ and use the name of upload file,
             # if exist, generate random string and append to filename then override current name.
-            # TODO(danielhollas): I don't think this works as intended. If there is an existing private key,
-            # the new filename is never propagated to the caller here.
             self._add_private_key(private_key_abs_fname, private_key_content)
 
-        # TODO(danielhollas): I am not sure this is correct. What if the user wants
-        # to overwrite the private key? The configuration would never be written.
         if not self._is_in_config():
             self._write_ssh_config(private_key_abs_fname=private_key_abs_fname)
 
