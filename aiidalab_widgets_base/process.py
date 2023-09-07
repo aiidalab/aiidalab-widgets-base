@@ -302,7 +302,7 @@ class ProcessFollowerWidget(ipw.VBox):
 
         if self._monitor is None:
             self._monitor = ProcessMonitor(
-                process=self.process,
+                value=self.process.uuid,
                 callbacks=[self.update],
                 on_sealed=self._run_after_completed,
                 timeout=self.update_interval,
