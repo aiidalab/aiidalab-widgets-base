@@ -118,7 +118,11 @@ def test_aiida_computer_setup_widget():
 @pytest.mark.usefixtures("aiida_profile_clean")
 def test_aiida_localhost_setup_widget():
     """Test the AiidaComputerSetup with core.local Trasport."""
-    widget = computational_resources.AiidaComputerSetup()
+    from aiida.orm import load_computer
+
+    from aiidalab_widgets_base.computational_resources import AiidaComputerSetup
+
+    widget = AiidaComputerSetup()
 
     # At the beginning, the computer_name should be an empty string.
     assert widget.label.value == ""
@@ -150,7 +154,7 @@ def test_aiida_localhost_setup_widget():
     assert widget.on_setup_computer()
 
     # Check that the computer is created.
-    computer = orm.load_computer("localhosttest")
+    computer = load_computer("localhosttest")
     assert computer.label == "localhosttest"
     assert computer.hostname == "localhost"
 

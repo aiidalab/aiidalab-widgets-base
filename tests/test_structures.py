@@ -160,6 +160,8 @@ def test_smiles_widget():
 @pytest.mark.usefixtures("aiida_profile_clean")
 def test_smiles_canonicalization():
     """Test the SMILES canonicalization via RdKit."""
+    import aiidalab_widgets_base as awb
+
     widget = awb.SmilesWidget()
 
     # Should not change canonical smiles
