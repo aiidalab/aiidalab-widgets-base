@@ -1224,12 +1224,8 @@ class ComputerDropdownWidget(ipw.VBox):
     """Widget to select a configured computer.
 
     Attributes:
-        value(computer UUID): Trait that points to the selected Computer instance.
-            It can be set to an AiiDA Computer UUID. It is linked to the
-            'value' trait of `self._dropdown` widget.
-        computers(Dict): Trait that contains a dictionary (label => Computer UUID) for all
-        computers found in the AiiDA database. It is linked to the 'options' trait of
-        `self._dropdown` widget.
+        value(computer UUID): Trait that points to the selected Computer instance. It can be set to an AiiDA Computer UUID. It is linked to the 'value' trait of `self._dropdown` widget.
+        computers(Dict): Trait that contains a dictionary (label => Computer UUID) for all computers found in the AiiDA database. It is linked to the 'options' trait of `self._dropdown` widget.
         allow_select_disabled(Bool):  Trait that defines whether to show disabled computers.
     """
 

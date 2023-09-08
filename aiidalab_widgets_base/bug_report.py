@@ -147,16 +147,18 @@ def install_create_github_issue_exception_handler(output, url, labels=None):
 
     Example:
     --------
-    ```python
-    output = ipw.Output()
-    install_create_github_issue_exception_handler(
-        output,
-        url='https://github.com/aiidalab/aiidalab-qe/issues/new',
-        labels=('bug', 'automated-report'))
+    .. highlight:: python
+    .. code-block:: python
 
-    with output:
-        display(welcome_message, app_with_work_chain_selector, footer)
-    ```
+        output = ipw.Output()
+        install_create_github_issue_exception_handler(
+            output,
+            url='https://github.com/aiidalab/aiidalab-qe/issues/new',
+            labels=('bug', 'automated-report'))
+
+        with output:
+            display(welcome_message, app_with_work_chain_selector, footer)
+
     """
     global _ORIGINAL_EXCEPTION_HANDLER
 
