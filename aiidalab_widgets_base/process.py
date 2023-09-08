@@ -261,7 +261,7 @@ class ProcessFollowerWidget(ipw.VBox):
         self,
         process=None,
         followers=None,
-        update_interval=0.1,
+        update_interval=1.0,
         path_to_root="../",
         **kwargs,
     ):
@@ -302,7 +302,6 @@ class ProcessFollowerWidget(ipw.VBox):
 
         if self._monitor is None:
             self._monitor = ProcessMonitor(
-                value=self.process.uuid,
                 callbacks=[self.update],
                 on_sealed=self._run_after_completed,
                 timeout=self.update_interval,

@@ -24,15 +24,10 @@ extensions = [
     "sphinx.ext.mathjax",
     "sphinx.ext.intersphinx",
     "sphinx.ext.viewcode",
-    "sphinxcontrib.contentui",
     "myst_nb",
 ]
 
-jupyter_execute_notebooks = "off"
-
-intersphinx_mapping = {
-    "python": ("https://docs.python.org/3.9", None),
-}
+nb_execution_mode = "off"
 
 # Add any paths that contain templates here, relative to this directory.
 templates_path = ["_templates"]
@@ -91,6 +86,13 @@ htmlhelp_basename = "aiidalab-widgets-base-doc"
 exclude_patterns = []
 
 html_theme = "pydata_sphinx_theme"
+
+# The pydata-sphinx-theme already loads the bootstrap css.
+panels_add_bootstrap_css = False
+
+# The name of an image file (relative to this directory) to place at the top
+# of the sidebar.
+html_logo = "_static/aiidalab_logo.png"
 
 # -- Modifications for Readthedocs ----------------------------------------
 
