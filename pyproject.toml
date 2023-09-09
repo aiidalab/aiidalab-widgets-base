@@ -23,4 +23,5 @@ filterwarnings = [
     "ignore:Exception ignored in:pytest.PytestUnraisableExceptionWarning:_pytest",
     'ignore::DeprecationWarning:jupyter_client',
     'ignore::DeprecationWarning:selenium',
+    'ignore::DeprecationWarning:pytest_selenium',
 ]
