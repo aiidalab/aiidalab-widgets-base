@@ -421,15 +421,13 @@ class SshComputerSetup(ipw.VBox):
         return ret == 0
 
     def _is_in_config(self):
-        """Check if the config file contains host information."""
+        """Check if the SSH config file contains host information."""
         fpath = Path.home() / ".ssh" / "config"
         if not fpath.exists():
             return False
         sshcfg = parse_sshconfig(self.hostname.value)
-        # Confusingly, parse_sshconfig returns a dict with a hostname
+        # NOTE: parse_sshconfig returns a dict with a hostname
         # even if it is not in the config file.
-        if len(sshcfg.keys()) < 2:
-            return False
         # We require at least the user to be specified.
         if "user" not in sshcfg:
             return False
