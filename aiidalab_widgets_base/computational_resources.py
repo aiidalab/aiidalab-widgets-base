@@ -484,10 +484,13 @@ class SshComputerSetup(ipw.VBox):
             # if exist, generate random string and append to filename then override current name.
             # TODO(danielhollas): I don't think this works as intended. If there is an existing private key,
             # the new filename is never propagated to the caller here.
+            # https://github.com/aiidalab/aiidalab-widgets-base/issues/516
             self._add_private_key(private_key_abs_fname, private_key_content)
 
         # TODO(danielhollas): I am not sure this is correct. What if the user wants
-        # to overwrite the private key? The configuration would never be written.
+        # to overwrite the private key? Or any other config? The configuration would never be written.
+        # And the user is not notified that we did not write anything.
+        # https://github.com/aiidalab/aiidalab-widgets-base/issues/516
         if not self._is_in_config():
             self._write_ssh_config(private_key_abs_fname=private_key_abs_fname)
 
