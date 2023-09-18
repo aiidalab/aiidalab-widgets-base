@@ -811,7 +811,7 @@ class AiidaComputerSetup(ipw.VBox):
         self.setup_button.on_click(self.on_setup_computer)
         test_button = ipw.Button(description="Test computer")
         test_button.on_click(self.test)
-        self._test_out = ipw.Output(layout=LAYOUT)
+        self._test_out = ipw.HTML(layout=LAYOUT)
 
         # Organize the widgets
         children = [
@@ -896,14 +896,18 @@ class AiidaComputerSetup(ipw.VBox):
 
     def _run_callbacks_if_computer_exists(self, label):
         """Run things on an existing computer"""
-        try:
-            orm.Computer.objects.get(label=label)
+        if self._computer_exists(label):
             for function in self._on_setup_computer_success:
                 function()
+            return True
+        return False
+
+    def _computer_exists(self, label):
+        try:
+            orm.load_computer(label=label)
         except common.NotExistent:
             return False
-        else:
-            return True
+        return True
 
     def _validate_computer_settings(self):
         if self.label.value == "":  # check computer label
@@ -975,13 +979,31 @@ class AiidaComputerSetup(ipw.VBox):
         self._on_setup_computer_success.append(function)
 
     def test(self, _=None):
-        with self._test_out:
-            clear_output()
-            print(
-                subprocess.check_output(
-                    ["verdi", "computer", "test", "--print-traceback", self.label.value]
-                ).decode("utf-8")
+        if self.label.value == "":
+            self._test_out.value = "Please specify the computer name (for AiiDA)."
+            return False
+        elif not self._computer_exists(self.label.value):
+            self._test_out.value = (
+                f"A computer called <b>{self.label.value}</b> does not exist."
             )
+            return False
+
+        self._test_out.value = '<i class="fa fa-spinner fa-pulse"></i>'
+        process_result = subprocess.run(
+            ["verdi", "computer", "test", "--print-traceback", self.label.value],
+            capture_output=True,
+        )
+
+        if process_result.returncode == 0:
+            self._test_out.value = process_result.stdout.decode("utf-8").replace(
+                "\n", "<br>"
+            )
+            return True
+        else:
+            self._test_out.value = process_result.stderr.decode("utf-8").replace(
+                "\n", "<br>"
+            )
+            return False
 
     def _reset(self):
         self.label.value = ""
@@ -1214,12 +1236,8 @@ class ComputerDropdownWidget(ipw.VBox):
     """Widget to select a configured computer.
 
     Attributes:
-        value(computer UUID): Trait that points to the selected Computer instance.
-            It can be set to an AiiDA Computer UUID. It is linked to the
-            'value' trait of `self._dropdown` widget.
-        computers(Dict): Trait that contains a dictionary (label => Computer UUID) for all
-        computers found in the AiiDA database. It is linked to the 'options' trait of
-        `self._dropdown` widget.
+        value(computer UUID): Trait that points to the selected Computer instance. It can be set to an AiiDA Computer UUID. It is linked to the 'value' trait of `self._dropdown` widget.
+        computers(Dict): Trait that contains a dictionary (label => Computer UUID) for all computers found in the AiiDA database. It is linked to the 'options' trait of `self._dropdown` widget.
         allow_select_disabled(Bool):  Trait that defines whether to show disabled computers.
     """
 
