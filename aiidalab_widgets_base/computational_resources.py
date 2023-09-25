@@ -434,7 +434,6 @@ class SshComputerSetup(ipw.VBox):
             return False
         return True
 
-
     def _write_ssh_config(self, private_key_abs_fname=None):
         """Put host information into the config file."""
         fpath = Path.home() / ".ssh"
