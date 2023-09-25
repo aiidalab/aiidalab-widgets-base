@@ -484,6 +484,10 @@ class CalcJobOutputWidget(ipw.Textarea):
         if self.calculation is None:
             return
 
+        # TODO: I am not sure this logic works if the calcjob is finished and
+        # is user requested to clear the remote folder. For sealed calcjobs we
+        # should probably just look in the local folder. This is already done
+        # in the similar widget in QeApp I believe.
         try:
             output_file_path = os.path.join(
                 self.calculation.outputs.remote_folder.get_remote_path(),

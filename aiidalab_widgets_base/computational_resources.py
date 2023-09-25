@@ -425,7 +425,6 @@ class SshComputerSetup(ipw.VBox):
         fpath = Path.home() / ".ssh" / "config"
         if not fpath.exists():
             return False
-
         sshcfg = parse_sshconfig(self.hostname.value)
         # NOTE: parse_sshconfig returns a dict with a hostname
         # even if it is not in the config file.
