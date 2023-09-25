@@ -4,12 +4,10 @@ Authors:
 
     * Carl Simon Adorf <simon.adorf@epfl.ch>
 """
-from enum import Enum
-from threading import Thread
-from time import sleep, time
+import enum
 
 import ipywidgets as ipw
-import traitlets
+import traitlets as tl
 
 
 class AtLeastTwoStepsWizardError(ValueError):
@@ -21,10 +19,10 @@ class AtLeastTwoStepsWizardError(ValueError):
         )
 
 
-class WizardAppWidgetStep(traitlets.HasTraits):
+class WizardAppWidgetStep(tl.HasTraits):
     "One step of a WizardAppWidget."
 
-    class State(Enum):
+    class State(enum.Enum):
         """Each step is always in one specific state.
 
         The state is used to determine:
@@ -68,8 +66,8 @@ class WizardAppWidgetStep(traitlets.HasTraits):
         # All error states have negative codes
         FAIL = -1  # the step has unrecoverably failed
 
-    state = traitlets.UseEnum(State)
-    auto_advance = traitlets.Bool()
+    state = tl.UseEnum(State)
+    auto_advance = tl.Bool()
 
     def can_reset(self):
         return hasattr(self, "reset")
@@ -82,21 +80,12 @@ class WizardAppWidget(ipw.VBox):
         WizardAppWidgetStep.State.INIT: "\u25cb",
         WizardAppWidgetStep.State.READY: "\u25ce",
         WizardAppWidgetStep.State.CONFIGURED: "\u25cf",
-        WizardAppWidgetStep.State.ACTIVE: ["\u25dc", "\u25dd", "\u25de", "\u25df"],
+        WizardAppWidgetStep.State.ACTIVE: "\u231b",
         WizardAppWidgetStep.State.SUCCESS: "\u2713",
         WizardAppWidgetStep.State.FAIL: "\u00d7",
     }
 
-    @classmethod
-    def icons(cls):
-        """Return the icon set and return animated icons based on the current time stamp."""
-        t = time()
-        return {
-            key: item if isinstance(item, str) else item[int(t * len(item) % len(item))]
-            for key, item in cls.ICONS.items()
-        }
-
-    selected_index = traitlets.Int(allow_none=True)
+    selected_index = tl.Int(allow_none=True)
 
     def __init__(self, steps, **kwargs):
         # The number of steps must be greater than one
@@ -113,15 +102,6 @@ class WizardAppWidget(ipw.VBox):
         self.accordion = ipw.Accordion(children=widgets)
         self._update_titles()
         ipw.link((self.accordion, "selected_index"), (self, "selected_index"))
-
-        # Automatically update titles to implement the "spinner"
-
-        def spinner_thread():
-            while True:
-                sleep(0.1)
-                self._update_titles()
-
-        Thread(target=spinner_thread).start()
 
         # Watch for changes to each step's state
         for widget in widgets:
@@ -169,7 +149,7 @@ class WizardAppWidget(ipw.VBox):
 
     def _update_titles(self):
         for i, (title, widget) in enumerate(zip(self.titles, self.accordion.children)):
-            icon = self.icons().get(widget.state, str(widget.state).upper())
+            icon = self.ICONS.get(widget.state, str(widget.state).upper())
             self.accordion.set_title(i, f"{icon} Step {i+1}: {title}")
 
     def _consider_auto_advance(self, _=None):
@@ -178,6 +158,8 @@ class WizardAppWidget(ipw.VBox):
         This is performed whenever the current step is within the SUCCESS state and has
         the auto_advance attribute set to True.
         """
+        if self.accordion.selected_index is None:  # All children are hidden
+            return
 
         with self.hold_trait_notifications():
             index = self.accordion.selected_index
@@ -196,7 +178,7 @@ class WizardAppWidget(ipw.VBox):
             self._update_buttons()
             self._consider_auto_advance()
 
-    @traitlets.observe("selected_index")
+    @tl.observe("selected_index")
     def _observe_selected_index(self, change):
         "Activate/deactivate the next-button based on which step is selected."
         self._update_buttons()
@@ -206,11 +188,13 @@ class WizardAppWidget(ipw.VBox):
             self.accordion.children[idx] for idx in range(len(self.accordion.children))
         ]
 
-        if any(not step.can_reset() for step in steps):
+        if not all(step.can_reset() for step in steps):
             return False
 
         if any(step.state is not WizardAppWidgetStep.State.INIT for step in steps):
             return True
+
+        return False
 
     def _update_buttons(self):
         with self.hold_trait_notifications():

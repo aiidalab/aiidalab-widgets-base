@@ -1,5 +1,4 @@
 """Module to provide functionality to import structures."""
-# pylint: disable=no-self-use
 
 import datetime
 import functools
@@ -11,35 +10,22 @@ from collections import OrderedDict
 import ase
 import ipywidgets as ipw
 import numpy as np
-
-# spglib for cell converting
 import spglib
-
-# AiiDA imports
-from aiida.engine import calcfunction
-from aiida.orm import (
-    CalcFunctionNode,
-    CalcJobNode,
-    Data,
-    Node,
-    QueryBuilder,
-    WorkChainNode,
-)
-from aiida.plugins import DataFactory
-from ase import Atom, Atoms
-from ase.data import chemical_symbols, covalent_radii
-from traitlets import Instance, Int, List, Unicode, Union, default, dlink, link, observe
+import traitlets as tl
+from aiida import engine, orm, plugins
 
 # Local imports
 from .data import LigandSelectorWidget
 from .utils import StatusHTML, exceptions, get_ase_from_file, get_formula
 from .viewers import StructureDataViewer
 
-CifData = DataFactory("core.cif")
-StructureData = DataFactory("core.structure")
-TrajectoryData = DataFactory("core.array.trajectory")
+CifData = plugins.DataFactory("core.cif")
+StructureData = plugins.DataFactory("core.structure")
+TrajectoryData = plugins.DataFactory("core.array.trajectory")
 
-SYMBOL_RADIUS = {key: covalent_radii[i] for i, key in enumerate(chemical_symbols)}
+SYMBOL_RADIUS = {
+    key: ase.data.covalent_radii[i] for i, key in enumerate(ase.data.chemical_symbols)
+}
 
 
 class StructureManagerWidget(ipw.VBox):
@@ -51,10 +37,14 @@ class StructureManagerWidget(ipw.VBox):
         node_class(str): trait that contains structure_node type (as string).
     """
 
-    input_structure = Union([Instance(Atoms), Instance(Data)], allow_none=True)
-    structure = Union([Instance(Atoms), Instance(Data)], allow_none=True)
-    structure_node = Instance(Data, allow_none=True, read_only=True)
-    node_class = Unicode()
+    input_structure = tl.Union(
+        [tl.Instance(ase.Atoms), tl.Instance(orm.Data)], allow_none=True
+    )
+    structure = tl.Union(
+        [tl.Instance(ase.Atoms), tl.Instance(orm.Data)], allow_none=True
+    )
+    structure_node = tl.Instance(orm.Data, allow_none=True, read_only=True)
+    node_class = tl.Unicode()
 
     SUPPORTED_DATA_FORMATS = {"CifData": "core.cif", "StructureData": "core.structure"}
 
@@ -96,7 +86,7 @@ class StructureManagerWidget(ipw.VBox):
             self.viewer = viewer
         else:
             self.viewer = StructureDataViewer(**kwargs)
-        dlink((self, "structure"), (self.viewer, "structure"))
+        tl.dlink((self, "structure"), (self.viewer, "structure"))
 
         # Store button.
         self.btn_store = ipw.Button(description="Store in AiiDA", disabled=True)
@@ -110,7 +100,7 @@ class StructureManagerWidget(ipw.VBox):
         data_format = ipw.RadioButtons(
             options=self.SUPPORTED_DATA_FORMATS, description="Data type:"
         )
-        link((data_format, "label"), (self, "node_class"))
+        tl.link((data_format, "label"), (self, "node_class"))
 
         # Store button, store class selector, description.
         store_and_description = [self.btn_store] if storable else []
@@ -121,9 +111,7 @@ class StructureManagerWidget(ipw.VBox):
             self.node_class = node_class
         else:
             raise ValueError(
-                "Unknown data format '{}'. Options: {}".format(
-                    node_class, list(self.SUPPORTED_DATA_FORMATS.keys())
-                )
+                f"Unknown data format '{node_class}'. Options: {list(self.SUPPORTED_DATA_FORMATS.keys())}"
             )
         self.output = ipw.HTML("")
 
@@ -154,8 +142,7 @@ class StructureManagerWidget(ipw.VBox):
         # If there is only one importer - no need to make tabs.
         if len(importers) == 1:
             # Assigning a function which will be called when importer provides a structure.
-            dlink((importers[0], "structure"), (self, "input_structure"))
-
+            tl.dlink((importers[0], "structure"), (self, "input_structure"))
             return importers[0]
 
         # Otherwise making one tab per importer.
@@ -164,25 +151,27 @@ class StructureManagerWidget(ipw.VBox):
         for i, importer in enumerate(importers):
             # Labeling tabs.
             importers_tab.set_title(i, importer.title)
-            dlink((importer, "structure"), (self, "input_structure"))
+            tl.dlink((importer, "structure"), (self, "input_structure"))
         return importers_tab
 
     def _structure_editors(self, editors):
         """Preparing structure editors."""
         if editors and len(editors) == 1:
-            link((editors[0], "structure"), (self, "structure"))
+            tl.link((editors[0], "structure"), (self, "structure"))
 
             if editors[0].has_trait("input_selection"):
-                dlink((editors[0], "input_selection"), (self.viewer, "input_selection"))
+                tl.dlink(
+                    (editors[0], "input_selection"), (self.viewer, "input_selection")
+                )
 
             if editors[0].has_trait("selection"):
-                dlink((self.viewer, "selection"), (editors[0], "selection"))
+                tl.dlink((self.viewer, "selection"), (editors[0], "selection"))
 
             if editors[0].has_trait("camera_orientation"):
-                dlink(
+                tl.dlink(
                     (self.viewer._viewer, "_camera_orientation"),
                     (editors[0], "camera_orientation"),
-                )  # pylint: disable=protected-access
+                )
 
             return editors[0]
 
@@ -192,14 +181,14 @@ class StructureManagerWidget(ipw.VBox):
             editors_tab.children = tuple(editors)
             for i, editor in enumerate(editors):
                 editors_tab.set_title(i, editor.title)
-                link((editor, "structure"), (self, "structure"))
+                tl.link((editor, "structure"), (self, "structure"))
                 if editor.has_trait("selection"):
-                    link((editor, "selection"), (self.viewer, "selection"))
+                    tl.link((editor, "selection"), (self.viewer, "selection"))
                 if editor.has_trait("camera_orientation"):
-                    dlink(
+                    tl.dlink(
                         (self.viewer._viewer, "_camera_orientation"),
                         (editor, "camera_orientation"),
-                    )  # pylint: disable=protected-access
+                    )
             return editors_tab
         return None
 
@@ -209,8 +198,8 @@ class StructureManagerWidget(ipw.VBox):
         if self.structure_node is None:
             return
         if self.structure_node.is_stored:
-            self.output.value = "Already stored in AiiDA [{}], skipping...".format(
-                self.structure_node
+            self.output.value = (
+                f"Already stored in AiiDA [{self.structure_node}], skipping..."
             )
             return
         self.btn_store.disabled = True
@@ -219,11 +208,13 @@ class StructureManagerWidget(ipw.VBox):
         self.structure_node.description = self.structure_description.value
         self.structure_description.disabled = True
 
-        if isinstance(self.input_structure, Data) and self.input_structure.is_stored:
-
+        if (
+            isinstance(self.input_structure, orm.Data)
+            and self.input_structure.is_stored
+        ):
             # Make a link between self.input_structure and self.structure_node
-            @calcfunction
-            def user_modifications(source_structure):  # pylint: disable=unused-argument
+            @engine.calcfunction
+            def user_modifications(source_structure):
                 return self.structure_node
 
             structure_node = user_modifications(self.input_structure)
@@ -232,7 +223,7 @@ class StructureManagerWidget(ipw.VBox):
             structure_node = self.structure_node.store()
         self.output.value = f"Stored in AiiDA [{structure_node}]"
 
-    def undo(self, _):
+    def undo(self, _=None):
         """Undo modifications."""
         self.structure_set_by_undo = True
         if self.history:
@@ -244,11 +235,11 @@ class StructureManagerWidget(ipw.VBox):
         self.structure_set_by_undo = False
 
     @staticmethod
-    @default("node_class")
+    @tl.default("node_class")
     def _default_node_class():
         return "StructureData"
 
-    @observe("node_class")
+    @tl.observe("node_class")
     def _change_structure_node(self, _=None):
         with self.hold_trait_notifications():
             self._sync_structure_node()
@@ -266,12 +257,12 @@ class StructureManagerWidget(ipw.VBox):
         """Convert structure of any type to the StructureNode object."""
         if structure is None:
             return None
-        structure_node_type = DataFactory(
+        structure_node_type = plugins.DataFactory(
             self.SUPPORTED_DATA_FORMATS[self.node_class]
-        )  # pylint: disable=invalid-name
+        )
 
         # If the input_structure trait is set to Atoms object, structure node must be created from it.
-        if isinstance(structure, Atoms):
+        if isinstance(structure, ase.Atoms):
             # If the Atoms object was created by SmilesWidget,
             # attach its SMILES code as an extra.
             structure_node = structure_node_type(ase=structure)
@@ -280,7 +271,7 @@ class StructureManagerWidget(ipw.VBox):
             return structure_node
 
         # If the input_structure trait is set to AiiDA node, check what type
-        if isinstance(structure, Data):
+        if isinstance(structure, orm.Data):
             # Transform the structure to the structure_node_type if needed.
             if isinstance(structure, structure_node_type):
                 return structure
@@ -288,7 +279,7 @@ class StructureManagerWidget(ipw.VBox):
         # Using self.structure, as it was already converted to the ASE Atoms object.
         return structure_node_type(ase=self.structure)
 
-    @observe("structure_node")
+    @tl.observe("structure_node")
     def _observe_structure_node(self, change):
         """Modify structure label and description when a new structure is provided."""
         struct = change["new"]
@@ -312,13 +303,13 @@ class StructureManagerWidget(ipw.VBox):
             self.structure_description.value = ""
             self.structure_description.disabled = False
 
-    @observe("input_structure")
+    @tl.observe("input_structure")
     def _observe_input_structure(self, change):
         """Returns ASE atoms object and sets structure_node trait."""
         # If the `input_structure` trait is set to Atoms object, then the `structure` trait should be set to it as well.
         self.history = []
 
-        if isinstance(change["new"], Atoms):
+        if isinstance(change["new"], ase.Atoms):
             self.structure = change["new"]
 
         # If the `input_structure` trait is set to AiiDA node, then the `structure` trait should
@@ -336,7 +327,7 @@ class StructureManagerWidget(ipw.VBox):
         else:
             self.structure = None
 
-    @observe("structure")
+    @tl.observe("structure")
     def _structure_changed(self, change=None):
         """Perform some operations that depend on the value of `structure` trait.
 
@@ -361,7 +352,9 @@ class StructureManagerWidget(ipw.VBox):
 class StructureUploadWidget(ipw.VBox):
     """Class that allows to upload structures from user's computer."""
 
-    structure = Union([Instance(Atoms), Instance(Data)], allow_none=True)
+    structure = tl.Union(
+        [tl.Instance(ase.Atoms), tl.Instance(orm.Data)], allow_none=True
+    )
 
     def __init__(
         self, title="", description="Upload Structure", allow_trajectories=False
@@ -469,7 +462,7 @@ class StructureUploadWidget(ipw.VBox):
 class StructureExamplesWidget(ipw.VBox):
     """Class to provide example structures for selection."""
 
-    structure = Instance(Atoms, allow_none=True)
+    structure = tl.Instance(ase.Atoms, allow_none=True)
 
     def __init__(self, examples, title="", **kwargs):
         self.title = title
@@ -489,7 +482,7 @@ class StructureExamplesWidget(ipw.VBox):
             )
         return [("Select structure", False)] + examples
 
-    def _on_select_structure(self, change):  # pylint: disable=unused-argument
+    def _on_select_structure(self, change=None):
         """When structure is selected."""
 
         self.structure = (
@@ -498,7 +491,7 @@ class StructureExamplesWidget(ipw.VBox):
             else None
         )
 
-    @default("structure")
+    @tl.default("structure")
     def _default_structure(self):
         return None
 
@@ -512,7 +505,9 @@ class StructureBrowserWidget(ipw.VBox):
     :type query_types: tuple
     """
 
-    structure = Union([Instance(Atoms), Instance(Data)], allow_none=True)
+    structure = tl.Union(
+        [tl.Instance(ase.Atoms), tl.Instance(orm.Data)], allow_none=True
+    )
 
     def __init__(self, title="", query_types=None):
         self.title = title
@@ -524,7 +519,9 @@ class StructureBrowserWidget(ipw.VBox):
             self.query_structure_type = (StructureData, CifData)
 
         # Extracting available process labels.
-        qbuilder = QueryBuilder().append((CalcJobNode, WorkChainNode), project="label")
+        qbuilder = orm.QueryBuilder().append(
+            (orm.CalcJobNode, orm.WorkChainNode), project="label"
+        )
         self.drop_label = ipw.Dropdown(
             options=sorted({"All"}.union({i[0] for i in qbuilder.iterall() if i[0]})),
             value="All",
@@ -582,7 +579,7 @@ class StructureBrowserWidget(ipw.VBox):
     def preprocess(self):
         """Search structures in AiiDA database and add formula extra to them."""
 
-        queryb = QueryBuilder()
+        queryb = orm.QueryBuilder()
         queryb.append(
             self.query_structure_type, filters={"extras": {"!has_key": "formula"}}
         )
@@ -597,7 +594,7 @@ class StructureBrowserWidget(ipw.VBox):
         """Launch the search of structures in AiiDA database."""
         self.preprocess()
 
-        qbuild = QueryBuilder()
+        qbuild = orm.QueryBuilder()
 
         # If the date range is valid, use it for the search
         try:
@@ -621,9 +618,9 @@ class StructureBrowserWidget(ipw.VBox):
 
         if self.mode.value == "uploaded":
             qbuild2 = (
-                QueryBuilder()
+                orm.QueryBuilder()
                 .append(self.query_structure_type, project=["id"], tag="structures")
-                .append(Node, with_outgoing="structures")
+                .append(orm.Node, with_outgoing="structures")
             )
             processed_nodes = [n[0] for n in qbuild2.all()]
             if processed_nodes:
@@ -632,10 +629,12 @@ class StructureBrowserWidget(ipw.VBox):
 
         elif self.mode.value == "calculated":
             if self.drop_label.value == "All":
-                qbuild.append((CalcJobNode, WorkChainNode), tag="calcjobworkchain")
+                qbuild.append(
+                    (orm.CalcJobNode, orm.WorkChainNode), tag="calcjobworkchain"
+                )
             else:
                 qbuild.append(
-                    (CalcJobNode, WorkChainNode),
+                    (orm.CalcJobNode, orm.WorkChainNode),
                     filters={"label": self.drop_label.value},
                     tag="calcjobworkchain",
                 )
@@ -646,10 +645,10 @@ class StructureBrowserWidget(ipw.VBox):
             )
 
         elif self.mode.value == "edited":
-            qbuild.append(CalcFunctionNode)
+            qbuild.append(orm.CalcFunctionNode)
             qbuild.append(
                 self.query_structure_type,
-                with_incoming=CalcFunctionNode,
+                with_incoming=orm.CalcFunctionNode,
                 filters=filters,
             )
 
@@ -681,12 +680,11 @@ class StructureBrowserWidget(ipw.VBox):
 class SmilesWidget(ipw.VBox):
     """Convert SMILES into 3D structure."""
 
-    structure = Instance(Atoms, allow_none=True)
+    structure = tl.Instance(ase.Atoms, allow_none=True)
 
     SPINNER = """<i class="fa fa-spinner fa-pulse" style="color:red;" ></i>"""
 
     def __init__(self, title=""):
-        # pylint: disable=unused-import
         self.title = title
 
         try:
@@ -727,8 +725,9 @@ class SmilesWidget(ipw.VBox):
         from sklearn.decomposition import PCA
 
         # Get the principal axes and realign the molecule along z-axis.
-        positions = PCA(n_components=3).fit_transform(positions)
-        atoms = Atoms(species, positions=positions, pbc=False)
+        if len(species) > 2:
+            positions = PCA(n_components=3).fit_transform(positions)
+        atoms = ase.Atoms(species, positions=positions, pbc=False)
         atoms.cell = np.ptp(atoms.positions, axis=0) + 10
         atoms.center()
         # We're attaching this info so that it
@@ -753,11 +752,11 @@ class SmilesWidget(ipw.VBox):
         pbmol.localopt(forcefield="gaff", steps=200)
         pbmol.localopt(forcefield="mmff94", steps=100)
 
-        f_f = pb._forcefields["uff"]  # pylint: disable=protected-access
+        f_f = pb._forcefields["uff"]
         f_f.Setup(pbmol.OBMol)
         f_f.ConjugateGradients(steps, 1.0e-9)
         f_f.GetCoordinates(pbmol.OBMol)
-        species = [chemical_symbols[atm.atomicnum] for atm in pbmol.atoms]
+        species = [ase.data.chemical_symbols[atm.atomicnum] for atm in pbmol.atoms]
         positions = np.asarray([atm.coords for atm in pbmol.atoms])
         return self._make_ase(species, positions, smiles)
 
@@ -774,7 +773,10 @@ class SmilesWidget(ipw.VBox):
             return None
         mol = Chem.AddHs(mol)
 
-        AllChem.EmbedMolecule(mol, maxAttempts=20, randomSeed=42)
+        conf_id = AllChem.EmbedMolecule(mol, maxAttempts=20, randomSeed=42)
+        if conf_id < 0:
+            self.output.value = "RDKit ERROR: Could not generate conformer"
+            return None
         if AllChem.UFFHasAllMoleculeParams(mol):
             AllChem.UFFOptimizeMolecule(mol, maxIters=steps)
         else:
@@ -787,8 +789,18 @@ class SmilesWidget(ipw.VBox):
 
     def _mol_from_smiles(self, smiles, steps=1000):
         """Convert SMILES to ase structure try rdkit then pybel"""
+
+        # Canonicalize the SMILES code
+        # https://en.wikipedia.org/wiki/Simplified_molecular-input_line-entry_system#Terminology
+        canonical_smiles = self.canonicalize_smiles(smiles)
+        if not canonical_smiles:
+            return None
+
+        if canonical_smiles != smiles:
+            self.output.value = f"Canonical SMILES: {canonical_smiles}"
+
         try:
-            return self._rdkit_opt(smiles, steps)
+            return self._rdkit_opt(canonical_smiles, steps)
         except ValueError as e:
             self.output.value = str(e)
             if self.disable_openbabel:
@@ -796,7 +808,7 @@ class SmilesWidget(ipw.VBox):
             self.output.value += " Trying OpenBabel..."
             return self._pybel_opt(smiles, steps)
 
-    def _on_button_pressed(self, change):  # pylint: disable=unused-argument
+    def _on_button_pressed(self, change=None):
         """Convert SMILES to ase structure when button is pressed."""
         self.output.value = ""
 
@@ -804,12 +816,28 @@ class SmilesWidget(ipw.VBox):
             return
         spinner = f"Screening possible conformers {self.SPINNER}"  # font-size:20em;
         self.output.value = spinner
+
         self.structure = self._mol_from_smiles(self.smiles.value)
         # Don't overwrite possible error/warning messages
         if self.output.value == spinner:
             self.output.value = ""
 
-    @default("structure")
+    def canonicalize_smiles(self, smiles):
+        from rdkit import Chem
+
+        mol = Chem.MolFromSmiles(smiles, sanitize=True)
+        if mol is None:
+            # Something is seriously wrong with the SMILES code,
+            # just return None and don't attempt anything else.
+            self.output.value = "RDkit ERROR: Invalid SMILES string"
+            return None
+        canonical_smiles = Chem.MolToSmiles(mol, isomericSmiles=True, canonical=True)
+        if not canonical_smiles:
+            self.output.value = "RDkit ERROR: Could not canonicalize SMILES"
+            return None
+        return canonical_smiles
+
+    @tl.default("structure")
     def _default_structure(self):
         return None
 
@@ -826,7 +854,6 @@ def _register_structure(operator):
 
     @functools.wraps(operator)
     def inner(ref, *args, **kwargs):
-
         if not ref.structure:
             ref._status_message.message = """
             <div class="alert alert-info">
@@ -856,7 +883,6 @@ def _register_selection(operator):
 
     @functools.wraps(operator)
     def inner(ref, *args, **kwargs):
-
         if not ref.selection:
             ref._status_message.message = """
             <div class="alert alert-info">
@@ -877,7 +903,7 @@ def _register_selection(operator):
 class BasicCellEditor(ipw.VBox):
     """Widget that allows for the basic cell editing."""
 
-    structure = Instance(Atoms, allow_none=True)
+    structure = tl.Instance(ase.Atoms, allow_none=True)
 
     def __init__(self, title="Cell transform"):
         self.title = title
@@ -888,13 +914,13 @@ class BasicCellEditor(ipw.VBox):
             description="Convert to primitive cell",
             layout={"width": "initial"},
         )
-        primitive_cell.on_click(self.def_primitive_cell)
+        primitive_cell.on_click(self._to_primitive_cell)
 
         conventional_cell = ipw.Button(
             description="Convert to conventional cell",
             layout={"width": "initial"},
         )
-        conventional_cell.on_click(self.def_conventional_cell)
+        conventional_cell.on_click(self._to_conventional_cell)
 
         super().__init__(
             children=[
@@ -909,20 +935,20 @@ class BasicCellEditor(ipw.VBox):
         )
 
     @_register_structure
-    def def_primitive_cell(self, _=None, atoms=None):
+    def _to_primitive_cell(self, _=None, atoms=None):
         atoms = self._to_standard_cell(atoms, to_primitive=True)
 
         self.structure = atoms
 
     @_register_structure
-    def def_conventional_cell(self, _=None, atoms=None):
+    def _to_conventional_cell(self, _=None, atoms=None):
         atoms = self._to_standard_cell(atoms, to_primitive=False)
 
         self.structure = atoms
 
     @staticmethod
     def _to_standard_cell(
-        structure: Atoms, to_primitive=False, no_idealize=False, symprec=1e-5
+        structure: ase.Atoms, to_primitive=False, no_idealize=False, symprec=1e-5
     ):
         """The `standardize_cell` method from spglib and apply to ase.Atoms"""
         lattice = structure.get_cell()
@@ -936,7 +962,7 @@ class BasicCellEditor(ipw.VBox):
             cell, to_primitive=to_primitive, no_idealize=no_idealize, symprec=symprec
         )
 
-        return Atoms(
+        return ase.Atoms(
             cell=lattice,
             scaled_positions=positions,
             numbers=numbers,
@@ -944,18 +970,17 @@ class BasicCellEditor(ipw.VBox):
         )
 
 
-class BasicStructureEditor(ipw.VBox):  # pylint: disable=too-many-instance-attributes
+class BasicStructureEditor(ipw.VBox):
     """
     Widget that allows for the basic structure (molecule and
     position of periodic structure in cell) editing."""
 
-    structure = Instance(Atoms, allow_none=True)
-    input_selection = List(Int, allow_none=True)
-    selection = List(Int)
-    camera_orientation = List()
+    structure = tl.Instance(ase.Atoms, allow_none=True)
+    input_selection = tl.List(tl.Int(), allow_none=True)
+    selection = tl.List(tl.Int())
+    camera_orientation = tl.List()
 
     def __init__(self, title=""):
-
         self.title = title
 
         # Define action vector.
@@ -1039,7 +1064,7 @@ class BasicStructureEditor(ipw.VBox):  # pylint: disable=too-many-instance-attri
         # Atoms selection.
         self.element = ipw.Dropdown(
             description="Select element",
-            options=chemical_symbols[1:],
+            options=ase.data.chemical_symbols[1:],
             value="H",
             style={"description_width": "initial"},
             layout={"width": "initial"},
@@ -1066,7 +1091,7 @@ class BasicStructureEditor(ipw.VBox):  # pylint: disable=too-many-instance-attri
             description="Use covalent radius",
             style={"description_width": "initial"},
         )
-        link((use_covalent_radius, "value"), (self.bond_length, "disabled"))
+        tl.link((use_covalent_radius, "value"), (self.bond_length, "disabled"))
 
         # Copy atoms.
         btn_copy_sel = ipw.Button(
@@ -1364,7 +1389,7 @@ class BasicStructureEditor(ipw.VBox):  # pylint: disable=too-many-instance-attri
 
         if self.ligand.value == 0:
             for idx in self.selection:
-                new = Atom(self.element.value)
+                new = ase.Atom(self.element.value)
                 atoms[idx].mass = new.mass
                 atoms[idx].magmom = new.magmom
                 atoms[idx].momentum = new.momentum
@@ -1409,7 +1434,7 @@ class BasicStructureEditor(ipw.VBox):  # pylint: disable=too-many-instance-attri
         """Add atoms."""
         last_atom = atoms.get_global_number_of_atoms()
         if self.ligand.value == 0:
-            initial_ligand = Atoms([Atom(self.element.value, [0, 0, 0])])
+            initial_ligand = ase.Atoms([ase.Atom(self.element.value, [0, 0, 0])])
             rad = SYMBOL_RADIUS[self.element.value]
         else:
             initial_ligand = self.ligand.rotate(align_to=self.action_vector)
@@ -1439,7 +1464,7 @@ class BasicStructureEditor(ipw.VBox):  # pylint: disable=too-many-instance-attri
 
     @_register_structure
     @_register_selection
-    def remove(self, _, atoms=None, selection=None):
+    def remove(self, _=None, atoms=None, selection=None):
         """Remove selected atoms."""
         del [atoms[selection]]
 

@@ -21,6 +21,7 @@ def test_aiida_datatypes_viewers(selenium_driver, final_screenshot):
     driver.set_window_size(1000, 2000)
     driver.find_element(By.CLASS_NAME, "widget-label")
     driver.find_element(By.XPATH, '//button[text()="Clear selection"]')
+    driver.find_element(By.XPATH, '//p[text()="Warning:"]')
     time.sleep(5)
 
 
@@ -68,7 +69,6 @@ def test_structures_generate_from_smiles(selenium_driver, final_screenshot):
 def test_structure_from_examples_and_supercell_selection(
     selenium_driver, final_screenshot
 ):
-
     driver = selenium_driver("notebooks/structures.ipynb")
     driver.set_window_size(1000, 900)
     # Switch to "From Examples tab in StructureManagerWidget
