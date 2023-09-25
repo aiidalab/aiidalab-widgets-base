@@ -164,10 +164,23 @@ def test_smiles_canonicalization():
     # Should be idempotent
     assert canonical == widget.canonicalize_smiles(canonical)
 
+
+@pytest.mark.usefixtures("aiida_profile_clean")
+def test_tough_smiles():
+    widget = awb.SmilesWidget()
+    assert widget.structure is None
     # Regression test for https://github.com/aiidalab/aiidalab-widgets-base/issues/505
     # Throwing in this non-canonical string should not raise
-    nasty_smiles = "C=CC1=C(C2=CC=C(C3=CC=CC=C3)C=C2)C=C(C=C)C(C4=CC=C(C(C=C5)=CC=C5C(C=C6C=C)=C(C=C)C=C6C7=CC=C(C(C=C8)=CC=C8C(C=C9C=C)=C(C=C)C=C9C%10=CC=CC=C%10)C=C7)C=C4)=C1"
-    widget._rdkit_opt(nasty_smiles, steps=1)
+    widget.smiles.value = "C=CC1=C(C2=CC=C(C3=CC=CC=C3)C=C2)C=C(C=C)C(C4=CC=C(C(C=C5)=CC=C5C(C=C6C=C)=C(C=C)C=C6C7=CC=C(C(C=C8)=CC=C8C(C=C9C=C)=C(C=C)C=C9C%10=CC=CC=C%10)C=C7)C=C4)=C1"
+    widget._on_button_pressed()
+    assert isinstance(widget.structure, ase.Atoms)
+    assert widget.structure.get_chemical_formula() == "C72H54"
+
+    # Regression test for https://github.com/aiidalab/aiidalab-widgets-base/issues/510
+    widget.smiles.value = "CC1=C(C)C(C2=C3C=CC4=C(C5=C(C)C(C)=C(C6=C(C=CC=C7)C7=CC8=C6C=CC=C8)C(C)=C5C)C9=CC=C%10N9[Fe]%11(N%12C(C=CC%12=C(C%13=C(C)C(C)=C(C%14=C(C=CC=C%15)C%15=CC%16=C%14C=CC=C%16)C(C)=C%13C)C%17=CC=C2N%17%11)=C%10C%18=C(C)C(C)=C(C%19=C(C=CC=C%20)C%20=CC%21=C%19C=CC=C%21)C(C)=C%18C)N43)=C(C)C(C)=C1C%22=C(C=CC=C%23)C%23=CC%24=C%22C=CC=C%24"
+    widget._on_button_pressed()
+    assert isinstance(widget.structure, ase.Atoms)
+    assert widget.structure.get_chemical_formula() == "TBD"
 
 
 @pytest.mark.usefixtures("aiida_profile_clean")
