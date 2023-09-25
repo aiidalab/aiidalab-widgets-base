@@ -12,6 +12,7 @@ filterwarnings = [
     "ignore:Creating AiiDA configuration:UserWarning:aiida",
     "ignore:crystal system:UserWarning:ase.io.cif",
     'ignore::DeprecationWarning:ase.atoms',
+    "ignore::DeprecationWarning:optimade_client.subwidgets.provider_database",
     # https://github.com/CasperWA/ipywidgets-extended/issues/85
     "ignore:metadata:DeprecationWarning:ipywidgets_extended.dropdown",
     # For some reason we get this error, perhaps because we do
