@@ -180,7 +180,7 @@ def test_tough_smiles():
     widget.smiles.value = "CC1=C(C)C(C2=C3C=CC4=C(C5=C(C)C(C)=C(C6=C(C=CC=C7)C7=CC8=C6C=CC=C8)C(C)=C5C)C9=CC=C%10N9[Fe]%11(N%12C(C=CC%12=C(C%13=C(C)C(C)=C(C%14=C(C=CC=C%15)C%15=CC%16=C%14C=CC=C%16)C(C)=C%13C)C%17=CC=C2N%17%11)=C%10C%18=C(C)C(C)=C(C%19=C(C=CC=C%20)C%20=CC%21=C%19C=CC=C%21)C(C)=C%18C)N43)=C(C)C(C)=C1C%22=C(C=CC=C%23)C%23=CC%24=C%22C=CC=C%24"
     widget._on_button_pressed()
     assert isinstance(widget.structure, ase.Atoms)
-    assert widget.structure.get_chemical_formula() == "TBD"
+    assert widget.structure.get_chemical_formula() == "C116H92FeN4"
 
 
 @pytest.mark.usefixtures("aiida_profile_clean")

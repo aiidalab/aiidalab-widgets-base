@@ -774,6 +774,14 @@ class SmilesWidget(ipw.VBox):
 
         conf_id = AllChem.EmbedMolecule(mol, maxAttempts=20, randomSeed=42)
         if conf_id < 0:
+            # Retry with different generation method that is supposed to be
+            # more stable. Perhaps we should switch to it by default.
+            # https://greglandrum.github.io/rdkit-blog/posts/2021-01-31-looking-at-random-coordinate-embedding.html#look-at-some-of-the-troublesome-structures
+            # https://www.rdkit.org/docs/source/rdkit.Chem.rdDistGeom.html#rdkit.Chem.rdDistGeom.EmbedMolecule
+            conf_id = AllChem.EmbedMolecule(
+                mol, maxAttempts=20, useRandomCoords=True, randomSeed=422
+            )
+        if conf_id < 0:
             self.output.value = "RDKit ERROR: Could not generate conformer"
             return None
         if AllChem.UFFHasAllMoleculeParams(mol):
