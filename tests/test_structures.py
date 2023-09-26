@@ -152,17 +152,17 @@ def test_smiles_widget():
 @pytest.mark.usefixtures("aiida_profile_clean")
 def test_smiles_canonicalization():
     """Test the SMILES canonicalization via RdKit."""
-    widget = awb.SmilesWidget()
+    canonicalize = awb.SmilesWidget.canonicalize_smiles
 
     # Should not change canonical smiles
-    assert widget.canonicalize_smiles("C") == "C"
+    assert canonicalize("C") == "C"
 
     # Should canonicalize this
-    canonical = widget.canonicalize_smiles("O=CC=C")
+    canonical = canonicalize("O=CC=C")
     assert canonical == "C=CC=O"
 
     # Should be idempotent
-    assert canonical == widget.canonicalize_smiles(canonical)
+    assert canonical == canonicalize(canonical)
 
 
 @pytest.mark.usefixtures("aiida_profile_clean")
