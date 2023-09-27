@@ -148,21 +148,32 @@ def test_smiles_widget():
     assert isinstance(widget.structure, ase.Atoms)
     assert widget.structure.get_chemical_formula() == "N2"
 
+    # Should not raise for invalid smiles
+    widget.smiles.value = "invalid"
+    widget._on_button_pressed()
+    assert widget.structure is None
+
 
 @pytest.mark.usefixtures("aiida_profile_clean")
 def test_smiles_canonicalization():
     """Test the SMILES canonicalization via RdKit."""
-    widget = awb.SmilesWidget()
+    canonicalize = awb.SmilesWidget.canonicalize_smiles
 
     # Should not change canonical smiles
-    assert widget.canonicalize_smiles("C") == "C"
+    assert canonicalize("C") == "C"
 
     # Should canonicalize this
-    canonical = widget.canonicalize_smiles("O=CC=C")
+    canonical = canonicalize("O=CC=C")
     assert canonical == "C=CC=O"
 
     # Should be idempotent
-    assert canonical == widget.canonicalize_smiles(canonical)
+    assert canonical == canonicalize(canonical)
+
+    # Should raise for invalid smiles
+    with pytest.raises(ValueError):
+        canonicalize("invalid")
+    # There is another failure mode when RDkit mol object is generated
+    # but the canonicalization fails. I do not know how to trigger it though.
 
 
 @pytest.mark.usefixtures("aiida_profile_clean")
