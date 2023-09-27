@@ -22,6 +22,15 @@ from .dicts import Colors, Radius
 from .misc import CopyToClipboardButton, ReversePolishNotation
 from .utils import ase2spglib, list_to_string_range, string_range_to_list
 
+
+def list_to_nglview(the_list):
+    """Converts a list of structures to a nglview widget"""
+    selection = "none"
+    if len(the_list):
+        selection = "@" + ",".join(map(str, the_list))
+    return selection
+
+
 AIIDA_VIEWER_MAPPING = {}
 
 
@@ -243,6 +252,23 @@ class NglViewerRepresentation(ipw.HBox):
             if self.uuid in structure.arrays:
                 return structure.arrays[self.uuid] >= self.array_threshold
         return False
+
+    def nglview_parameters(self, indices):
+        """Return the parameters dictionary of a representation."""
+        params = {
+            "type": self.type.value,
+            "params": {
+                "sele": list_to_nglview(indices),
+                "opacity": 1,
+                "color": self.color.value,
+            },
+        }
+        if self.type.value == "ball+stick":
+            params["params"]["aspectRatio"] = self.size.value
+        else:
+            params["params"]["radiusScale"] = 0.1 * self.size.value
+
+        return params
 
 
 class _StructureDataBaseViewer(ipw.VBox):
@@ -512,23 +538,6 @@ class _StructureDataBaseViewer(ipw.VBox):
         self.representation_output.children = change["new"]
         if change["new"]:
             self._all_representations[-1].master_class = self
-
-    def _get_representation_parameters(self, indices, representation):
-        """Return the parameters dictionary of a representation."""
-        params = {
-            "type": representation.type.value,
-            "params": {
-                "sele": self._list_to_nglview(indices),
-                "opacity": 1,
-                "color": representation.color.value,
-            },
-        }
-        if representation.type.value == "ball+stick":
-            params["params"]["aspectRatio"] = representation.size.value
-        else:
-            params["params"]["radiusScale"] = 0.1 * representation.size.value
-
-        return params
 
     def _apply_representations(self, change=None):
         """Apply the representations to the displayed structure."""
@@ -899,13 +908,6 @@ class _StructureDataBaseViewer(ipw.VBox):
                 displayed_selection = [index]
             self.displayed_selection = displayed_selection
 
-    def _list_to_nglview(self, the_list):
-        """Converts a list of structures to a nglview widget"""
-        selection = "none"
-        if len(the_list):
-            selection = "@" + ",".join(map(str, the_list))
-        return selection
-
     def highlight_atoms(
         self,
         vis_list,
@@ -929,9 +931,7 @@ class _StructureDataBaseViewer(ipw.VBox):
                 )[0],
             )
             if len(indices) > 0:
-                params = self._get_representation_parameters(
-                    indices, self._all_representations[i]
-                )
+                params = representation.nglview_parameters(indices)
                 params["params"]["name"] = f"highlight_representation_{i}"
                 params["params"]["opacity"] = 0.3
                 params["params"]["component_index"] = 0
@@ -1086,26 +1086,24 @@ class StructureDataViewer(_StructureDataBaseViewer):
     def _valid_structure(self, change):
         """Update structure."""
         structure = change["value"]
-        # If no structure is provided, the rest of the code can be skipped.
-        if structure is None:
-            return None  # if no structure provided, the rest of the code can be skipped
-
         if isinstance(structure, ase.Atoms):
             self.pk = None
-            return structure
         elif isinstance(structure, orm.Node):
             self.pk = structure.pk
             structure = structure.get_ase()
-
+        elif structure:
             raise TypeError(
                 f"Unsupported type {type(structure)}, structure must be one of the following types: "
                 "ASE Atoms object, AiiDA CifData or StructureData."
             )
+
+        # Add default representation array if it is not present.
+        # This will make sure that the new structure is displayed at the beginning.
         if "_aiidalab_viewer_representation_default" not in structure.arrays:
             structure.set_array(
                 "_aiidalab_viewer_representation_default", np.zeros(len(structure))
             )
-        return structure
+        return structure  # This also includes the case when the structure is None.
 
     @tl.observe("structure")
     def _observe_structure(self, change=None):
@@ -1117,13 +1115,14 @@ class StructureDataViewer(_StructureDataBaseViewer):
         if structure:
             self.natoms = len(structure)
             # Make sure that the representation arrays from structure are present in the viewer.
-            uuids = [
+            structure_uuids = [
                 uuid
                 for uuid in structure.arrays
                 if uuid.startswith("_aiidalab_viewer_representation_")
             ]
             rep_uuids = [rep.uuid for rep in self._all_representations]
-            for uuid in uuids:
+
+            for uuid in structure_uuids:
                 try:
                     index = rep_uuids.index(uuid)
                     self._all_representations[
@@ -1137,7 +1136,7 @@ class StructureDataViewer(_StructureDataBaseViewer):
             # Empty atoms selection for the representations that are not present in the structure.
             # Typically this happens when a new structure is imported.
             for i, uuid in enumerate(rep_uuids):
-                if uuid not in uuids:
+                if uuid not in structure_uuids:
                     self._all_representations[i].selection.value = ""
 
             self._observe_supercell()  # To trigger an update of the displayed structure
@@ -1158,18 +1157,16 @@ class StructureDataViewer(_StructureDataBaseViewer):
                     default_representation=False,
                     name="Structure",
                 )
-                representation_parameters = []
-                for representation in self._all_representations:
-                    if not representation.show.value:
-                        continue
-                    indices = np.where(
-                        representation.atoms_in_representaion(self.displayed_structure)
-                    )[0]
-                    representation_parameters.append(
-                        self._get_representation_parameters(indices, representation)
+                nglview_params = [
+                    rep.nglview_parameters(
+                        np.where(rep.atoms_in_representaion(self.displayed_structure))[
+                            0
+                        ]
                     )
-
-                self._viewer.set_representations(representation_parameters, component=0)
+                    for rep in self._all_representations
+                    if rep.show.value
+                ]
+                self._viewer.set_representations(nglview_params, component=0)
                 self._viewer.add_unitcell()
                 self._viewer.center()
         self.displayed_selection = []
