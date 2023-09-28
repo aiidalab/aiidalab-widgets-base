@@ -1,5 +1,4 @@
 """Module to provide functionality to import structures."""
-
 import datetime
 import functools
 import io
@@ -182,6 +181,10 @@ class StructureManagerWidget(ipw.VBox):
             for i, editor in enumerate(editors):
                 editors_tab.set_title(i, editor.title)
                 tl.link((editor, "structure"), (self, "structure"))
+                if editor.has_trait("input_selection"):
+                    tl.dlink(
+                        (editor, "input_selection"), (self.viewer, "input_selection")
+                    )
                 if editor.has_trait("selection"):
                     tl.link((editor, "selection"), (self.viewer, "selection"))
                 if editor.has_trait("camera_orientation"):
@@ -1288,6 +1291,8 @@ class BasicStructureEditor(ipw.VBox):
             self.action_vector * self.displacement.value
         )
 
+        self.input_selection = None  # Clear selection.
+
         self.structure, self.input_selection = atoms, selection
 
     @_register_structure
@@ -1297,7 +1302,7 @@ class BasicStructureEditor(ipw.VBox):
 
         # The action.
         atoms.positions[self.selection] += np.array(self.str2vec(self.dxyz.value))
-
+        self.input_selection = None  # Clear selection.
         self.structure, self.input_selection = atoms, selection
 
     @_register_structure
@@ -1307,7 +1312,7 @@ class BasicStructureEditor(ipw.VBox):
         # The action.
         geo_center = np.average(self.structure[self.selection].get_positions(), axis=0)
         atoms.positions[self.selection] += self.str2vec(self.dxyz.value) - geo_center
-
+        self.input_selection = None  # Clear selection.
         self.structure, self.input_selection = atoms, selection
 
     @_register_structure
@@ -1321,6 +1326,7 @@ class BasicStructureEditor(ipw.VBox):
         center = self.str2vec(self.point.value)
         rotated_subset.rotate(self.phi.value, v=vec, center=center, rotate_cell=False)
         atoms.positions[self.selection] = rotated_subset.positions
+        self.input_selection = None  # Clear selection.
 
         self.structure, self.input_selection = atoms, selection
 
@@ -1354,6 +1360,8 @@ class BasicStructureEditor(ipw.VBox):
 
         # Mirror atoms.
         atoms.positions[selection] -= 2 * projections
+
+        self.input_selection = None  # Clear selection.
 
         self.structure, self.input_selection = atoms, selection
 
@@ -1417,6 +1425,7 @@ class BasicStructureEditor(ipw.VBox):
     @_register_selection
     def copy_sel(self, _=None, atoms=None, selection=None):
         """Copy selected atoms and shift by 1.0 A along X-axis."""
+
         last_atom = atoms.get_global_number_of_atoms()
 
         # The action
