@@ -171,6 +171,40 @@ class _StructureDataBaseViewer(ipw.VBox):
 
         view_box = ipw.VBox([self._viewer])
 
+        # Constructing configuration box
+        if configuration_tabs is None:
+            self._configuration_tabs = ["Selection", "Appearance", "Cell", "Download"]
+        else:
+            self._configuration_tabs = configuration_tabs
+
+        if configure_view is not True:
+            warnings.warn(
+                "`configure_view` is deprecated, please use `configuration_tabs` instead. Will be removed in the version 3.0.0",
+                DeprecationWarning,
+                stacklevel=2,
+            )
+            if not configure_view:
+                self._configuration_tabs.clear()
+
+        if len(self._configuration_tabs) != 0:
+            configuration_box = self._create_tabs(self._configuration_tabs)
+            children = [ipw.HBox([view_box, configuration_box])]
+            view_box.layout = {"width": "60%"}
+        else:
+            children = [view_box]
+
+        if "children" in kwargs:
+            warnings.warn(
+                "defining `children` is deprecated, will be removed in the version 3.0.0",
+                DeprecationWarning,
+                stacklevel=2,
+            )
+            children += kwargs.pop("children")
+
+        super().__init__(children, **kwargs)
+
+    def _create_tabs(self, configuration_tabs):
+        """Create tabs for configuration box."""
         configuration_tabs_map = {
             "Cell": self._cell_tab(),
             "Selection": self._selection_tab(),
@@ -178,37 +212,15 @@ class _StructureDataBaseViewer(ipw.VBox):
             "Download": self._download_tab(),
         }
 
-        if configure_view is not True:
-            warnings.warn(
-                "`configure_view` is deprecated, please use `configuration_tabs` instead.",
-                DeprecationWarning,
-                stacklevel=2,
-            )
-            if not configure_view:
-                configuration_tabs.clear()
+        configuration_box = ipw.Tab(layout=ipw.Layout(flex="1 1 auto", width="auto"))
+        configuration_box.children = [
+            configuration_tabs_map[tab_title] for tab_title in configuration_tabs
+        ]
 
-        # Constructing configuration box
-        if configuration_tabs is None:
-            configuration_tabs = ["Selection", "Appearance", "Cell", "Download"]
-        if len(configuration_tabs) != 0:
-            self.configuration_box = ipw.Tab(
-                layout=ipw.Layout(flex="1 1 auto", width="auto")
-            )
-            self.configuration_box.children = [
-                configuration_tabs_map[tab_title] for tab_title in configuration_tabs
-            ]
+        for i, title in enumerate(self._configuration_tabs):
+            configuration_box.set_title(i, title)
 
-            for i, title in enumerate(configuration_tabs):
-                self.configuration_box.set_title(i, title)
-            children = [ipw.HBox([view_box, self.configuration_box])]
-            view_box.layout = {"width": "60%"}
-        else:
-            children = [view_box]
-
-        if "children" in kwargs:
-            children += kwargs.pop("children")
-
-        super().__init__(children, **kwargs)
+        return configuration_box
 
     def _selection_tab(self):
         """Defining the selection tab."""
