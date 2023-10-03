@@ -376,32 +376,6 @@ class StructureUploadWidget(ipw.VBox):
             children=[self.file_upload, supported_formats, self._status_message]
         )
 
-    def _validate_and_fix_ase_cell(self, ase_structure, vacuum_ang=10.0):
-        """
-        Checks if the ase Atoms object has a cell set,
-        otherwise sets it to bounding box plus specified "vacuum" space
-        """
-        if not ase_structure:
-            return None
-
-        cell = ase_structure.cell
-
-        # TODO: Since AiiDA 2.0, zero cell is possible if PBC=false
-        # so we should honor that here and do not put artificial cell
-        # around gas phase molecules.
-        if (
-            np.linalg.norm(cell[0]) < 0.1
-            or np.linalg.norm(cell[1]) < 0.1
-            or np.linalg.norm(cell[2]) < 0.1
-        ):
-            # if any of the cell vectors is too short, consider it faulty
-            # set cell as bounding box + vacuum_ang
-            bbox = np.ptp(ase_structure.positions, axis=0)
-            new_structure = ase_structure.copy()
-            new_structure.cell = bbox + vacuum_ang
-            return new_structure
-        return ase_structure
-
     def _on_file_upload(self, change=None):
         """When file upload button is pressed."""
         for fname, item in change["new"].items():
@@ -444,9 +418,9 @@ class StructureUploadWidget(ipw.VBox):
                     return TrajectoryData(
                         structurelist=[
                             StructureData(
-                                ase=self._validate_and_fix_ase_cell(ase_struct)
+                                ase=ase_structure,
                             )
-                            for ase_struct in structures
+                            for ase_structure in structures
                         ]
                     )
                 else:
@@ -455,7 +429,7 @@ class StructureUploadWidget(ipw.VBox):
                         """
                     return None
 
-            return self._validate_and_fix_ase_cell(structures[0])
+            return structures[0]
 
 
 class StructureExamplesWidget(ipw.VBox):
@@ -720,7 +694,6 @@ class SmilesWidget(ipw.VBox):
         if len(species) > 2:
             positions = PCA(n_components=3).fit_transform(positions)
         atoms = ase.Atoms(species, positions=positions, pbc=False)
-        atoms.cell = np.ptp(atoms.positions, axis=0) + 10
         atoms.center()
         # We're attaching this info so that it
         # can be later stored as an extra on AiiDA Structure node.
