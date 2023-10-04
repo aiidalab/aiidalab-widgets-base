@@ -204,6 +204,14 @@ def structure_data_object():
 
 
 @pytest.fixture
+def molecule_ase_object():
+    """Return an ase molecule object."""
+    from ase.build import molecule
+
+    return molecule("H2O")
+
+
+@pytest.fixture
 def bands_data_object():
     BandsData = plugins.DataFactory("core.array.bands")  # noqa: N806
     bs = BandsData()

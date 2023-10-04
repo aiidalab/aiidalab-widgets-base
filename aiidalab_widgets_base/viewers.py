@@ -169,13 +169,28 @@ class _StructureDataBaseViewer(ipw.VBox):
         self._viewer.observe(self._on_atom_click, names="picked")
         self._viewer.stage.set_parameters(mouse_preset="pymol")
 
-        view_box = ipw.VBox([self._viewer])
+        self.view_box = ipw.VBox([self._viewer])
 
         # Constructing configuration box
         if configuration_tabs is None:
-            self._configuration_tabs = ["Selection", "Appearance", "Cell", "Download"]
+            self._configuration_tabs = [
+                "Selection",
+                "Appearance",
+                "Lattice",
+                "Download",
+            ]
         else:
             self._configuration_tabs = configuration_tabs
+
+        # For backward compatibility, where the Lattice tab was called Cell.
+        if "Cell" in self._configuration_tabs:
+            warnings.warn(
+                "`Cell` tab is deprecated, please use `Lattice` instead. Will be removed in the version 3.0.0",
+                DeprecationWarning,
+                stacklevel=2,
+            )
+            self._configuration_tabs.remove("Cell")
+            self._configuration_tabs.append("Lattice")
 
         if configure_view is not True:
             warnings.warn(
@@ -188,10 +203,10 @@ class _StructureDataBaseViewer(ipw.VBox):
 
         if len(self._configuration_tabs) != 0:
             configuration_box = self._create_tabs(self._configuration_tabs)
-            children = [ipw.HBox([view_box, configuration_box])]
-            view_box.layout = {"width": "60%"}
+            children = [ipw.HBox([self.view_box, configuration_box])]
+            self.view_box.layout = {"width": "60%"}
         else:
-            children = [view_box]
+            children = [self.view_box]
 
         if "children" in kwargs:
             warnings.warn(
@@ -206,7 +221,7 @@ class _StructureDataBaseViewer(ipw.VBox):
     def _create_tabs(self, configuration_tabs):
         """Create tabs for configuration box."""
         configuration_tabs_map = {
-            "Cell": self._cell_tab(),
+            "Lattice": self._cell_tab(),
             "Selection": self._selection_tab(),
             "Appearance": self._appearance_tab(),
             "Download": self._download_tab(),
@@ -329,7 +344,24 @@ class _StructureDataBaseViewer(ipw.VBox):
 
     @tl.observe("cell")
     def _observe_cell(self, _=None):
-        # Updtate the Cell and Periodicity.
+        # Update the widget layout view.
+        if not self.cell and "Lattice" in self._configuration_tabs:
+            self._configuration_tabs.remove("Lattice")
+
+        if self.cell and "Lattice" not in self._configuration_tabs:
+            self._configuration_tabs = ["Lattice"] + self._configuration_tabs
+
+        if len(self._configuration_tabs) != 0:
+            configuration_box = self._create_tabs(self._configuration_tabs)
+            self.children = [ipw.HBox([self.view_box, configuration_box])]
+            self.view_box.layout = {"width": "60%"}
+        else:
+            self.children = [self.view_box]
+
+        # Updtate the Lattice tab and Periodicity.
+
+        # For molecules, the cell is Cell([0, 0, 0]) and in the condition is still # `False``. That's why it is able to use `if self.cell` to cover both None and
+        # not cell defined cases.
         if self.cell:
             self.cell_a.value = "<i><b>a</b></i>: {:.4f} {:.4f} {:.4f}".format(
                 *self.cell.array[0]
@@ -375,22 +407,6 @@ class _StructureDataBaseViewer(ipw.VBox):
             self.periodicity.value = (
                 f"Periodicity: {periodicity_map[tuple(self.structure.pbc)]}"
             )
-        else:
-            self.cell_a.value = "<i><b>a</b></i>:"
-            self.cell_b.value = "<i><b>b</b></i>:"
-            self.cell_c.value = "<i><b>c</b></i>:"
-
-            self.cell_a_length.value = "|<i><b>a</b></i>|:"
-            self.cell_b_length.value = "|<i><b>b</b></i>|:"
-            self.cell_c_length.value = "|<i><b>c</b></i>|:"
-
-            self.cell_alpha.value = "&alpha;:"
-            self.cell_beta.value = "&beta;:"
-            self.cell_gamma.value = "&gamma;:"
-
-            self.cell_spacegroup.value = ""
-            self.cell_hall.value = ""
-            self.periodicity.value = ""
 
     def _cell_tab(self):
         self.cell_a = ipw.HTML()
@@ -408,8 +424,6 @@ class _StructureDataBaseViewer(ipw.VBox):
         self.cell_spacegroup = ipw.HTML()
         self.cell_hall = ipw.HTML()
         self.periodicity = ipw.HTML()
-
-        self._observe_cell()
 
         return ipw.VBox(
             [
@@ -801,7 +815,9 @@ class StructureDataViewer(_StructureDataBaseViewer):
 
     @tl.observe("supercell")
     def repeat(self, _=None):
-        if self.structure is not None:
+        # need to check if cell is defined, otherwise it will throw an error
+        # since it makes no sense to repeat a molecule
+        if self.structure is not None and self.cell:
             self.set_trait("displayed_structure", self.structure.repeat(self.supercell))
 
     @tl.validate("structure")
@@ -1108,7 +1124,8 @@ class StructureDataViewer(_StructureDataBaseViewer):
 
     @tl.observe("displayed_selection")
     def _observe_displayed_selection_2(self, _=None):
-        self.selection_info.value = self.create_selection_info()
+        if self.displayed_selection:
+            self.selection_info.value = self.create_selection_info()
 
 
 @register_viewer_widget("data.core.folder.FolderData.")
