@@ -1,18 +1,18 @@
 from __future__ import annotations
 
+import copy
 import enum
 import os
 import subprocess
 import threading
 from collections import namedtuple
-from copy import copy, deepcopy
 from pathlib import Path
 from uuid import UUID
 
 import ipywidgets as ipw
 import pexpect
 import shortuuid
-import traitlets
+import traitlets as tl
 from aiida import common, orm, plugins
 from aiida.orm.utils.builders.computer import ComputerBuilder
 from aiida.transports.plugins import ssh as aiida_ssh_plugin
@@ -20,7 +20,7 @@ from humanfriendly import InvalidSize, parse_size
 from IPython.display import clear_output, display
 from jinja2 import Environment, meta
 
-from .databases import NewComputationalResourcesDatabaseWidget
+from .databases import ComputationalResourcesDatabaseWidget
 from .utils import StatusHTML
 
 STYLE = {"description_width": "140px"}
@@ -45,10 +45,10 @@ class ComputationalResourcesWidget(ipw.VBox):
     computers.
     """
 
-    value = traitlets.Unicode(allow_none=True)
-    codes = traitlets.Dict(allow_none=True)
-    allow_hidden_codes = traitlets.Bool(False)
-    allow_disabled_computers = traitlets.Bool(False)
+    value = tl.Unicode(allow_none=True)
+    codes = tl.Dict(allow_none=True)
+    allow_hidden_codes = tl.Bool(False)
+    allow_disabled_computers = tl.Bool(False)
 
     def __init__(
         self,
@@ -73,17 +73,17 @@ class ComputationalResourcesWidget(ipw.VBox):
             value=None,
             style={"description_width": "initial"},
         )
-        traitlets.directional_link(
+        tl.directional_link(
             (self, "codes"),
             (self.code_select_dropdown, "options"),
             transform=lambda x: [(key, x[key]) for key in x],
         )
-        traitlets.directional_link(
+        tl.directional_link(
             (self.code_select_dropdown, "options"),
             (self, "codes"),
             transform=lambda x: {c[0]: c[1] for c in x},
         )
-        traitlets.link((self.code_select_dropdown, "value"), (self, "value"))
+        tl.link((self.code_select_dropdown, "value"), (self, "value"))
 
         self.observe(
             self.refresh, names=["allow_disabled_computers", "allow_hidden_codes"]
@@ -154,10 +154,11 @@ class ComputationalResourcesWidget(ipw.VBox):
         """Query the list of available codes."""
 
         user = orm.User.collection.get_default()
-        if self.default_calc_job_plugin is None:
-            filters = {}
-        else:
-            filters = {"attributes.input_plugin": self.default_calc_job_plugin}
+        filters = (
+            {"attributes.input_plugin": self.default_calc_job_plugin}
+            if self.default_calc_job_plugin
+            else {}
+        )
 
         return [
             (self._full_code_label(c[0]), c[0].uuid)
@@ -192,7 +193,7 @@ class ComputationalResourcesWidget(ipw.VBox):
                 self.code_select_dropdown.disabled = False
             self.code_select_dropdown.value = None
 
-    @traitlets.validate("value")
+    @tl.validate("value")
     def _validate_value(self, change):
         """Check if the code is valid in DB"""
         code_uuid = change["value"]
@@ -263,8 +264,8 @@ class SshConnectionState(enum.Enum):
 class SshComputerSetup(ipw.VBox):
     """Setup a passwordless access to a computer."""
 
-    ssh_config = traitlets.Dict()
-    ssh_connection_state = traitlets.UseEnum(
+    ssh_config = tl.Dict()
+    ssh_connection_state = tl.UseEnum(
         SshConnectionState, allow_none=True, default_value=None
     )
     SSH_POSSIBLE_RESPONSES = [
@@ -279,8 +280,8 @@ class SshComputerSetup(ipw.VBox):
         "Connection refused",  # 6
         pexpect.EOF,  # 7
     ]
-    message = traitlets.Unicode()
-    password_message = traitlets.Unicode("The passwordless enabling log.")
+    message = tl.Unicode()
+    password_message = tl.Unicode("The passwordless enabling log.")
 
     def __init__(self, ssh_folder=None, **kwargs):
         """Setup a passwordless access to a computer."""
@@ -553,7 +554,7 @@ class SshComputerSetup(ipw.VBox):
         self._continue_with_password_button.disabled = True
         self._ssh_connection_process.sendline(self._ssh_password.value)
 
-    @traitlets.observe("ssh_connection_state")
+    @tl.observe("ssh_connection_state")
     def _observe_ssh_connnection_state(self, _=None):
         """Observe the ssh connection state and act according to the changes."""
         if self.ssh_connection_state is SshConnectionState.waiting_for_input:
@@ -633,7 +634,7 @@ class SshComputerSetup(ipw.VBox):
         """Unwrap private key file and setting filename and file content."""
         if self._inp_private_key.value:
             (fname, _value), *_ = self._inp_private_key.value.items()
-            content = copy(_value["content"])
+            content = copy.copy(_value["content"])
             self._inp_private_key.value.clear()
             self._inp_private_key._counter = 0  # pylint: disable=protected-access
             return fname, content
@@ -666,7 +667,7 @@ class SshComputerSetup(ipw.VBox):
         self.proxy_jump.value = ""
         self.proxy_command.value = ""
 
-    @traitlets.observe("ssh_config")
+    @tl.observe("ssh_config")
     def _observe_ssh_config(self, _=None):
         """Pre-filling the input fields."""
         if not self.ssh_config:
@@ -685,8 +686,8 @@ class SshComputerSetup(ipw.VBox):
 class AiidaComputerSetup(ipw.VBox):
     """Inform AiiDA about a computer."""
 
-    computer_setup = traitlets.Dict(allow_none=True)
-    message = traitlets.Unicode()
+    computer_setup = tl.Dict(allow_none=True)
+    message = tl.Unicode()
 
     def __init__(self, **kwargs):
         self._on_setup_computer_success = []
@@ -1041,7 +1042,7 @@ class AiidaComputerSetup(ipw.VBox):
         self.prepend_text.value = ""
         self.append_text.value = ""
 
-    @traitlets.observe("computer_setup")
+    @tl.observe("computer_setup")
     def _observe_computer_setup(self, _=None):
         # Setup.
         if not self.computer_setup:
@@ -1064,8 +1065,8 @@ class AiidaComputerSetup(ipw.VBox):
 class AiidaCodeSetup(ipw.VBox):
     """Class that allows to setup AiiDA code"""
 
-    code_setup = traitlets.Dict(allow_none=True)
-    message = traitlets.Unicode()
+    code_setup = tl.Dict(allow_none=True)
+    message = tl.Unicode()
 
     def __init__(self, **kwargs):
         self._on_setup_code_success = []
@@ -1143,7 +1144,7 @@ class AiidaCodeSetup(ipw.VBox):
         ]
         super().__init__(children, **kwargs)
 
-    @traitlets.validate("default_calc_job_plugin")
+    @tl.validate("default_calc_job_plugin")
     def _validate_default_calc_job_plugin(self, proposal):
         plugin = proposal["value"]
         return plugin if plugin in self.default_calc_job_plugin.options else None
@@ -1221,7 +1222,7 @@ class AiidaCodeSetup(ipw.VBox):
     def refresh(self):
         self._observe_code_setup()
 
-    @traitlets.observe("code_setup")
+    @tl.observe("code_setup")
     def _observe_code_setup(self, _=None):
         # Setup.
         self.computer.refresh()
@@ -1232,7 +1233,7 @@ class AiidaCodeSetup(ipw.VBox):
                 if key == "default_calc_job_plugin":
                     try:
                         self.default_calc_job_plugin.value = value
-                    except traitlets.TraitError:
+                    except tl.TraitError:
                         import re
 
                         # If is a template then don't raise the error message.
@@ -1262,9 +1263,9 @@ class ComputerDropdownWidget(ipw.VBox):
         allow_select_disabled(Bool):  Trait that defines whether to show disabled computers.
     """
 
-    value = traitlets.Unicode(allow_none=True)
-    computers = traitlets.Dict(allow_none=True)
-    allow_select_disabled = traitlets.Bool(False)
+    value = tl.Unicode(allow_none=True)
+    computers = tl.Dict(allow_none=True)
+    allow_select_disabled = tl.Bool(False)
 
     def __init__(self, description="Select computer:", **kwargs):
         """Dropdown for configured AiiDA Computers.
@@ -1280,17 +1281,17 @@ class ComputerDropdownWidget(ipw.VBox):
             layout=LAYOUT,
             disabled=True,
         )
-        traitlets.directional_link(
+        tl.directional_link(
             (self, "computers"),
             (self._dropdown, "options"),
             transform=lambda x: [(key, x[key]) for key in x],
         )
-        traitlets.directional_link(
+        tl.directional_link(
             (self._dropdown, "options"),
             (self, "computers"),
             transform=lambda x: {c[0]: c[1] for c in x},
         )
-        traitlets.link((self._dropdown, "value"), (self, "value"))
+        tl.link((self._dropdown, "value"), (self, "value"))
 
         self.observe(self.refresh, names="allow_select_disabled")
 
@@ -1331,7 +1332,7 @@ class ComputerDropdownWidget(ipw.VBox):
 
             self._dropdown.value = None
 
-    @traitlets.validate("value")
+    @tl.validate("value")
     def _validate_value(self, change):
         """Select computer by computer UUID."""
         computer_uuid = change["value"]
@@ -1355,10 +1356,10 @@ TemplateVariable = namedtuple("TemplateVariable", ["widget", "lines"])
 
 class TemplateVariablesWidget(ipw.VBox):
     # The input template is a dictionary of keyname and template string.
-    templates = traitlets.Dict(allow_none=True)
+    templates = tl.Dict(allow_none=True)
 
     # The output template is a dictionary of keyname and filled string.
-    filled_templates = traitlets.Dict(allow_none=True)
+    filled_templates = tl.Dict(allow_none=True)
 
     def __init__(self):
         # A placeholder for the template variables widget.
@@ -1387,7 +1388,7 @@ class TemplateVariablesWidget(ipw.VBox):
         self._help_text.layout.display = "none"
         self.template_variables.children = []
 
-    @traitlets.observe("templates")
+    @tl.observe("templates")
     def _templates_changed(self, _=None):
         """Render the template variables widget."""
         # reset traits and then render the widget.
@@ -1398,7 +1399,7 @@ class TemplateVariablesWidget(ipw.VBox):
         self._render()
 
         # Update the output filled template.
-        filled_templates = deepcopy(self.templates)
+        filled_templates = copy.deepcopy(self.templates)
         if "metadata" in filled_templates:
             del filled_templates["metadata"]
 
@@ -1504,7 +1505,7 @@ class TemplateVariablesWidget(ipw.VBox):
 
                 # Update the filled template.
                 # use deepcopy to assure the trait change is triggered.
-                filled_templates = deepcopy(self.filled_templates)
+                filled_templates = copy.deepcopy(self.filled_templates)
                 filled_templates[line.key] = filled_str
                 self.filled_templates = filled_templates
 
@@ -1512,21 +1513,21 @@ class TemplateVariablesWidget(ipw.VBox):
 class QuickSetupWidget(ipw.VBox):
     """The widget that allows to quickly setup a computer and code."""
 
-    success = traitlets.Bool(False)
-    message = traitlets.Unicode()
+    success = tl.Bool(False)
+    message = tl.Unicode()
 
-    ssh_config = traitlets.Dict(allow_none=True)
-    computer_setup = traitlets.Dict(
+    ssh_config = tl.Dict(allow_none=True)
+    computer_setup = tl.Dict(
         allow_none=True
     )  # In the format of {setup: {}, configure: {}}
-    code_setup = traitlets.Dict(allow_none=True)
+    code_setup = tl.Dict(allow_none=True)
 
     def __init__(self, default_calc_job_plugin=None, **kwargs):
         quick_setup_button = ipw.Button(description="Quick setup")
         quick_setup_button.on_click(self._on_quick_setup)
 
         # resource database for setup computer/code.
-        self.comp_resources_database = NewComputationalResourcesDatabaseWidget(
+        self.comp_resources_database = ComputationalResourcesDatabaseWidget(
             default_calc_job_plugin=default_calc_job_plugin
         )
         self.comp_resources_database.observe(
@@ -1610,14 +1611,14 @@ class QuickSetupWidget(ipw.VBox):
     def _on_template_variables_computer_filled(self, change):
         """Callback when the template variables of computer are filled."""
         # Update the filled template.
-        computer_setup = deepcopy(self.computer_setup)
+        computer_setup = copy.deepcopy(self.computer_setup)
         computer_setup["setup"] = change["new"]
         self.computer_setup = computer_setup
 
     def _on_template_variables_code_filled(self, change):
         """Callback when the template variables of code are filled."""
         # Update the filled template.
-        code_setup = deepcopy(self.code_setup)
+        code_setup = copy.deepcopy(self.code_setup)
         code_setup = change["new"]
         self.code_setup = code_setup
 
@@ -1673,7 +1674,7 @@ class QuickSetupWidget(ipw.VBox):
         # So can not combine them by {**a, **b}
         for w_tmp in [self.template_variables_computer, self.template_variables_code]:
             metadata = w_tmp.templates.get("metadata", {})
-            filled_templates = deepcopy(w_tmp.filled_templates)
+            filled_templates = copy.deepcopy(w_tmp.filled_templates)
 
             for k, v in w_tmp.filled_templates.items():
                 env = Environment()
@@ -1701,11 +1702,11 @@ class QuickSetupWidget(ipw.VBox):
 
         # Fill text fields with template variables.
         with self.hold_trait_notifications():
-            computer_setup = deepcopy(self.computer_setup)
+            computer_setup = copy.deepcopy(self.computer_setup)
             computer_setup["setup"] = self.template_variables_computer.filled_templates
             self.computer_setup = computer_setup
 
-            code_setup = deepcopy(self.code_setup)
+            code_setup = copy.deepcopy(self.code_setup)
             code_setup = self.template_variables_code.filled_templates
             self.code_setup = code_setup
 
@@ -1726,7 +1727,7 @@ class QuickSetupWidget(ipw.VBox):
         self.aiida_code_setup.refresh()
 
         # and set the computer in the code_setup
-        code_setup = deepcopy(self.code_setup)
+        code_setup = copy.deepcopy(self.code_setup)
         code_setup["computer"] = self.computer_setup["setup"]["label"]
         self.code_setup = code_setup
 
@@ -1758,12 +1759,12 @@ class DetailedSetupWidget(ipw.VBox):
     """The widget that allows to setup a computer and code step by step in details."""
 
     # input to pre-fill the fields.
-    ssh_config = traitlets.Dict(allow_none=True)
-    computer_setup = traitlets.Dict(allow_none=True)
-    code_setup = traitlets.Dict(allow_none=True)
+    ssh_config = tl.Dict(allow_none=True)
+    computer_setup = tl.Dict(allow_none=True)
+    code_setup = tl.Dict(allow_none=True)
 
-    message = traitlets.Unicode()
-    success = traitlets.Bool(False)
+    message = tl.Unicode()
+    success = tl.Bool(False)
 
     _description_text = """<div>Setup a computer and code step by step in details. </br>
         Go through the steps to setup SSH connection to remote machine, computer, and code into database. </br>
@@ -1817,21 +1818,21 @@ class DetailedSetupWidget(ipw.VBox):
             **kwargs,
         )
 
-    @traitlets.observe("ssh_config")
+    @tl.observe("ssh_config")
     def _on_ssh_config(self, change=None):
         """Pre-filling the input fields."""
         if change["new"] is None:
             return
         self.ssh_computer_setup.ssh_config = self.ssh_config
 
-    @traitlets.observe("computer_setup")
+    @tl.observe("computer_setup")
     def _on_computer_setup(self, change=None):
         """Pre-filling the input fields."""
         if change["new"] is None:
             return
         self.aiida_computer_setup.computer_setup = self.computer_setup
 
-    @traitlets.observe("code_setup")
+    @tl.observe("code_setup")
     def _on_code_setup(self, change=None):
         """Pre-filling the input fields."""
         if change["new"] is None:
