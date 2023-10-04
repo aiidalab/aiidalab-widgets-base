@@ -290,7 +290,17 @@ class SshComputerSetup(ipw.VBox):
     message = traitlets.Unicode()
     password_message = traitlets.Unicode("The passwordless enabling log.")
 
-    def __init__(self, **kwargs):
+    def __init__(self, ssh_folder=None, **kwargs):
+        """Setup a passwordless access to a computer."""
+        # ssh folder init
+        if ssh_folder is None:
+            ssh_folder = Path.home() / ".ssh"
+            if not ssh_folder.exists():
+                ssh_folder.mkdir()
+                ssh_folder.chmod(0o700)
+
+        self.ssh_folder = ssh_folder
+
         self._ssh_connection_message = None
         self._password_message = ipw.HTML()
         ipw.dlink((self, "password_message"), (self._password_message, "value"))
@@ -422,8 +432,8 @@ class SshComputerSetup(ipw.VBox):
 
     def _is_in_config(self):
         """Check if the SSH config file contains host information."""
-        fpath = Path.home() / ".ssh" / "config"
-        if not fpath.exists():
+        config_path = self.ssh_folder / "config"
+        if not config_path.exists():
             return False
         sshcfg = aiida_ssh_plugin.parse_sshconfig(self.hostname.value)
         # NOTE: parse_sshconfig returns a dict with a hostname
@@ -435,15 +445,10 @@ class SshComputerSetup(ipw.VBox):
 
     def _write_ssh_config(self, private_key_abs_fname=None):
         """Put host information into the config file."""
-        fpath = Path.home() / ".ssh"
-        if not fpath.exists():
-            fpath.mkdir()
-            fpath.chmod(0o700)
+        config_path = self.ssh_folder / "config"
 
-        fpath = fpath / "config"
-
-        self.message = f"Adding {self.hostname.value} section to {fpath}"
-        with open(fpath, "a") as file:
+        self.message = f"Adding {self.hostname.value} section to {config_path}"
+        with open(config_path, "a") as file:
             file.write(f"Host {self.hostname.value}\n")
             file.write(f"  User {self.username.value}\n")
             file.write(f"  Port {self.port.value}\n")
