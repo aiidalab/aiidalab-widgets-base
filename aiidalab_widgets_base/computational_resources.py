@@ -1521,8 +1521,7 @@ class QuickSetupWidget(ipw.VBox):
     success = tl.Bool(False)
     message = tl.Unicode()
 
-    computer_configure = tl.Dict(allow_none=True)
-    computer_setup = tl.Dict(allow_none=True)
+    computer_setup_and_configure = tl.Dict(allow_none=True)
     code_setup = tl.Dict(allow_none=True)
 
     def __init__(self, default_calc_job_plugin=None, **kwargs):
@@ -1545,19 +1544,21 @@ class QuickSetupWidget(ipw.VBox):
             (self.ssh_computer_setup, "message"),
             (self, "message"),
         )
-        ipw.dlink(
-            (self, "computer_configure"),
-            (self.ssh_computer_setup, "ssh_config"),
-        )
+        # XXX
+        # ipw.dlink(
+        #    (self, "computer_configure"),
+        #    (self.ssh_computer_setup, "ssh_config"),
+        # )
 
         self.aiida_computer_setup = AiidaComputerSetup()
         self.aiida_computer_setup.on_setup_computer_success(
             self._on_setup_computer_success
         )
-        # link two traits so only one of them needs to be set (in the widget only manipulate with `self.computer_setup``)
-        ipw.dlink(
-            (self, "computer_setup"),
-            (self.aiida_computer_setup, "computer_setup"),
+        # link two traits so only one of them needs to be set (in the widget only manipulate with `self.computer_setup_and_configure`)
+        # The link is bi-directional, so when the trait is set from the widget, the trait of the widget will be set.
+        tl.link(
+            (self, "computer_setup_and_configure"),
+            (self.aiida_computer_setup, "computer_setup_and_configure"),
         )
         ipw.dlink(
             (self.aiida_computer_setup, "message"),
@@ -1577,20 +1578,19 @@ class QuickSetupWidget(ipw.VBox):
         )
 
         # The placeholder widget for the template variable of config.
-        # XXX rename to template_variables_computer_setup
-        self.template_variables_computer = TemplateVariablesWidget()
-        self.template_variables_computer.observe(
-            self._on_template_variables_computer_filled, names="filled_templates"
+        self.template_variables_computer_setup = TemplateVariablesWidget()
+        self.template_variables_computer_setup.observe(
+            self._on_template_variables_computer_setup_filled, names="filled_templates"
         )
-        self.template_variables_code = TemplateVariablesWidget()
-        self.template_variables_code.observe(
-            self._on_template_variables_code_filled, names="filled_templates"
-        )
-
         self.template_variables_computer_configure = TemplateVariablesWidget()
         self.template_variables_computer_configure.observe(
             self._on_template_variables_computer_configure_filled,
             names="filled_templates",
+        )
+
+        self.template_variables_code = TemplateVariablesWidget()
+        self.template_variables_code.observe(
+            self._on_template_variables_code_filled, names="filled_templates"
         )
 
         super().__init__(
@@ -1600,10 +1600,9 @@ class QuickSetupWidget(ipw.VBox):
                     """
                 ),
                 self.comp_resources_database,
-                self.template_variables_computer,
+                self.template_variables_computer_setup,
                 self.template_variables_code,
                 self.template_variables_computer_configure,
-                # self.ssh_computer_setup.username,
                 self.ssh_computer_setup.password_box,
                 quick_setup_button,
             ],
@@ -1615,12 +1614,19 @@ class QuickSetupWidget(ipw.VBox):
         # Update the ssh config.
         self.computer_configure = change["new"]
 
-    def _on_template_variables_computer_filled(self, change):
+    def _on_template_variables_computer_setup_filled(self, change):
         """Callback when the template variables of computer are filled."""
         # Update the filled template.
-        computer_setup = copy.deepcopy(self.computer_setup)
-        computer_setup["setup"] = change["new"]
-        self.computer_setup = computer_setup
+        computer_setup_and_configure = copy.deepcopy(self.computer_setup_and_configure)
+        computer_setup_and_configure["setup"] = change["new"]
+        self.computer_setup_and_configure = computer_setup_and_configure
+
+    def _on_template_variables_computer_configure_filled(self, change):
+        """Callback when the template variables of computer configure are filled."""
+        # Update the filled template.
+        computer_setup_and_configure = copy.deepcopy(self.computer_setup_and_configure)
+        computer_setup_and_configure["configure"] = change["new"]
+        self.computer_setup_and_configure = computer_setup_and_configure
 
     def _on_template_variables_code_filled(self, change):
         """Callback when the template variables of code are filled."""
@@ -1637,23 +1643,29 @@ class QuickSetupWidget(ipw.VBox):
         if not change["new"]:
             return
 
-        new_setup = change["new"]
+        new_setup_and_configure = change["new"]
 
         # Read from template and prepare the widgets for the template variables.
-        self.template_variables_computer.templates = new_setup["setup"]
-        self.template_variables_computer_configure.templates = new_setup["configure"]
+        self.template_variables_computer_setup.templates = new_setup_and_configure[
+            "setup"
+        ]
+        self.template_variables_computer_configure.templates = new_setup_and_configure[
+            "configure"
+        ]
 
         # pre-set the input fields no matter if the template variables are set.
-        self.computer_setup = new_setup
-        self.computer_configure = new_setup["configure"]
+        self.computer_setup_and_configure = new_setup_and_configure
 
-        # ssh config need to sync hostname etc to resource database.
-        self.computer_configure = self.comp_resources_database.computer_configure
+        # ssh config need to sync hostname etc with resource database.
+        # XXX: should get ssh config from resource database.
 
         # decide whether to show the ssh password box widget.
         # Since for 2FA ssh credential, the password are not needed but set from
         # independent mechanism.
-        if new_setup["setup"].get("metadata", {}).get("ssh_auth", None) == "2FA":
+        if (
+            new_setup_and_configure["setup"].get("metadata", {}).get("ssh_auth", None)
+            == "2FA"
+        ):
             self.ssh_computer_setup.password_box.layout.display = "none"
         else:
             self.ssh_computer_setup.password_box.layout.display = "block"
@@ -1670,10 +1682,10 @@ class QuickSetupWidget(ipw.VBox):
         if change["new"] is None:
             return
 
-        new_setup = change["new"]
-        self.template_variables_code.templates = new_setup
+        new_code_setup = change["new"]
+        self.template_variables_code.templates = new_code_setup
 
-        self.code_setup = new_setup
+        self.code_setup = new_code_setup
 
     def _on_quick_setup(self, _=None):
         """Go through all the setup steps automatically."""
@@ -1681,7 +1693,11 @@ class QuickSetupWidget(ipw.VBox):
         # and the same time check if all templates are filled.
         # Be careful there are same key in both template_variables_computer and template_variables_code, e.g. label.
         # So can not combine them by {**a, **b}
-        for w_tmp in [self.template_variables_computer, self.template_variables_code]:
+        for w_tmp in [
+            self.template_variables_computer_setup,
+            self.template_variables_code,
+            self.template_variables_computer_configure,
+        ]:
             metadata = w_tmp.templates.get("metadata", {})
             filled_templates = copy.deepcopy(w_tmp.filled_templates)
 
@@ -1711,22 +1727,29 @@ class QuickSetupWidget(ipw.VBox):
 
         # Fill text fields with template variables.
         with self.hold_trait_notifications():
-            computer_setup = copy.deepcopy(self.computer_setup)
-            computer_setup["setup"] = self.template_variables_computer.filled_templates
-            self.computer_setup = computer_setup
+            computer_setup_and_configure = copy.deepcopy(
+                self.computer_setup_and_configure
+            )
+            computer_setup_and_configure[
+                "setup"
+            ] = self.template_variables_computer_setup.filled_templates
+            computer_setup_and_configure[
+                "configure"
+            ] = self.template_variables_computer_configure.filled_templates
+            self.computer_setup_and_configure = computer_setup_and_configure
 
             code_setup = copy.deepcopy(self.code_setup)
             code_setup = self.template_variables_code.filled_templates
             self.code_setup = code_setup
 
+        if self.aiida_computer_setup.on_setup_computer():
+            self.aiida_code_setup.on_setup_code()
+
         # Setup the computer and code.
         try:
             self.ssh_computer_setup.key_pair_prepare()
         except ValueError as exc:
-            self.message = f"Invalid inputs: {exc}"
-
-        if self.aiida_computer_setup.on_setup_computer():
-            self.aiida_code_setup.on_setup_code()
+            self.message = f"Key pair generation failed: {exc}"
 
         self.ssh_computer_setup.thread_ssh_copy_id()
 
@@ -1750,7 +1773,8 @@ class QuickSetupWidget(ipw.VBox):
         self.success = False
 
         # reset template variables
-        self.template_variables_computer.reset()
+        self.template_variables_computer_setup.reset()
+        self.template_variables_computer_configure.reset()
         self.template_variables_code.reset()
 
         # reset sub widgets
@@ -1759,8 +1783,7 @@ class QuickSetupWidget(ipw.VBox):
         self.ssh_computer_setup._reset()
 
         # reset traits
-        self.computer_configure = {}
-        self.computer_setup = {}
+        self.computer_setup_and_configure = {}
         self.code_setup = {}
 
 

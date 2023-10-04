@@ -458,8 +458,10 @@ def test_quick_setup_widget():
     w.comp_resources_database.computer_selector.value = "mc"
     w.comp_resources_database.code_selector.value = "QE-7.2-exe-template"
 
-    assert w.ssh_config == w.comp_resources_database.ssh_config
-    assert w.computer_setup == w.comp_resources_database.computer_setup
+    assert (
+        w.computer_setup_and_configure
+        == w.comp_resources_database.computer_setup_and_configure
+    )
     assert w.code_setup == w.comp_resources_database.code_setup
 
     # Trigger the setup button again, since the computer name is filled in (this test computer/code setup widget is updated),
@@ -472,7 +474,7 @@ def test_quick_setup_widget():
     for (
         key,
         mapping_variable,
-    ) in w.template_variables_computer._template_variables.items():
+    ) in w.template_variables_computer_setup._template_variables.items():
         if key == "label":
             sub_widget = mapping_variable.widget
 
@@ -484,6 +486,15 @@ def test_quick_setup_widget():
         if key == "slurm_account":
             sub_widget = mapping_variable.widget
             sub_widget.value = "newuser"
+
+    # Fill the computer configure template variables
+    for (
+        key,
+        mapping_variable,
+    ) in w.template_variables_computer_configure._template_variables.items():
+        if key == "username":
+            sub_widget = mapping_variable.widget
+            sub_widget.value = "aiida"
 
     # Fill the code name
     for key, mapping_variable in w.template_variables_code._template_variables.items():
