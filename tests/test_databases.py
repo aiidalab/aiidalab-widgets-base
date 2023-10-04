@@ -70,17 +70,15 @@ def test_legacy_computational_resources_database_widget():
 
 def test_computational_resources_database_widget():
     """Test the structure browser widget."""
-    from aiidalab_widgets_base.databases import NewComputationalResourcesDatabaseWidget
-
     # Initiate the widget with no arguments.
-    widget = NewComputationalResourcesDatabaseWidget()
+    widget = ComputationalResourcesDatabaseWidget()
     assert "daint.cscs.ch" in widget.database
 
     # Initialize the widget with default_calc_job_plugin="cp2k"
     # Note: after migrate to the new database with schema fixed, this test should go with
     # the local defined database rather than relying on the remote one.
     # Same for the quick setup widget.
-    widget = NewComputationalResourcesDatabaseWidget(default_calc_job_plugin="cp2k")
+    widget = ComputationalResourcesDatabaseWidget(default_calc_job_plugin="cp2k")
     assert (
         "merlin.psi.ch" not in widget.database
     )  # Merlin does not have CP2K installed.
@@ -95,8 +93,8 @@ def test_computational_resources_database_widget():
     widget.code_selector.value = "cp2k-9.1"
 
     # Check that the configuration is provided.
-    assert "label" in widget.computer_setup["setup"]
-    assert "hostname" in widget.ssh_config
+    assert "label" in widget.computer_setup_and_configure["setup"]
+    assert "hostname" in widget.computer_setup_and_configure["configure"]
     assert "filepath_executable" in widget.code_setup
 
     # test after computer re-select to another, the code selector is reset
@@ -106,9 +104,8 @@ def test_computational_resources_database_widget():
     # Simulate reset.
     widget.reset()
 
-    assert widget.computer_setup == {}
+    assert widget.computer_setup_and_configure == {}
     assert widget.code_setup == {}
-    assert widget.ssh_config == {}
 
     # after reset, the computer/code selector is reset
     assert widget.computer_selector.options == ()
@@ -123,10 +120,8 @@ def test_computational_resources_database_widget():
 
 def test_resource_database_widget_recognize_template_entry_points():
     """Test that the template like entry points are recognized."""
-    from aiidalab_widgets_base.databases import NewComputationalResourcesDatabaseWidget
-
     # Initiate the widget with no arguments.
-    widget = NewComputationalResourcesDatabaseWidget()
+    widget = ComputationalResourcesDatabaseWidget()
     assert "daint.cscs.ch" in widget.database
 
     # Initialize the widget with default_calc_job_plugin="quantumespresso.pw"
@@ -134,12 +129,12 @@ def test_resource_database_widget_recognize_template_entry_points():
     # Note: after migrate to the new database with schema fixed, this test should go with
     # the local defined database rather than relying on the remote one.
     # Same for the quick setup widget.
-    widget = NewComputationalResourcesDatabaseWidget(
+    widget = ComputationalResourcesDatabaseWidget(
         default_calc_job_plugin="quantumespresso.pw"
     )
     assert "merlin.psi.ch" in widget.database
 
-    widget = NewComputationalResourcesDatabaseWidget(
+    widget = ComputationalResourcesDatabaseWidget(
         default_calc_job_plugin="quantumespresso.ph"
     )
     assert "merlin.psi.ch" in widget.database

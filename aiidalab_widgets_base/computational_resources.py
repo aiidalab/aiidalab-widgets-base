@@ -126,8 +126,8 @@ class ComputationalResourcesWidget(ipw.VBox):
         # link the trait of quick setup to detailed setup because they are
         # synchronized
         ipw.dlink(
-            (self.quick_setup, "ssh_config"),
-            (self.detailed_setup, "ssh_config"),
+            (self.quick_setup, "computer_configure"),
+            (self.detailed_setup, "computer_configure"),
         )
         # link the password and username fields to sync the updates
         ipw.dlink(
@@ -686,7 +686,7 @@ class SshComputerSetup(ipw.VBox):
 class AiidaComputerSetup(ipw.VBox):
     """Inform AiiDA about a computer."""
 
-    computer_setup = tl.Dict(allow_none=True)
+    computer_setup_and_configure = tl.Dict(allow_none=True)
     message = tl.Unicode()
 
     def __init__(self, **kwargs):
@@ -891,11 +891,17 @@ class AiidaComputerSetup(ipw.VBox):
             "use_login_shell": self.use_login_shell.value,
             "safe_interval": self.safe_interval.value,
         }
-        try:
-            authparams["username"] = sshcfg["user"]
-        except KeyError as exc:
-            message = "SSH username is not provided"
-            raise RuntimeError(message) from exc
+        if "username" in self.computer_setup_and_configure["configure"]:
+            authparams["username"] = self.computer_setup_and_configure["configure"][
+                "username"
+            ]
+        else:
+            try:
+                # This require the Ssh connection setup is done before the computer setup
+                authparams["username"] = sshcfg["user"]
+            except KeyError as exc:
+                message = "SSH username is not provided"
+                raise RuntimeError(message) from exc
 
         if "proxycommand" in sshcfg:
             authparams["proxy_command"] = sshcfg["proxycommand"]
@@ -946,7 +952,6 @@ class AiidaComputerSetup(ipw.VBox):
 
     def on_setup_computer(self, _=None):
         """Create a new computer."""
-
         if not self._validate_computer_settings():
             return False
 
@@ -1042,22 +1047,22 @@ class AiidaComputerSetup(ipw.VBox):
         self.prepend_text.value = ""
         self.append_text.value = ""
 
-    @tl.observe("computer_setup")
+    @tl.observe("computer_setup_and_configure")
     def _observe_computer_setup(self, _=None):
         # Setup.
-        if not self.computer_setup:
+        if not self.computer_setup_and_configure:
             self._reset()
             return
-        if "setup" in self.computer_setup:
-            for key, value in self.computer_setup["setup"].items():
+        if "setup" in self.computer_setup_and_configure:
+            for key, value in self.computer_setup_and_configure["setup"].items():
                 if key == "default_memory_per_machine":
                     self.default_memory_per_machine_widget.value = f"{value} KB"
                 elif hasattr(self, key):
                     getattr(self, key).value = value
 
         # Configure.
-        if "configure" in self.computer_setup:
-            for key, value in self.computer_setup["configure"].items():
+        if "configure" in self.computer_setup_and_configure:
+            for key, value in self.computer_setup_and_configure["configure"].items():
                 if hasattr(self, key):
                     getattr(self, key).value = value
 
@@ -1516,10 +1521,8 @@ class QuickSetupWidget(ipw.VBox):
     success = tl.Bool(False)
     message = tl.Unicode()
 
-    ssh_config = tl.Dict(allow_none=True)
-    computer_setup = tl.Dict(
-        allow_none=True
-    )  # In the format of {setup: {}, configure: {}}
+    computer_configure = tl.Dict(allow_none=True)
+    computer_setup = tl.Dict(allow_none=True)
     code_setup = tl.Dict(allow_none=True)
 
     def __init__(self, default_calc_job_plugin=None, **kwargs):
@@ -1531,7 +1534,8 @@ class QuickSetupWidget(ipw.VBox):
             default_calc_job_plugin=default_calc_job_plugin
         )
         self.comp_resources_database.observe(
-            self._on_select_computer, names="computer_setup"
+            self._on_select_computer,
+            names="computer_setup_and_configure",
         )
         self.comp_resources_database.observe(self._on_select_code, names="code_setup")
 
@@ -1542,7 +1546,7 @@ class QuickSetupWidget(ipw.VBox):
             (self, "message"),
         )
         ipw.dlink(
-            (self, "ssh_config"),
+            (self, "computer_configure"),
             (self.ssh_computer_setup, "ssh_config"),
         )
 
@@ -1573,6 +1577,7 @@ class QuickSetupWidget(ipw.VBox):
         )
 
         # The placeholder widget for the template variable of config.
+        # XXX rename to template_variables_computer_setup
         self.template_variables_computer = TemplateVariablesWidget()
         self.template_variables_computer.observe(
             self._on_template_variables_computer_filled, names="filled_templates"
@@ -1582,8 +1587,10 @@ class QuickSetupWidget(ipw.VBox):
             self._on_template_variables_code_filled, names="filled_templates"
         )
 
-        self.ssh_credential_help = ipw.HTML(
-            """<div>SSH credential to the remote machine</div>"""
+        self.template_variables_computer_configure = TemplateVariablesWidget()
+        self.template_variables_computer_configure.observe(
+            self._on_template_variables_computer_configure_filled,
+            names="filled_templates",
         )
 
         super().__init__(
@@ -1595,8 +1602,8 @@ class QuickSetupWidget(ipw.VBox):
                 self.comp_resources_database,
                 self.template_variables_computer,
                 self.template_variables_code,
-                self.ssh_credential_help,
-                self.ssh_computer_setup.username,
+                self.template_variables_computer_configure,
+                # self.ssh_computer_setup.username,
                 self.ssh_computer_setup.password_box,
                 quick_setup_button,
             ],
@@ -1606,7 +1613,7 @@ class QuickSetupWidget(ipw.VBox):
     def _on_ssh_computer_setup(self, change=None):
         """Callback when the ssh config is set."""
         # Update the ssh config.
-        self.ssh_config = change["new"]
+        self.computer_configure = change["new"]
 
     def _on_template_variables_computer_filled(self, change):
         """Callback when the template variables of computer are filled."""
@@ -1624,7 +1631,7 @@ class QuickSetupWidget(ipw.VBox):
 
     def _on_select_computer(self, change):
         """Update the computer trait"""
-        # reset the widget first to clean all the input fields (ssh_config, computer_setup, code_setup).
+        # reset the widget first to clean all the input fields (computer_configure, computer_setup, code_setup).
         self.reset()
 
         if not change["new"]:
@@ -1634,12 +1641,14 @@ class QuickSetupWidget(ipw.VBox):
 
         # Read from template and prepare the widgets for the template variables.
         self.template_variables_computer.templates = new_setup["setup"]
+        self.template_variables_computer_configure.templates = new_setup["configure"]
 
         # pre-set the input fields no matter if the template variables are set.
         self.computer_setup = new_setup
+        self.computer_configure = new_setup["configure"]
 
         # ssh config need to sync hostname etc to resource database.
-        self.ssh_config = self.comp_resources_database.ssh_config
+        self.computer_configure = self.comp_resources_database.computer_configure
 
         # decide whether to show the ssh password box widget.
         # Since for 2FA ssh credential, the password are not needed but set from
@@ -1750,7 +1759,7 @@ class QuickSetupWidget(ipw.VBox):
         self.ssh_computer_setup._reset()
 
         # reset traits
-        self.ssh_config = {}
+        self.computer_configure = {}
         self.computer_setup = {}
         self.code_setup = {}
 
@@ -1759,7 +1768,7 @@ class DetailedSetupWidget(ipw.VBox):
     """The widget that allows to setup a computer and code step by step in details."""
 
     # input to pre-fill the fields.
-    ssh_config = tl.Dict(allow_none=True)
+    computer_configure = tl.Dict(allow_none=True)
     computer_setup = tl.Dict(allow_none=True)
     code_setup = tl.Dict(allow_none=True)
 
@@ -1818,12 +1827,12 @@ class DetailedSetupWidget(ipw.VBox):
             **kwargs,
         )
 
-    @tl.observe("ssh_config")
-    def _on_ssh_config(self, change=None):
+    @tl.observe("computer_configure")
+    def _on_computer_configure(self, change=None):
         """Pre-filling the input fields."""
         if change["new"] is None:
             return
-        self.ssh_computer_setup.ssh_config = self.ssh_config
+        self.ssh_computer_setup.ssh_config = self.computer_configure
 
     @tl.observe("computer_setup")
     def _on_computer_setup(self, change=None):

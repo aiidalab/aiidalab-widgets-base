@@ -210,8 +210,7 @@ class ComputationalResourcesDatabaseWidget(ipw.VBox):
 
     database_source = tl.Unicode(allow_none=True)
 
-    ssh_config = tl.Dict()
-    computer_setup = tl.Dict()
+    computer_setup_and_configure = tl.Dict()
     code_setup = tl.Dict()
 
     def __init__(self, default_calc_job_plugin=None, database_source=None, **kwargs):
@@ -363,8 +362,7 @@ class ComputationalResourcesDatabaseWidget(ipw.VBox):
             if change["new"] is None:
                 self.code_selector.options = ()
                 self.code_selector.value = None
-                self.computer_setup = {}
-                self.ssh_config = {}
+                self.computer_setup_and_configure = {}
                 return
             else:
                 self.code_selector.value = None
@@ -389,19 +387,12 @@ class ComputationalResourcesDatabaseWidget(ipw.VBox):
 
             # To avoid {'setup': {}, 'configure': {}} when no computer setup is defined
             if computer_setup == {} and computer_configure == {}:
-                self.computer_setup = {}
-                self.ssh_config = {}
+                self.computer_setup_and_configure = {}
                 return
 
-            ssh_config = {"hostname": computer_setup.get("hostname")}
-            if "proxy_command" in computer_configure:
-                ssh_config["proxy_command"] = computer_configure["proxy_command"]
-            if "proxy_jump" in computer_configure:
-                ssh_config["proxy_jump"] = computer_configure["proxy_jump"]
+            computer_configure["hostname"] = computer_setup.get("hostname")
 
-            self.ssh_config = ssh_config  # To notify the trait change
-
-            self.computer_setup = {
+            self.computer_setup_and_configure = {
                 "setup": computer_setup,
                 "configure": computer_configure,
             }

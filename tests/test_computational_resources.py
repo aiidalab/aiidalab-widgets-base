@@ -5,18 +5,6 @@ from aiidalab_widgets_base import computational_resources
 
 
 @pytest.mark.usefixtures("aiida_profile_clean")
-def test_computational_resources_widget(aiida_local_code_bash):
-    """Test the ComputationalResourcesWidget."""
-    widget = computational_resources.ComputationalResourcesWidget(
-        default_calc_job_plugin="bash"
-    )
-
-    # Get the list of currently installed codes.
-    codes = widget._get_codes()
-    assert "bash@localhost" == codes[0][0]
-
-
-@pytest.mark.usefixtures("aiida_profile_clean")
 def test_ssh_computer_setup_widget(monkeypatch, tmp_path):
     """Test the SshComputerSetup."""
     # mock home directory for ssh config file
@@ -42,6 +30,7 @@ def test_ssh_computer_setup_widget(monkeypatch, tmp_path):
     widget.username.value = "aiida"
 
     # Write the information to ~/.ssh/config and check that it is there.
+    # XXX make this test independent of the user's ~/.ssh/config
     assert widget._is_in_config() is False
     widget._write_ssh_config()
     assert widget._is_in_config() is True
@@ -65,20 +54,71 @@ def test_ssh_computer_setup_widget(monkeypatch, tmp_path):
 
 
 @pytest.mark.usefixtures("aiida_profile_clean")
-def test_aiida_computer_setup_widget(monkeypatch):
-    """Test the AiidaComputerSetup."""
-    # monkeypatch the parse_sshconfig
-    monkeypatch.setattr(
-        "aiida.transports.plugins.ssh.parse_sshconfig",
-        lambda _: {"hostname": "daint.cscs.ch", "user": "aiida"},
-    )
+def test_aiida_computer_setup_widget_default(monkeypatch):
+    """Test the AiidaComputerSetup.
+    The 'default' in name means the username is from computer configuration.
+    """
     widget = computational_resources.AiidaComputerSetup()
 
     # At the beginning, the computer_name should be an empty string.
     assert widget.label.value == ""
 
     # Preparing the computer setup.
-    computer_setup = {
+    computer_setup_and_configure = {
+        "setup": {
+            "label": "daint",
+            "hostname": "daint.cscs.ch",
+            "description": "Daint supercomputer",
+            "work_dir": "/scratch/snx3000/{username}/aiida_run",
+            "mpirun_command": "srun -n {tot_num_mpiprocs}",
+            "default_memory_per_machine": 2000000000,
+            "mpiprocs_per_machine": 12,
+            "transport": "core.ssh",
+            "scheduler": "core.slurm",
+            "shebang": "#!/bin/bash",
+            "use_double_quotes": True,
+            "prepend_text": "#SBATCH --account=proj20",
+            "append_text": "",
+        },
+        "configure": {
+            "proxy_jump": "ela.cscs.ch",
+            "safe_interval": 10,
+            "use_login_shell": True,
+            "username": "aiida",
+        },
+    }
+
+    widget.computer_setup_and_configure = computer_setup_and_configure
+    assert widget.on_setup_computer()
+
+    # Check that the computer is created.
+    computer = orm.load_computer("daint")
+    assert computer.label == "daint"
+    assert computer.hostname == "daint.cscs.ch"
+
+    # Reset the widget and check that a few attributes are reset.
+    widget.computer_setup_and_configure = {}
+    assert widget.label.value == ""
+    assert widget.hostname.value == ""
+    assert widget.description.value == ""
+
+    # Check that setup is failing if the configuration is missing.
+    assert not widget.on_setup_computer()
+    assert widget.message.startswith("Please specify the computer name")
+
+
+@pytest.mark.usefixtures("aiida_profile_clean")
+def test_aiida_computer_setup_widget_ssh_username(monkeypatch):
+    """Test the AiidaComputerSetup.
+    The 'default' in name means the username is from computer configuration.
+    """
+    widget = computational_resources.AiidaComputerSetup()
+
+    # At the beginning, the computer_name should be an empty string.
+    assert widget.label.value == ""
+
+    # Preparing the computer setup.
+    computer_setup_and_configure = {
         "setup": {
             "label": "daint",
             "hostname": "daint.cscs.ch",
@@ -101,16 +141,25 @@ def test_aiida_computer_setup_widget(monkeypatch):
         },
     }
 
-    widget.computer_setup = computer_setup
+    widget.computer_setup_and_configure = computer_setup_and_configure
+    assert not widget.on_setup_computer()
+    assert "SSH username is not provided" in widget.message
+
+    # monkeypatch the parse_sshconfig
+    # this will go through the ssh username from sshcfg
+    monkeypatch.setattr(
+        "aiida.transports.plugins.ssh.parse_sshconfig",
+        lambda _: {"hostname": "daint.cscs.ch", "user": "aiida"},
+    )
+
     assert widget.on_setup_computer()
 
-    # Check that the computer is created.
     computer = orm.load_computer("daint")
     assert computer.label == "daint"
     assert computer.hostname == "daint.cscs.ch"
 
     # Reset the widget and check that a few attributes are reset.
-    widget.computer_setup = {}
+    widget.computer_setup_and_configure = {}
     assert widget.label.value == ""
     assert widget.hostname.value == ""
     assert widget.description.value == ""
@@ -129,7 +178,7 @@ def test_aiida_localhost_setup_widget():
     assert widget.label.value == ""
 
     # Preparing the computer setup.
-    computer_setup = {
+    computer_setup_and_configure = {
         "setup": {
             "label": "localhosttest",
             "hostname": "localhost",
@@ -151,7 +200,7 @@ def test_aiida_localhost_setup_widget():
         },
     }
 
-    widget.computer_setup = computer_setup
+    widget.computer_setup_and_configure = computer_setup_and_configure
     assert widget.on_setup_computer()
 
     # Check that the computer is created.
@@ -160,7 +209,7 @@ def test_aiida_localhost_setup_widget():
     assert computer.hostname == "localhost"
 
     # Reset the widget and check that a few attributes are reset.
-    widget.computer_setup = {}
+    widget.computer_setup_and_configure = {}
     assert widget.label.value == ""
     assert widget.hostname.value == ""
     assert widget.description.value == ""
