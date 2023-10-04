@@ -17,8 +17,10 @@ def test_computational_resources_widget(aiida_local_code_bash):
 
 
 @pytest.mark.usefixtures("aiida_profile_clean")
-def test_ssh_computer_setup_widget():
+def test_ssh_computer_setup_widget(monkeypatch, tmp_path):
     """Test the SshComputerSetup."""
+    # mock home directory for ssh config file
+    monkeypatch.setenv("HOME", str(tmp_path))
     widget = computational_resources.SshComputerSetup()
 
     ssh_config = {
@@ -63,8 +65,13 @@ def test_ssh_computer_setup_widget():
 
 
 @pytest.mark.usefixtures("aiida_profile_clean")
-def test_aiida_computer_setup_widget():
+def test_aiida_computer_setup_widget(monkeypatch):
     """Test the AiidaComputerSetup."""
+    # monkeypatch the parse_sshconfig
+    monkeypatch.setattr(
+        "aiida.transports.plugins.ssh.parse_sshconfig",
+        lambda _: {"hostname": "daint.cscs.ch", "user": "aiida"},
+    )
     widget = computational_resources.AiidaComputerSetup()
 
     # At the beginning, the computer_name should be an empty string.
