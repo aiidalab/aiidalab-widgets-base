@@ -12,7 +12,7 @@ import shortuuid
 import traitlets
 from aiida import common, orm, plugins
 from aiida.orm.utils.builders.computer import ComputerBuilder
-from aiida.transports.plugins.ssh import parse_sshconfig
+from aiida.transports.plugins import ssh as aiida_ssh_plugin
 from humanfriendly import InvalidSize, parse_size
 from IPython.display import clear_output, display
 
@@ -425,7 +425,7 @@ class SshComputerSetup(ipw.VBox):
         fpath = Path.home() / ".ssh" / "config"
         if not fpath.exists():
             return False
-        sshcfg = parse_sshconfig(self.hostname.value)
+        sshcfg = aiida_ssh_plugin.parse_sshconfig(self.hostname.value)
         # NOTE: parse_sshconfig returns a dict with a hostname
         # even if it is not in the config file.
         # We require at least the user to be specified.
@@ -850,7 +850,7 @@ class AiidaComputerSetup(ipw.VBox):
 
     def _configure_computer_ssh(self, computer: orm.Computer, user: orm.User):
         """Configure the computer with SSH transport"""
-        sshcfg = parse_sshconfig(self.hostname.value)
+        sshcfg = aiida_ssh_plugin.parse_sshconfig(self.hostname.value)
         authparams = {
             "port": int(sshcfg.get("port", 22)),
             "look_for_keys": True,
