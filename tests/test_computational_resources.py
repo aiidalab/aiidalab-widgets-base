@@ -441,10 +441,10 @@ def test_template_variables_widget_help_text_disappear_if_no_template_str():
 
 @pytest.mark.usefixtures("aiida_profile_clean")
 def test_quick_setup_widget():
-    """Test the QuickSetupWidget."""
-    from aiidalab_widgets_base.computational_resources import QuickSetupWidget
+    """Test the _ResourceSetupBaseWidget."""
+    from aiidalab_widgets_base.computational_resources import _ResourceSetupBaseWidget
 
-    w = QuickSetupWidget()
+    w = _ResourceSetupBaseWidget()
 
     # Test message is update correctly. By click setup button without filling in any information.
     w._on_quick_setup()
@@ -536,12 +536,12 @@ def test_quick_setup_widget_for_password_configure(monkeypatch, tmp_path):
     """Test for computer configure with password as ssh auth.
     The ssh auth is password, thus will generate ssh key pair and try to upload the key
     """
-    from aiidalab_widgets_base.computational_resources import QuickSetupWidget
+    from aiidalab_widgets_base.computational_resources import _ResourceSetupBaseWidget
 
     # monkeypatch home so the ssh key is generated in the temporary directory
     monkeypatch.setenv("HOME", str(tmp_path))
 
-    w = QuickSetupWidget()
+    w = _ResourceSetupBaseWidget()
 
     # Test select a new resource setup will update the output interface (e.g. ssh_config, computer_setup, code_setup)
     # and the computer/code setup widget will be updated accordingly.
@@ -604,10 +604,10 @@ def test_quick_setup_widget_for_password_configure(monkeypatch, tmp_path):
 
 @pytest.mark.usefixtures("aiida_profile_clean")
 def test_quick_setup_widget_computer_change_code_reset():
-    """Test the QuickSetupWidget that when computer template changed, the code selector widget is reset."""
-    from aiidalab_widgets_base.computational_resources import QuickSetupWidget
+    """Test the _ResourceSetupBaseWidget that when computer template changed, the code selector widget is reset."""
+    from aiidalab_widgets_base.computational_resources import _ResourceSetupBaseWidget
 
-    w = QuickSetupWidget()
+    w = _ResourceSetupBaseWidget()
 
     # Test select a new resource setup will update the output interface (e.g. ssh_config, computer_setup, code_setup)
     # and the computer/code setup widget will be updated accordingly.

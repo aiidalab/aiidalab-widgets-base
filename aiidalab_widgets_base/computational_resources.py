@@ -21,7 +21,7 @@ from IPython.display import clear_output, display
 from jinja2 import Environment, meta
 
 from .databases import ComputationalResourcesDatabaseWidget
-from .utils import StatusHTML
+from .utils import MessageLevel, StatusHTML, wrap_message
 
 STYLE = {"description_width": "140px"}
 LAYOUT = {"width": "300px"}
@@ -73,6 +73,8 @@ class ComputationalResourcesWidget(ipw.VBox):
             value=None,
             style={"description_width": "initial"},
         )
+
+        # Create bi-directional link between the code_select_dropdown and the codes trait.
         tl.directional_link(
             (self, "codes"),
             (self.code_select_dropdown, "options"),
@@ -102,50 +104,13 @@ class ComputationalResourcesWidget(ipw.VBox):
         super().__init__(children=children, **kwargs)
 
         # Quick setup.
-        self.quick_setup = QuickSetupWidget(
+        self.resource_setup = _ResourceSetupBaseWidget(
             default_calc_job_plugin=self.default_calc_job_plugin
         )
-        self.quick_setup.observe(self.refresh, "success")
+        self.resource_setup.observe(self.refresh, "success")
         ipw.dlink(
-            (self.quick_setup, "message"),
+            (self.resource_setup, "message"),
             (self.setup_message, "message"),
-            # Add a prefix "quick setup: " to the message.
-            transform=lambda x: f"Quick setup: {x}" if x else "",
-        )
-
-        # Detailed setup.
-        self.detailed_setup = DetailedSetupWidget()
-        self.detailed_setup.observe(self.refresh, "success")
-        ipw.dlink(
-            (self.detailed_setup, "message"),
-            (self.setup_message, "message"),
-            # Add a prefix "detailed setup: " to the message.
-            transform=lambda x: f"Detailed setup: {x}" if x else "",
-        )
-
-        # link the trait of quick setup to detailed setup because they are
-        # synchronized
-        ipw.dlink(
-            (self.quick_setup, "computer_configure"),
-            (self.detailed_setup, "computer_configure"),
-        )
-        # link the password and username fields to sync the updates
-        ipw.dlink(
-            (self.quick_setup.ssh_computer_setup.username, "value"),
-            (self.detailed_setup.ssh_computer_setup.username, "value"),
-        )
-        ipw.dlink(
-            (self.quick_setup.ssh_computer_setup._ssh_password, "value"),
-            (self.detailed_setup.ssh_computer_setup._ssh_password, "value"),
-        )
-
-        ipw.dlink(
-            (self.quick_setup, "computer_setup"),
-            (self.detailed_setup, "computer_setup"),
-        )
-        ipw.dlink(
-            (self.quick_setup, "code_setup"),
-            (self.detailed_setup, "code_setup"),
         )
 
         self.refresh()
@@ -219,28 +184,29 @@ class ComputationalResourcesWidget(ipw.VBox):
                     "width": "500px",
                     "border": "1px solid gray",
                 }
-                # Using database to check if the quick setup should be displayed is for
-                # backward compatibility. In the future, please only use quick_setup variable.
-                # Deperecate in v3.0.0
-                # if self.quick_setup.comp_resources_database.database is None and not self.enable_quick_setup:
-                #     # raise deprecate warning
-                #     pass
-                if (
-                    self.quick_setup.comp_resources_database.database is None
-                    or not self.enable_quick_setup
-                ):
-                    # Display only Detailed Setup if DB is empty
-                    children = [self.setup_message, self.detailed_setup]
-                else:
-                    setup_tab = ipw.Tab(
-                        children=[self.quick_setup, self.detailed_setup]
-                    )
-                    setup_tab.set_title(0, "Quick Setup")
-                    setup_tab.set_title(1, "Detailed Setup")
-                    children = [
-                        self.setup_message,
-                        setup_tab,
-                    ]
+
+                # if (
+                #   self.resource_setup.comp_resources_database.database is None
+                #    or not self.enable_quick_setup
+                # ):
+                #    # Display only Detailed Setup if DB is empty
+                #    children = [self.setup_message, self.detailed_setup]
+                # else:
+                #    setup_tab = ipw.Tab(
+                #        children=[self.quick_setup, self.detailed_setup]
+                #    )
+                #    setup_tab.set_title(0, "Quick Setup")
+                #    setup_tab.set_title(1, "Detailed Setup")
+                #    children = [
+                #        self.setup_message,
+                #        setup_tab,
+                #    ]
+                # display(*children)
+
+                children = [
+                    self.resource_setup,
+                    self.setup_message,
+                ]
                 display(*children)
             else:
                 self._setup_new_code_output.layout = {
@@ -395,7 +361,10 @@ class SshComputerSetup(ipw.VBox):
 
     def _ssh_keygen(self):
         """Generate ssh key pair."""
-        self.message = "Generating SSH key pair."
+        self.message = wrap_message(
+            "Generating SSH key pair.",
+            MessageLevel.SUCCESS,
+        )
         fpath = Path.home() / ".ssh" / "id_rsa"
         keygen_cmd = [
             "ssh-keygen",
@@ -447,7 +416,10 @@ class SshComputerSetup(ipw.VBox):
         """Put host information into the config file."""
         config_path = self.ssh_folder / "config"
 
-        self.message = f"Adding {self.hostname.value} section to {config_path}"
+        self.message = wrap_message(
+            f"Adding {self.hostname.value} section to {config_path}",
+            MessageLevel.SUCCESS,
+        )
         with open(config_path, "a") as file:
             file.write(f"Host {self.hostname.value}\n")
             file.write(f"  User {self.username.value}\n")
@@ -513,7 +485,7 @@ class SshComputerSetup(ipw.VBox):
         try:
             self.key_pair_prepare()
         except ValueError as exc:
-            self.message = str(exc)
+            self.message = wrap_message(str(exc), MessageLevel.ERROR)
             return
 
         self.thread_ssh_copy_id()
@@ -937,15 +909,24 @@ class AiidaComputerSetup(ipw.VBox):
 
     def _validate_computer_settings(self):
         if self.label.value == "":  # check computer label
-            self.message = "Please specify the computer name (for AiiDA)"
+            self.message = wrap_message(
+                "Please specify the computer name (for AiiDA)",
+                MessageLevel.WARNING,
+            )
             return False
 
         if self.work_dir.value == "":
-            self.message = "Please specify working directory"
+            self.message = wrap_message(
+                "Please specify working directory",
+                MessageLevel.WARNING,
+            )
             return False
 
         if self.hostname.value == "":
-            self.message = "Please specify hostname"
+            self.message = wrap_message(
+                "Please specify hostname",
+                MessageLevel.WARNING,
+            )
             return False
 
         return True
@@ -957,7 +938,10 @@ class AiidaComputerSetup(ipw.VBox):
 
         # If the computer already exists, we just run the registered functions and return
         if self._run_callbacks_if_computer_exists(self.label.value):
-            self.message = f"A computer called {self.label.value} already exists."
+            self.message = wrap_message(
+                f"A computer {self.label.value} already exists. Skipping creation.",
+                MessageLevel.INFO,
+            )
             return True
 
         items_to_configure = [
@@ -989,15 +973,24 @@ class AiidaComputerSetup(ipw.VBox):
             common.exceptions.ValidationError,
             RuntimeError,
         ) as err:
-            self.message = f"Computer setup failed! {type(err).__name__}: {err}"
+            self.message = wrap_message(
+                f"Computer setup failed! {type(err).__name__}: {err}",
+                MessageLevel.ERROR,
+            )
             return False
 
         # Callbacks will not run if the computer is not stored
         if self._run_callbacks_if_computer_exists(self.label.value):
-            self.message = f"Computer<{computer.pk}> {computer.label} created"
+            self.message = wrap_message(
+                f"Computer<{computer.pk}> {computer.label} created",
+                MessageLevel.SUCCESS,
+            )
             return True
 
-        self.message = f"Failed to create computer {computer.label}"
+        self.message = wrap_message(
+            f"Failed to create computer {computer.label}",
+            MessageLevel.ERROR,
+        )
         return False
 
     def on_setup_computer_success(self, function):
@@ -1160,7 +1153,10 @@ class AiidaCodeSetup(ipw.VBox):
             clear_output()
 
             if not self.computer.value:
-                self.message = "Please select an existing computer."
+                self.message = wrap_message(
+                    "Please select an existing computer.",
+                    MessageLevel.WARNING,
+                )
                 return False
 
             items_to_configure = [
@@ -1187,28 +1183,38 @@ class AiidaCodeSetup(ipw.VBox):
                 filters={"label": kwargs["label"]},
             )
             if qb.count() > 0:
-                self.message = (
-                    f"Code {kwargs['label']}@{computer.label} already exists."
+                self.message = wrap_message(
+                    f"Code {kwargs['label']}@{computer.label} already exists, skipping creation.",
+                    MessageLevel.INFO,
                 )
                 return False
 
             try:
                 code = orm.InstalledCode(computer=computer, **kwargs)
             except (common.exceptions.InputValidationError, KeyError) as exception:
-                self.message = f"Invalid inputs: {exception}"
+                self.message = wrap_message(
+                    f"Invalid input for code creation: <code>{exception}</code>",
+                    MessageLevel.ERROR,
+                )
                 return False
 
             try:
                 code.store()
                 code.is_hidden = False
             except common.exceptions.ValidationError as exception:
-                self.message = f"Unable to store the Code: {exception}"
+                self.message = wrap_message(
+                    f"Unable to store the code: <code>{exception}</code>",
+                    MessageLevel.ERROR,
+                )
                 return False
 
             for function in self._on_setup_code_success:
                 function()
 
-            self.message = f"Code<{code.pk}> {code.full_label} created"
+            self.message = wrap_message(
+                f"Code<{code.pk}> {code.full_label} created",
+                MessageLevel.SUCCESS,
+            )
 
             return True
 
@@ -1243,7 +1249,10 @@ class AiidaCodeSetup(ipw.VBox):
 
                         # If is a template then don't raise the error message.
                         if not re.match(r".*{{.+}}.*", value):
-                            self.message = f"Input plugin {value} is not installed."
+                            self.message = wrap_message(
+                                f"Input plugin {value} is not installed.",
+                                MessageLevel.WARNING,
+                            )
                 elif key == "computer":
                     # check if the computer is set by load the label.
                     # if the computer not set put the value to None as placeholder for
@@ -1515,8 +1524,11 @@ class TemplateVariablesWidget(ipw.VBox):
                 self.filled_templates = filled_templates
 
 
-class QuickSetupWidget(ipw.VBox):
-    """The widget that allows to quickly setup a computer and code."""
+class _ResourceSetupBaseWidget(ipw.VBox):
+    """The widget that allows to setup a computer and code.
+    This is the building block of the `ComputationalResourcesDatabaseWidget` which
+    will be directly used by the user.
+    """
 
     success = tl.Bool(False)
     message = tl.Unicode()
@@ -1526,13 +1538,27 @@ class QuickSetupWidget(ipw.VBox):
 
     ssh_auth = None  # store the ssh auth type. Can be "password" or "2FA"
 
-    def __init__(self, default_calc_job_plugin=None, **kwargs):
-        quick_setup_button = ipw.Button(description="Quick setup")
+    def __init__(self, default_calc_job_plugin=None):
+        quick_setup_button = ipw.Button(
+            description="Quick setup",
+            tooltip="Setup a computer and code in one click.",
+            icon="rocket",
+            button_style="success",
+        )
         quick_setup_button.on_click(self._on_quick_setup)
+
+        reset_button = ipw.Button(
+            description="Reset",
+            tooltip="Reset the resource.",
+            icon="refresh",
+            button_style="primary",
+        )
+        reset_button.on_click(self._on_reset)
 
         # resource database for setup computer/code.
         self.comp_resources_database = ComputationalResourcesDatabaseWidget(
-            default_calc_job_plugin=default_calc_job_plugin
+            default_calc_job_plugin=default_calc_job_plugin,
+            show_reset_button=False,
         )
         self.comp_resources_database.observe(
             self._on_select_computer,
@@ -1590,6 +1616,42 @@ class QuickSetupWidget(ipw.VBox):
             self._on_template_variables_code_filled, names="filled_templates"
         )
 
+        # The widget for the detailed setup.
+        description_toggle_detail_setup = ipw.HTML(
+            """<div><b>You can tick this checkbox to setup a computer and code step by step in details.</b></div>"""
+        )
+        toggle_detail_setup = ipw.Checkbox(
+            description="",
+            value=False,
+            indent=False,
+            # this narrow the checkbox to the minimum width.
+            layout=ipw.Layout(width="30px"),
+        )
+        toggle_detail_setup.observe(self._on_toggle_detail_setup, names="value")
+
+        detailed_setup_description_text = """<div>Go through the steps to setup SSH connection to remote machine, computer, and code into database. </br>
+            The SSH connection step can be skipped and setup afterwards.</br>
+            </div>"""
+        description = ipw.HTML(detailed_setup_description_text)
+
+        detailed_setup = ipw.Accordion(
+            children=[
+                self.ssh_computer_setup,
+                self.aiida_computer_setup,
+                self.aiida_code_setup,
+            ],
+        )
+        detailed_setup.set_title(0, "Set up password-less SSH connection")
+        detailed_setup.set_title(1, "Set up a computer in AiiDA")
+        detailed_setup.set_title(2, "Set up a code in AiiDA")
+
+        self.detailed_setup_widget = ipw.VBox(
+            children=[
+                description,
+                detailed_setup,
+            ]
+        )
+
         super().__init__(
             children=[
                 ipw.HTML(
@@ -1601,15 +1663,34 @@ class QuickSetupWidget(ipw.VBox):
                 self.template_variables_code,
                 self.template_variables_computer_configure,
                 self.ssh_computer_setup.password_box,
-                quick_setup_button,
+                ipw.HBox(
+                    children=[
+                        toggle_detail_setup,
+                        description_toggle_detail_setup,
+                    ],
+                ),
+                ipw.HBox(
+                    children=[
+                        quick_setup_button,
+                        reset_button,
+                    ]
+                ),
+                self.detailed_setup_widget,
             ],
-            **kwargs,
         )
 
-    # def _on_ssh_computer_setup(self, change=None):
-    #    """Callback when the ssh config is set."""
-    #    # Update the ssh config.
-    #    self.computer_setup_and_configure["configure"] = change["new"]
+        # Don't show the password box widget by default.
+        self.ssh_computer_setup.password_box.layout.display = "none"
+
+        # hide the detailed setup by default.
+        self.detailed_setup_widget.layout.display = "none"
+
+    def _on_toggle_detail_setup(self, change):
+        """When the checkbox is toggled, show/hide the detailed setup."""
+        if change["new"]:
+            self.detailed_setup_widget.layout.display = "block"
+        else:
+            self.detailed_setup_widget.layout.display = "none"
 
     def _on_template_variables_computer_setup_filled(self, change):
         """Callback when the template variables of computer are filled."""
@@ -1702,8 +1783,22 @@ class QuickSetupWidget(ipw.VBox):
 
         self.code_setup = new_code_setup
 
+    def _on_reset(self, _=None):
+        """Reset the database and the widget."""
+        with self.hold_trait_notifications():
+            self.reset()
+            self.comp_resources_database.reset()
+
     def _on_quick_setup(self, _=None):
         """Go through all the setup steps automatically."""
+        # Raise error if the computer is not selected.
+        if not self.computer_setup_and_configure:
+            self.message = wrap_message(
+                "Please select a computer from the database.",
+                MessageLevel.ERROR,
+            )
+            return
+
         # Use default values for the template variables if not set.
         # and the same time check if all templates are filled.
         # Be careful there are same key in both template_variables_computer and template_variables_code, e.g. label.
@@ -1730,7 +1825,10 @@ class QuickSetupWidget(ipw.VBox):
                     # check if the default value is exist for this variable.
                     default = metadata.get(var, {}).get("default", None)
                     if default is None:
-                        self.message = f"Please fill missing variable: {var}"
+                        self.message = wrap_message(
+                            f"Please fill missing variable: <b>{var}</b>",
+                            level=MessageLevel.ERROR,
+                        )
                         return
                     else:
                         default_values[var] = default
@@ -1767,7 +1865,10 @@ class QuickSetupWidget(ipw.VBox):
             try:
                 self.ssh_computer_setup.key_pair_prepare()
             except ValueError as exc:
-                self.message = f"Key pair generation failed: {exc}"
+                self.message = wrap_message(
+                    f"Key pair generation failed: {exc}",
+                    level=MessageLevel.ERROR,
+                )
 
             self.ssh_computer_setup.thread_ssh_copy_id()
 

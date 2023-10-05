@@ -213,7 +213,13 @@ class ComputationalResourcesDatabaseWidget(ipw.VBox):
     computer_setup_and_configure = tl.Dict()
     code_setup = tl.Dict()
 
-    def __init__(self, default_calc_job_plugin=None, database_source=None, **kwargs):
+    def __init__(
+        self,
+        default_calc_job_plugin=None,
+        database_source=None,
+        show_reset_button=True,
+        **kwargs,
+    ):
         if database_source is None:
             database_source = self._default_database_source
 
@@ -247,6 +253,9 @@ class ComputationalResourcesDatabaseWidget(ipw.VBox):
 
         reset_button = ipw.Button(description="Reset")
         reset_button.on_click(self.reset)
+
+        if show_reset_button is False:
+            reset_button.layout.display = "none"
 
         super().__init__(
             children=[
