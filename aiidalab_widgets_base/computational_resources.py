@@ -668,19 +668,19 @@ class SshComputerSetup(ipw.VBox):
         self.proxy_command.value = ""
 
     @tl.observe("ssh_config")
-    def _observe_ssh_config(self, _=None):
+    def _observe_ssh_config(self, change):
         """Pre-filling the input fields."""
-        if not self.ssh_config:
-            self._reset()
+        self._reset()
 
-        if "hostname" in self.ssh_config:
-            self.hostname.value = self.ssh_config["hostname"]
-        if "port" in self.ssh_config:
-            self.port.value = int(self.ssh_config["port"])
-        if "proxy_jump" in self.ssh_config:
-            self.proxy_jump.value = self.ssh_config["proxy_jump"]
-        if "proxy_command" in self.ssh_config:
-            self.proxy_command.value = self.ssh_config["proxy_command"]
+        new_ssh_config = change["new"]
+        if "hostname" in new_ssh_config:
+            self.hostname.value = new_ssh_config["hostname"]
+        if "port" in new_ssh_config:
+            self.port.value = int(new_ssh_config["port"])
+        if "proxy_jump" in new_ssh_config:
+            self.proxy_jump.value = new_ssh_config["proxy_jump"]
+        if "proxy_command" in new_ssh_config:
+            self.proxy_command.value = new_ssh_config["proxy_command"]
 
 
 class AiidaComputerSetup(ipw.VBox):
@@ -1541,7 +1541,7 @@ class QuickSetupWidget(ipw.VBox):
         self.comp_resources_database.observe(self._on_select_code, names="code_setup")
 
         self.ssh_computer_setup = SshComputerSetup()
-        self.ssh_computer_setup.observe(self._on_ssh_computer_setup, names="ssh_config")
+        # self.ssh_computer_setup.observe(self._on_ssh_computer_setup, names="ssh_config")
         ipw.dlink(
             (self.ssh_computer_setup, "message"),
             (self, "message"),
@@ -1606,10 +1606,10 @@ class QuickSetupWidget(ipw.VBox):
             **kwargs,
         )
 
-    def _on_ssh_computer_setup(self, change=None):
-        """Callback when the ssh config is set."""
-        # Update the ssh config.
-        self.computer_configure = change["new"]
+    # def _on_ssh_computer_setup(self, change=None):
+    #    """Callback when the ssh config is set."""
+    #    # Update the ssh config.
+    #    self.computer_setup_and_configure["configure"] = change["new"]
 
     def _on_template_variables_computer_setup_filled(self, change):
         """Callback when the template variables of computer are filled."""
@@ -1663,10 +1663,11 @@ class QuickSetupWidget(ipw.VBox):
         self.computer_setup_and_configure = new_setup_and_configure
 
         # ssh config need to sync hostname etc with resource database.
-        ssh_config = self._parse_ssh_config_from_computer_configure(
-            new_setup_and_configure["configure"]
+        self.ssh_computer_setup.ssh_config = (
+            self._parse_ssh_config_from_computer_configure(
+                new_setup_and_configure["configure"]
+            )
         )
-        self.ssh_computer_setup.ssh_config = ssh_config
 
         # decide whether to show the ssh password box widget.
         # Since for 2FA ssh credential, the password are not needed but set from
@@ -1797,8 +1798,12 @@ class QuickSetupWidget(ipw.VBox):
         # reset sub widgets
         self.aiida_code_setup._reset()
         self.aiida_computer_setup._reset()
+
         self.ssh_computer_setup._reset()
         self.ssh_auth = None
+
+        # essential, since if not, the same computer_configure won't trigger the `_observe_ssh_config` callback.
+        self.ssh_computer_setup.ssh_config = {}
 
         # reset traits
         self.computer_setup_and_configure = {}

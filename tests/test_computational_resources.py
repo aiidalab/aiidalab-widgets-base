@@ -30,7 +30,6 @@ def test_ssh_computer_setup_widget(monkeypatch, tmp_path):
     widget.username.value = "aiida"
 
     # Write the information to ~/.ssh/config and check that it is there.
-    # XXX make this test independent of the user's ~/.ssh/config
     assert widget._is_in_config() is False
     widget._write_ssh_config()
     assert widget._is_in_config() is True
@@ -507,13 +506,14 @@ def test_quick_setup_widget():
 
     w.ssh_computer_setup.username.value = "aiida"
 
-    # import ipdb; ipdb.set_trace()
+    # XXX: since cscs is 2FA, test the password box is not displayed.
 
     w._on_quick_setup()
 
     assert "created" in w.message
     assert "pw" in w.message
     assert w.success
+    assert orm.load_code("pw-7.2@daint-mc")
 
     # test select new resource reset the widget, success trait, and message trait.
     w.comp_resources_database.reset()
@@ -531,12 +531,75 @@ def test_quick_setup_widget():
     assert w.template_variables_computer_setup._template_variables != {}
 
 
+@pytest.mark.usefixtures("aiida_profile_clean")
 def test_quick_setup_widget_for_password_configure(monkeypatch, tmp_path):
     """Test for computer configure with password as ssh auth.
     The ssh auth is password, thus will generate ssh key pair and try to upload the key
     """
+    from aiidalab_widgets_base.computational_resources import QuickSetupWidget
+
     # monkeypatch home so the ssh key is generated in the temporary directory
     monkeypatch.setenv("HOME", str(tmp_path))
+
+    w = QuickSetupWidget()
+
+    # Test select a new resource setup will update the output interface (e.g. ssh_config, computer_setup, code_setup)
+    # and the computer/code setup widget will be updated accordingly.
+    w.comp_resources_database.domain_selector.value = "merlin.psi.ch"
+    w.comp_resources_database.computer_selector.value = "cpu"
+    w.comp_resources_database.code_selector.value = "QE-7.0-exe-template"
+
+    # Fill in the computer name and trigger the setup button again, the message should be updated.
+    for (
+        key,
+        mapping_variable,
+    ) in w.template_variables_computer_setup._template_variables.items():
+        if key == "label":
+            sub_widget = mapping_variable.widget
+
+            # Test the default value is filled in correctly.
+            assert sub_widget.value == "merlin-cpu"
+
+    # XXX test the password box is displayed.
+
+    # Fill the computer configure template variables
+    for (
+        key,
+        mapping_variable,
+    ) in w.template_variables_computer_configure._template_variables.items():
+        if key == "username":
+            sub_widget = mapping_variable.widget
+            sub_widget.value = "aiida"
+
+    # Fill the code name
+    for key, mapping_variable in w.template_variables_code._template_variables.items():
+        if key == "code_binary_name":
+            sub_widget = mapping_variable.widget
+            sub_widget.value = "ph"
+
+            # select the other code and check the filled template is updated
+            sub_widget.value = "pw"
+
+    w.ssh_computer_setup.username.value = "aiida"
+
+    # The quick_setup with password auth will try connect which will timeout.
+    # Thus, mock the connect method to avoid the timeout.
+    monkeypatch.setattr(
+        "aiidalab_widgets_base.computational_resources.SshComputerSetup.thread_ssh_copy_id",
+        lambda _: None,
+    )
+    w._on_quick_setup()
+
+    assert w.success
+    # check the code is really created
+    assert orm.load_code("pw-7.0@merlin-cpu")
+
+    # The key pair will be generated to the temporary directory
+    # Check the content of the config is correct
+    with open(tmp_path / ".ssh" / "config") as f:
+        content = f.read()
+        assert "User aiida" in content
+        assert "Host merlin-l-01.psi.ch" in content
 
 
 @pytest.mark.usefixtures("aiida_profile_clean")
