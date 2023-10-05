@@ -2,6 +2,7 @@ import pytest
 from aiida import orm
 
 from aiidalab_widgets_base import computational_resources
+from aiidalab_widgets_base.computational_resources import _ResourceSetupBaseWidget
 
 
 @pytest.mark.usefixtures("aiida_profile_clean")
@@ -440,9 +441,12 @@ def test_template_variables_widget_help_text_disappear_if_no_template_str():
 
 
 @pytest.mark.usefixtures("aiida_profile_clean")
-def test_quick_setup_widget():
+def test_resource_setup_widget_default():
     """Test the _ResourceSetupBaseWidget."""
-    from aiidalab_widgets_base.computational_resources import _ResourceSetupBaseWidget
+    with pytest.raises(ValueError):
+        w = _ResourceSetupBaseWidget(
+            enable_detailed_setup=False, enable_quick_setup=False
+        )
 
     w = _ResourceSetupBaseWidget()
 
@@ -532,12 +536,10 @@ def test_quick_setup_widget():
 
 
 @pytest.mark.usefixtures("aiida_profile_clean")
-def test_quick_setup_widget_for_password_configure(monkeypatch, tmp_path):
+def test_resource_setup_widget_for_password_configure(monkeypatch, tmp_path):
     """Test for computer configure with password as ssh auth.
     The ssh auth is password, thus will generate ssh key pair and try to upload the key
     """
-    from aiidalab_widgets_base.computational_resources import _ResourceSetupBaseWidget
-
     # monkeypatch home so the ssh key is generated in the temporary directory
     monkeypatch.setenv("HOME", str(tmp_path))
 
@@ -603,10 +605,8 @@ def test_quick_setup_widget_for_password_configure(monkeypatch, tmp_path):
 
 
 @pytest.mark.usefixtures("aiida_profile_clean")
-def test_quick_setup_widget_computer_change_code_reset():
+def test_resource_setup_widget_computer_change_code_reset():
     """Test the _ResourceSetupBaseWidget that when computer template changed, the code selector widget is reset."""
-    from aiidalab_widgets_base.computational_resources import _ResourceSetupBaseWidget
-
     w = _ResourceSetupBaseWidget()
 
     # Test select a new resource setup will update the output interface (e.g. ssh_config, computer_setup, code_setup)
@@ -624,45 +624,48 @@ def test_quick_setup_widget_computer_change_code_reset():
     assert w.comp_resources_database.code_selector.value is None
 
 
-@pytest.mark.usefixtures("aiida_profile_clean")
-def test_bundle_resource_setup_widget():
-    """This is the bundle test of the resource setup widget specifically to DetailedSetupWidget.
-    Since the DetailedSetupWidget is a container widget, it is meaningless to test it independently.
-    """
-    from aiidalab_widgets_base.computational_resources import (
-        ComputationalResourcesWidget,
-    )
+def test_resource_setup_widget_detailed_setup():
+    """Detail branch test of the resource setup widget"""
+    w = _ResourceSetupBaseWidget()
 
-    # Set with clear_after=1 to avoid the widget frozen at the end of test to wait the counting thread to finish.
-    w = ComputationalResourcesWidget(clear_after=1)
-
-    # go last step to setup code withou computer setup
-    w_quick = w.quick_setup
-    w_detailed = w.detailed_setup
-
-    w_quick.comp_resources_database.domain_selector.value = "daint.cscs.ch"
-    w_quick.comp_resources_database.computer_selector.value = "mc"
-    w_quick.comp_resources_database.code_selector.value = "pw-7.0"
+    w.comp_resources_database.domain_selector.value = "daint.cscs.ch"
+    w.comp_resources_database.computer_selector.value = "mc"
+    w.comp_resources_database.code_selector.value = "pw-7.0"
 
     # Check that the computer/code setup widget is updated accordingly in the detailed setup widget.
     # By triggering the setup button one by one in the detailed setup widget, the message should be updated.
     computer_label = "daint-mc"
-    w_detailed.aiida_computer_setup.label.value = computer_label
-    w_detailed.aiida_computer_setup.on_setup_computer()
+    w.detailed_setup_widget.aiida_computer_setup.label.value = computer_label
+    w.detailed_setup_widget.aiida_computer_setup.on_setup_computer()
 
-    assert "created" in w_detailed.message
+    assert "created" in w.detailed_setup_widget.message
 
     comp_uuid = orm.load_computer(computer_label).uuid
-    w_detailed.aiida_code_setup.computer._dropdown.value = comp_uuid
-    w_detailed.aiida_code_setup.on_setup_code()
+    w.detailed_setup_widget.aiida_code_setup.computer._dropdown.value = comp_uuid
+    w.detailed_setup_widget.aiida_code_setup.on_setup_code()
 
-    assert "created" in w_detailed.message
+    assert "created" in w.detailed_setup_widget.message
 
     # test select new resource reset the widget, success trait, and message trait, and the computer/code setup widget is cleared.
-    w_quick.comp_resources_database.reset()
+    w.reset()
 
-    assert w_detailed.aiida_computer_setup.computer_setup == {}
-    assert w_detailed.aiida_code_setup.code_setup == {}
-    assert w_detailed.ssh_computer_setup.ssh_config == {}
-    assert w_detailed.success is False
-    assert w_detailed.message == ""
+    assert w.detailed_setup_widget.aiida_computer_setup.computer_setup == {}
+    assert w.detailed_setup_widget.aiida_code_setup.code_setup == {}
+    assert w.detailed_setup_widget.ssh_computer_setup.ssh_config == {}
+    assert w.detailed_setup_widget.success is False
+    assert w.detailed_setup_widget.message == ""
+
+
+@pytest.mark.usefixtures("aiida_profile_clean")
+def test_computer_resource_setup_widget_detailed():
+    """This is the bundle test of the resource setup widget specifically to DetailedSetupWidget.
+    Since the DetailedSetupWidget is a container widget, it is meaningless to test it independently.
+    """
+    # from aiidalab_widgets_base.computational_resources import (
+    #    ComputationalResourcesWidget,
+    # )
+
+    # Set with clear_after=1 to avoid the widget frozen at the end of test to wait the counting thread to finish.
+    # w = ComputationalResourcesWidget(clear_after=1)
+
+    # XXX: test all

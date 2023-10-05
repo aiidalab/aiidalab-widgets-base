@@ -54,6 +54,7 @@ class ComputationalResourcesWidget(ipw.VBox):
         self,
         description="Select code:",
         quick_setup=True,
+        detailed_setup=True,
         clear_after=None,
         default_calc_job_plugin=None,
         **kwargs,
@@ -64,7 +65,6 @@ class ComputationalResourcesWidget(ipw.VBox):
         """
         clear_after = clear_after or 15
         self.default_calc_job_plugin = default_calc_job_plugin
-        self.enable_quick_setup = quick_setup
         self.output = ipw.HTML()
         self.setup_message = StatusHTML(clear_after=clear_after)
         self.code_select_dropdown = ipw.Dropdown(
@@ -105,7 +105,9 @@ class ComputationalResourcesWidget(ipw.VBox):
 
         # Quick setup.
         self.resource_setup = _ResourceSetupBaseWidget(
-            default_calc_job_plugin=self.default_calc_job_plugin
+            default_calc_job_plugin=self.default_calc_job_plugin,
+            enable_quick_setup=quick_setup,
+            enable_detailed_setup=detailed_setup,
         )
         self.resource_setup.observe(self.refresh, "success")
         ipw.dlink(
@@ -184,24 +186,6 @@ class ComputationalResourcesWidget(ipw.VBox):
                     "width": "500px",
                     "border": "1px solid gray",
                 }
-
-                # if (
-                #   self.resource_setup.comp_resources_database.database is None
-                #    or not self.enable_quick_setup
-                # ):
-                #    # Display only Detailed Setup if DB is empty
-                #    children = [self.setup_message, self.detailed_setup]
-                # else:
-                #    setup_tab = ipw.Tab(
-                #        children=[self.quick_setup, self.detailed_setup]
-                #    )
-                #    setup_tab.set_title(0, "Quick Setup")
-                #    setup_tab.set_title(1, "Detailed Setup")
-                #    children = [
-                #        self.setup_message,
-                #        setup_tab,
-                #    ]
-                # display(*children)
 
                 children = [
                     self.resource_setup,
@@ -1538,14 +1522,27 @@ class _ResourceSetupBaseWidget(ipw.VBox):
 
     ssh_auth = None  # store the ssh auth type. Can be "password" or "2FA"
 
-    def __init__(self, default_calc_job_plugin=None):
-        quick_setup_button = ipw.Button(
+    def __init__(
+        self,
+        default_calc_job_plugin=None,
+        enable_quick_setup=True,
+        enable_detailed_setup=True,
+    ):
+        if not enable_detailed_setup and not enable_quick_setup:
+            raise ValueError(  # noqa
+                "At least one of `enable_quick_setup` and `enable_detailed_setup` should be True."
+            )
+
+        self.enable_quick_setup = enable_quick_setup
+        self.enable_detailed_setup = enable_detailed_setup
+
+        self.quick_setup_button = ipw.Button(
             description="Quick setup",
             tooltip="Setup a computer and code in one click.",
             icon="rocket",
             button_style="success",
         )
-        quick_setup_button.on_click(self._on_quick_setup)
+        self.quick_setup_button.on_click(self._on_quick_setup)
 
         reset_button = ipw.Button(
             description="Reset",
@@ -1618,7 +1615,7 @@ class _ResourceSetupBaseWidget(ipw.VBox):
 
         # The widget for the detailed setup.
         description_toggle_detail_setup = ipw.HTML(
-            """<div><b>You can tick this checkbox to setup a computer and code step by step in details.</b></div>"""
+            """<div><b>Tick checkbox to setup resource step by step.</b></div>"""
         )
         toggle_detail_setup = ipw.Checkbox(
             description="",
@@ -1628,22 +1625,30 @@ class _ResourceSetupBaseWidget(ipw.VBox):
             layout=ipw.Layout(width="30px"),
         )
         toggle_detail_setup.observe(self._on_toggle_detail_setup, names="value")
+        self.detailed_setup_switch_widgets = ipw.HBox(
+            children=[
+                toggle_detail_setup,
+                description_toggle_detail_setup,
+            ],
+        )
 
-        detailed_setup_description_text = """<div>Go through the steps to setup SSH connection to remote machine, computer, and code into database. </br>
+        detailed_setup_description_text = """<div>
+            <b>Go through the steps to setup SSH connection to remote machine, computer, and code into database. </br>
             The SSH connection step can be skipped and setup afterwards.</br>
-            </div>"""
+            </b>
+        </div>"""
         description = ipw.HTML(detailed_setup_description_text)
 
-        detailed_setup = ipw.Accordion(
+        detailed_setup = ipw.Tab(
             children=[
                 self.ssh_computer_setup,
                 self.aiida_computer_setup,
                 self.aiida_code_setup,
             ],
         )
-        detailed_setup.set_title(0, "Set up password-less SSH connection")
-        detailed_setup.set_title(1, "Set up a computer in AiiDA")
-        detailed_setup.set_title(2, "Set up a code in AiiDA")
+        detailed_setup.set_title(0, "SSH connection")
+        detailed_setup.set_title(1, "Computer")
+        detailed_setup.set_title(2, "Code")
 
         self.detailed_setup_widget = ipw.VBox(
             children=[
@@ -1663,15 +1668,10 @@ class _ResourceSetupBaseWidget(ipw.VBox):
                 self.template_variables_code,
                 self.template_variables_computer_configure,
                 self.ssh_computer_setup.password_box,
+                self.detailed_setup_switch_widgets,
                 ipw.HBox(
                     children=[
-                        toggle_detail_setup,
-                        description_toggle_detail_setup,
-                    ],
-                ),
-                ipw.HBox(
-                    children=[
-                        quick_setup_button,
+                        self.quick_setup_button,
                         reset_button,
                     ]
                 ),
@@ -1679,18 +1679,51 @@ class _ResourceSetupBaseWidget(ipw.VBox):
             ],
         )
 
-        # Don't show the password box widget by default.
-        self.ssh_computer_setup.password_box.layout.display = "none"
+        # update the layout
+        self._update_layout()
 
-        # hide the detailed setup by default.
-        self.detailed_setup_widget.layout.display = "none"
+    def _update_layout(self):
+        """Update the layout to hide or show the bundled quick_setup/detailed_setup."""
+        # check if the password is asked for ssh connection.
+        if self.ssh_auth != "password":
+            self.ssh_computer_setup.password_box.layout.display = "none"
+        else:
+            self.ssh_computer_setup.password_box.layout.display = "block"
+
+        # If both quick and detailed setup are enabled
+        # - show the switch widget
+        # - show the quick setup widget (database + template variables + poppud password box + quick setup button)
+        # - hide the detailed setup widget as default
+        if self.enable_detailed_setup and self.enable_quick_setup:
+            self.detailed_setup_widget.layout.display = "none"
+            return
+
+        # If only quick setup is enabled
+        # - hide the switch widget
+        # - hide the detailed setup widget
+        if self.enable_quick_setup:
+            self.detailed_setup_switch_widgets.layout.display = "none"
+            self.detailed_setup_widget.layout.display = "none"
+            return
+
+        # If only detailed setup is enabled
+        # - hide the switch widget
+        # - hide the quick setup widget
+        # - hide the database widget
+        # which means only the detailed setup widget is shown.
+        if self.enable_detailed_setup:
+            self.children = [
+                self.detailed_setup_widget,
+            ]
 
     def _on_toggle_detail_setup(self, change):
         """When the checkbox is toggled, show/hide the detailed setup."""
         if change["new"]:
             self.detailed_setup_widget.layout.display = "block"
+            self.quick_setup_button.disabled = True
         else:
             self.detailed_setup_widget.layout.display = "none"
+            self.quick_setup_button.disabled = False
 
     def _on_template_variables_computer_setup_filled(self, change):
         """Callback when the template variables of computer are filled."""
@@ -1761,10 +1794,7 @@ class _ResourceSetupBaseWidget(ipw.VBox):
         if self.ssh_auth is None:
             self.ssh_auth = "password"
 
-        if self.ssh_auth != "password":
-            self.ssh_computer_setup.password_box.layout.display = "none"
-        else:
-            self.ssh_computer_setup.password_box.layout.display = "block"
+        self._update_layout()
 
     def _on_select_code(self, change):
         """Update the code trait"""
@@ -1910,103 +1940,5 @@ class _ResourceSetupBaseWidget(ipw.VBox):
         self.computer_setup_and_configure = {}
         self.code_setup = {}
 
-
-class DetailedSetupWidget(ipw.VBox):
-    """The widget that allows to setup a computer and code step by step in details."""
-
-    # input to pre-fill the fields.
-    computer_configure = tl.Dict(allow_none=True)
-    computer_setup = tl.Dict(allow_none=True)
-    code_setup = tl.Dict(allow_none=True)
-
-    message = tl.Unicode()
-    success = tl.Bool(False)
-
-    _description_text = """<div>Setup a computer and code step by step in details. </br>
-        Go through the steps to setup SSH connection to remote machine, computer, and code into database. </br>
-        The SSH connection step can be skipped and setup afterwards.</br>
-        </div>"""
-
-    def __init__(self, **kwargs):
-        self.ssh_computer_setup = SshComputerSetup()
-
-        self.aiida_computer_setup = AiidaComputerSetup()
-        self.aiida_computer_setup.on_setup_computer_success(
-            self._on_setup_computer_success
-        )
-
-        self.aiida_code_setup = AiidaCodeSetup()
-        self.aiida_code_setup.on_setup_code_success(self._on_setup_code_success)
-
-        ipw.dlink(
-            (self.ssh_computer_setup, "message"),
-            (self, "message"),
-        )
-
-        ipw.dlink(
-            (self.aiida_computer_setup, "message"),
-            (self, "message"),
-        )
-
-        ipw.dlink(
-            (self.aiida_code_setup, "message"),
-            (self, "message"),
-        )
-
-        description = ipw.HTML(self._description_text)
-
-        detailed_setup = ipw.Accordion(
-            children=[
-                self.ssh_computer_setup,
-                self.aiida_computer_setup,
-                self.aiida_code_setup,
-            ],
-        )
-        detailed_setup.set_title(0, "Set up password-less SSH connection")
-        detailed_setup.set_title(1, "Set up a computer in AiiDA")
-        detailed_setup.set_title(2, "Set up a code in AiiDA")
-
-        super().__init__(
-            children=[
-                description,
-                detailed_setup,
-            ],
-            **kwargs,
-        )
-
-    @tl.observe("computer_configure")
-    def _on_computer_configure(self, change=None):
-        """Pre-filling the input fields."""
-        if change["new"] is None:
-            return
-        self.ssh_computer_setup.ssh_config = self.computer_configure
-
-    @tl.observe("computer_setup")
-    def _on_computer_setup(self, change=None):
-        """Pre-filling the input fields."""
-        if change["new"] is None:
-            return
-        self.aiida_computer_setup.computer_setup = self.computer_setup
-
-    @tl.observe("code_setup")
-    def _on_code_setup(self, change=None):
-        """Pre-filling the input fields."""
-        if change["new"] is None:
-            return
-
-        self.reset()
-        self.aiida_code_setup.code_setup = self.code_setup
-
-    def _on_setup_computer_success(self):
-        """Callback that is called when the computer is successfully set up."""
-        # update the computer dropdown list of code setup
-        self.aiida_code_setup.refresh()
-
-    def _on_setup_code_success(self):
-        """Callback that is called when the code is successfully set up."""
-        self.success = True
-
-    def reset(self):
-        """Reset widget."""
-        self.success = False
-        self.message = ""
+        # The layout also reset
+        self._update_layout()
