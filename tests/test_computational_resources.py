@@ -518,8 +518,8 @@ def test_quick_setup_widget():
     # test select new resource reset the widget, success trait, and message trait.
     w.comp_resources_database.reset()
 
-    assert w.ssh_config == {}
-    assert w.computer_setup == {}
+    assert w.ssh_auth is None
+    assert w.computer_setup_and_configure == {}
     assert w.code_setup == {}
     assert w.success is False
     assert w.message == ""
@@ -528,7 +528,15 @@ def test_quick_setup_widget():
 
     # reselect after reset should update the output interface
     w.comp_resources_database.domain_selector.value = "daint.cscs.ch"
-    assert w.template_variables_computer._template_variables != {}
+    assert w.template_variables_computer_setup._template_variables != {}
+
+
+def test_quick_setup_widget_for_password_configure(monkeypatch, tmp_path):
+    """Test for computer configure with password as ssh auth.
+    The ssh auth is password, thus will generate ssh key pair and try to upload the key
+    """
+    # monkeypatch home so the ssh key is generated in the temporary directory
+    monkeypatch.setenv("HOME", str(tmp_path))
 
 
 @pytest.mark.usefixtures("aiida_profile_clean")

@@ -1524,6 +1524,8 @@ class QuickSetupWidget(ipw.VBox):
     computer_setup_and_configure = tl.Dict(allow_none=True)
     code_setup = tl.Dict(allow_none=True)
 
+    ssh_auth = None  # store the ssh auth type. Can be "password" or "2FA"
+
     def __init__(self, default_calc_job_plugin=None, **kwargs):
         quick_setup_button = ipw.Button(description="Quick setup")
         quick_setup_button.on_click(self._on_quick_setup)
@@ -1544,11 +1546,6 @@ class QuickSetupWidget(ipw.VBox):
             (self.ssh_computer_setup, "message"),
             (self, "message"),
         )
-        # XXX
-        # ipw.dlink(
-        #    (self, "computer_configure"),
-        #    (self.ssh_computer_setup, "ssh_config"),
-        # )
 
         self.aiida_computer_setup = AiidaComputerSetup()
         self.aiida_computer_setup.on_setup_computer_success(
@@ -1635,6 +1632,15 @@ class QuickSetupWidget(ipw.VBox):
         code_setup = change["new"]
         self.code_setup = code_setup
 
+    def _parse_ssh_config_from_computer_configure(self, computer_configure):
+        """Parse the ssh config from the computer configure,
+        The configure does not contain hostname which will get from computer_setup.
+        """
+        ssh_config = copy.deepcopy(computer_configure)
+        ssh_config["hostname"] = self.computer_setup_and_configure["setup"]["hostname"]
+
+        return ssh_config
+
     def _on_select_computer(self, change):
         """Update the computer trait"""
         # reset the widget first to clean all the input fields (computer_configure, computer_setup, code_setup).
@@ -1657,15 +1663,23 @@ class QuickSetupWidget(ipw.VBox):
         self.computer_setup_and_configure = new_setup_and_configure
 
         # ssh config need to sync hostname etc with resource database.
-        # XXX: should get ssh config from resource database.
+        ssh_config = self._parse_ssh_config_from_computer_configure(
+            new_setup_and_configure["configure"]
+        )
+        self.ssh_computer_setup.ssh_config = ssh_config
 
         # decide whether to show the ssh password box widget.
         # Since for 2FA ssh credential, the password are not needed but set from
         # independent mechanism.
-        if (
-            new_setup_and_configure["setup"].get("metadata", {}).get("ssh_auth", None)
-            == "2FA"
-        ):
+        self.ssh_auth = (
+            new_setup_and_configure["configure"]
+            .get("metadata", {})
+            .get("ssh_auth", None)
+        )
+        if self.ssh_auth is None:
+            self.ssh_auth = "password"
+
+        if self.ssh_auth != "password":
             self.ssh_computer_setup.password_box.layout.display = "none"
         else:
             self.ssh_computer_setup.password_box.layout.display = "block"
@@ -1742,16 +1756,19 @@ class QuickSetupWidget(ipw.VBox):
             code_setup = self.template_variables_code.filled_templates
             self.code_setup = code_setup
 
+        # Setup the computer and code.
         if self.aiida_computer_setup.on_setup_computer():
             self.aiida_code_setup.on_setup_code()
 
-        # Setup the computer and code.
-        try:
-            self.ssh_computer_setup.key_pair_prepare()
-        except ValueError as exc:
-            self.message = f"Key pair generation failed: {exc}"
+        # Prepare the ssh key pair and copy to remote computer.
+        # This only happend when the ssh_auth is password.
+        if self.ssh_auth == "password":
+            try:
+                self.ssh_computer_setup.key_pair_prepare()
+            except ValueError as exc:
+                self.message = f"Key pair generation failed: {exc}"
 
-        self.ssh_computer_setup.thread_ssh_copy_id()
+            self.ssh_computer_setup.thread_ssh_copy_id()
 
     def _on_setup_computer_success(self):
         """Callback that is called when the computer is successfully set up."""
@@ -1760,7 +1777,7 @@ class QuickSetupWidget(ipw.VBox):
 
         # and set the computer in the code_setup
         code_setup = copy.deepcopy(self.code_setup)
-        code_setup["computer"] = self.computer_setup["setup"]["label"]
+        code_setup["computer"] = self.computer_setup_and_configure["setup"]["label"]
         self.code_setup = code_setup
 
     def _on_setup_code_success(self):
@@ -1781,6 +1798,7 @@ class QuickSetupWidget(ipw.VBox):
         self.aiida_code_setup._reset()
         self.aiida_computer_setup._reset()
         self.ssh_computer_setup._reset()
+        self.ssh_auth = None
 
         # reset traits
         self.computer_setup_and_configure = {}
