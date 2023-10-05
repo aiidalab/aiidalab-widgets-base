@@ -2,7 +2,10 @@ import pytest
 from aiida import orm
 
 from aiidalab_widgets_base import computational_resources
-from aiidalab_widgets_base.computational_resources import _ResourceSetupBaseWidget
+from aiidalab_widgets_base.computational_resources import (
+    ComputationalResourcesWidget,
+    _ResourceSetupBaseWidget,
+)
 
 
 @pytest.mark.usefixtures("aiida_profile_clean")
@@ -54,7 +57,7 @@ def test_ssh_computer_setup_widget(monkeypatch, tmp_path):
 
 
 @pytest.mark.usefixtures("aiida_profile_clean")
-def test_aiida_computer_setup_widget_default(monkeypatch):
+def test_aiida_computer_setup_widget_default():
     """Test the AiidaComputerSetup.
     The 'default' in name means the username is from computer configuration.
     """
@@ -104,7 +107,7 @@ def test_aiida_computer_setup_widget_default(monkeypatch):
 
     # Check that setup is failing if the configuration is missing.
     assert not widget.on_setup_computer()
-    assert widget.message.startswith("Please specify the computer name")
+    assert "Please specify the computer name" in widget.message
 
 
 @pytest.mark.usefixtures("aiida_profile_clean")
@@ -166,7 +169,7 @@ def test_aiida_computer_setup_widget_ssh_username(monkeypatch):
 
     # Check that setup is failing if the configuration is missing.
     assert not widget.on_setup_computer()
-    assert widget.message.startswith("Please specify the computer name")
+    assert "Please specify the computer name" in widget.message
 
 
 @pytest.mark.usefixtures("aiida_profile_clean")
@@ -453,7 +456,7 @@ def test_resource_setup_widget_default():
     # Test message is update correctly. By click setup button without filling in any information.
     w._on_quick_setup()
 
-    assert "Please specify the computer name" in w.message
+    assert "Please select a computer from the database" in w.message
 
     # Test select a new resource setup will update the output interface (e.g. ssh_config, computer_setup, code_setup)
     # and the computer/code setup widget will be updated accordingly.
@@ -510,7 +513,8 @@ def test_resource_setup_widget_default():
 
     w.ssh_computer_setup.username.value = "aiida"
 
-    # XXX: since cscs is 2FA, test the password box is not displayed.
+    # Since cscs is 2FA, test the password box is not displayed.
+    assert w.ssh_computer_setup.password_box.layout.display == "none"
 
     w._on_quick_setup()
 
@@ -562,7 +566,8 @@ def test_resource_setup_widget_for_password_configure(monkeypatch, tmp_path):
             # Test the default value is filled in correctly.
             assert sub_widget.value == "merlin-cpu"
 
-    # XXX test the password box is displayed.
+    # Test the password box is displayed.
+    assert w.ssh_computer_setup.password_box.layout.display == "block"
 
     # Fill the computer configure template variables
     for (
@@ -634,38 +639,114 @@ def test_resource_setup_widget_detailed_setup():
 
     # Check that the computer/code setup widget is updated accordingly in the detailed setup widget.
     # By triggering the setup button one by one in the detailed setup widget, the message should be updated.
+    # check we the same aiida_computer_setup for resource and the detailed setup
+    assert id(w.detailed_setup_widget.children[1].children[0]) == id(
+        w.ssh_computer_setup
+    )
+    assert id(w.detailed_setup_widget.children[1].children[1]) == id(
+        w.aiida_computer_setup
+    )
+    assert id(w.detailed_setup_widget.children[1].children[2]) == id(w.aiida_code_setup)
     computer_label = "daint-mc"
-    w.detailed_setup_widget.aiida_computer_setup.label.value = computer_label
-    w.detailed_setup_widget.aiida_computer_setup.on_setup_computer()
+    w.aiida_computer_setup.label.value = computer_label
+    w.aiida_computer_setup.on_setup_computer()
 
-    assert "created" in w.detailed_setup_widget.message
+    assert "created" in w.message
 
     comp_uuid = orm.load_computer(computer_label).uuid
-    w.detailed_setup_widget.aiida_code_setup.computer._dropdown.value = comp_uuid
-    w.detailed_setup_widget.aiida_code_setup.on_setup_code()
+    w.aiida_code_setup.computer._dropdown.value = comp_uuid
+    w.aiida_code_setup.on_setup_code()
 
-    assert "created" in w.detailed_setup_widget.message
+    assert "created" in w.message
 
     # test select new resource reset the widget, success trait, and message trait, and the computer/code setup widget is cleared.
     w.reset()
 
-    assert w.detailed_setup_widget.aiida_computer_setup.computer_setup == {}
-    assert w.detailed_setup_widget.aiida_code_setup.code_setup == {}
-    assert w.detailed_setup_widget.ssh_computer_setup.ssh_config == {}
-    assert w.detailed_setup_widget.success is False
-    assert w.detailed_setup_widget.message == ""
+    assert w.aiida_computer_setup.computer_setup_and_configure == {}
+    assert w.aiida_code_setup.code_setup == {}
+    assert w.ssh_computer_setup.ssh_config == {}
+    assert w.success is False
+    assert w.message == ""
 
 
 @pytest.mark.usefixtures("aiida_profile_clean")
-def test_computer_resource_setup_widget_detailed():
-    """This is the bundle test of the resource setup widget specifically to DetailedSetupWidget.
-    Since the DetailedSetupWidget is a container widget, it is meaningless to test it independently.
-    """
-    # from aiidalab_widgets_base.computational_resources import (
-    #    ComputationalResourcesWidget,
-    # )
+def test_computer_resource_setup_widget_default(monkeypatch, tmp_path):
+    """A test for bundle widget `ComputationalResourcesWidget`."""
+    # Test the enable toggle are passed to the sub widgets.
+    with pytest.raises(ValueError):
+        ComputationalResourcesWidget(detailed_setup=False, quick_setup=False)
+
+    # monkeypatch home so the ssh key is generated in the temporary directory
+    monkeypatch.setenv("HOME", str(tmp_path))
 
     # Set with clear_after=1 to avoid the widget frozen at the end of test to wait the counting thread to finish.
-    # w = ComputationalResourcesWidget(clear_after=1)
+    w = ComputationalResourcesWidget(clear_after=1)
 
-    # XXX: test all
+    # Go through a full setup process.
+
+    # check no code is existing in AiiDA database
+    # by check dropdown is empty
+    assert w.code_select_dropdown.options == ()
+
+    w_resource = w.resource_setup
+
+    w_resource.comp_resources_database.domain_selector.value = "merlin.psi.ch"
+    w_resource.comp_resources_database.computer_selector.value = "cpu"
+    w_resource.comp_resources_database.code_selector.value = "QE-7.0-exe-template"
+
+    # Fill in the computer name and trigger the setup button again, the message should be updated.
+    for (
+        key,
+        mapping_variable,
+    ) in w_resource.template_variables_computer_setup._template_variables.items():
+        if key == "label":
+            sub_widget = mapping_variable.widget
+
+            # Test the default value is filled in correctly.
+            assert sub_widget.value == "merlin-cpu"
+
+    # Fill the computer configure template variables
+    for (
+        key,
+        mapping_variable,
+    ) in w_resource.template_variables_computer_configure._template_variables.items():
+        if key == "username":
+            sub_widget = mapping_variable.widget
+            sub_widget.value = "aiida"
+
+    # Fill the code name
+    for (
+        key,
+        mapping_variable,
+    ) in w_resource.template_variables_code._template_variables.items():
+        if key == "code_binary_name":
+            sub_widget = mapping_variable.widget
+            sub_widget.value = "ph"
+
+            # select the other code and check the filled template is updated
+            sub_widget.value = "pw"
+
+    w_resource.ssh_computer_setup.username.value = "aiida"
+
+    # The quick_setup with password auth will try connect which will timeout.
+    # Thus, mock the connect method to avoid the timeout.
+    monkeypatch.setattr(
+        "aiidalab_widgets_base.computational_resources.SshComputerSetup.thread_ssh_copy_id",
+        lambda _: None,
+    )
+
+    w_resource._on_quick_setup()
+
+    assert w_resource.success
+    # check the code is really created
+    assert orm.load_code("pw-7.0@merlin-cpu")
+
+    # check the dropdown is updated
+    assert "pw-7.0@merlin-cpu" in [c[0] for c in w.code_select_dropdown.options]
+
+    # The key pair will be generated to the temporary directory
+    # Check the content of the config is correct
+    with open(tmp_path / ".ssh" / "config") as f:
+        content = f.read()
+        assert "User aiida" in content
+        assert "Host merlin-l-01.psi.ch" in content
