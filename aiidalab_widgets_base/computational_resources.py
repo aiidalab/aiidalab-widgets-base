@@ -631,6 +631,8 @@ class SshComputerSetup(ipw.VBox):
         new_ssh_config = change["new"]
         if "hostname" in new_ssh_config:
             self.hostname.value = new_ssh_config["hostname"]
+        if "username" in new_ssh_config:
+            self.username.value = new_ssh_config["username"]
         if "port" in new_ssh_config:
             self.port.value = int(new_ssh_config["port"])
         if "proxy_jump" in new_ssh_config:
@@ -1574,9 +1576,10 @@ class _ResourceSetupBaseWidget(ipw.VBox):
         self.aiida_computer_setup.on_setup_computer_success(
             self._on_setup_computer_success
         )
+
         # link two traits so only one of them needs to be set (in the widget only manipulate with `self.computer_setup_and_configure`)
-        # The link is bi-directional, so when the trait is set from the widget, the trait of the widget will be set.
-        tl.link(
+        # The link is uni-directional
+        ipw.dlink(
             (self, "computer_setup_and_configure"),
             (self.aiida_computer_setup, "computer_setup_and_configure"),
         )
@@ -1595,6 +1598,15 @@ class _ResourceSetupBaseWidget(ipw.VBox):
         ipw.dlink(
             (self.aiida_code_setup, "message"),
             (self, "message"),
+        )
+
+        # link the ssh config from computer_setup_and_configure to ssh_config of ssh_computer_setup
+        ipw.dlink(
+            (self, "computer_setup_and_configure"),
+            (self.ssh_computer_setup, "ssh_config"),
+            transform=lambda x: self._parse_ssh_config_from_computer_setup_and_configure(
+                x
+            ),
         )
 
         # The placeholder widget for the template variable of config.
@@ -1746,12 +1758,24 @@ class _ResourceSetupBaseWidget(ipw.VBox):
         code_setup = change["new"]
         self.code_setup = code_setup
 
-    def _parse_ssh_config_from_computer_configure(self, computer_configure):
+    @staticmethod
+    def _parse_ssh_config_from_computer_setup_and_configure(
+        computer_setup_and_configure,
+    ):
         """Parse the ssh config from the computer configure,
         The configure does not contain hostname which will get from computer_setup.
         """
-        ssh_config = copy.deepcopy(computer_configure)
-        ssh_config["hostname"] = self.computer_setup_and_configure["setup"]["hostname"]
+        # after initialize the computer_setup_and_configure can be empty.
+        # there are tricky cases the computer_setup_and_configure is not empty but {"setup": {}}
+        if (
+            not computer_setup_and_configure
+            or not computer_setup_and_configure.get("setup", {})
+            or not computer_setup_and_configure.get("configure", {})
+        ):
+            return {}
+
+        ssh_config = copy.deepcopy(computer_setup_and_configure["configure"])
+        ssh_config["hostname"] = computer_setup_and_configure["setup"]["hostname"]
 
         return ssh_config
 
@@ -1778,8 +1802,8 @@ class _ResourceSetupBaseWidget(ipw.VBox):
 
         # ssh config need to sync hostname etc with resource database.
         self.ssh_computer_setup.ssh_config = (
-            self._parse_ssh_config_from_computer_configure(
-                new_setup_and_configure["configure"]
+            self._parse_ssh_config_from_computer_setup_and_configure(
+                new_setup_and_configure,
             )
         )
 

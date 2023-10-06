@@ -587,8 +587,6 @@ def test_resource_setup_widget_for_password_configure(monkeypatch, tmp_path):
             # select the other code and check the filled template is updated
             sub_widget.value = "pw"
 
-    w.ssh_computer_setup.username.value = "aiida"
-
     # The quick_setup with password auth will try connect which will timeout.
     # Thus, mock the connect method to avoid the timeout.
     monkeypatch.setattr(
