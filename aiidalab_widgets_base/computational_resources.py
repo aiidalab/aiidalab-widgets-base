@@ -246,7 +246,11 @@ class SshComputerSetup(ipw.VBox):
 
         self._ssh_connection_message = None
         self._password_message = ipw.HTML()
-        ipw.dlink((self, "password_message"), (self._password_message, "value"))
+        ipw.dlink(
+            (self, "password_message"),
+            (self._password_message, "value"),
+            transform=lambda x: f"<b>{x}</b>",
+        )
         self._ssh_password = ipw.Password(
             description="password:",
             disabled=False,
@@ -567,6 +571,7 @@ class SshComputerSetup(ipw.VBox):
         if self._ssh_password.value == "":
             self.ssh_connection_state = SshConnectionState.waiting_for_input
         else:
+            self.password_message = 'Sending password <i class="fa fa-spinner" aria-hidden="true"></i> (timeout 10s)'
             self._send_password()
 
     def _on_verification_mode_change(self, change):
@@ -1629,17 +1634,17 @@ class _ResourceSetupBaseWidget(ipw.VBox):
         description_toggle_detail_setup = ipw.HTML(
             """<div><b>Tick checkbox to setup resource step by step.</b></div>"""
         )
-        toggle_detail_setup = ipw.Checkbox(
+        self.toggle_detail_setup = ipw.Checkbox(
             description="",
             value=False,
             indent=False,
             # this narrow the checkbox to the minimum width.
             layout=ipw.Layout(width="30px"),
         )
-        toggle_detail_setup.observe(self._on_toggle_detail_setup, names="value")
+        self.toggle_detail_setup.observe(self._on_toggle_detail_setup, names="value")
         self.detailed_setup_switch_widgets = ipw.HBox(
             children=[
-                toggle_detail_setup,
+                self.toggle_detail_setup,
                 description_toggle_detail_setup,
             ],
         )
@@ -1966,3 +1971,6 @@ class _ResourceSetupBaseWidget(ipw.VBox):
 
         # The layout also reset
         self._update_layout()
+
+        # untick the detailed switch checkbox
+        self.toggle_detail_setup.value = False
