@@ -315,6 +315,7 @@ class SshComputerSetup(ipw.VBox):
                 ("Password", "password"),
                 ("Use custom private key", "private_key"),
                 ("Download public key", "public_key"),
+                ("Multiple factor authentication", "mfa"),
             ],
             layout=LAYOUT,
             style=STYLE,
@@ -440,6 +441,29 @@ class SshComputerSetup(ipw.VBox):
 
             raise ValueError(message)
 
+    def thread_ssh_copy_id(self):
+        """Copy public key on the remote computer, on a separate thread."""
+        ssh_connection_thread = threading.Thread(target=self._ssh_copy_id)
+        ssh_connection_thread.start()
+
+    def _on_setup_ssh_button_pressed(self, _=None):
+        """Setup ssh connection."""
+        if self._verification_mode.value == "password":
+            try:
+                self.key_pair_prepare()
+
+            except ValueError as exc:
+                self.message = wrap_message(str(exc), MessageLevel.ERROR)
+                return
+
+            self.thread_ssh_copy_id()
+
+        # For not password ssh auth (such as using private_key or 2FA), key pair is not needed (2FA)
+        # or the key pair is ready.
+        # There are other mechanism to set up the ssh connection.
+        # But we still need to write the ssh config to the ssh config file for such as
+        # proxy jump.
+
         private_key_abs_fname = None
         if self._verification_mode.value == "private_key":
             # unwrap private key file and setting temporary private_key content
@@ -448,6 +472,11 @@ class SshComputerSetup(ipw.VBox):
                 message = "Please upload your private key file."
 
                 raise ValueError(message)
+
+            # if the private key filename is exist, generate random string and append to filename
+            # then override current name.
+            if private_key_abs_fname in Path.home().glob(".ssh/*"):
+                private_key_abs_fname = private_key_abs_fname.name + shortuuid.uuid()
 
             # Write private key in ~/.ssh/ and use the name of upload file,
             # if exist, generate random string and append to filename then override current name.
@@ -462,21 +491,6 @@ class SshComputerSetup(ipw.VBox):
         # https://github.com/aiidalab/aiidalab-widgets-base/issues/516
         if not self._is_in_config():
             self._write_ssh_config(private_key_abs_fname=private_key_abs_fname)
-
-    def thread_ssh_copy_id(self):
-        """Copy public key on the remote computer, on a separate thread."""
-        ssh_connection_thread = threading.Thread(target=self._ssh_copy_id)
-        ssh_connection_thread.start()
-
-    def _on_setup_ssh_button_pressed(self, _=None):
-        """Setup ssh connection."""
-        try:
-            self.key_pair_prepare()
-        except ValueError as exc:
-            self.message = wrap_message(str(exc), MessageLevel.ERROR)
-            return
-
-        self.thread_ssh_copy_id()
 
     def _ssh_copy_id(self):
         """Run the ssh-copy-id command and follow it until it is completed."""
@@ -1957,6 +1971,13 @@ class _ResourceSetupBaseWidget(ipw.VBox):
                 )
 
             self.ssh_computer_setup.thread_ssh_copy_id()
+
+        # For not password ssh auth, key pair is not needed.
+        # There are other mechanism to set up the ssh connection.
+        # But we still need to write the ssh config to the ssh config file for such as
+        # proxy jump.
+        if not self.ssh_computer_setup._is_in_config():
+            self.ssh_computer_setup._write_ssh_config()
 
     def _on_setup_computer_success(self):
         """Callback that is called when the computer is successfully set up."""
