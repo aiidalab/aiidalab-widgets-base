@@ -464,33 +464,35 @@ class SshComputerSetup(ipw.VBox):
         # But we still need to write the ssh config to the ssh config file for such as
         # proxy jump.
 
-        private_key_abs_fname = None
+        private_key_fname = None
         if self._verification_mode.value == "private_key":
-            # unwrap private key file and setting temporary private_key content
-            private_key_abs_fname, private_key_content = self._private_key
-            if private_key_abs_fname is None:  # check private key file
-                message = "Please upload your private key file."
-
-                raise ValueError(message)
-
-            # if the private key filename is exist, generate random string and append to filename
-            # then override current name.
-            if private_key_abs_fname in Path.home().glob(".ssh/*"):
-                private_key_abs_fname = private_key_abs_fname.name + shortuuid.uuid()
-
             # Write private key in ~/.ssh/ and use the name of upload file,
             # if exist, generate random string and append to filename then override current name.
-            # TODO(danielhollas): I don't think this works as intended. If there is an existing private key,
-            # the new filename is never propagated to the caller here.
-            # https://github.com/aiidalab/aiidalab-widgets-base/issues/516
-            self._add_private_key(private_key_abs_fname, private_key_content)
+
+            # unwrap private key file and setting temporary private_key content
+            private_key_fname, private_key_content = self._private_key
+            if private_key_fname is None:  # check private key file
+                message = "Please upload your private key file."
+                self.message = wrap_message(message, MessageLevel.ERROR)
+                return
+
+            filename = Path(private_key_fname).name
+
+            # if the private key filename is exist, generate random string and append to filename subfix
+            # then override current name.
+            if filename in [str(p.name) for p in Path(self.ssh_folder).iterdir()]:
+                private_key_fname = str(
+                    Path(self.ssh_folder) / f"{filename}-{shortuuid.uuid()}"
+                )
+
+            self._add_private_key(private_key_fname, private_key_content)
 
         # TODO(danielhollas): I am not sure this is correct. What if the user wants
         # to overwrite the private key? Or any other config? The configuration would never be written.
         # And the user is not notified that we did not write anything.
         # https://github.com/aiidalab/aiidalab-widgets-base/issues/516
         if not self._is_in_config():
-            self._write_ssh_config(private_key_abs_fname=private_key_abs_fname)
+            self._write_ssh_config(private_key_abs_fname=private_key_fname)
 
     def _ssh_copy_id(self):
         """Run the ssh-copy-id command and follow it until it is completed."""
@@ -622,13 +624,6 @@ class SshComputerSetup(ipw.VBox):
         param private_key_content: bytes
         """
         fpath = Path.home() / ".ssh" / private_key_fname
-        if fpath.exists():
-            # If the file already exist and has the same content, we do nothing.
-            if fpath.read_bytes() == private_key_content:
-                return fpath
-            # If the content is different, we make a new file with a unique name.
-            fpath = fpath / "_" / shortuuid.uuid()
-
         fpath.write_bytes(private_key_content)
 
         fpath.chmod(0o600)
