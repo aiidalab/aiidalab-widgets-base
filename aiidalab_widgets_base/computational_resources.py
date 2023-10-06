@@ -23,8 +23,8 @@ from jinja2 import Environment, meta
 from .databases import ComputationalResourcesDatabaseWidget
 from .utils import MessageLevel, StatusHTML, wrap_message
 
-STYLE = {"description_width": "140px"}
-LAYOUT = {"width": "300px"}
+STYLE = {"description_width": "180px"}
+LAYOUT = {"width": "400px"}
 
 
 class ComputationalResourcesWidget(ipw.VBox):
@@ -183,7 +183,7 @@ class ComputationalResourcesWidget(ipw.VBox):
             clear_output()
             if self.btn_setup_new_code.value:
                 self._setup_new_code_output.layout = {
-                    "width": "500px",
+                    "width": "460px",
                     "border": "1px solid gray",
                 }
 
@@ -194,7 +194,7 @@ class ComputationalResourcesWidget(ipw.VBox):
                 display(*children)
             else:
                 self._setup_new_code_output.layout = {
-                    "width": "500px",
+                    "width": "460px",
                     "border": "none",
                 }
 
@@ -712,13 +712,13 @@ class AiidaComputerSetup(ipw.VBox):
         )
         memory_wrong_syntax = ipw.HTML(
             value="""<i class="fa fa-times" style="color:red;font-size:2em;" ></i> wrong syntax""",
-            layout={"visibility": "hidden"},
         )
+        memory_wrong_syntax.layout.display = "none"
         self.default_memory_per_machine = None
 
         def observe_memory_per_machine(change):
             """Check if the string defining memory is valid."""
-            memory_wrong_syntax.layout.visibility = "hidden"
+            memory_wrong_syntax.layout.display = "none"
             if not self.default_memory_per_machine_widget.value:
                 self.default_memory_per_machine = None
                 return
@@ -726,9 +726,9 @@ class AiidaComputerSetup(ipw.VBox):
                 self.default_memory_per_machine = (
                     int(parse_size(change["new"], binary=True) / 1024) or None
                 )
-                memory_wrong_syntax.layout.visibility = "hidden"
+                memory_wrong_syntax.layout.display = "none"
             except InvalidSize:
-                memory_wrong_syntax.layout.visibility = "visible"
+                memory_wrong_syntax.layout.display = "block"
                 self.default_memory_per_machine = None
 
         self.default_memory_per_machine_widget.observe(
@@ -1647,6 +1647,7 @@ class _ResourceSetupBaseWidget(ipw.VBox):
                 self.toggle_detail_setup,
                 description_toggle_detail_setup,
             ],
+            layout=ipw.Layout(justify_content="flex-end"),
         )
 
         detailed_setup_description_text = """<div>
@@ -1690,7 +1691,8 @@ class _ResourceSetupBaseWidget(ipw.VBox):
                     children=[
                         self.quick_setup_button,
                         reset_button,
-                    ]
+                    ],
+                    layout=ipw.Layout(justify_content="flex-end"),
                 ),
                 self.detailed_setup_widget,
             ],

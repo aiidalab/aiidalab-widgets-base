@@ -213,6 +213,9 @@ class ComputationalResourcesDatabaseWidget(ipw.VBox):
     computer_setup_and_configure = tl.Dict()
     code_setup = tl.Dict()
 
+    STYLE = {"description_width": "180px"}
+    LAYOUT = {"width": "400px"}
+
     def __init__(
         self,
         default_calc_job_plugin=None,
@@ -230,6 +233,8 @@ class ComputationalResourcesDatabaseWidget(ipw.VBox):
             options=(),
             description="Domain",
             disabled=False,
+            layout=self.LAYOUT,
+            style=self.STYLE,
         )
         self.domain_selector.observe(self._domain_changed, names=["value", "options"])
 
@@ -238,6 +243,8 @@ class ComputationalResourcesDatabaseWidget(ipw.VBox):
             options=(),
             description="Computer:",
             disabled=False,
+            layout=self.LAYOUT,
+            style=self.STYLE,
         )
         self.computer_selector.observe(
             self._computer_changed, names=["value", "options"]
@@ -248,6 +255,8 @@ class ComputationalResourcesDatabaseWidget(ipw.VBox):
             options=(),
             description="Code:",
             disabled=False,
+            layout=self.LAYOUT,
+            style=self.STYLE,
         )
         self.code_selector.observe(self._code_changed, names=["value", "options"])
 
