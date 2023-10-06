@@ -120,7 +120,7 @@ def test_computational_resources_code_setup(
     assert "cp2k" not in output
 
     driver = selenium_driver("notebooks/computational_resources.ipynb")
-    driver.set_window_size(800, 800)
+    driver.set_window_size(800, 1600)
 
     # click the "Setup new code" button
     driver.find_element(By.XPATH, '(//button[text()="Setup new code"])[1]').click()
@@ -136,15 +136,17 @@ def test_computational_resources_code_setup(
 
     # fill the SSH username
     driver.find_element(
-        By.XPATH, "(//label[text()='username:'])[1]/following-sibling::input"
+        By.XPATH, "(//label[text()='SSH username:'])[1]/following-sibling::input"
     ).send_keys("dummyuser")
 
     driver.find_element(
-        By.XPATH, "(//label[text()='Slurm account'])[1]/following-sibling::input"
+        By.XPATH, "(//label[text()='Slurm account:'])[1]/following-sibling::input"
     ).send_keys("dummyuser")
 
-    # click the quick setup
-    driver.find_element(By.XPATH, '(//button[text()="Quick setup"])').click()
+    # click the quick setup (contain text "Quick setup")
+    driver.find_element(
+        By.XPATH, '(//button[contains(text(),"Quick setup")])[1]'
+    ).click()
     time.sleep(1.0)
 
     # check the new code pw-7.0@daint-mc is in code list

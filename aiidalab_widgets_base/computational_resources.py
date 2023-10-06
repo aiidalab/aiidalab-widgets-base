@@ -1441,11 +1441,11 @@ class TemplateVariablesWidget(ipw.VBox):
                     self._template_variables[var] = template_var
                 else:
                     # create a new widget for the variable.
-                    description = var_meta.get("key_display", f"{var}:")
+                    description = var_meta.get("key_display", f"{var}")
                     widget_type = var_meta.get("type", "text")
                     if widget_type == "text":
                         w = ipw.Text(
-                            description=description,
+                            description=f"{description}:",
                             value=var_meta.get("default", ""),
                             # delay notifying the observers until the user stops typing
                             continuous_update=False,
@@ -1454,7 +1454,7 @@ class TemplateVariablesWidget(ipw.VBox):
                         )
                     elif widget_type == "list":
                         w = ipw.Dropdown(
-                            description=description,
+                            description=f"{description}:",
                             options=var_meta.get("options", ()),
                             value=var_meta.get("default", None),
                             layout=LAYOUT,

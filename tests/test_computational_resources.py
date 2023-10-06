@@ -120,10 +120,13 @@ def test_aiida_computer_setup_widget_default():
 
 
 @pytest.mark.usefixtures("aiida_profile_clean")
-def test_aiida_computer_setup_widget_ssh_username(monkeypatch):
+def test_aiida_computer_setup_widget_ssh_username(monkeypatch, tmp_path):
     """Test the AiidaComputerSetup.
     The 'default' in name means the username is from computer configuration.
     """
+    # mock home directory for ssh config file
+    monkeypatch.setenv("HOME", str(tmp_path))
+
     widget = computational_resources.AiidaComputerSetup()
 
     # At the beginning, the computer_name should be an empty string.
@@ -368,7 +371,7 @@ def test_template_variables_widget_metadata():
             sub_widget = value.widget
 
             # Test set the widget from the metadata
-            assert sub_widget.description == "Slurm partition"
+            assert sub_widget.description == "Slurm partition:"
             assert sub_widget.options == ("normal", "normal-test", "debug")
             assert sub_widget.value == "normal"
 
@@ -410,7 +413,7 @@ def test_template_variables_widget_multi_template_variables():
     for key, value in w._template_variables.items():
         if key == "code_binary_name":
             sub_widget = value.widget
-            assert sub_widget.description == "Code name"
+            assert sub_widget.description == "Code name:"
             assert sub_widget.options == ("pw", "ph", "pp")
             assert sub_widget.value is None
 

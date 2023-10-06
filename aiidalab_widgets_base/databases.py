@@ -231,7 +231,7 @@ class ComputationalResourcesDatabaseWidget(ipw.VBox):
         # Select domain.
         self.domain_selector = ipw.Dropdown(
             options=(),
-            description="Domain",
+            description="Domain:",
             disabled=False,
             layout=self.LAYOUT,
             style=self.STYLE,
