@@ -249,7 +249,7 @@ class SshComputerSetup(ipw.VBox):
         ipw.dlink(
             (self, "password_message"),
             (self._password_message, "value"),
-            transform=lambda x: f"<b>{x}</b>",
+            transform=lambda x: f"<b>SSH log: {x}</b>",
         )
         self._ssh_password = ipw.Password(
             description="password:",
@@ -1738,6 +1738,16 @@ class _ResourceSetupBaseWidget(ipw.VBox):
         if change["new"]:
             self.detailed_setup_widget.layout.display = "block"
             self.quick_setup_button.disabled = True
+            # fill the template variables with the default values or the filled values.
+            try:
+                self._fill_template()
+            except ValueError as exc:
+                # if there are missing template variables, only raise a warning instead of error.
+                # the user can still fill the template variables manually.
+                self.message = wrap_message(
+                    f"{exc}, please fill the template variables manually.",
+                    MessageLevel.WARNING,
+                )
         else:
             self.detailed_setup_widget.layout.display = "none"
             self.quick_setup_button.disabled = False
@@ -1848,16 +1858,10 @@ class _ResourceSetupBaseWidget(ipw.VBox):
             self.reset()
             self.comp_resources_database.reset()
 
-    def _on_quick_setup(self, _=None):
-        """Go through all the setup steps automatically."""
-        # Raise error if the computer is not selected.
-        if not self.computer_setup_and_configure:
-            self.message = wrap_message(
-                "Please select a computer from the database.",
-                MessageLevel.ERROR,
-            )
-            return
-
+    def _fill_template(self):
+        """Fill the template variables with default values and filled values for
+        the `AiidaComputer`, `Aiidacode` and `SshComputerSetup`
+        """
         # Use default values for the template variables if not set.
         # and the same time check if all templates are filled.
         # Be careful there are same key in both template_variables_computer and template_variables_code, e.g. label.
@@ -1884,11 +1888,12 @@ class _ResourceSetupBaseWidget(ipw.VBox):
                     # check if the default value is exist for this variable.
                     default = metadata.get(var, {}).get("default", None)
                     if default is None:
-                        self.message = wrap_message(
-                            f"Please fill missing variable: <b>{var}</b>",
-                            level=MessageLevel.ERROR,
-                        )
-                        return
+                        # self.message = wrap_message(
+                        #    f"Please fill missing variable: <b>{var}</b>",
+                        #    level=MessageLevel.ERROR,
+                        # )
+                        # return.
+                        raise ValueError(f"Template variable '<b>{var}</b>' is not set")
                     else:
                         default_values[var] = default
 
@@ -1913,6 +1918,26 @@ class _ResourceSetupBaseWidget(ipw.VBox):
             code_setup = copy.deepcopy(self.code_setup)
             code_setup = self.template_variables_code.filled_templates
             self.code_setup = code_setup
+
+    def _on_quick_setup(self, _=None):
+        """Go through all the setup steps automatically."""
+        # Raise error if the computer is not selected.
+        if not self.computer_setup_and_configure:
+            self.message = wrap_message(
+                "Please select a computer from the database.",
+                MessageLevel.ERROR,
+            )
+            return
+
+        # Fill the template variables.
+        try:
+            self._fill_template()
+        except ValueError as exc:
+            self.message = wrap_message(
+                f"{exc}, you must fill those.",
+                level=MessageLevel.ERROR,
+            )
+            return
 
         # Setup the computer and code.
         if self.aiida_computer_setup.on_setup_computer():

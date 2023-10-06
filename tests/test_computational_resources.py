@@ -1,3 +1,5 @@
+import re
+
 import pytest
 from aiida import orm
 
@@ -6,6 +8,13 @@ from aiidalab_widgets_base.computational_resources import (
     ComputationalResourcesWidget,
     _ResourceSetupBaseWidget,
 )
+
+HTML_TAG_CLEANER = re.compile(r"<[^>]*>")
+
+
+def clean_html(raw_html):
+    """Remove html tags from a string."""
+    return re.sub(HTML_TAG_CLEANER, "", raw_html)
 
 
 @pytest.mark.usefixtures("aiida_profile_clean")
@@ -474,7 +483,7 @@ def test_resource_setup_widget_default():
     # the message should be updated.
     w._on_quick_setup()
 
-    assert "Please fill missing variable" in w.message
+    assert "Template variable 'slurm_account' is not set" in clean_html(w.message)
 
     # Fill in the computer name and trigger the setup button again, the message should be updated.
     for (
