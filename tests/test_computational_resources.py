@@ -40,8 +40,9 @@ def test_ssh_computer_setup_widget():
     widget.username.value = "aiida"
 
     # Write the information to ~/.ssh/config and check that it is there.
+    assert widget._is_in_config() is False
     widget._write_ssh_config()
-    assert widget._is_in_config()
+    assert widget._is_in_config() is True
 
     # Check that ssh-keygen operation is successful.
     widget._ssh_keygen()
