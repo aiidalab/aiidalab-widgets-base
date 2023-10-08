@@ -1070,8 +1070,9 @@ class StructureDataViewer(_StructureDataBaseViewer):
     displayed_structure = tl.Instance(ase.Atoms, allow_none=True, read_only=True)
     pk = tl.Int(allow_none=True)
 
-    def __init__(self, **kwargs):
+    def __init__(self, structure=None, **kwargs):
         super().__init__(**kwargs)
+        self.structure = structure
         self.natoms = len(self.structure) if self.structure else 0
 
     @tl.observe("supercell")
