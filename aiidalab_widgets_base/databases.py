@@ -357,17 +357,14 @@ class ComputationalResourcesDatabaseWidget(ipw.VBox):
                 selected_domain = self.domain_selector.value
 
             with self.hold_trait_notifications():
-                try:
-                    self.computer_selector.options = tuple(
-                        key
-                        for key in self.database[selected_domain].keys()
-                        if key != "default"
-                    )
-                    self.computer_selector.value = self.database[selected_domain][
-                        "default"
-                    ]
-                except KeyError:
-                    raise
+                self.computer_selector.options = tuple(
+                    key
+                    for key in self.database.get(selected_domain, {}).keys()
+                    if key != "default"
+                )
+                self.computer_selector.value = self.database.get(
+                    selected_domain, {}
+                ).get("default")
 
     def _computer_changed(self, change=None):
         """callback when new computer selected"""
@@ -387,11 +384,8 @@ class ComputationalResourcesDatabaseWidget(ipw.VBox):
                 selected_computer, {}
             )
 
-            try:
-                self.code_selector.options = list(computer_dict.get("codes", {}).keys())
-                self.code_selector.value = None
-            except KeyError:
-                raise
+            self.code_selector.options = list(computer_dict.get("codes", {}).keys())
+            self.code_selector.value = None
 
             computer_setup = computer_dict.get("computer", {}).get("computer-setup", {})
             computer_configure = computer_dict.get("computer", {}).get(
@@ -421,12 +415,9 @@ class ComputationalResourcesDatabaseWidget(ipw.VBox):
         selected_domain = self.domain_selector.value
         selected_computer = self.computer_selector.value
 
-        try:
-            self.code_setup = (
-                self.database.get(selected_domain, {})
-                .get(selected_computer, {})
-                .get("codes", {})
-                .get(selected_code, {})
-            )
-        except KeyError:
-            raise
+        self.code_setup = (
+            self.database.get(selected_domain, {})
+            .get(selected_computer, {})
+            .get("codes", {})
+            .get(selected_code, {})
+        )
