@@ -63,28 +63,6 @@ def test_structure_data_viwer(structure_data_object):
     v = viewers.viewer(structure_data_object)
     assert isinstance(v, viewers.StructureDataViewer)
 
-    # Selection of atoms.
-
-    # Direct selection.
-    v._selected_atoms.value = "1..2"
-    v.apply_displayed_selection()
-    assert v.selection == [0, 1]
-
-    # The x coordinate lower than 0.5.
-    v._selected_atoms.value = "x<0.5"
-    v.apply_displayed_selection()
-    assert v.selection == [0]
-
-    # The id of the second atom
-    v._selected_atoms.value = "id > 1"
-    v.apply_displayed_selection()
-    assert v.selection == [1]
-
-    # or of the two selections.
-    v._selected_atoms.value = "x>0.5 or x<0.5"
-    v.apply_displayed_selection()
-    assert v.selection == [0, 1]
-
     # Check the `_prepare_payload` function used for downloading.
     format_cases = [
         (
@@ -104,3 +82,62 @@ def test_structure_data_viwer(structure_data_object):
     for fmt, out in format_cases:
         v.file_format.label = fmt
         assert v._prepare_payload() == out
+
+    # Selection of atoms.
+
+    # Direct selection.
+    v._selected_atoms.value = "1..2"
+    v.apply_displayed_selection()
+    assert v.selection == [0, 1]
+    assert v.displayed_selection == [0, 1]
+
+    # The x coordinate lower than 0.5.
+    v._selected_atoms.value = "x<0.5"
+    v.apply_displayed_selection()
+    assert v.selection == [0]
+    assert v.displayed_selection == [0]
+
+    # The id of the second atom
+    v._selected_atoms.value = "id > 1"
+    v.apply_displayed_selection()
+    assert v.selection == [1]
+
+    # or of the two selections.
+    v._selected_atoms.value = "x>0.5 or x<0.5"
+    v.apply_displayed_selection()
+    assert v.selection == [0, 1]
+
+    # Display 2*2*2 supercell
+    v.supercell = [2, 2, 2]
+    assert len(v.structure) == 2
+    assert len(v.displayed_structure) == 16
+
+    # Test intersection of the selection with the supercell.
+    v._selected_atoms.value = "z>0 and z<2.5"
+    assert v.selection == [2]
+    assert v.displayed_selection == [2, 6, 10, 14]
+
+    v._selected_atoms.value = "z>=0 and z<2.5"
+    assert v.selection == [0, 1]
+    assert v.displayed_selection == [0, 1, 4, 5, 8, 9, 12, 13]
+
+    # Convert to boron nitride.
+    new_structure = v.structure.copy()
+    new_structure.symbos = ["B", "N"]
+    v.structure = None
+    v.structure = new_structure
+
+    # Use "name" operator.
+    v._selected_atoms.value = "z<2 and name B"
+    assert v.selection == [1]
+    assert v.displayed_selection == [1, 5, 9, 13]
+
+    # Use "id" operator.
+    v._selected_atoms.value = "id == 1 or id == 8"
+    assert v.selection == [1, 2]
+    assert v.displayed_selection == [1, 8]
+
+    # Use the d_from operator.
+    v._selected_atoms.value = "d_from[0,0,0] < 4"
+    assert v.selection == [1, 2]
+    assert v.displayed_selection == [4, 8, 0, 1, 2]
