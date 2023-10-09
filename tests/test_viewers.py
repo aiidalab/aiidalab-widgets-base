@@ -106,7 +106,7 @@ def test_structure_data_viwer(structure_data_object):
     assert v.selection == [1]
 
     # or of the two selections.
-    v._selected_atoms.value = "x>0.5 or x<0.5"
+    v._selected_atoms.value = "x>=0.5 or x<0.5"
     v.apply_displayed_selection()
     assert v.selection == [0, 1]
 
@@ -134,11 +134,21 @@ def test_structure_data_viwer(structure_data_object):
     v.structure = None
     v.structure = new_structure
 
-    # Use "name" operator.
+    # Use "name" and "not" operators.
     v._selected_atoms.value = "z<2 and name B"
     v.apply_displayed_selection()
     assert v.selection == [0]
     assert v.displayed_selection == [0, 4, 8, 12]
+
+    v._selected_atoms.value = "z<2 and name not B"
+    v.apply_displayed_selection()
+    assert v.selection == [1]
+    assert v.displayed_selection == [1, 5, 9, 13]
+
+    v._selected_atoms.value = "z<2 and name not [B, O]"
+    v.apply_displayed_selection()
+    assert v.selection == [1]
+    assert v.displayed_selection == [1, 5, 9, 13]
 
     # Use "id" operator.
     v._selected_atoms.value = "id == 1 or id == 8"
