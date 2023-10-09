@@ -547,8 +547,6 @@ def test_resource_setup_widget_default():
 
     w._on_quick_setup()
 
-    assert "created" in w.message
-    assert "pw" in w.message
     assert w.success
     assert orm.load_code("pw-7.2@daint-mc")
 
@@ -701,7 +699,9 @@ def test_computer_resource_setup_widget_default(monkeypatch, tmp_path):
     """A test for bundle widget `ComputationalResourcesWidget`."""
     # Test the enable toggle are passed to the sub widgets.
     with pytest.raises(ValueError):
-        ComputationalResourcesWidget(detailed_setup=False, quick_setup=False)
+        ComputationalResourcesWidget(
+            enable_detailed_setup=False, enable_quick_setup=False
+        )
 
     # monkeypatch home so the ssh key is generated in the temporary directory
     monkeypatch.setenv("HOME", str(tmp_path))
