@@ -1065,7 +1065,12 @@ class StructureDataViewer(_StructureDataBaseViewer):
     """
 
     structure = tl.Union(
-        [tl.Instance(ase.Atoms), tl.Instance(orm.Node)], allow_none=True
+        [
+            tl.Instance(ase.Atoms),
+            tl.Instance(orm.StructureData),
+            tl.Instance(orm.CifData),
+        ],
+        allow_none=True,
     )
     displayed_structure = tl.Instance(ase.Atoms, allow_none=True, read_only=True)
     pk = tl.Int(allow_none=True)
@@ -1089,14 +1094,9 @@ class StructureDataViewer(_StructureDataBaseViewer):
         structure = change["value"]
         if isinstance(structure, ase.Atoms):
             self.pk = None
-        elif isinstance(structure, orm.Node):
+        elif isinstance(structure, (orm.StructureData, orm.CifData)):
             self.pk = structure.pk
             structure = structure.get_ase()
-        elif structure:
-            raise TypeError(
-                f"Unsupported type {type(structure)}, structure must be one of the following types: "
-                "ASE Atoms object, AiiDA CifData or StructureData."
-            )
 
         # Add default representation array if it is not present.
         # This will make sure that the new structure is displayed at the beginning.

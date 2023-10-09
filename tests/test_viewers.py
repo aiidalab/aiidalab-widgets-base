@@ -1,4 +1,5 @@
 import pytest
+import traitlets as tl
 from aiida import orm
 
 from aiidalab_widgets_base import viewers
@@ -173,3 +174,21 @@ def test_structure_data_viwer(structure_data_object):
     v.apply_displayed_selection()
     assert v.selection == [1, 0]
     assert v.displayed_selection == [3, 9, 10]
+
+    # Division and multiplication.
+    v._selected_atoms.value = "x/2 < 1"
+    v.apply_displayed_selection()
+    assert v.selection == [0, 1]
+    assert v.displayed_selection == [4, 0, 1, 2]
+
+    v._selected_atoms.value = "x*1.5 < y + z"
+    v.apply_displayed_selection()
+    assert v.selection == [0, 1]
+    assert v.displayed_selection == [2, 3, 4, 6, 7]
+
+    # Try to provide different object type than the viewer accepts.
+    with pytest.raises(tl.TraitError):
+        v.structure = 2
+
+    with pytest.raises(tl.TraitError):
+        v.structure = orm.Int(1)
