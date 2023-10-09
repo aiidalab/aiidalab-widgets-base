@@ -114,30 +114,35 @@ def test_structure_data_viwer(structure_data_object):
 
     # Test intersection of the selection with the supercell.
     v._selected_atoms.value = "z>0 and z<2.5"
-    assert v.selection == [2]
-    assert v.displayed_selection == [2, 6, 10, 14]
+    v.apply_displayed_selection()
+    assert v.selection == [1]
+    assert v.displayed_selection == [1, 5, 9, 13]
 
     v._selected_atoms.value = "z>=0 and z<2.5"
+    v.apply_displayed_selection()
     assert v.selection == [0, 1]
     assert v.displayed_selection == [0, 1, 4, 5, 8, 9, 12, 13]
 
     # Convert to boron nitride.
     new_structure = v.structure.copy()
-    new_structure.symbos = ["B", "N"]
+    new_structure.symbols = ["B", "N"]
     v.structure = None
     v.structure = new_structure
 
     # Use "name" operator.
     v._selected_atoms.value = "z<2 and name B"
-    assert v.selection == [1]
-    assert v.displayed_selection == [1, 5, 9, 13]
+    v.apply_displayed_selection()
+    assert v.selection == [0]
+    assert v.displayed_selection == [0, 4, 8, 12]
 
     # Use "id" operator.
     v._selected_atoms.value = "id == 1 or id == 8"
-    assert v.selection == [1, 2]
-    assert v.displayed_selection == [1, 8]
+    v.apply_displayed_selection()
+    assert v.selection == [0, 1]
+    assert v.displayed_selection == [0, 7]
 
     # Use the d_from operator.
     v._selected_atoms.value = "d_from[0,0,0] < 4"
-    assert v.selection == [1, 2]
+    v.apply_displayed_selection()
+    assert v.selection == [0, 1]
     assert v.displayed_selection == [4, 8, 0, 1, 2]
