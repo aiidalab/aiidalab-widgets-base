@@ -50,11 +50,14 @@ class ComputationalResourcesWidget(ipw.VBox):
     allow_hidden_codes = tl.Bool(False)
     allow_disabled_computers = tl.Bool(False)
 
+    # code output layout width
+    _output_width = "460px"
+
     def __init__(
         self,
         description="Select code:",
-        quick_setup=True,
-        detailed_setup=True,
+        enable_quick_setup=True,
+        enable_detailed_setup=True,
         clear_after=None,
         default_calc_job_plugin=None,
         **kwargs,
@@ -94,7 +97,7 @@ class ComputationalResourcesWidget(ipw.VBox):
         self.btn_setup_new_code = ipw.ToggleButton(description="Setup new code")
         self.btn_setup_new_code.observe(self._setup_new_code, "value")
 
-        self._setup_new_code_output = ipw.Output(layout={"width": "500px"})
+        self._setup_new_code_output = ipw.Output(layout={"width": self._output_width})
 
         children = [
             ipw.HBox([self.code_select_dropdown, self.btn_setup_new_code]),
@@ -106,8 +109,8 @@ class ComputationalResourcesWidget(ipw.VBox):
         # Quick setup.
         self.resource_setup = _ResourceSetupBaseWidget(
             default_calc_job_plugin=self.default_calc_job_plugin,
-            enable_quick_setup=quick_setup,
-            enable_detailed_setup=detailed_setup,
+            enable_quick_setup=enable_quick_setup,
+            enable_detailed_setup=enable_detailed_setup,
         )
         self.resource_setup.observe(self.refresh, "success")
         ipw.dlink(
@@ -183,7 +186,7 @@ class ComputationalResourcesWidget(ipw.VBox):
             clear_output()
             if self.btn_setup_new_code.value:
                 self._setup_new_code_output.layout = {
-                    "width": "460px",
+                    "width": self._output_width,
                     "border": "1px solid gray",
                 }
 
@@ -194,7 +197,7 @@ class ComputationalResourcesWidget(ipw.VBox):
                 display(*children)
             else:
                 self._setup_new_code_output.layout = {
-                    "width": "460px",
+                    "width": self._output_width,
                     "border": "none",
                 }
 
