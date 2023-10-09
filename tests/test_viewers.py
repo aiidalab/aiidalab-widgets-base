@@ -151,3 +151,15 @@ def test_structure_data_viwer(structure_data_object):
     v.apply_displayed_selection()
     assert v.selection == [0, 1]
     assert v.displayed_selection == [4, 8, 0, 1, 2]
+
+    # Use the != operator.
+    v._selected_atoms.value = "id != 5"
+    v.apply_displayed_selection()
+    assert v.selection == [0, 1]
+    assert v.displayed_selection == [0, 1, 2, 3, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15]
+
+    # Use ^ and - operators.
+    v._selected_atoms.value = "(x-4)^2 + (y-2)^2 < 4"
+    v.apply_displayed_selection()
+    assert v.selection == [1, 0]
+    assert v.displayed_selection == [3, 9, 10]
