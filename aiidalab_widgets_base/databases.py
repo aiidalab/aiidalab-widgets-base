@@ -1,8 +1,12 @@
 """Widgets that allow to query online databases."""
+import re
+
 import ase
 import ipywidgets as ipw
 import requests
 import traitlets as tl
+
+TEMPLATE_PATTERN = re.compile(r"\{\{.*\}\}")
 
 
 class CodQueryWidget(ipw.VBox):
@@ -296,17 +300,7 @@ class ComputationalResourcesDatabaseWidget(ipw.VBox):
         self.reset()
 
     @staticmethod
-    def _calc_job_plugin_match(plugin, default_plugin):
-        """Check if plugin entry point read from database (may have jinja2 template included)
-        matches default plugin
-        """
-        # Replace jinja2 template with regex
-        import re
-
-        plugin = re.sub(r"\{\{.*\}\}", r".*", plugin)
-        return re.match(plugin, default_plugin) is not None
-
-    def _database_generator(self, database_source, default_calc_job_plugin):
+    def _database_generator(database_source, default_calc_job_plugin):
         """From database source JSON and default calc job plugin, generate resource database"""
         try:
             database = requests.get(database_source).json()
@@ -324,11 +318,12 @@ class ComputationalResourcesDatabaseWidget(ipw.VBox):
                     continue
 
                 for code, code_value in list(computer_value["codes"].items()):
-                    # if code_value["default_calc_job_plugin"] != default_calc_job_plugin:
-                    if not self._calc_job_plugin_match(
-                        code_value["default_calc_job_plugin"], default_calc_job_plugin
-                    ):
-                        # remove code
+                    # check if code plugin matches default plugin
+                    # if not, remove code
+                    plugin = re.sub(
+                        TEMPLATE_PATTERN, r".*", code_value["default_calc_job_plugin"]
+                    )
+                    if re.match(plugin, default_calc_job_plugin) is None:
                         del computer_value["codes"][code]
 
                 if len(computer_value["codes"]) == 0:
