@@ -186,6 +186,38 @@ def test_structure_data_viwer(structure_data_object):
     assert v.selection == [0, 1]
     assert v.displayed_selection == [2, 3, 4, 6, 7]
 
+    # Test wrong syntax.
+    assert v.wrong_syntax.layout.visibility == "hidden"
+    v._selected_atoms.value = "x--x"
+    v.apply_displayed_selection()
+    assert v.wrong_syntax.layout.visibility == "visible"
+
+    # Test representations.
+
+    # By default, there should be one "default" representation.
+    assert len(v._all_representations) == 1
+    assert v._all_representations[0].uuid == "_aiidalab_viewer_representation_default"
+    assert v._all_representations[0].selection.value == "1..2"
+
+    # Display only one atom.
+    v._all_representations[0].selection.value = "1"
+    v._apply_representations()
+    assert "2" in v.atoms_not_represented.value
+
+    # Add a new representation.
+    v._add_representation()
+    assert "2" in v.atoms_not_represented.value
+    v._all_representations[1].selection.value = "2"
+    v._apply_representations()
+    assert v.atoms_not_represented.value == ""
+
+    # Delete the second representation.
+    assert v._all_representations[0].delete_button.layout.visibility == "hidden"
+    assert v._all_representations[1].delete_button.layout.visibility == "visible"
+    v._all_representations[1].delete_button.click()
+    assert len(v._all_representations) == 1
+    assert "2" in v.atoms_not_represented.value
+
     # Try to provide different object type than the viewer accepts.
     with pytest.raises(tl.TraitError):
         v.structure = 2
