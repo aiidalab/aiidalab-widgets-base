@@ -27,7 +27,7 @@ def test_structure_manager_widget(structure_data_object):
     assert structure_manager_widget.viewer.periodicity.value == "Periodicity: xyz"
 
     # Store structure and check that it is stored.
-    structure_manager_widget.store_structure()
+    structure_manager_widget.btn_store.click()
     assert structure_manager_widget.structure_node.is_stored
     assert structure_manager_widget.structure_node.pk is not None
 
@@ -45,11 +45,17 @@ def test_structure_manager_widget(structure_data_object):
         structure_manager_widget.structure[0].position == new_structure[0].position
     )
 
+    # Store the modified structure.
+    structure_manager_widget.btn_store.click()
+    assert structure_manager_widget.structure_node.is_stored
+
     # Undo the structure modification.
     structure_manager_widget.undo()
     assert np.any(
         structure_manager_widget.structure[0].position != new_structure[0].position
     )
+    structure_manager_widget.undo()  # Undo the structure creation.
+    assert structure_manager_widget.structure is None
 
     # Test the widget with multiple importers, editors. Specify the viewer and the node class
     structure_manager_widget = awb.StructureManagerWidget(
