@@ -17,8 +17,8 @@ def test_structure_manager_widget(structure_data_object):
         editors=[
             awb.BasicStructureEditor(title="Basic Editor"),
         ],
+        input_structure=structure_data_object,
     )
-    structure_manager_widget.input_structure = structure_data_object
 
     assert structure_manager_widget.structure is not None
     assert isinstance(structure_manager_widget.structure, ase.Atoms)
@@ -30,6 +30,10 @@ def test_structure_manager_widget(structure_data_object):
     structure_manager_widget.store_structure()
     assert structure_manager_widget.structure_node.is_stored
     assert structure_manager_widget.structure_node.pk is not None
+
+    # Try to store the stored structure.
+    structure_manager_widget.btn_store.click()
+    assert "Already stored" in structure_manager_widget.output.value
 
     # Simulate the structure modification.
     new_structure = structure_manager_widget.structure.copy()
@@ -47,11 +51,18 @@ def test_structure_manager_widget(structure_data_object):
         structure_manager_widget.structure[0].position != new_structure[0].position
     )
 
-    # test the widget can be instantiated with empty inputs
+    # Test the widget with multiple importers, editors. Specify the viewer and the node class
     structure_manager_widget = awb.StructureManagerWidget(
         importers=[
             awb.StructureUploadWidget(title="From computer"),
+            awb.StructureBrowserWidget(title="AiiDA database"),
         ],
+        editors=[
+            awb.BasicStructureEditor(title="Basic Editor"),
+            awb.BasicCellEditor(title="Cell Editor"),
+        ],
+        viewer=awb.viewers.StructureDataViewer(),
+        node_class="StructureData",
     )
 
     assert structure_manager_widget.structure is None
