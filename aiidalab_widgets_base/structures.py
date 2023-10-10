@@ -14,7 +14,7 @@ import traitlets as tl
 from aiida import engine, orm, plugins
 
 # Local imports
-from .data import LigandSelectorWidget
+from .data import FunctionalGroupSelectorWidget
 from .utils import StatusHTML, exceptions, get_ase_from_file, get_formula
 from .viewers import StructureDataViewer
 
@@ -1055,7 +1055,7 @@ class BasicStructureEditor(ipw.VBox):
                 self.element.disabled = True
 
         # Ligand selection.
-        self.ligand = LigandSelectorWidget()
+        self.ligand = FunctionalGroupSelectorWidget()
         self.ligand.observe(disable_element, names="value")
 
         # Add atom.
