@@ -421,11 +421,20 @@ class _StructureDataBaseViewer(ipw.VBox):
         for elem in _supercell:
             elem.observe(change_supercell, names="value")
         supercell_selector = ipw.HBox(
-            [ipw.HTML(description="Super cell:")] + _supercell
+            [
+                ipw.HTML(
+                    description="Super cell:", style={"description_width": "initial"}
+                )
+            ]
+            + _supercell
         )
 
         # 2. Choose background color.
-        background_color = ipw.ColorPicker(description="Background")
+        background_color = ipw.ColorPicker(
+            description="Background",
+            style={"description_width": "initial"},
+            layout={"width": "200px"},
+        )
         tl.link((background_color, "value"), (self._viewer, "background"))
         background_color.value = "white"
 
@@ -435,7 +444,7 @@ class _StructureDataBaseViewer(ipw.VBox):
             description="Camera type:",
             value=self._viewer.camera,
             layout={"align_self": "flex-start"},
-            style={"button_width": "115.5px"},
+            style={"button_width": "115.5px", "description_width": "initial"},
             orientation="vertical",
         )
 
@@ -496,16 +505,31 @@ class _StructureDataBaseViewer(ipw.VBox):
                 array_threshold=0,
             )
         ]
+
+        representation_accordion = ipw.Accordion(
+            children=[
+                ipw.VBox(
+                    [
+                        self.representations_header,
+                        self.representation_output,
+                        self.atoms_not_represented,
+                        ipw.HBox(
+                            [apply_representations, add_new_representation_button]
+                        ),
+                    ]
+                )
+            ],
+        )
+        representation_accordion.set_title(0, "Representations")
+        representation_accordion.selected_index = None
+
         return ipw.VBox(
             [
                 supercell_selector,
                 background_color,
                 camera_type,
-                self.representations_header,
-                self.representation_output,
-                self.atoms_not_represented,
-                ipw.HBox([apply_representations, add_new_representation_button]),
                 center_button,
+                representation_accordion,
             ]
         )
 
