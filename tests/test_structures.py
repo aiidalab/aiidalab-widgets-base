@@ -48,6 +48,7 @@ def test_structure_manager_widget(structure_data_object):
     # Store the modified structure.
     structure_manager_widget.btn_store.click()
     assert structure_manager_widget.structure_node.is_stored
+    stored_structure = structure_manager_widget.structure_node
 
     # Undo the structure modification.
     structure_manager_widget.undo()
@@ -72,6 +73,7 @@ def test_structure_manager_widget(structure_data_object):
     )
 
     assert structure_manager_widget.structure is None
+    structure_manager_widget.input_structure = stored_structure
 
 
 @pytest.mark.usefixtures("aiida_profile_clean")
