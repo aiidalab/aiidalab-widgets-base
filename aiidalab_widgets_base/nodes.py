@@ -320,7 +320,7 @@ class OpenAiidaNodeInAppWidget(ipw.VBox):
 
     def __init__(self, path_to_root="../", **kwargs):
         self.path_to_root = path_to_root
-        self.tab = ipw.Tab(style={"description_width": "initial"})
+        self.tab = ipw.Tab()
         self.tab_selection = ipw.RadioButtons(
             options=[],
             description="",

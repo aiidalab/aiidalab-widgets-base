@@ -44,11 +44,8 @@ def register_viewer_widget(key):
     return registration_decorator
 
 
-def viewer(obj, downloadable=True, **kwargs):
+def viewer(obj, **kwargs):
     """Display AiiDA data types in Jupyter notebooks.
-
-    :param downloadable: If True, add link/button to download the content of displayed AiiDA object.
-    :type downloadable: bool
 
     Returns the object itself if the viewer wasn't found."""
     if not isinstance(obj, orm.Node):  # only working with AiiDA nodes
@@ -57,19 +54,12 @@ def viewer(obj, downloadable=True, **kwargs):
         )
         return obj
 
-    try:
+    if obj.node_type in AIIDA_VIEWER_MAPPING:
         _viewer = AIIDA_VIEWER_MAPPING[obj.node_type]
-    except KeyError as exc:
-        if obj.node_type in str(exc):
-            warnings.warn(
-                f"Did not find an appropriate viewer for the {type(obj)} object. Returning the object "
-                "itself.",
-                stacklevel=2,
-            )
-            return obj
-        raise
+        return _viewer(obj, **kwargs)
     else:
-        return _viewer(obj, downloadable=downloadable, **kwargs)
+        # No viewer registered for this type, return object itself
+        return obj
 
 
 class AiidaNodeViewWidget(ipw.VBox):
@@ -440,12 +430,11 @@ class _StructureDataBaseViewer(ipw.VBox):
 
         # 3. Camera switcher
         camera_type = ipw.ToggleButtons(
-            options={"Orthographic": "orthographic", "Perspective": "perspective"},
+            options=[("Orthographic", "orthographic"), ("Perspective", "perspective")],
             description="Camera type:",
             value=self._viewer.camera,
             layout={"align_self": "flex-start"},
-            style={"button_width": "115.5px", "description_width": "initial"},
-            orientation="vertical",
+            style={"button_width": "115.5px"},
         )
 
         def change_camera(change):
@@ -766,7 +755,7 @@ class _StructureDataBaseViewer(ipw.VBox):
         )
 
         # 4. Render a high quality image
-        self.render_btn = ipw.Button(description="Render", icon="fa-paint-brush")
+        self.render_btn = ipw.Button(description="Render", icon="paint-brush")
         self.render_btn.on_click(self._render_structure)
         self.render_box = ipw.VBox(
             children=[ipw.Label("Render an image with POVRAY:"), self.render_btn]
