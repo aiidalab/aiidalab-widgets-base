@@ -660,9 +660,7 @@ class StructureBrowserWidget(ipw.VBox):
         matches = {n[0] for n in qbuild.iterall()}
         matches = sorted(matches, reverse=True, key=lambda n: n.ctime)
 
-        options = []
-        options.append((f"Select a Structure ({len(matches)} found)", False))
-
+        options = [(f"Select a Structure ({len(matches)} found)", False)]
         for mch in matches:
             label = f"PK: {mch.pk}"
             label += " | " + mch.ctime.strftime("%Y-%m-%d %H:%M")

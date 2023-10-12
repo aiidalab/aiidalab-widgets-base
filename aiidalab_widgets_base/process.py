@@ -484,10 +484,6 @@ class CalcJobOutputWidget(ipw.Textarea):
         if self.calculation is None:
             return
 
-        # TODO: I am not sure this logic works if the calcjob is finished and
-        # is user requested to clear the remote folder. For sealed calcjobs we
-        # should probably just look in the local folder. This is already done
-        # in the similar widget in QeApp I believe.
         try:
             output_file_path = os.path.join(
                 self.calculation.outputs.remote_folder.get_remote_path(),
@@ -504,14 +500,13 @@ class CalcJobOutputWidget(ipw.Textarea):
                 "Nothing to show."
             )
         else:
-            if not os.path.exists(output_file_path):
-                return
-
-        with open(output_file_path) as fobj:
-            # Only adding the difference
-            difference = fobj.readlines()[len(self.output) : -1]
-            self.output += difference
-            self.value += "".join(difference)
+            if os.path.exists(output_file_path):
+                with open(output_file_path) as fobj:
+                    difference = fobj.readlines()[
+                        len(self.output) : -1
+                    ]  # Only adding the difference
+                    self.output += difference
+                    self.value += "".join(difference)
 
         # Auto scroll down. Doesn't work in detached mode.
         # Also a hack as it is applied to all the textareas

@@ -36,7 +36,7 @@ class FunctionalGroupSelectorWidget(ipw.Dropdown):
         super().__init__(
             value=value,
             description=description,
-            options=[(key, value) for key, value in FUNCTIONAL_GROUPS.items()],
+            options=tuple((key, value) for key, value in FUNCTIONAL_GROUPS.items()),
             **kwargs,
         )
 
