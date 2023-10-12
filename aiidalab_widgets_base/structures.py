@@ -5,7 +5,6 @@ import functools
 import io
 import pathlib
 import tempfile
-from collections import OrderedDict
 
 import ase
 import ipywidgets as ipw
@@ -98,7 +97,10 @@ class StructureManagerWidget(ipw.VBox):
 
         # Store format selector.
         data_format = ipw.RadioButtons(
-            options=self.SUPPORTED_DATA_FORMATS, description="Data type:"
+            options=tuple(
+                (key, value) for key, value in self.SUPPORTED_DATA_FORMATS.items()
+            ),
+            description="Data type:",
         )
         tl.link((data_format, "label"), (self, "node_class"))
 
@@ -658,9 +660,7 @@ class StructureBrowserWidget(ipw.VBox):
         matches = {n[0] for n in qbuild.iterall()}
         matches = sorted(matches, reverse=True, key=lambda n: n.ctime)
 
-        options = OrderedDict()
-        options[f"Select a Structure ({len(matches)} found)"] = False
-
+        options = [(f"Select a Structure ({len(matches)} found)", False)]
         for mch in matches:
             label = f"PK: {mch.pk}"
             label += " | " + mch.ctime.strftime("%Y-%m-%d %H:%M")
@@ -668,7 +668,7 @@ class StructureBrowserWidget(ipw.VBox):
             label += " | " + mch.node_type.split(".")[-2]
             label += " | " + mch.label
             label += " | " + mch.description
-            options[label] = mch
+            options.append((label, mch))
 
         self.results.options = options
 
