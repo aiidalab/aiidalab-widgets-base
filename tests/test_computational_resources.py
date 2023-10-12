@@ -369,15 +369,17 @@ def test_template_variables_widget_metadata():
     w.templates = {
         "prepend_text": "#SBATCH --partition={{ slurm_partition }}\n#SBATCH --account={{ slurm_account }}\n#SBATCH --constraint=mc\n#SBATCH --cpus-per-task=1\n\nexport OMP_NUM_THREADS=$SLURM_CPUS_PER_TASK\nsource $MODULESHOME/init/bash\nulimit -s unlimited",
         "metadata": {
-            "slurm_partition": {
-                "type": "list",
-                "default": "normal",
-                "options": ["normal", "normal-test", "debug"],
-                "key_display": "Slurm partition",
-            },
-            "slurm_account": {
-                "type": "text",
-                "key_display": "Slurm account",
+            "template_variables": {
+                "slurm_partition": {
+                    "type": "list",
+                    "default": "normal",
+                    "options": ["normal", "normal-test", "debug"],
+                    "key_display": "Slurm partition",
+                },
+                "slurm_account": {
+                    "type": "text",
+                    "key_display": "Slurm account",
+                },
             },
         },
     }
@@ -418,10 +420,12 @@ def test_template_variables_widget_multi_template_variables():
         "prepend_text": "module load daint-mc\nmodule load QuantumESPRESSO\n",
         "append_text": "",
         "metadata": {
-            "code_binary_name": {
-                "type": "list",
-                "options": ["pw", "ph", "pp"],
-                "key_display": "Code name",
+            "template_variables": {
+                "code_binary_name": {
+                    "type": "list",
+                    "options": ["pw", "ph", "pp"],
+                    "key_display": "Code name",
+                },
             },
         },
     }

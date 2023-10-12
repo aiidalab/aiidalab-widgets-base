@@ -1,6 +1,7 @@
 import ase
 
 import aiidalab_widgets_base as awb
+from aiidalab_widgets_base.databases import ComputationalResourcesDatabaseWidget
 
 
 def test_cod_query_widget():
@@ -33,39 +34,6 @@ def test_optimade_query_widget():
     # At the present state I cannot check much. Most of the variables are locals of the  __init__ method.
 
     assert widget.structure is None
-
-
-def test_legacy_computational_resources_database_widget():
-    """Test the structure browser widget."""
-
-    # Initiate the widget with no arguments.
-    widget = awb.databases.ComputationalResourcesDatabaseWidget()
-    assert "merlin.psi.ch" in widget.database
-
-    # Initialize the widget with default_calc_job_plugin="cp2k"
-    widget = awb.databases.ComputationalResourcesDatabaseWidget(
-        default_calc_job_plugin="cp2k"
-    )
-    assert (
-        "merlin.psi.ch" not in widget.database
-    )  # Merlin does not have CP2K installed.
-
-    widget.inp_domain.label = "daint.cscs.ch"
-    widget.inp_computer.value = "multicore"
-    widget.inp_code.value = "cp2k-9.1-multicore"
-
-    # Check that the configuration is provided.
-
-    assert "label" in widget.computer_setup["setup"]
-    assert "hostname" in widget.ssh_config
-    assert "filepath_executable" in widget.code_setup
-
-    # Simulate reset.
-    widget._reset()
-
-    assert widget.computer_setup == {}
-    assert widget.code_setup == {}
-    assert widget.ssh_config == {}
 
 
 def test_computational_resources_database_widget():

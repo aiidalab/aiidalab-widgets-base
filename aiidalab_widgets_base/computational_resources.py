@@ -1439,9 +1439,10 @@ class TemplateVariablesWidget(ipw.VBox):
 
             # Create a widget for each variable.
             # The var is the name in a template string
+            var_metadata = metadata.get("template_variables", {})
             for var in line_vars:
                 # one var can be used in multiple templates, so we need to keep track of the mapping with the set of variables.
-                var_meta = metadata.get(var, {})
+                var_meta = var_metadata.get(var, {})
                 if var in self._template_variables:
                     # use the same widget for the same variable.
                     temp_var = self._template_variables[var]
@@ -1900,7 +1901,11 @@ class _ResourceSetupBaseWidget(ipw.VBox):
                 default_values = {}
                 for var in vs:
                     # check if the default value is exist for this variable.
-                    default = metadata.get(var, {}).get("default", None)
+                    default = (
+                        metadata.get("template_variables", {})
+                        .get(var, {})
+                        .get("default", None)
+                    )
                     if default is None:
                         # self.message = wrap_message(
                         #    f"Please fill missing variable: <b>{var}</b>",
