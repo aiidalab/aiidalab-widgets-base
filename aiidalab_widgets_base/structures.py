@@ -97,9 +97,9 @@ class StructureManagerWidget(ipw.VBox):
 
         # Store format selector.
         data_format = ipw.RadioButtons(
-            options=[
+            options=tuple(
                 (key, value) for key, value in self.SUPPORTED_DATA_FORMATS.items()
-            ],
+            ),
             description="Data type:",
         )
         tl.link((data_format, "label"), (self, "node_class"))
