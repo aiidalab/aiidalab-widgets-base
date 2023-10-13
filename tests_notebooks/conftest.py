@@ -61,7 +61,7 @@ def notebook_service(docker_ip, docker_services, aiidalab_exec):
     aiidalab_exec("chmod -R a+rw /home/jovyan/apps/aiidalab-widgets-base", user="root")
 
     # Install AWB with extra dependencies for SmilesWidget
-    aiidalab_exec("pip install --no-cache-dir .[smiles]")
+    aiidalab_exec("free -m && pip install --no-cache-dir .[smiles]")
 
     # `port_for` takes a container port and returns the corresponding host port
     port = docker_services.port_for("aiidalab", 8888)
