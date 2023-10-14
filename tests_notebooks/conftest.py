@@ -44,9 +44,9 @@ def aiidalab_exec(docker_compose):
     def execute(command, user=None, **kwargs):
         workdir = "/home/jovyan/apps/aiidalab-widgets-base"
         if user:
-            command = f"exec --workdir {workdir} -T --user={user} aiidalab {command}"
+            command = f"exec --workdir {workdir} -T --user={user} aiidalab '{command}'"
         else:
-            command = f"exec --workdir {workdir} -T aiidalab {command}"
+            command = f"exec --workdir {workdir} -T aiidalab '{command}'"
 
         return docker_compose.execute(command, **kwargs)
 
