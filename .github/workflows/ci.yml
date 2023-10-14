@@ -64,7 +64,7 @@ jobs:
                       **/pyproject.toml
                       **/requirements*.txt
 
-            - name: Install package
+            - name: Install package test dependencies
               run: pip install -e .[dev]
 
             - name: Set jupyter token env
