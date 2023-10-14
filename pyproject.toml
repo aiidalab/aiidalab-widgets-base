@@ -24,6 +24,7 @@ filterwarnings = [
     # E     _warn("subprocess %s is still running" % self.pid,
     # E ResourceWarning: subprocess 382685 is still running
     'ignore:Exception ignored in:pytest.PytestUnraisableExceptionWarning:_pytest',
+    'ignore::DeprecationWarning:pytest_html',
     'ignore::DeprecationWarning:jupyter_client',
     'ignore::DeprecationWarning:selenium',
     'ignore::DeprecationWarning:pytest_selenium',
