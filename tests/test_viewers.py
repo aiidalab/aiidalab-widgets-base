@@ -102,3 +102,9 @@ def test_structure_data_viewer(structure_data_object):
     for fmt, out in format_cases:
         v.file_format.label = fmt
         assert v._prepare_payload() == out
+
+
+def test_structure_viewer_for_molecule(molecule_ase_object):
+    """Test the structure viewer widget for a molecule."""
+    v = viewers.StructureDataViewer(molecule_ase_object)
+    assert isinstance(v, viewers.StructureDataViewer)
