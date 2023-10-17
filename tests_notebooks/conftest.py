@@ -41,12 +41,13 @@ def docker_compose(docker_services):
 
 @pytest.fixture(scope="session")
 def aiidalab_exec(docker_compose):
-    def execute(command, user=None, **kwargs):
-        workdir = "/home/jovyan/apps/aiidalab-widgets-base"
+    def execute(command, user=None, workdir=None, **kwargs):
+        opts = "-T"
         if user:
-            command = f"exec --workdir {workdir} -T --user={user} aiidalab {command}"
-        else:
-            command = f"exec --workdir {workdir} -T aiidalab {command}"
+            opts = f"{opts} --user={user}"
+        if workdir:
+            opts = f"{opts} --workdir={workdir}"
+        command = f"exec {opts} aiidalab {command}"
 
         return docker_compose.execute(command, **kwargs)
 
@@ -56,17 +57,10 @@ def aiidalab_exec(docker_compose):
 @pytest.fixture(scope="session", autouse=True)
 def notebook_service(docker_ip, docker_services, aiidalab_exec):
     """Ensure that HTTP service is up and responsive."""
-    # Directory ~/apps/aiidalab-widgets-base/ is mounted by docker,
-    # make it writeable for jovyan user, needed for `pip install`
-    aiidalab_exec("chmod -R a+rw /home/jovyan/apps/aiidalab-widgets-base", user="root")
-
-    # Install AWB with extra dependencies for SmilesWidget
-    aiidalab_exec("pip install -U .[smiles]")
-
     # `port_for` takes a container port and returns the corresponding host port
     port = docker_services.port_for("aiidalab", 8888)
     url = f"http://{docker_ip}:{port}"
-    token = os.environ["JUPYTER_TOKEN"]
+    token = os.environ.get("JUPYTER_TOKEN", "aiidalab")
     docker_services.wait_until_responsive(
         timeout=30.0, pause=0.1, check=lambda: is_responsive(url)
     )
@@ -78,7 +72,7 @@ def selenium_driver(selenium, notebook_service):
     def _selenium_driver(nb_path):
         url, token = notebook_service
         url_with_token = urljoin(
-            url, f"apps/apps/aiidalab-widgets-base/{nb_path}?token={token}"
+            url, f"apps/aiidalab-widgets-base/{nb_path}?token={token}"
         )
         selenium.get(f"{url_with_token}")
         # By default, let's allow selenium functions to retry for 10s
@@ -106,7 +100,8 @@ def final_screenshot(request, screenshot_dir, selenium):
     Screenshot name is generated from the test function name
     by stripping the 'test_' prefix
     """
-    screenshot_name = f"{request.function.__name__[5:]}.png"
+    browser_name = selenium.capabilities["browserName"]
+    screenshot_name = f"{request.function.__name__[5:]}-{browser_name}.png"
     screenshot_path = Path.joinpath(screenshot_dir, screenshot_name)
     yield
     selenium.get_screenshot_as_file(screenshot_path)

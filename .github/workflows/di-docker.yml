@@ -1,0 +1,45 @@
+---
+# Run basic tests for this app on the latest aiidalab-docker image.
+name: smoke tests on notebooks
+
+on: [push, pull_request]
+
+
+# https://docs.github.com/en/actions/using-jobs/using-concurrency
+concurrency:
+    # only cancel in-progress jobs or runs for the current workflow - matches against branch & tags
+    group: ${{ github.workflow }}-${{ github.ref }}
+    cancel-in-progress: true
+
+jobs:
+
+    build-test:
+
+        runs-on: ubuntu-latest
+        continue-on-error: true
+
+        steps:
+            - name: Checkout Repo ⚡️
+              uses: actions/checkout@v3
+            - name: Set Up Python 🐍
+              uses: actions/setup-python@v4
+              with:
+                  python-version: 3.x
+
+            - name: Install Dev Dependencies 📦
+              run: |
+                  pip install --upgrade pip
+                  pip install --upgrade -r docker/requirements-dev.txt
+
+            - name: Build image 🛠
+              working-directory: docker
+              run: docker buildx bake -f docker-bake.hcl --load
+              env:
+                  # Use buildx
+                  DOCKER_BUILDKIT: 1
+                  # Full logs for CI build
+                  BUILDKIT_PROGRESS: plain
+              shell: bash
+
+            - name: Run tests ✅
+              uses: ./.github/actions/integration-tests
