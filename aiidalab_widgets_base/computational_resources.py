@@ -1631,8 +1631,9 @@ class _ResourceSetupBaseWidget(ipw.VBox):
         )
 
         self.template_variables_code = TemplateVariablesWidget()
-        self.template_variables_code.observe(
-            self._on_template_variables_code_filled, names="filled_templates"
+        ipw.dlink(
+            (self.template_variables_code, "filled_templates"),
+            (self, "code_setup"),
         )
 
         # The widget for the detailed setup.
@@ -1746,6 +1747,7 @@ class _ResourceSetupBaseWidget(ipw.VBox):
             self.detailed_setup_widget.layout.display = "block"
             self.quick_setup_button.disabled = True
             # fill the template variables with the default values or the filled values.
+            # If the template variables are not all filled raise a warning.
             try:
                 self._fill_template()
             except ValueError as exc:
@@ -1772,13 +1774,6 @@ class _ResourceSetupBaseWidget(ipw.VBox):
         computer_setup_and_configure = copy.deepcopy(self.computer_setup_and_configure)
         computer_setup_and_configure["configure"] = change["new"]
         self.computer_setup_and_configure = computer_setup_and_configure
-
-    def _on_template_variables_code_filled(self, change):
-        """Callback when the template variables of code are filled."""
-        # Update the filled template.
-        code_setup = copy.deepcopy(self.code_setup)
-        code_setup = change["new"]
-        self.code_setup = code_setup
 
     @staticmethod
     def _parse_ssh_config_from_computer_setup_and_configure(
