@@ -52,9 +52,10 @@ def test_ssh_computer_setup_widget(monkeypatch, tmp_path):
     widget._ssh_keygen()
 
     # Create non-default private key file.
-    fpath = widget._add_private_key("my_key_name", b"my_key_content")
-    assert fpath.exists()
-    with open(fpath) as f:
+    private_key_path = tmp_path / ".ssh" / "my_key_name"
+    widget._add_private_key(private_key_path, b"my_key_content")
+    assert private_key_path.exists()
+    with open(private_key_path) as f:
         assert f.read() == "my_key_content"
 
     # set private key with same name to trigger the rename operation
@@ -497,18 +498,6 @@ def test_resource_setup_widget_default():
     w.comp_resources_database.computer_selector.value = "mc"
     w.comp_resources_database.code_selector.value = "QE-7.2-exe-template"
 
-    assert (
-        w.computer_setup_and_configure
-        == w.comp_resources_database.computer_setup_and_configure
-    )
-    assert w.code_setup == w.comp_resources_database.code_setup
-
-    # Trigger the setup button again, since the computer name is filled in (this test computer/code setup widget is updated),
-    # the message should be updated.
-    w._on_quick_setup()
-
-    assert "Template variable 'slurm_account' is not set" in clean_html(w.message)
-
     # Fill in the computer name and trigger the setup button again, the message should be updated.
     for (
         key,
@@ -665,6 +654,13 @@ def test_resource_setup_widget_detailed_setup():
     w.comp_resources_database.domain_selector.value = "daint.cscs.ch"
     w.comp_resources_database.computer_selector.value = "mc"
     w.comp_resources_database.code_selector.value = "pw-7.0"
+
+    # Test the detailed setup widget is displayed with the label updated because the
+    # information can get from the default of the template variables.
+    # Same for the slurm_partition and multithreading hint which has default from the template variables metadata.
+    assert w.aiida_computer_setup.label.value == "daint-mc"
+    assert "normal" in w.aiida_computer_setup.prepend_text.value
+    assert "nomultithread" in w.aiida_computer_setup.prepend_text.value
 
     # Check that the computer/code setup widget is updated accordingly in the detailed setup widget.
     # By triggering the setup button one by one in the detailed setup widget, the message should be updated.

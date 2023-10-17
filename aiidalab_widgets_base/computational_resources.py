@@ -3,6 +3,7 @@ from __future__ import annotations
 import copy
 import enum
 import os
+import re
 import subprocess
 import threading
 from collections import namedtuple
@@ -10,6 +11,7 @@ from pathlib import Path
 from uuid import UUID
 
 import ipywidgets as ipw
+import jinja2
 import pexpect
 import shortuuid
 import traitlets as tl
@@ -18,7 +20,7 @@ from aiida.orm.utils.builders.computer import ComputerBuilder
 from aiida.transports.plugins import ssh as aiida_ssh_plugin
 from humanfriendly import InvalidSize, parse_size
 from IPython.display import clear_output, display
-from jinja2 import Environment, meta
+from jinja2 import meta as jinja2_meta
 
 from .databases import ComputationalResourcesDatabaseWidget
 from .utils import MessageLevel, StatusHTML, wrap_message
@@ -236,16 +238,17 @@ class SshComputerSetup(ipw.VBox):
     message = tl.Unicode()
     password_message = tl.Unicode("The passwordless enabling log.")
 
-    def __init__(self, ssh_folder=None, **kwargs):
+    def __init__(self, ssh_folder: Path | None = None, **kwargs):
         """Setup a passwordless access to a computer."""
         # ssh folder init
         if ssh_folder is None:
             ssh_folder = Path.home() / ".ssh"
-            if not ssh_folder.exists():
-                ssh_folder.mkdir()
-                ssh_folder.chmod(0o700)
 
-        self.ssh_folder = ssh_folder
+        if not ssh_folder.exists():
+            ssh_folder.mkdir()
+            ssh_folder.chmod(0o700)
+
+        self._ssh_folder = ssh_folder
 
         self._ssh_connection_message = None
         self._password_message = ipw.HTML()
@@ -277,11 +280,11 @@ class SshComputerSetup(ipw.VBox):
         )
 
         # Username.
-        self.username = ipw.Text(description="username:", layout=LAYOUT, style=STYLE)
+        self.username = ipw.Text(description="Username:", layout=LAYOUT, style=STYLE)
 
         # Port.
         self.port = ipw.IntText(
-            description="port:",
+            description="Port:",
             value=22,
             layout=LAYOUT,
             style=STYLE,
@@ -357,7 +360,7 @@ class SshComputerSetup(ipw.VBox):
             "Generating SSH key pair.",
             MessageLevel.SUCCESS,
         )
-        fpath = Path.home() / ".ssh" / "id_rsa"
+        fpath = self._ssh_folder / "id_rsa"
         keygen_cmd = [
             "ssh-keygen",
             "-f",
@@ -393,7 +396,7 @@ class SshComputerSetup(ipw.VBox):
 
     def _is_in_config(self):
         """Check if the SSH config file contains host information."""
-        config_path = self.ssh_folder / "config"
+        config_path = self._ssh_folder / "config"
         if not config_path.exists():
             return False
         sshcfg = aiida_ssh_plugin.parse_sshconfig(self.hostname.value)
@@ -406,7 +409,7 @@ class SshComputerSetup(ipw.VBox):
 
     def _write_ssh_config(self, private_key_abs_fname=None):
         """Put host information into the config file."""
-        config_path = self.ssh_folder / "config"
+        config_path = self._ssh_folder / "config"
 
         self.message = wrap_message(
             f"Adding {self.hostname.value} section to {config_path}",
@@ -483,12 +486,10 @@ class SshComputerSetup(ipw.VBox):
 
             # if the private key filename is exist, generate random string and append to filename subfix
             # then override current name.
-            if filename in [str(p.name) for p in Path(self.ssh_folder).iterdir()]:
-                private_key_fname = str(
-                    Path(self.ssh_folder) / f"{filename}-{shortuuid.uuid()}"
-                )
+            if filename in [str(p.name) for p in Path(self._ssh_folder).iterdir()]:
+                private_key_fpath = self._ssh_folder / f"{filename}-{shortuuid.uuid()}"
 
-            self._add_private_key(private_key_fname, private_key_content)
+            self._add_private_key(private_key_fpath, private_key_content)
 
         # TODO(danielhollas): I am not sure this is correct. What if the user wants
         # to overwrite the private key? Or any other config? The configuration would never be written.
@@ -600,7 +601,7 @@ class SshComputerSetup(ipw.VBox):
             if self._verification_mode.value == "private_key":
                 display(self._inp_private_key)
             elif self._verification_mode.value == "public_key":
-                public_key = Path.home() / ".ssh" / "id_rsa.pub"
+                public_key = self._ssh_folder / "id_rsa.pub"
                 if public_key.exists():
                     display(
                         ipw.HTML(
@@ -610,7 +611,7 @@ class SshComputerSetup(ipw.VBox):
                     )
 
     @property
-    def _private_key(self):
+    def _private_key(self) -> tuple[str | None, bytes | None]:
         """Unwrap private key file and setting filename and file content."""
         if self._inp_private_key.value:
             (fname, _value), *_ = self._inp_private_key.value.items()
@@ -621,17 +622,10 @@ class SshComputerSetup(ipw.VBox):
         return None, None
 
     @staticmethod
-    def _add_private_key(private_key_fname, private_key_content):
-        """
-        param private_key_fname: string
-        param private_key_content: bytes
-        """
-        fpath = Path.home() / ".ssh" / private_key_fname
-        fpath.write_bytes(private_key_content)
-
-        fpath.chmod(0o600)
-
-        return fpath
+    def _add_private_key(private_key_fpath: Path, private_key_content: bytes):
+        """Write private key to the private key file in the ssh folder."""
+        private_key_fpath.write_bytes(private_key_content)
+        private_key_fpath.chmod(0o600)
 
     def _reset(self):
         self.hostname.value = ""
@@ -1248,8 +1242,6 @@ class AiidaCodeSetup(ipw.VBox):
                     try:
                         self.default_calc_job_plugin.value = value
                     except tl.TraitError:
-                        import re
-
                         # If is a template then don't raise the error message.
                         if not re.match(r".*{{.+}}.*", value):
                             self.message = wrap_message(
@@ -1431,11 +1423,11 @@ class TemplateVariablesWidget(ipw.VBox):
             self._help_text.value = f"""<div>{tooltip}</div>"""
 
         for line_key, line_str in self.templates.items():
-            env = Environment()
+            env = jinja2.Environment()
             parsed_content = env.parse(line_str)
 
             # vars is a set of variables in the template
-            line_vars = meta.find_undeclared_variables(parsed_content)
+            line_vars = jinja2_meta.find_undeclared_variables(parsed_content)
 
             # Create a widget for each variable.
             # The var is the name in a template string
@@ -1518,7 +1510,7 @@ class TemplateVariablesWidget(ipw.VBox):
                 }
 
                 # re-render the template
-                env = Environment()
+                env = jinja2.Environment()
                 filled_str = env.from_string(line.str).render(**inp_dict)
 
                 # Update the filled template.
@@ -1848,6 +1840,14 @@ class _ResourceSetupBaseWidget(ipw.VBox):
         if self.ssh_auth is None:
             self.ssh_auth = "password"
 
+        # pre-fill the template variables when the code is selected.
+        # if the default value is exist for the template variables.
+        # The exception is ignored here because there are cases that the template variables are not filled and the user must fill them manually later.
+        try:
+            self._fill_template()
+        except ValueError:
+            pass
+
         self._update_layout()
 
     def _on_select_code(self, change):
@@ -1867,6 +1867,14 @@ class _ResourceSetupBaseWidget(ipw.VBox):
 
         self.code_setup = new_code_setup
 
+        # pre-fill the template variables when the code is selected.
+        # if the default value is exist for the template variables.
+        # The exception is ignored here because there are cases that the template variables are not filled and the user must fill them manually later.
+        try:
+            self._fill_template()
+        except ValueError:
+            pass
+
     def _on_reset(self, _=None):
         """Reset the database and the widget."""
         with self.hold_trait_notifications():
@@ -1877,6 +1885,11 @@ class _ResourceSetupBaseWidget(ipw.VBox):
         """Fill the template variables with default values and filled values for
         the `AiidaComputer`, `Aiidacode` and `SshComputerSetup`
         """
+        # The list of template variables that are not filled.
+        # If this list is not empty, then the template variables are not filled and the exception will be raised
+        # in the end.
+        no_filled_var_lst = []
+
         # Use default values for the template variables if not set.
         # and the same time check if all templates are filled.
         # Be careful there are same key in both template_variables_computer and template_variables_code, e.g. label.
@@ -1890,9 +1903,9 @@ class _ResourceSetupBaseWidget(ipw.VBox):
             filled_templates = copy.deepcopy(w_tmp.filled_templates)
 
             for k, v in w_tmp.filled_templates.items():
-                env = Environment()
+                env = jinja2.Environment()
                 parsed_content = env.parse(v)
-                vs = meta.find_undeclared_variables(parsed_content)
+                vs = jinja2_meta.find_undeclared_variables(parsed_content)
 
                 # No variables in the template, all filled.
                 if len(vs) == 0:
@@ -1907,12 +1920,10 @@ class _ResourceSetupBaseWidget(ipw.VBox):
                         .get("default", None)
                     )
                     if default is None:
-                        # self.message = wrap_message(
-                        #    f"Please fill missing variable: <b>{var}</b>",
-                        #    level=MessageLevel.ERROR,
-                        # )
-                        # return.
-                        raise ValueError(f"Template variable '<b>{var}</b>' is not set")
+                        # if no default value, this means the variable is not filled yet by the user.
+                        # render the template format "{{ var }}" and add var to the no_filled_var_lst.
+                        default_values[var] = "{{ " + var + " }}"
+                        no_filled_var_lst.append(var)
                     else:
                         default_values[var] = default
 
@@ -1937,6 +1948,11 @@ class _ResourceSetupBaseWidget(ipw.VBox):
             code_setup = copy.deepcopy(self.code_setup)
             code_setup = self.template_variables_code.filled_templates
             self.code_setup = code_setup
+
+        if no_filled_var_lst:
+            raise ValueError(
+                f"Template variables are not filled: {', '.join([f'<b>{v}</b>' for v in no_filled_var_lst])}"
+            )
 
     def _on_quick_setup(self, _=None):
         """Go through all the setup steps automatically."""
