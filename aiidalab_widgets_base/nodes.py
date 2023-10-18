@@ -1,24 +1,14 @@
 """Widgets to work with AiiDA nodes."""
 import functools
-from typing import Tuple
+import typing
 
+import ipytree
 import ipywidgets as ipw
-import traitlets
+import traitlets as tl
+from aiida import common, engine, orm
 from aiida.cmdline.utils.ascii_vis import calc_info
-from aiida.common import AttributeDict
-from aiida.engine import ProcessState
-from aiida.orm import (
-    CalcFunctionNode,
-    CalcJobNode,
-    Node,
-    ProcessNode,
-    WorkChainNode,
-    load_node,
-)
 from aiidalab.app import _AiidaLabApp
 from IPython.display import clear_output, display
-from ipytree import Node as TreeNode
-from ipytree import Tree
 
 CALCULATION_TYPES = [
     (
@@ -70,13 +60,13 @@ SELECTED_APPS = [
 ]
 
 
-class AiidaNodeTreeNode(TreeNode):
+class AiidaNodeTreeNode(ipytree.Node):
     def __init__(self, pk, name, **kwargs):
         self.pk = pk
         self.nodes_registry = {}
         super().__init__(name=name, **kwargs)
 
-    @traitlets.default("opened")
+    @tl.default("opened")
     def _default_openend(self):
         return False
 
@@ -88,22 +78,24 @@ class AiidaProcessNodeTreeNode(AiidaNodeTreeNode):
 
 
 class WorkChainProcessTreeNode(AiidaProcessNodeTreeNode):
-    icon = traitlets.Unicode("chain").tag(sync=True)
+    icon = tl.Unicode("chain").tag(sync=True)
 
 
 class CalcJobTreeNode(AiidaProcessNodeTreeNode):
-    icon = traitlets.Unicode("gears").tag(sync=True)
+    icon = tl.Unicode("gears").tag(sync=True)
 
 
 class CalcFunctionTreeNode(AiidaProcessNodeTreeNode):
-    icon = traitlets.Unicode("gear").tag(sync=True)
+    icon = tl.Unicode("gear").tag(sync=True)
 
 
-class AiidaOutputsTreeNode(TreeNode):
-    icon = traitlets.Unicode("folder").tag(sync=True)
-    disabled = traitlets.Bool(True).tag(sync=True)
+class AiidaOutputsTreeNode(ipytree.Node):
+    icon = tl.Unicode("folder").tag(sync=True)
+    disabled = tl.Bool(True).tag(sync=True)
 
-    def __init__(self, name, parent_pk, namespaces: Tuple[str, ...] = (), **kwargs):
+    def __init__(
+        self, name, parent_pk, namespaces: typing.Tuple[str, ...] = (), **kwargs
+    ):
         self.parent_pk = parent_pk
         self.nodes_registry = {}
         self.namespaces = namespaces
@@ -111,33 +103,33 @@ class AiidaOutputsTreeNode(TreeNode):
 
 
 class UnknownTypeTreeNode(AiidaNodeTreeNode):
-    icon = traitlets.Unicode("file").tag(sync=True)
+    icon = tl.Unicode("file").tag(sync=True)
 
 
 class NodesTreeWidget(ipw.Output):
     """A tree widget for the structured representation of a nodes graph."""
 
-    nodes = traitlets.Tuple().tag(trait=traitlets.Instance(Node))
-    selected_nodes = traitlets.Tuple(read_only=True).tag(trait=traitlets.Instance(Node))
+    nodes = tl.Tuple().tag(trait=tl.Instance(orm.Node))
+    selected_nodes = tl.Tuple(read_only=True).tag(trait=tl.Instance(orm.Node))
 
     PROCESS_STATE_STYLE = {
-        ProcessState.EXCEPTED: "danger",
-        ProcessState.FINISHED: "success",
-        ProcessState.KILLED: "warning",
-        ProcessState.RUNNING: "info",
-        ProcessState.WAITING: "info",
+        engine.ProcessState.EXCEPTED: "danger",
+        engine.ProcessState.FINISHED: "success",
+        engine.ProcessState.KILLED: "warning",
+        engine.ProcessState.RUNNING: "info",
+        engine.ProcessState.WAITING: "info",
     }
 
     PROCESS_STATE_STYLE_DEFAULT = "default"
 
     NODE_TYPE = {
-        WorkChainNode: WorkChainProcessTreeNode,
-        CalcFunctionNode: CalcFunctionTreeNode,
-        CalcJobNode: CalcJobTreeNode,
+        orm.WorkChainNode: WorkChainProcessTreeNode,
+        orm.CalcFunctionNode: CalcFunctionTreeNode,
+        orm.CalcJobNode: CalcJobTreeNode,
     }
 
     def __init__(self, **kwargs):
-        self._tree = Tree()
+        self._tree = ipytree.Tree()
         self._tree.observe(self._observe_tree_selected_nodes, ["selected_nodes"])
 
         super().__init__(**kwargs)
@@ -154,7 +146,9 @@ class NodesTreeWidget(ipw.Output):
         return self.set_trait(
             "selected_nodes",
             tuple(
-                load_node(pk=node.pk) for node in change["new"] if hasattr(node, "pk")
+                orm.load_node(pk=node.pk)
+                for node in change["new"]
+                if hasattr(node, "pk")
             ),
         )
 
@@ -169,7 +163,7 @@ class NodesTreeWidget(ipw.Output):
             else:
                 yield self._to_tree_node(node, opened=True)
 
-    @traitlets.observe("nodes")
+    @tl.observe("nodes")
     def _observe_nodes(self, change):
         self._tree.nodes = sorted(
             self._convert_to_tree_nodes(
@@ -184,7 +178,7 @@ class NodesTreeWidget(ipw.Output):
     def _to_tree_node(cls, node, name=None, **kwargs):
         """Convert an AiiDA node to a tree node."""
         if name is None:
-            if isinstance(node, ProcessNode):
+            if isinstance(node, orm.ProcessNode):
                 name = calc_info(node)
             else:
                 name = str(node)
@@ -195,7 +189,7 @@ class NodesTreeWidget(ipw.Output):
     @classmethod
     def _find_called(cls, root):
         assert isinstance(root, AiidaProcessNodeTreeNode)
-        process_node = load_node(root.pk)
+        process_node = orm.load_node(root.pk)
         called = process_node.called
         called.sort(key=lambda p: p.ctime)
         for node in called:
@@ -217,7 +211,7 @@ class NodesTreeWidget(ipw.Output):
         keeping track of the full namespace path to make it accessible via the
         root node in form of a breadth-first search.
         """
-        process_node = load_node(root.parent_pk)
+        process_node = orm.load_node(root.parent_pk)
 
         # Gather outputs from node and its namespaces:
         outputs = functools.reduce(
@@ -233,7 +227,7 @@ class NodesTreeWidget(ipw.Output):
             output_nodes.keys(), key=lambda k: getattr(outputs[k], "pk", -1)
         ):
             node = output_nodes[key]
-            if isinstance(node, AttributeDict):
+            if isinstance(node, common.AttributeDict):
                 # for namespace tree node attach label and continue recursively
                 yield AiidaOutputsTreeNode(
                     name=key,
@@ -272,12 +266,12 @@ class NodesTreeWidget(ipw.Output):
 
     def _update_tree_node(self, tree_node):
         if isinstance(tree_node, AiidaProcessNodeTreeNode):
-            process_node = load_node(tree_node.pk)
+            process_node = orm.load_node(tree_node.pk)
             tree_node.name = calc_info(process_node)
             # Override the process state in case that the process node has failed:
             # (This could be refactored with structural pattern matching with py>=3.10.)
             process_state = (
-                ProcessState.EXCEPTED
+                engine.ProcessState.EXCEPTED
                 if process_node.is_failed
                 else process_node.process_state
             )
@@ -301,7 +295,6 @@ class NodesTreeWidget(ipw.Output):
 
 class _AppIcon:
     def __init__(self, app, path_to_root, node):
-
         name = app["name"]
         app_object = _AiidaLabApp.from_id(name)
         self.logo = app_object.metadata["logo"]
@@ -323,12 +316,11 @@ class _AppIcon:
 
 
 class OpenAiidaNodeInAppWidget(ipw.VBox):
-
-    node = traitlets.Instance(Node, allow_none=True)
+    node = tl.Instance(orm.Node, allow_none=True)
 
     def __init__(self, path_to_root="../", **kwargs):
         self.path_to_root = path_to_root
-        self.tab = ipw.Tab(style={"description_width": "initial"})
+        self.tab = ipw.Tab()
         self.tab_selection = ipw.RadioButtons(
             options=[],
             description="",
@@ -339,7 +331,7 @@ class OpenAiidaNodeInAppWidget(ipw.VBox):
         spacer = ipw.HTML("""<p style="margin-bottom:1cm;"></p>""")
         super().__init__(children=[self.tab_selection, spacer, self.tab], **kwargs)
 
-    @traitlets.observe("node")
+    @tl.observe("node")
     def _observe_node(self, change):
         if change["new"]:
             self.tab.children = [
@@ -358,7 +350,6 @@ class OpenAiidaNodeInAppWidget(ipw.VBox):
             self.tab.children = []
 
     def get_tab_content(self, apps_type):
-
         tab_content = ipw.HTML("")
 
         for app in SELECTED_APPS:
