@@ -929,10 +929,17 @@ class BasicCellEditor(ipw.VBox):
                 for i in range(3)
             ]
         )
-        apply_cell_parameters = ipw.Button(description="Apply cell parameters")
-        apply_cell_parameters.on_click(self.apply_cell_parameters)
+        apply_cell_parameters_button = ipw.Button(description="Apply cell parameters")
+        apply_cell_parameters_button.on_click(self.apply_cell_parameters)
+        self.scale_atoms_position = ipw.Checkbox(description="Scale atoms position",
+                                            value=False,
+                                            indent=False,
+                                            )
         apply_cell_transformation = ipw.Button(description="Apply transformation")
         apply_cell_transformation.on_click(self.apply_cell_transformation)
+        reset_transformatioin_button = ipw.Button(description="Reset matrix",
+                                                  )
+        reset_transformatioin_button.on_click(self.reset_cell_transformation_matrix)
         super().__init__(
             children=[
                 ipw.HBox(
@@ -949,7 +956,9 @@ class BasicCellEditor(ipw.VBox):
                             layout={"margin": "20px 0px 10px 0px"},
                         ),
                         self.cell_parameters,
-                        apply_cell_parameters,
+                        ipw.HBox([apply_cell_parameters_button,
+                                  self.scale_atoms_position,
+                        ])
                     ],
                     layout={"margin": "0px 0px 0px 20px"},
                 ),
@@ -960,7 +969,8 @@ class BasicCellEditor(ipw.VBox):
                             layout={"margin": "20px 0px 10px 0px"},
                         ),
                         self.cell_transformation,
-                        apply_cell_transformation,
+                        ipw.HBox([apply_cell_transformation,
+                                reset_transformatioin_button])
                     ],
                     layout={"margin": "0px 0px 0px 20px"},
                 ),
@@ -1002,11 +1012,11 @@ class BasicCellEditor(ipw.VBox):
             pbc=[True, True, True],
         )
 
-    @observe("structure")
+    @tl.observe("structure")
     def _observe_structure(self, change):
         """Update cell after the structure has been modified."""
         if change["new"] is not None:
-            cell_parameters = change["new"].get_cell_lengths_and_angles()
+            cell_parameters = change["new"].cell.cellpar()
             for i in range(6):
                 self.cell_parameters.children[i].children[1].value = round(
                     cell_parameters[i], 4
@@ -1014,9 +1024,12 @@ class BasicCellEditor(ipw.VBox):
         else:
             for i in range(6):
                 self.cell_parameters.children[i].children[1].value = 0
+        # reset transformation matrix
+        self.reset_cell_transformation_matrix()
 
     @_register_structure
     def apply_cell_parameters(self, _=None, atoms=None):
+        """Apply the cell parameters to the structure."""
         from ase.cell import Cell
 
         # only update structure when atoms is not None.
@@ -1024,11 +1037,12 @@ class BasicCellEditor(ipw.VBox):
             self.cell_parameters.children[i].children[1].value for i in range(6)
         ]
         if atoms is not None:
-            atoms.cell = Cell.fromcellpar(cell_parameters)
+            atoms.set_cell(Cell.fromcellpar(cell_parameters), scale_atoms=self.scale_atoms_position.value)
             self.structure = atoms
 
     @_register_structure
     def apply_cell_transformation(self, _=None, atoms=None):
+        """Apply the transformation matrix to the structure."""
         from ase.build import make_supercell
 
         # only update structure when atoms is not None.
@@ -1056,6 +1070,14 @@ class BasicCellEditor(ipw.VBox):
             atoms.translate(-atoms.cell.array.dot(translate))
             self.structure = atoms
 
+    @_register_structure
+    def reset_cell_transformation_matrix(self, _=None, atoms=None):
+        """Reset the transformation matrix to identity matrix."""
+        for i in range(3):
+            for j in range(4):
+                self.cell_transformation.children[i].children[j].value = 0
+            self.cell_transformation.children[i].children[i].value = 1
+        
 
 class BasicStructureEditor(ipw.VBox):
     """
