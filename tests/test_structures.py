@@ -211,7 +211,7 @@ def test_basic_cell_editor_widget(structure_data_object):
     # Convert to primitive cell.
     widget._to_primitive_cell()
     assert widget.structure.get_chemical_formula() == "Si2"
-    
+
     # Change the cell parameters.
     widget.cell_parameters.children[2].children[1].value = 10.0
     widget.apply_cell_parameters()

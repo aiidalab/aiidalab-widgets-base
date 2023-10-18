@@ -931,14 +931,16 @@ class BasicCellEditor(ipw.VBox):
         )
         apply_cell_parameters_button = ipw.Button(description="Apply cell parameters")
         apply_cell_parameters_button.on_click(self.apply_cell_parameters)
-        self.scale_atoms_position = ipw.Checkbox(description="Scale atoms position",
-                                            value=False,
-                                            indent=False,
-                                            )
+        self.scale_atoms_position = ipw.Checkbox(
+            description="Scale atoms position",
+            value=False,
+            indent=False,
+        )
         apply_cell_transformation = ipw.Button(description="Apply transformation")
         apply_cell_transformation.on_click(self.apply_cell_transformation)
-        reset_transformatioin_button = ipw.Button(description="Reset matrix",
-                                                  )
+        reset_transformatioin_button = ipw.Button(
+            description="Reset matrix",
+        )
         reset_transformatioin_button.on_click(self.reset_cell_transformation_matrix)
         super().__init__(
             children=[
@@ -956,9 +958,12 @@ class BasicCellEditor(ipw.VBox):
                             layout={"margin": "20px 0px 10px 0px"},
                         ),
                         self.cell_parameters,
-                        ipw.HBox([apply_cell_parameters_button,
-                                  self.scale_atoms_position,
-                        ])
+                        ipw.HBox(
+                            [
+                                apply_cell_parameters_button,
+                                self.scale_atoms_position,
+                            ]
+                        ),
                     ],
                     layout={"margin": "0px 0px 0px 20px"},
                 ),
@@ -969,8 +974,9 @@ class BasicCellEditor(ipw.VBox):
                             layout={"margin": "20px 0px 10px 0px"},
                         ),
                         self.cell_transformation,
-                        ipw.HBox([apply_cell_transformation,
-                                reset_transformatioin_button])
+                        ipw.HBox(
+                            [apply_cell_transformation, reset_transformatioin_button]
+                        ),
                     ],
                     layout={"margin": "0px 0px 0px 20px"},
                 ),
@@ -1037,7 +1043,10 @@ class BasicCellEditor(ipw.VBox):
             self.cell_parameters.children[i].children[1].value for i in range(6)
         ]
         if atoms is not None:
-            atoms.set_cell(Cell.fromcellpar(cell_parameters), scale_atoms=self.scale_atoms_position.value)
+            atoms.set_cell(
+                Cell.fromcellpar(cell_parameters),
+                scale_atoms=self.scale_atoms_position.value,
+            )
             self.structure = atoms
 
     @_register_structure
@@ -1077,7 +1086,7 @@ class BasicCellEditor(ipw.VBox):
             for j in range(4):
                 self.cell_transformation.children[i].children[j].value = 0
             self.cell_transformation.children[i].children[i].value = 1
-        
+
 
 class BasicStructureEditor(ipw.VBox):
     """
