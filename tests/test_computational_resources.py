@@ -385,6 +385,12 @@ def test_template_variables_widget_metadata():
         },
     }
 
+    # Test the default value is filled in correctly.
+    assert (
+        w.filled_templates["prepend_text"]
+        == "#SBATCH --partition=normal\n#SBATCH --account={{ slurm_account }}\n#SBATCH --constraint=mc\n#SBATCH --cpus-per-task=1\n\nexport OMP_NUM_THREADS=$SLURM_CPUS_PER_TASK\nsource $MODULESHOME/init/bash\nulimit -s unlimited"
+    )
+
     # Fill two template variables in one template line
     for key, value in w._template_variables.items():
         if key == "slurm_partition":
@@ -497,6 +503,10 @@ def test_resource_setup_widget_default():
     w.comp_resources_database.domain_selector.value = "daint.cscs.ch"
     w.comp_resources_database.computer_selector.value = "mc"
     w.comp_resources_database.code_selector.value = "QE-7.2-exe-template"
+
+    # Test before the template is filled, the warning message is displayed.
+    w._on_quick_setup()
+    assert "Please fill the template variables" in w.message
 
     # Fill in the computer name and trigger the setup button again, the message should be updated.
     for (

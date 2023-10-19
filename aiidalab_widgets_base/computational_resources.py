@@ -1429,13 +1429,14 @@ class TemplateVariablesWidget(ipw.VBox):
         self._render()
 
         # Update the output filled template.
-        filled_templates = copy.deepcopy(self.templates)
+        # After `self._render` all the widgets are created.
+        # We can use the widget value to fill the template even not all the widgets are filled.
+        # templates = copy.deepcopy(self.templates)
         # XXX don't delete but pass as trait
-        if "metadata" in filled_templates:
-            del filled_templates["metadata"]
+        # if "metadata" in templates:
+        #    del templates["metadata"]
 
-        self.filled_templates = filled_templates
-        self._on_template_variable_filled()
+        self.fill()
 
     def _render(self):
         """Render the template variables widget."""
@@ -1511,33 +1512,44 @@ class TemplateVariablesWidget(ipw.VBox):
         if self.template_variables.children:
             self._help_text.layout.display = "block"
 
-    def _on_template_variable_filled(self, change=None):
-        """Callback when a template variable is filled."""
-        # Update the changed filled template for the widget that is changed.
+    def fill(self):
+        """Use template and current widgets value to fill the template
+        and update the filled_template.
+        """
+        self.unfilled_variables = set()
+
+        # Remove the metadata from the templates because for the final
+        # filled template we don't pass it to setup traits.
+        filled_templates = copy.deepcopy(self.templates)
+        if "metadata" in filled_templates:
+            del filled_templates["metadata"]
 
         for template_var in self._template_variables.values():
-            # if template_var.widget is not change["owner"]:
-            #     continue
-
             for line in template_var.lines:
-                # See if all variables are set in widget and ready from the mapping
-                # If not continue to wait for the inputs.
-
-                # If all variables are ready, update the filled template.
-                inp_dict = {
-                    _var: self._template_variables[_var].widget.value
-                    for _var in line.vars
-                }
+                # update the filled template.
+                # if the widget is not filled, use the original template var string e.g. {{ var }}
+                inp_dict = {}
+                for _var in line.vars:
+                    if self._template_variables[_var].widget.value == "":
+                        variable_key = self._template_variables[_var].widget.description
+                        self.unfilled_variables.add(variable_key.strip(":"))
+                        inp_dict[_var] = "{{ " + _var + " }}"
+                    else:
+                        inp_dict[_var] = self._template_variables[_var].widget.value
 
                 # re-render the template
                 env = jinja2.Environment()
                 filled_str = env.from_string(line.str).render(**inp_dict)
 
                 # Update the filled template.
-                # use deepcopy to assure the trait change is triggered.
-                filled_templates = copy.deepcopy(self.filled_templates)
                 filled_templates[line.key] = filled_str
-                self.filled_templates = filled_templates
+
+        # assign back to trigger the trait change.
+        self.filled_templates = filled_templates
+
+    def _on_template_variable_filled(self, _):
+        """Callback when a template variable is filled."""
+        self.fill()
 
 
 class _ResourceSetupBaseWidget(ipw.VBox):
@@ -1807,17 +1819,22 @@ class _ResourceSetupBaseWidget(ipw.VBox):
             )
             return
 
-        # TODO, check that all templates are filled in.
-        # if all(
-        #     (
-
-        #     )
-        # ) self.template_computer_setup.all_templates_set():
-        # self.message = wrap_message(
-        #     f"Not all template values are provided.",
-        #     level=MessageLevel.ERROR,
-        # )
-        # return
+        # Check if all the template variables are filled.
+        # If not raise a warning and return (skip the setup).
+        for template in (
+            self.template_computer_setup,
+            self.template_computer_configure,
+            self.template_code,
+        ):
+            if unfilled_variables := template.unfilled_variables:
+                var_warn_message = ", ".join(
+                    [f"<b>{v}</b>" for v in unfilled_variables]
+                )
+                self.message = wrap_message(
+                    f"Please fill the template variables: {var_warn_message}",
+                    MessageLevel.WARNING,
+                )
+                return
 
         # Setup the computer and code.
         if self.aiida_computer_setup.on_setup_computer():
