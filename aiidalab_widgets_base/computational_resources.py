@@ -1526,9 +1526,6 @@ class _ResourceSetupBaseWidget(ipw.VBox):
     success = tl.Bool(False)
     message = tl.Unicode()
 
-    computer_setup_and_configure = tl.Dict(allow_none=True)
-    code_setup = tl.Dict(allow_none=True)
-
     ssh_auth = None  # store the ssh auth type. Can be "password" or "2FA"
 
     def __init__(
@@ -1570,10 +1567,8 @@ class _ResourceSetupBaseWidget(ipw.VBox):
             self._on_select_computer,
             names="computer_setup_and_configure",
         )
-        self.comp_resources_database.observe(self._on_select_code, names="code_setup")
 
         self.ssh_computer_setup = SshComputerSetup()
-        # self.ssh_computer_setup.observe(self._on_ssh_computer_setup, names="ssh_config")
         ipw.dlink(
             (self.ssh_computer_setup, "message"),
             (self, "message"),
@@ -1610,11 +1605,8 @@ class _ResourceSetupBaseWidget(ipw.VBox):
 
         # SSH connection setup.
         ipw.dlink(
-            (self.template_variables_computer_setup, "filled_templates"),
+            (self.template_variables_computer_configure, "filled_templates"),
             (self.ssh_computer_setup, "ssh_config"),
-            transform=lambda x: self._parse_ssh_config_from_computer_setup_and_configure(
-                x
-            ),
         )
 
         # Code setup.
@@ -1622,7 +1614,6 @@ class _ResourceSetupBaseWidget(ipw.VBox):
         ipw.dlink(
             (self.comp_resources_database, "code_setup"),
             (self.template_variables_code, "templates"),
-            transform=lambda x: x.get("setup", {}),
         )
         self.aiida_code_setup = AiidaCodeSetup()
         ipw.dlink(
@@ -1778,6 +1769,8 @@ class _ResourceSetupBaseWidget(ipw.VBox):
         """
         # after initialize the computer_setup_and_configure can be empty.
         # there are tricky cases the computer_setup_and_configure is not empty but {"setup": {}}
+        print("fill ssh config")
+        print(computer_setup_and_configure)
         if (
             not computer_setup_and_configure
             or not computer_setup_and_configure.get("setup", {})
@@ -1800,16 +1793,6 @@ class _ResourceSetupBaseWidget(ipw.VBox):
 
         new_setup_and_configure = change["new"]
 
-        # pre-set the input fields no matter if the template variables are set.
-        self.computer_setup_and_configure = new_setup_and_configure
-
-        # ssh config need to sync hostname etc with resource database.
-        self.ssh_computer_setup.ssh_config = (
-            self._parse_ssh_config_from_computer_setup_and_configure(
-                new_setup_and_configure,
-            )
-        )
-
         # decide whether to show the ssh password box widget.
         # Since for 2FA ssh credential, the password are not needed but set from
         # independent mechanism.
@@ -1823,23 +1806,6 @@ class _ResourceSetupBaseWidget(ipw.VBox):
 
         self._update_layout()
 
-    def _on_select_code(self, change):
-        """Update the code trait"""
-        self.message = ""
-        self.success = False
-
-        self.template_variables_code.reset()
-        self.aiida_code_setup._reset()
-        self.code_setup = {}
-
-        if change["new"] is None:
-            return
-
-        new_code_setup = change["new"]
-        self.template_variables_code.templates = new_code_setup
-
-        self.code_setup = new_code_setup
-
     def _on_reset(self, _=None):
         """Reset the database and the widget."""
         with self.hold_trait_notifications():
@@ -1849,7 +1815,7 @@ class _ResourceSetupBaseWidget(ipw.VBox):
     def _on_quick_setup(self, _=None):
         """Go through all the setup steps automatically."""
         # Raise error if the computer is not selected.
-        if not self.computer_setup_and_configure:
+        if not self.aiida_computer_setup.computer_setup_and_configure:
             self.message = wrap_message(
                 "Please select a computer from the database.",
                 MessageLevel.ERROR,
@@ -1894,11 +1860,7 @@ class _ResourceSetupBaseWidget(ipw.VBox):
         """Callback that is called when the computer is successfully set up."""
         # update the computer dropdown list of code setup
         self.aiida_code_setup.refresh()
-
-        # and set the computer in the code_setup
-        code_setup = copy.deepcopy(self.code_setup)
-        code_setup["computer"] = self.computer_setup_and_configure["setup"]["label"]
-        self.code_setup = code_setup
+        self.code_setup.computer.value = self.aiida_computer_setup.label.value
 
     def _on_setup_code_success(self):
         """Callback that is called when the code is successfully set up."""
