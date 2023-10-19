@@ -1491,6 +1491,7 @@ class TemplateVariablesWidget(ipw.VBox):
     def _on_template_variable_filled(self, change):
         """Callback when a template variable is filled."""
         # Update the changed filled template for the widget that is changed.
+
         for template_var in self._template_variables.values():
             if template_var.widget is not change["owner"]:
                 continue
@@ -1498,10 +1499,6 @@ class TemplateVariablesWidget(ipw.VBox):
             for line in template_var.lines:
                 # See if all variables are set in widget and ready from the mapping
                 # If not continue to wait for the inputs.
-                for _var in line.vars:
-                    # Be careful that here we cannot conditional on whether still there is un-filled template, because the template with default is valid to pass as output filled template.
-                    if self._template_variables[_var].widget.value == "":
-                        return
 
                 # If all variables are ready, update the filled template.
                 inp_dict = {
@@ -1564,7 +1561,7 @@ class _ResourceSetupBaseWidget(ipw.VBox):
         )
         reset_button.on_click(self._on_reset)
 
-        # resource database for setup computer/code.
+        # Resource database for setup computer/code.
         self.comp_resources_database = ComputationalResourcesDatabaseWidget(
             default_calc_job_plugin=default_calc_job_plugin,
             show_reset_button=False,
@@ -1582,58 +1579,60 @@ class _ResourceSetupBaseWidget(ipw.VBox):
             (self, "message"),
         )
 
+        # Computer setup and configure.
+        self.template_variables_computer_setup = TemplateVariablesWidget()
+        ipw.dlink(
+            (self.comp_resources_database, "computer_setup_and_configure"),
+            (self.template_variables_computer_setup, "templates"),
+            transform=lambda x: x.get("setup", {}),
+        )
+        self.template_variables_computer_setup.observe(
+            self._on_template_variables_computer_setup_filled, names="filled_templates"
+        )
+        self.template_variables_computer_configure = TemplateVariablesWidget()
+        ipw.dlink(
+            (self.comp_resources_database, "computer_setup_and_configure"),
+            (self.template_variables_computer_configure, "templates"),
+            transform=lambda x: x.get("configure", {}),
+        )
         self.aiida_computer_setup = AiidaComputerSetup()
+        self.template_variables_computer_configure.observe(
+            self._on_template_variables_computer_configure_filled,
+            names="filled_templates",
+        )
         self.aiida_computer_setup.on_setup_computer_success(
             self._on_setup_computer_success
-        )
-
-        # link two traits so only one of them needs to be set (in the widget only manipulate with `self.computer_setup_and_configure`)
-        # The link is uni-directional
-        ipw.dlink(
-            (self, "computer_setup_and_configure"),
-            (self.aiida_computer_setup, "computer_setup_and_configure"),
         )
         ipw.dlink(
             (self.aiida_computer_setup, "message"),
             (self, "message"),
         )
 
-        self.aiida_code_setup = AiidaCodeSetup()
-        self.aiida_code_setup.on_setup_code_success(self._on_setup_code_success)
-        # link two traits so only one of them needs to be set (in the widget only manipulate with `self.code_setup``)
+        # SSH connection setup.
         ipw.dlink(
-            (self, "code_setup"),
-            (self.aiida_code_setup, "code_setup"),
-        )
-        ipw.dlink(
-            (self.aiida_code_setup, "message"),
-            (self, "message"),
-        )
-
-        # link the ssh config from computer_setup_and_configure to ssh_config of ssh_computer_setup
-        ipw.dlink(
-            (self, "computer_setup_and_configure"),
+            (self.template_variables_computer_setup, "filled_templates"),
             (self.ssh_computer_setup, "ssh_config"),
             transform=lambda x: self._parse_ssh_config_from_computer_setup_and_configure(
                 x
             ),
         )
 
-        # The placeholder widget for the template variable of config.
-        self.template_variables_computer_setup = TemplateVariablesWidget()
-        self.template_variables_computer_setup.observe(
-            self._on_template_variables_computer_setup_filled, names="filled_templates"
-        )
-        self.template_variables_computer_configure = TemplateVariablesWidget()
-        self.template_variables_computer_configure.observe(
-            self._on_template_variables_computer_configure_filled,
-            names="filled_templates",
-        )
-
+        # Code setup.
         self.template_variables_code = TemplateVariablesWidget()
         ipw.dlink(
+            (self.comp_resources_database, "code_setup"),
+            (self.template_variables_code, "templates"),
+            transform=lambda x: x.get("setup", {}),
+        )
+        self.aiida_code_setup = AiidaCodeSetup()
+        ipw.dlink(
             (self.template_variables_code, "filled_templates"),
-            (self, "code_setup"),
+            (self.aiida_code_setup, "code_setup"),
+        )
+        self.aiida_code_setup.on_setup_code_success(self._on_setup_code_success)
+        ipw.dlink(
+            (self.aiida_code_setup, "message"),
+            (self, "message"),
         )
 
         # The widget for the detailed setup.
@@ -1748,15 +1747,6 @@ class _ResourceSetupBaseWidget(ipw.VBox):
             self.quick_setup_button.disabled = True
             # fill the template variables with the default values or the filled values.
             # If the template variables are not all filled raise a warning.
-            try:
-                self._fill_template()
-            except ValueError as exc:
-                # if there are missing template variables, only raise a warning instead of error.
-                # the user can still fill the template variables manually.
-                self.message = wrap_message(
-                    f"{exc}, please fill the template variables manually.",
-                    MessageLevel.WARNING,
-                )
         else:
             self.detailed_setup_widget.layout.display = "none"
             self.quick_setup_button.disabled = False
@@ -1766,14 +1756,18 @@ class _ResourceSetupBaseWidget(ipw.VBox):
         # Update the filled template.
         computer_setup_and_configure = copy.deepcopy(self.computer_setup_and_configure)
         computer_setup_and_configure["setup"] = change["new"]
-        self.computer_setup_and_configure = computer_setup_and_configure
+        self.aiida_computer_setup.computer_setup_and_configure = (
+            computer_setup_and_configure
+        )
 
     def _on_template_variables_computer_configure_filled(self, change):
         """Callback when the template variables of computer configure are filled."""
         # Update the filled template.
         computer_setup_and_configure = copy.deepcopy(self.computer_setup_and_configure)
         computer_setup_and_configure["configure"] = change["new"]
-        self.computer_setup_and_configure = computer_setup_and_configure
+        self.aiida_computer_setup.computer_setup_and_configure = (
+            computer_setup_and_configure
+        )
 
     @staticmethod
     def _parse_ssh_config_from_computer_setup_and_configure(
@@ -1806,14 +1800,6 @@ class _ResourceSetupBaseWidget(ipw.VBox):
 
         new_setup_and_configure = change["new"]
 
-        # Read from template and prepare the widgets for the template variables.
-        self.template_variables_computer_setup.templates = new_setup_and_configure[
-            "setup"
-        ]
-        self.template_variables_computer_configure.templates = new_setup_and_configure[
-            "configure"
-        ]
-
         # pre-set the input fields no matter if the template variables are set.
         self.computer_setup_and_configure = new_setup_and_configure
 
@@ -1835,14 +1821,6 @@ class _ResourceSetupBaseWidget(ipw.VBox):
         if self.ssh_auth is None:
             self.ssh_auth = "password"
 
-        # pre-fill the template variables when the code is selected.
-        # if the default value is exist for the template variables.
-        # The exception is ignored here because there are cases that the template variables are not filled and the user must fill them manually later.
-        try:
-            self._fill_template()
-        except ValueError:
-            pass
-
         self._update_layout()
 
     def _on_select_code(self, change):
@@ -1862,92 +1840,11 @@ class _ResourceSetupBaseWidget(ipw.VBox):
 
         self.code_setup = new_code_setup
 
-        # pre-fill the template variables when the code is selected.
-        # if the default value is exist for the template variables.
-        # The exception is ignored here because there are cases that the template variables are not filled and the user must fill them manually later.
-        try:
-            self._fill_template()
-        except ValueError:
-            pass
-
     def _on_reset(self, _=None):
         """Reset the database and the widget."""
         with self.hold_trait_notifications():
             self.reset()
             self.comp_resources_database.reset()
-
-    def _fill_template(self):
-        """Fill the template variables with default values and filled values for
-        the `AiidaComputer`, `Aiidacode` and `SshComputerSetup`
-        """
-        # The list of template variables that are not filled.
-        # If this list is not empty, then the template variables are not filled and the exception will be raised
-        # in the end.
-        no_filled_var_lst = []
-
-        # Use default values for the template variables if not set.
-        # and the same time check if all templates are filled.
-        # Be careful there are same key in both template_variables_computer and template_variables_code, e.g. label.
-        # So can not combine them by {**a, **b}
-        for w_tmp in [
-            self.template_variables_computer_setup,
-            self.template_variables_code,
-            self.template_variables_computer_configure,
-        ]:
-            metadata = w_tmp.templates.get("metadata", {})
-            filled_templates = copy.deepcopy(w_tmp.filled_templates)
-
-            for k, v in w_tmp.filled_templates.items():
-                env = jinja2.Environment()
-                parsed_content = env.parse(v)
-                vs = jinja2_meta.find_undeclared_variables(parsed_content)
-
-                # No variables in the template, all filled.
-                if len(vs) == 0:
-                    continue
-
-                default_values = {}
-                for var in vs:
-                    # check if the default value is exist for this variable.
-                    default = (
-                        metadata.get("template_variables", {})
-                        .get(var, {})
-                        .get("default", None)
-                    )
-                    if default is None:
-                        # if no default value, this means the variable is not filled yet by the user.
-                        # render the template format "{{ var }}" and add var to the no_filled_var_lst.
-                        default_values[var] = "{{ " + var + " }}"
-                        no_filled_var_lst.append(var)
-                    else:
-                        default_values[var] = default
-
-                filled_templates[k] = env.from_string(v).render(**default_values)
-
-            # Update the filled template to trigger the trait change.
-            w_tmp.filled_templates = filled_templates
-
-        # Fill text fields with template variables.
-        with self.hold_trait_notifications():
-            computer_setup_and_configure = copy.deepcopy(
-                self.computer_setup_and_configure
-            )
-            computer_setup_and_configure[
-                "setup"
-            ] = self.template_variables_computer_setup.filled_templates
-            computer_setup_and_configure[
-                "configure"
-            ] = self.template_variables_computer_configure.filled_templates
-            self.computer_setup_and_configure = computer_setup_and_configure
-
-            code_setup = copy.deepcopy(self.code_setup)
-            code_setup = self.template_variables_code.filled_templates
-            self.code_setup = code_setup
-
-        if no_filled_var_lst:
-            raise ValueError(
-                f"Template variables are not filled: {', '.join([f'<b>{v}</b>' for v in no_filled_var_lst])}"
-            )
 
     def _on_quick_setup(self, _=None):
         """Go through all the setup steps automatically."""
@@ -1959,9 +1856,9 @@ class _ResourceSetupBaseWidget(ipw.VBox):
             )
             return
 
-        # Fill the template variables.
+        # TODO, check that all templates are filled in.
         try:
-            self._fill_template()
+            pass
         except ValueError as exc:
             self.message = wrap_message(
                 f"{exc}, you must fill those.",
