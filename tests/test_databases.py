@@ -61,8 +61,8 @@ def test_computational_resources_database_widget():
     widget.code_selector.value = "cp2k-9.1"
 
     # Check that the configuration is provided.
-    assert "label" in widget.computer_setup_and_configure["setup"]
-    assert "hostname" in widget.computer_setup_and_configure["configure"]
+    assert "label" in widget.computer_setup
+    assert "hostname" in widget.computer_configure
     assert "filepath_executable" in widget.code_setup
 
     # test after computer re-select to another, the code selector is reset
@@ -72,7 +72,8 @@ def test_computational_resources_database_widget():
     # Simulate reset.
     widget.reset()
 
-    assert widget.computer_setup_and_configure == {}
+    assert widget.computer_setup == {}
+    assert widget.computer_configure == {}
     assert widget.code_setup == {}
 
     # after reset, the computer/code selector is reset

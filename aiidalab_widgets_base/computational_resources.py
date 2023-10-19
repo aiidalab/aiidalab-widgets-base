@@ -1364,6 +1364,20 @@ class ComputerDropdownWidget(ipw.VBox):
         else:
             return computer_uuid
 
+    def select_by_label(self, label):
+        """Select computer by computer label."""
+        self.output.value = ""
+        if not label:
+            return None
+
+        try:
+            computer_uuid = self.computers[label]
+        except KeyError:
+            self.output.value = f"""'<span style="color:red">{label}</span>'
+            can not find this computer."""
+        else:
+            self.value = computer_uuid
+
 
 TemplateVariableLine = namedtuple("TemplateVariableLine", ["key", "str", "vars"])
 
@@ -1416,6 +1430,7 @@ class TemplateVariablesWidget(ipw.VBox):
 
         # Update the output filled template.
         filled_templates = copy.deepcopy(self.templates)
+        # XXX don't delete but pass as trait
         if "metadata" in filled_templates:
             del filled_templates["metadata"]
 
@@ -1773,6 +1788,7 @@ class _ResourceSetupBaseWidget(ipw.VBox):
         self.ssh_auth = new_configure.get("metadata", {}).get("ssh_auth", None)
         if self.ssh_auth is None:
             self.ssh_auth = "password"
+
         self._update_layout()
 
     def _on_reset(self, _=None):
@@ -1831,7 +1847,10 @@ class _ResourceSetupBaseWidget(ipw.VBox):
         """Callback that is called when the computer is successfully set up."""
         # update the computer dropdown list of code setup
         self.aiida_code_setup.refresh()
-        self.code_setup.computer.value = self.aiida_computer_setup.label.value
+
+        # select the computer in the dropdown list for code setup
+        label = self.aiida_computer_setup.label.value
+        self.aiida_code_setup.computer.select_by_label(label)
 
     def _on_setup_code_success(self):
         """Callback that is called when the code is successfully set up."""
