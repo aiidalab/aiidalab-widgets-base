@@ -1420,6 +1420,7 @@ class TemplateVariablesWidget(ipw.VBox):
             del filled_templates["metadata"]
 
         self.filled_templates = filled_templates
+        self._on_template_variable_filled()
 
     def _render(self):
         """Render the template variables widget."""
@@ -1495,13 +1496,13 @@ class TemplateVariablesWidget(ipw.VBox):
         if self.template_variables.children:
             self._help_text.layout.display = "block"
 
-    def _on_template_variable_filled(self, change):
+    def _on_template_variable_filled(self, change=None):
         """Callback when a template variable is filled."""
         # Update the changed filled template for the widget that is changed.
 
         for template_var in self._template_variables.values():
-            if template_var.widget is not change["owner"]:
-                continue
+            # if template_var.widget is not change["owner"]:
+            #     continue
 
             for line in template_var.lines:
                 # See if all variables are set in widget and ready from the mapping
@@ -1566,75 +1567,82 @@ class _ResourceSetupBaseWidget(ipw.VBox):
         reset_button.on_click(self._on_reset)
 
         # Resource database for setup computer/code.
+
         self.comp_resources_database = ComputationalResourcesDatabaseWidget(
             default_calc_job_plugin=default_calc_job_plugin,
             show_reset_button=False,
         )
-        # self.comp_resources_database.observe(
-        #     self._on_select_computer,
-        #     names=["computer_setup", "computer_configure"],
-        # )
 
+        # All templates
+        self.template_computer_setup = TemplateVariablesWidget()
+        self.template_computer_configure = TemplateVariablesWidget()
+        self.template_code = TemplateVariablesWidget()
+
+        # SSH
         self.ssh_computer_setup = SshComputerSetup()
         tl.dlink(
             (self.ssh_computer_setup, "message"),
             (self, "message"),
         )
 
-        # Computer setup template.
-        self.template_computer_setup = TemplateVariablesWidget()
-        tl.dlink(
-            (self.comp_resources_database, "computer_setup"),
-            (self.template_computer_setup, "templates"),
-        )
-
-        # Computer configure template.
-        self.template_computer_configure = TemplateVariablesWidget()
-        tl.dlink(
-            (self.comp_resources_database, "computer_configure"),
-            (self.template_computer_configure, "templates"),
-        )
-
-        # Computer setup and configure.
+        # Computer setup.
         self.aiida_computer_setup = AiidaComputerSetup()
-        tl.dlink(
-            (self.template_computer_setup, "filled_templates"),
-            (self.aiida_computer_setup, "computer_setup"),
-        )
-        tl.dlink(
-            (self.template_computer_configure, "filled_templates"),
-            (self.aiida_computer_setup, "computer_configure"),
-        )
-        self.aiida_computer_setup.on_setup_computer_success(
-            self._on_setup_computer_success
-        )
         tl.dlink(
             (self.aiida_computer_setup, "message"),
             (self, "message"),
         )
 
-        # SSH connection setup.
+        # Code setup.
+        self.aiida_code_setup = AiidaCodeSetup()
+        tl.dlink(
+            (self.aiida_code_setup, "message"),
+            (self, "message"),
+        )
+
+        # Data flow.
+
+        # Computer template -> SSH connection setup.
+        tl.dlink(
+            (self.comp_resources_database, "computer_configure"),
+            (self.template_computer_configure, "templates"),
+        )
         tl.dlink(
             (self.template_computer_configure, "filled_templates"),
             (self.ssh_computer_setup, "ssh_config"),
         )
 
-        # Code setup.
-        self.template_code = TemplateVariablesWidget()
+        # Computer template -> Computer setup.
+        tl.dlink(
+            (self.comp_resources_database, "computer_setup"),
+            (self.template_computer_setup, "templates"),
+        )
+        tl.dlink(
+            (self.template_computer_setup, "filled_templates"),
+            (self.aiida_computer_setup, "computer_setup"),
+        )
+
+        # Computer template -> Computer configure.
+        tl.dlink(
+            (self.template_computer_configure, "filled_templates"),
+            (self.aiida_computer_setup, "computer_configure"),
+        )
+        self.aiida_computer_setup.observe(
+            self._on_computer_configure_change, "computer_configure"
+        )
+        self.aiida_computer_setup.on_setup_computer_success(
+            self._on_setup_computer_success
+        )
+
+        # Code template -> Code setup.
         tl.dlink(
             (self.comp_resources_database, "code_setup"),
             (self.template_code, "templates"),
         )
-        self.aiida_code_setup = AiidaCodeSetup()
         tl.dlink(
             (self.template_code, "filled_templates"),
             (self.aiida_code_setup, "code_setup"),
         )
         self.aiida_code_setup.on_setup_code_success(self._on_setup_code_success)
-        tl.dlink(
-            (self.aiida_code_setup, "message"),
-            (self, "message"),
-        )
 
         # The widget for the detailed setup.
         description_toggle_detail_setup = ipw.HTML(
@@ -1752,28 +1760,20 @@ class _ResourceSetupBaseWidget(ipw.VBox):
             self.detailed_setup_widget.layout.display = "none"
             self.quick_setup_button.disabled = False
 
-    # def _on_select_computer(self, change):
-    #     """Update the computer trait"""
-    #     # reset the widget first to clean all the input fields (computer_configure, computer_setup, code_setup).
-    #     self.reset()
+    def _on_computer_configure_change(self, change):
+        """Update the computer trait"""
+        if not change["new"]:
+            return
 
-    #     if not change["new"]:
-    #         return
+        new_configure = change["new"]
 
-    #     new_setup_and_configure = change["new"]
-
-    #     # decide whether to show the ssh password box widget.
-    #     # Since for 2FA ssh credential, the password are not needed but set from
-    #     # independent mechanism.
-    #     self.ssh_auth = (
-    #         new_setup_and_configure["configure"]
-    #         .get("metadata", {})
-    #         .get("ssh_auth", None)
-    #     )
-    #     if self.ssh_auth is None:
-    #         self.ssh_auth = "password"
-
-    #     self._update_layout()
+        # decide whether to show the ssh password box widget.
+        # Since for 2FA ssh credential, the password are not needed but set from
+        # independent mechanism.
+        self.ssh_auth = new_configure.get("metadata", {}).get("ssh_auth", None)
+        if self.ssh_auth is None:
+            self.ssh_auth = "password"
+        self._update_layout()
 
     def _on_reset(self, _=None):
         """Reset the database and the widget."""
@@ -1792,14 +1792,16 @@ class _ResourceSetupBaseWidget(ipw.VBox):
             return
 
         # TODO, check that all templates are filled in.
-        try:
-            pass
-        except ValueError as exc:
-            self.message = wrap_message(
-                f"{exc}, you must fill those.",
-                level=MessageLevel.ERROR,
-            )
-            return
+        # if all(
+        #     (
+
+        #     )
+        # ) self.template_computer_setup.all_templates_set():
+        # self.message = wrap_message(
+        #     f"Not all template values are provided.",
+        #     level=MessageLevel.ERROR,
+        # )
+        # return
 
         # Setup the computer and code.
         if self.aiida_computer_setup.on_setup_computer():
