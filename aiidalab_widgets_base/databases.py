@@ -214,7 +214,8 @@ class ComputationalResourcesDatabaseWidget(ipw.VBox):
 
     database_source = tl.Unicode(allow_none=True)
 
-    computer_setup_and_configure = tl.Dict()
+    computer_setup = tl.Dict()
+    computer_configure = tl.Dict()
     code_setup = tl.Dict()
 
     STYLE = {"description_width": "180px"}
@@ -372,7 +373,7 @@ class ComputationalResourcesDatabaseWidget(ipw.VBox):
             if change["new"] is None:
                 self.code_selector.options = ()
                 self.code_selector.value = None
-                self.computer_setup_and_configure = {}
+                self.computer_setup, self.computer_configure = {}, {}
                 return
             else:
                 self.code_selector.value = None
@@ -392,17 +393,11 @@ class ComputationalResourcesDatabaseWidget(ipw.VBox):
                 "computer-configure", {}
             )
 
-            # To avoid {'setup': {}, 'configure': {}} when no computer setup is defined
-            if computer_setup == {} and computer_configure == {}:
-                self.computer_setup_and_configure = {}
-                return
+            if "hostname" in computer_setup:
+                computer_configure["hostname"] = computer_setup.get("hostname")
 
-            computer_configure["hostname"] = computer_setup.get("hostname")
-
-            self.computer_setup_and_configure = {
-                "setup": computer_setup,
-                "configure": computer_configure,
-            }
+            self.computer_setup = computer_setup
+            self.computer_configure = computer_configure
 
     def _code_changed(self, change=None):
         """Update code settings."""

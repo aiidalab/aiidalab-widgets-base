@@ -655,7 +655,8 @@ class SshComputerSetup(ipw.VBox):
 class AiidaComputerSetup(ipw.VBox):
     """Inform AiiDA about a computer."""
 
-    computer_setup_and_configure = tl.Dict(allow_none=True)
+    computer_setup = tl.Dict(allow_none=True)
+    computer_configure = tl.Dict(allow_none=True)
     message = tl.Unicode()
 
     def __init__(self, **kwargs):
@@ -860,10 +861,8 @@ class AiidaComputerSetup(ipw.VBox):
             "use_login_shell": self.use_login_shell.value,
             "safe_interval": self.safe_interval.value,
         }
-        if "username" in self.computer_setup_and_configure["configure"]:
-            authparams["username"] = self.computer_setup_and_configure["configure"][
-                "username"
-            ]
+        if "username" in self.computer_configure:
+            authparams["username"] = self.computer_configure["username"]
         else:
             try:
                 # This require the Ssh connection setup is done before the computer setup
@@ -1037,24 +1036,32 @@ class AiidaComputerSetup(ipw.VBox):
         self.prepend_text.value = ""
         self.append_text.value = ""
 
-    @tl.observe("computer_setup_and_configure")
+    @tl.observe("computer_setup")
     def _observe_computer_setup(self, _=None):
-        # Setup.
-        if not self.computer_setup_and_configure:
-            self._reset()
-            return
-        if "setup" in self.computer_setup_and_configure:
-            for key, value in self.computer_setup_and_configure["setup"].items():
-                if key == "default_memory_per_machine":
-                    self.default_memory_per_machine_widget.value = f"{value} KB"
-                elif hasattr(self, key):
-                    getattr(self, key).value = value
+        for key, value in self.computer_setup.items():
+            if key == "default_memory_per_machine":
+                self.default_memory_per_machine_widget.value = f"{value} KB"
+            elif hasattr(self, key):
+                getattr(self, key).value = value
 
-        # Configure.
-        if "configure" in self.computer_setup_and_configure:
-            for key, value in self.computer_setup_and_configure["configure"].items():
-                if hasattr(self, key):
-                    getattr(self, key).value = value
+    @tl.observe("computer_configure")
+    def _observe_computer_configure(self, _=None):
+        for key, value in self.computer_configure.items():
+            if hasattr(self, key):
+                getattr(self, key).value = value
+
+    @tl.observe("computer_setup", "computer_configure")
+    def _observe_computer_setup_and_configure(self, _=None):
+        if not self.some_values_provided:
+            self._reset()
+
+    @property
+    def some_values_provided(self):
+        return any((self.computer_setup, self.computer_configure))
+
+    @property
+    def all_values_provided(self):
+        return all((self.computer_setup, self.computer_configure))
 
 
 class AiidaCodeSetup(ipw.VBox):
@@ -1563,10 +1570,10 @@ class _ResourceSetupBaseWidget(ipw.VBox):
             default_calc_job_plugin=default_calc_job_plugin,
             show_reset_button=False,
         )
-        self.comp_resources_database.observe(
-            self._on_select_computer,
-            names="computer_setup_and_configure",
-        )
+        # self.comp_resources_database.observe(
+        #     self._on_select_computer,
+        #     names=["computer_setup", "computer_configure"],
+        # )
 
         self.ssh_computer_setup = SshComputerSetup()
         ipw.dlink(
@@ -1574,26 +1581,29 @@ class _ResourceSetupBaseWidget(ipw.VBox):
             (self, "message"),
         )
 
+        # Computer setup template.
+        self.template_computer_setup = TemplateVariablesWidget()
+        ipw.dlink(
+            (self.comp_resources_database, "computer_setup"),
+            (self.template_computer_setup, "templates"),
+        )
+
+        # Computer configure template.
+        self.template_computer_configure = TemplateVariablesWidget()
+        ipw.dlink(
+            (self.comp_resources_database, "computer_configure"),
+            (self.template_computer_configure, "templates"),
+        )
+
         # Computer setup and configure.
-        self.template_variables_computer_setup = TemplateVariablesWidget()
-        ipw.dlink(
-            (self.comp_resources_database, "computer_setup_and_configure"),
-            (self.template_variables_computer_setup, "templates"),
-            transform=lambda x: x.get("setup", {}),
-        )
-        self.template_variables_computer_setup.observe(
-            self._on_template_variables_computer_setup_filled, names="filled_templates"
-        )
-        self.template_variables_computer_configure = TemplateVariablesWidget()
-        ipw.dlink(
-            (self.comp_resources_database, "computer_setup_and_configure"),
-            (self.template_variables_computer_configure, "templates"),
-            transform=lambda x: x.get("configure", {}),
-        )
         self.aiida_computer_setup = AiidaComputerSetup()
-        self.template_variables_computer_configure.observe(
-            self._on_template_variables_computer_configure_filled,
-            names="filled_templates",
+        ipw.dlink(
+            (self.template_computer_setup, "filled_templates"),
+            (self.aiida_computer_setup, "computer_setup"),
+        )
+        ipw.dlink(
+            (self.template_computer_configure, "filled_templates"),
+            (self.aiida_computer_setup, "computer_configure"),
         )
         self.aiida_computer_setup.on_setup_computer_success(
             self._on_setup_computer_success
@@ -1605,19 +1615,19 @@ class _ResourceSetupBaseWidget(ipw.VBox):
 
         # SSH connection setup.
         ipw.dlink(
-            (self.template_variables_computer_configure, "filled_templates"),
+            (self.template_computer_configure, "filled_templates"),
             (self.ssh_computer_setup, "ssh_config"),
         )
 
         # Code setup.
-        self.template_variables_code = TemplateVariablesWidget()
+        self.template_code = TemplateVariablesWidget()
         ipw.dlink(
             (self.comp_resources_database, "code_setup"),
-            (self.template_variables_code, "templates"),
+            (self.template_code, "templates"),
         )
         self.aiida_code_setup = AiidaCodeSetup()
         ipw.dlink(
-            (self.template_variables_code, "filled_templates"),
+            (self.template_code, "filled_templates"),
             (self.aiida_code_setup, "code_setup"),
         )
         self.aiida_code_setup.on_setup_code_success(self._on_setup_code_success)
@@ -1678,9 +1688,9 @@ class _ResourceSetupBaseWidget(ipw.VBox):
                     """
                 ),
                 self.comp_resources_database,
-                self.template_variables_computer_setup,
-                self.template_variables_code,
-                self.template_variables_computer_configure,
+                self.template_computer_setup,
+                self.template_code,
+                self.template_computer_configure,
                 self.ssh_computer_setup.password_box,
                 self.detailed_setup_switch_widgets,
                 ipw.HBox(
@@ -1742,69 +1752,28 @@ class _ResourceSetupBaseWidget(ipw.VBox):
             self.detailed_setup_widget.layout.display = "none"
             self.quick_setup_button.disabled = False
 
-    def _on_template_variables_computer_setup_filled(self, change):
-        """Callback when the template variables of computer are filled."""
-        # Update the filled template.
-        computer_setup_and_configure = copy.deepcopy(self.computer_setup_and_configure)
-        computer_setup_and_configure["setup"] = change["new"]
-        self.aiida_computer_setup.computer_setup_and_configure = (
-            computer_setup_and_configure
-        )
+    # def _on_select_computer(self, change):
+    #     """Update the computer trait"""
+    #     # reset the widget first to clean all the input fields (computer_configure, computer_setup, code_setup).
+    #     self.reset()
 
-    def _on_template_variables_computer_configure_filled(self, change):
-        """Callback when the template variables of computer configure are filled."""
-        # Update the filled template.
-        computer_setup_and_configure = copy.deepcopy(self.computer_setup_and_configure)
-        computer_setup_and_configure["configure"] = change["new"]
-        self.aiida_computer_setup.computer_setup_and_configure = (
-            computer_setup_and_configure
-        )
+    #     if not change["new"]:
+    #         return
 
-    @staticmethod
-    def _parse_ssh_config_from_computer_setup_and_configure(
-        computer_setup_and_configure,
-    ):
-        """Parse the ssh config from the computer configure,
-        The configure does not contain hostname which will get from computer_setup.
-        """
-        # after initialize the computer_setup_and_configure can be empty.
-        # there are tricky cases the computer_setup_and_configure is not empty but {"setup": {}}
-        print("fill ssh config")
-        print(computer_setup_and_configure)
-        if (
-            not computer_setup_and_configure
-            or not computer_setup_and_configure.get("setup", {})
-            or not computer_setup_and_configure.get("configure", {})
-        ):
-            return {}
+    #     new_setup_and_configure = change["new"]
 
-        ssh_config = copy.deepcopy(computer_setup_and_configure["configure"])
-        ssh_config["hostname"] = computer_setup_and_configure["setup"]["hostname"]
+    #     # decide whether to show the ssh password box widget.
+    #     # Since for 2FA ssh credential, the password are not needed but set from
+    #     # independent mechanism.
+    #     self.ssh_auth = (
+    #         new_setup_and_configure["configure"]
+    #         .get("metadata", {})
+    #         .get("ssh_auth", None)
+    #     )
+    #     if self.ssh_auth is None:
+    #         self.ssh_auth = "password"
 
-        return ssh_config
-
-    def _on_select_computer(self, change):
-        """Update the computer trait"""
-        # reset the widget first to clean all the input fields (computer_configure, computer_setup, code_setup).
-        self.reset()
-
-        if not change["new"]:
-            return
-
-        new_setup_and_configure = change["new"]
-
-        # decide whether to show the ssh password box widget.
-        # Since for 2FA ssh credential, the password are not needed but set from
-        # independent mechanism.
-        self.ssh_auth = (
-            new_setup_and_configure["configure"]
-            .get("metadata", {})
-            .get("ssh_auth", None)
-        )
-        if self.ssh_auth is None:
-            self.ssh_auth = "password"
-
-        self._update_layout()
+    #     self._update_layout()
 
     def _on_reset(self, _=None):
         """Reset the database and the widget."""
@@ -1815,7 +1784,7 @@ class _ResourceSetupBaseWidget(ipw.VBox):
     def _on_quick_setup(self, _=None):
         """Go through all the setup steps automatically."""
         # Raise error if the computer is not selected.
-        if not self.aiida_computer_setup.computer_setup_and_configure:
+        if not self.aiida_computer_setup.some_values_provided:
             self.message = wrap_message(
                 "Please select a computer from the database.",
                 MessageLevel.ERROR,
@@ -1872,9 +1841,9 @@ class _ResourceSetupBaseWidget(ipw.VBox):
         self.success = False
 
         # reset template variables
-        self.template_variables_computer_setup.reset()
-        self.template_variables_computer_configure.reset()
-        self.template_variables_code.reset()
+        self.template_computer_setup.reset()
+        self.template_computer_configure.reset()
+        self.template_code.reset()
 
         # reset sub widgets
         self.aiida_code_setup._reset()
@@ -1887,7 +1856,8 @@ class _ResourceSetupBaseWidget(ipw.VBox):
         self.ssh_computer_setup.ssh_config = {}
 
         # reset traits
-        self.computer_setup_and_configure = {}
+        self.computer_setup = {}
+        self.computer_configure = {}
         self.code_setup = {}
 
         # The layout also reset
