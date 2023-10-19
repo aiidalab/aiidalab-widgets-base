@@ -115,7 +115,7 @@ class ComputationalResourcesWidget(ipw.VBox):
             enable_detailed_setup=enable_detailed_setup,
         )
         self.resource_setup.observe(self.refresh, "success")
-        ipw.dlink(
+        tl.dlink(
             (self.resource_setup, "message"),
             (self.setup_message, "message"),
         )
@@ -252,7 +252,7 @@ class SshComputerSetup(ipw.VBox):
 
         self._ssh_connection_message = None
         self._password_message = ipw.HTML()
-        ipw.dlink(
+        tl.dlink(
             (self, "password_message"),
             (self._password_message, "value"),
             transform=lambda x: f"<b>SSH log: {x}</b>",
@@ -1576,62 +1576,62 @@ class _ResourceSetupBaseWidget(ipw.VBox):
         # )
 
         self.ssh_computer_setup = SshComputerSetup()
-        ipw.dlink(
+        tl.dlink(
             (self.ssh_computer_setup, "message"),
             (self, "message"),
         )
 
         # Computer setup template.
         self.template_computer_setup = TemplateVariablesWidget()
-        ipw.dlink(
+        tl.dlink(
             (self.comp_resources_database, "computer_setup"),
             (self.template_computer_setup, "templates"),
         )
 
         # Computer configure template.
         self.template_computer_configure = TemplateVariablesWidget()
-        ipw.dlink(
+        tl.dlink(
             (self.comp_resources_database, "computer_configure"),
             (self.template_computer_configure, "templates"),
         )
 
         # Computer setup and configure.
         self.aiida_computer_setup = AiidaComputerSetup()
-        ipw.dlink(
+        tl.dlink(
             (self.template_computer_setup, "filled_templates"),
             (self.aiida_computer_setup, "computer_setup"),
         )
-        ipw.dlink(
+        tl.dlink(
             (self.template_computer_configure, "filled_templates"),
             (self.aiida_computer_setup, "computer_configure"),
         )
         self.aiida_computer_setup.on_setup_computer_success(
             self._on_setup_computer_success
         )
-        ipw.dlink(
+        tl.dlink(
             (self.aiida_computer_setup, "message"),
             (self, "message"),
         )
 
         # SSH connection setup.
-        ipw.dlink(
+        tl.dlink(
             (self.template_computer_configure, "filled_templates"),
             (self.ssh_computer_setup, "ssh_config"),
         )
 
         # Code setup.
         self.template_code = TemplateVariablesWidget()
-        ipw.dlink(
+        tl.dlink(
             (self.comp_resources_database, "code_setup"),
             (self.template_code, "templates"),
         )
         self.aiida_code_setup = AiidaCodeSetup()
-        ipw.dlink(
+        tl.dlink(
             (self.template_code, "filled_templates"),
             (self.aiida_code_setup, "code_setup"),
         )
         self.aiida_code_setup.on_setup_code_success(self._on_setup_code_success)
-        ipw.dlink(
+        tl.dlink(
             (self.aiida_code_setup, "message"),
             (self, "message"),
         )
