@@ -108,7 +108,7 @@ class ComputationalResourcesWidget(ipw.VBox):
         ]
         super().__init__(children=children, **kwargs)
 
-        # Quick setup.
+        # Computer/code setup
         self.resource_setup = _ResourceSetupBaseWidget(
             default_calc_job_plugin=self.default_calc_job_plugin,
             enable_quick_setup=enable_quick_setup,
@@ -1578,7 +1578,7 @@ class _ResourceSetupBaseWidget(ipw.VBox):
         enable_quick_setup=True,
         enable_detailed_setup=True,
     ):
-        if not enable_detailed_setup and not enable_quick_setup:
+        if not any((enable_detailed_setup, enable_quick_setup)):
             raise ValueError(  # noqa
                 "At least one of `enable_quick_setup` and `enable_detailed_setup` should be True."
             )
