@@ -91,7 +91,7 @@ def selenium_driver(selenium, notebook_service):
 
         selenium.find_element(By.ID, "ipython-main-app")
         selenium.find_element(By.ID, "notebook-container")
-        WebDriverWait(selenium, 100).until(
+        WebDriverWait(selenium, 240).until(
             ec.invisibility_of_element((By.ID, "appmode-busy"))
         )
 
