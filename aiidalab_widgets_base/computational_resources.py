@@ -1403,6 +1403,9 @@ class TemplateVariablesWidget(ipw.VBox):
         )
         self._help_text.layout.display = "none"
 
+        # unfilled_variables is a list of variables that are not filled.
+        self.unfilled_variables = []
+
         super().__init__(
             children=[
                 self._help_text,
@@ -1516,7 +1519,7 @@ class TemplateVariablesWidget(ipw.VBox):
         """Use template and current widgets value to fill the template
         and update the filled_template.
         """
-        self.unfilled_variables = set()
+        self.unfilled_variables = []
 
         # Remove the metadata from the templates because for the final
         # filled template we don't pass it to setup traits.
@@ -1532,7 +1535,7 @@ class TemplateVariablesWidget(ipw.VBox):
                 for _var in line.vars:
                     if self._template_variables[_var].widget.value == "":
                         variable_key = self._template_variables[_var].widget.description
-                        self.unfilled_variables.add(variable_key.strip(":"))
+                        self.unfilled_variables.append(variable_key.strip(":"))
                         inp_dict[_var] = "{{ " + _var + " }}"
                     else:
                         inp_dict[_var] = self._template_variables[_var].widget.value
@@ -1821,20 +1824,17 @@ class _ResourceSetupBaseWidget(ipw.VBox):
 
         # Check if all the template variables are filled.
         # If not raise a warning and return (skip the setup).
-        for template in (
-            self.template_computer_setup,
-            self.template_computer_configure,
-            self.template_code,
+        if (
+            unfilled_variables := self.template_computer_setup.unfilled_variables
+            + self.template_computer_configure.unfilled_variables
+            + self.template_code.unfilled_variables
         ):
-            if unfilled_variables := template.unfilled_variables:
-                var_warn_message = ", ".join(
-                    [f"<b>{v}</b>" for v in unfilled_variables]
-                )
-                self.message = wrap_message(
-                    f"Please fill the template variables: {var_warn_message}",
-                    MessageLevel.WARNING,
-                )
-                return
+            var_warn_message = ", ".join([f"<b>{v}</b>" for v in unfilled_variables])
+            self.message = wrap_message(
+                f"Please fill the template variables: {var_warn_message}",
+                MessageLevel.WARNING,
+            )
+            return
 
         # Setup the computer and code.
         if self.aiida_computer_setup.on_setup_computer():
