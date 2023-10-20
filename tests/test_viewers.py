@@ -206,6 +206,8 @@ def test_structure_data_viewer(structure_data_object):
     v._add_representation()
     assert "2" in v.atoms_not_represented.value
     v._all_representations[1].selection.value = "2"
+    v._all_representations[0].type.value = "ball+stick"
+    v._all_representations[1].type.value = "spacefill"
     v._apply_representations()
     assert v.atoms_not_represented.value == ""
 

@@ -195,7 +195,6 @@ class NglViewerRepresentation(ipw.HBox):
                 "width": "50px",
                 "visibility": "visible" if deletable else "hidden",
             },
-            style={"description_width": "initial"},
         )
         self.delete_button.on_click(self.delete_myself)
 
