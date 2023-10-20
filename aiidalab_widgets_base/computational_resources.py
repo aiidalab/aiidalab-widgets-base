@@ -1191,6 +1191,12 @@ class AiidaCodeSetup(ipw.VBox):
                     f"Code {kwargs['label']}@{computer.label} already exists, skipping creation.",
                     MessageLevel.INFO,
                 )
+                # TODO: (unkcpz) as callback function this return value not actually used
+                # meanwhile if the code already exists we still want to regard it as success (TBD).
+                # and the `_on_setup_code_success` callback functions will run.
+                # The return will break the flow and handle back the control to the caller.
+                # The proper way is to not return but raise an exception and handle it in the caller function
+                # for the afterward process.
                 return False
 
             try:
@@ -1391,6 +1397,9 @@ class TemplateVariablesWidget(ipw.VBox):
     # The output template is a dictionary of keyname and filled string.
     filled_templates = tl.Dict(allow_none=True)
 
+    # the output metadata is a dictionary of keyname and metadata of this template.
+    metadata = tl.Dict(allow_none=True)
+
     def __init__(self):
         # A placeholder for the template variables widget.
         self.template_variables = ipw.VBox()
@@ -1431,14 +1440,11 @@ class TemplateVariablesWidget(ipw.VBox):
 
         self._render()
 
+        self.metadata = self.templates.get("metadata", {})
+
         # Update the output filled template.
         # After `self._render` all the widgets are created.
         # We can use the widget value to fill the template even not all the widgets are filled.
-        # templates = copy.deepcopy(self.templates)
-        # XXX don't delete but pass as trait
-        # if "metadata" in templates:
-        #    del templates["metadata"]
-
         self.fill()
 
     def _render(self):
@@ -1656,8 +1662,8 @@ class _ResourceSetupBaseWidget(ipw.VBox):
             (self.template_computer_configure, "filled_templates"),
             (self.aiida_computer_setup, "computer_configure"),
         )
-        self.aiida_computer_setup.observe(
-            self._on_computer_configure_change, "computer_configure"
+        self.template_computer_configure.observe(
+            self._on_template_computer_configure_metadata_change, "metadata"
         )
         self.aiida_computer_setup.on_setup_computer_success(
             self._on_setup_computer_success
@@ -1790,17 +1796,15 @@ class _ResourceSetupBaseWidget(ipw.VBox):
             self.detailed_setup_widget.layout.display = "none"
             self.quick_setup_button.disabled = False
 
-    def _on_computer_configure_change(self, change):
-        """Update the computer trait"""
-        if not change["new"]:
+    def _on_template_computer_configure_metadata_change(self, change):
+        """callback when the metadata of computer_configure template is changed."""
+        if change["new"] is None:
             return
-
-        new_configure = change["new"]
 
         # decide whether to show the ssh password box widget.
         # Since for 2FA ssh credential, the password are not needed but set from
         # independent mechanism.
-        self.ssh_auth = new_configure.get("metadata", {}).get("ssh_auth", None)
+        self.ssh_auth = change["new"].get("ssh_auth", None)
         if self.ssh_auth is None:
             self.ssh_auth = "password"
 
@@ -1875,8 +1879,8 @@ class _ResourceSetupBaseWidget(ipw.VBox):
 
     def reset(self):
         """Reset the widget."""
-        self.message = ""
-        self.success = False
+        # reset the database
+        self.comp_resources_database.reset()
 
         # reset template variables
         self.template_computer_setup.reset()
@@ -1888,7 +1892,6 @@ class _ResourceSetupBaseWidget(ipw.VBox):
         self.aiida_computer_setup._reset()
 
         self.ssh_computer_setup._reset()
-        self.ssh_auth = None
 
         # essential, since if not, the same computer_configure won't trigger the `_observe_ssh_config` callback.
         self.ssh_computer_setup.ssh_config = {}
@@ -1897,6 +1900,10 @@ class _ResourceSetupBaseWidget(ipw.VBox):
         self.computer_setup = {}
         self.computer_configure = {}
         self.code_setup = {}
+
+        self.message = ""
+        self.success = False
+        self.ssh_auth = None
 
         # The layout also reset
         self._update_layout()

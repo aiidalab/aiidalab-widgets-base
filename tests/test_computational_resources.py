@@ -546,8 +546,7 @@ def test_resource_setup_widget_default():
     w.ssh_computer_setup.username.value = "aiida"
 
     # Since cscs is 2FA, test the password box is not displayed.
-    # XXX failed because of the metadata not passed from template widget
-    # assert w.ssh_computer_setup.password_box.layout.display == "none"
+    assert w.ssh_computer_setup.password_box.layout.display == "none"
 
     w._on_quick_setup()
 
@@ -555,12 +554,12 @@ def test_resource_setup_widget_default():
     assert orm.load_code("pw-7.2@daint-mc")
 
     # test select new resource reset the widget, success trait, and message trait.
-    w.comp_resources_database.reset()
+    w.reset()
 
     assert w.ssh_auth is None
-    assert w.computer_setup == {}
-    assert w.computer_configure == {}
-    assert w.code_setup == {}
+    assert w.aiida_computer_setup.computer_setup == {}
+    assert w.aiida_computer_setup.computer_configure == {}
+    assert w.aiida_code_setup.code_setup == {}
     assert w.success is False
     assert w.message == ""
     assert w.template_code._help_text.layout.display == "none"
@@ -637,6 +636,10 @@ def test_resource_setup_widget_for_password_configure(monkeypatch, tmp_path):
         content = f.read()
         assert "User aiida" in content
         assert "Host merlin-l-01.psi.ch" in content
+
+    # After reset the password box should be hidden again.
+    w.reset()
+    assert w.ssh_computer_setup.password_box.layout.display == "none"
 
 
 @pytest.mark.usefixtures("aiida_profile_clean")
