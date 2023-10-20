@@ -945,12 +945,13 @@ class _StructureDataBaseViewer(ipw.VBox):
             if len(indices) > 0:
                 params = representation.nglview_parameters(indices)
                 params["params"]["name"] = f"highlight_representation_{i}"
-                params["params"]["opacity"] = 0.3
+                params["params"]["opacity"] = 0.8
+                params["params"]["color"] = "darkgreen"
                 params["params"]["component_index"] = 0
                 if "radiusScale" in params["params"]:
-                    params["params"]["radiusScale"] *= 1.4
+                    params["params"]["radiusScale"] *= 1.2
                 else:
-                    params["params"]["aspectRatio"] *= 1.4
+                    params["params"]["aspectRatio"] *= 1.2
 
                 # Use directly the remote call for more flexibility.
                 self._viewer._remote_call(
