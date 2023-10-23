@@ -917,7 +917,7 @@ class _StructureDataBaseViewer(ipw.VBox):
 
     def highlight_atoms(
         self,
-        vis_list,
+        list_of_atoms,
     ):
         """Highlighting atoms according to the provided list."""
         if not hasattr(self._viewer, "component_0"):
@@ -932,7 +932,7 @@ class _StructureDataBaseViewer(ipw.VBox):
 
             # Then add the new one if needed.
             indices = np.intersect1d(
-                vis_list,
+                list_of_atoms,
                 np.where(
                     representation.atoms_in_representaion(self.displayed_structure)
                 )[0],
