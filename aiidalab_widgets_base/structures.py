@@ -38,9 +38,7 @@ class StructureManagerWidget(ipw.VBox):
     input_structure = tl.Union(
         [tl.Instance(ase.Atoms), tl.Instance(orm.Data)], allow_none=True
     )
-    structure = tl.Union(
-        [tl.Instance(ase.Atoms), tl.Instance(orm.Data)], allow_none=True
-    )
+    structure = tl.Instance(ase.Atoms, allow_none=True)
     structure_node = tl.Instance(orm.Data, allow_none=True, read_only=True)
     node_class = tl.Unicode()
 
