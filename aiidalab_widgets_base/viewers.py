@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 """Jupyter viewers for AiiDA data objects."""
 # pylint: disable=no-self-use
 
@@ -204,7 +206,7 @@ class NglViewerRepresentation(ipw.HBox):
     def delete_myself(self, _):
         self.master_class.delete_representation(self)
 
-    def sync_myself_to_array_from_atoms_object(self, structure):
+    def sync_myself_to_array_from_atoms_object(self, structure: ase.Atoms | None):
         """Update representation from the structure object."""
         if structure:
             if self.uuid in structure.arrays:
@@ -212,7 +214,7 @@ class NglViewerRepresentation(ipw.HBox):
                     np.where(self.atoms_in_representaion(structure))[0], shift=1
                 )
 
-    def add_myself_to_atoms_object(self, structure):
+    def add_myself_to_atoms_object(self, structure: ase.Atoms | None):
         """Add representation array to the structure object. If the array already exists, update it."""
         if structure:
             array_representation = np.full(len(structure), False, dtype=bool)
@@ -225,7 +227,7 @@ class NglViewerRepresentation(ipw.HBox):
             return True
         return False
 
-    def atoms_in_representaion(self, structure=None):
+    def atoms_in_representaion(self, structure: ase.Atoms | None = None):
         """Return an array of booleans indicating which atoms are present in the representation."""
         if structure:
             if self.uuid in structure.arrays:
