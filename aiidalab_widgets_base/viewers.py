@@ -211,8 +211,6 @@ class NglViewerRepresentation(ipw.HBox):
                 self.selection.value = list_to_string_range(
                     np.where(self.atoms_in_representaion(structure))[0], shift=1
                 )
-                return True
-        return False
 
     def add_myself_to_atoms_object(self, structure):
         """Add representation array to the structure object. If the array already exists, update it."""
