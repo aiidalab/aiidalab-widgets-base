@@ -244,7 +244,7 @@ class NglViewerRepresentation(ipw.HBox):
         params = {
             "type": self.type.value,
             "params": {
-                "sele": list_to_nglview(indices),
+                "sele": "@" + ",".join(map(str, indices)) if indices else "none",
                 "opacity": 1,
                 "color": self.color.value,
             },
