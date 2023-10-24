@@ -22,15 +22,6 @@ from .dicts import Colors, Radius
 from .misc import CopyToClipboardButton, ReversePolishNotation
 from .utils import ase2spglib, list_to_string_range, string_range_to_list
 
-
-def list_to_nglview(the_list):
-    """Converts a list of structures to a nglview widget"""
-    selection = "none"
-    if len(the_list):
-        selection = "@" + ",".join(map(str, the_list))
-    return selection
-
-
 AIIDA_VIEWER_MAPPING = {}
 
 
@@ -134,9 +125,13 @@ class DictViewer(ipw.VBox):
 
 
 class NglViewerRepresentation(ipw.HBox):
-    """Representation for StructureData in nglviewer"""
+    """This class represents the parameters for displaying a structure in NGLViewer.
 
-    master_class = None
+    It is utilized in the structure viewer, where multiple representations can be defined,
+    each specifying how to visually represent a particular subset of atoms.
+    """
+
+    master_class = None  # The structure viewer class that contains this representation.
 
     def __init__(self, uuid=None, indices=None, deletable=True):
         """Initialize the representation.
