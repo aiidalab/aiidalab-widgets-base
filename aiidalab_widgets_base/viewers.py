@@ -267,7 +267,6 @@ class _StructureDataBaseViewer(ipw.VBox):
     """
 
     _all_representations = tl.List()
-    natoms = tl.Int()
     input_selection = tl.List(tl.Int(), allow_none=True)
     selection = tl.List(tl.Int())
     displayed_selection = tl.List(tl.Int())
@@ -291,7 +290,6 @@ class _StructureDataBaseViewer(ipw.VBox):
         self._viewer.camera = default_camera
         self._viewer.observe(self._on_atom_click, names="picked")
         self._viewer.stage.set_parameters(mouse_preset="pymol")
-        self.natoms = 0
 
         view_box = ipw.VBox([self._viewer])
 
@@ -1053,6 +1051,11 @@ class _StructureDataBaseViewer(ipw.VBox):
     def thumbnail(self):
         return self._prepare_payload(file_format="png")
 
+    @property
+    def natoms(self):
+        """Number of atoms in the structure."""
+        return 0 if self.structure is None else len(self.structure)
+
 
 @register_viewer_widget("data.core.cif.CifData.")
 @register_viewer_widget("data.core.structure.StructureData.")
@@ -1083,7 +1086,6 @@ class StructureDataViewer(_StructureDataBaseViewer):
     def __init__(self, structure=None, **kwargs):
         super().__init__(**kwargs)
         self.structure = structure
-        self.natoms = len(self.structure) if self.structure else 0
 
     @tl.observe("supercell")
     def _observe_supercell(self, _=None):
@@ -1120,7 +1122,6 @@ class StructureDataViewer(_StructureDataBaseViewer):
         self._viewer.clear_representations(component=0)
 
         if structure:
-            self.natoms = len(structure)
             # Make sure that the representation arrays from structure are present in the viewer.
             structure_uuids = [
                 uuid
@@ -1151,7 +1152,6 @@ class StructureDataViewer(_StructureDataBaseViewer):
         else:
             self.set_trait("displayed_structure", None)
             self.set_trait("cell", None)
-            self.natoms = 0
 
     @tl.observe("displayed_structure")
     def _observe_displayed_structure(self, change):
