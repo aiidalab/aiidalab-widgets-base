@@ -236,7 +236,7 @@ class NglViewerRepresentation(ipw.HBox):
 
     def nglview_parameters(self, indices):
         """Return the parameters dictionary of a representation."""
-        params = {
+        nglview_parameters_dict = {
             "type": self.type.value,
             "params": {
                 "sele": "@" + ",".join(map(str, indices))
@@ -247,11 +247,11 @@ class NglViewerRepresentation(ipw.HBox):
             },
         }
         if self.type.value == "ball+stick":
-            params["params"]["aspectRatio"] = self.size.value
+            nglview_parameters_dict["params"]["aspectRatio"] = self.size.value
         else:
-            params["params"]["radiusScale"] = 0.1 * self.size.value
+            nglview_parameters_dict["params"]["radiusScale"] = 0.1 * self.size.value
 
-        return params
+        return nglview_parameters_dict
 
 
 class _StructureDataBaseViewer(ipw.VBox):
