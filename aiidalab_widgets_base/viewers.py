@@ -275,6 +275,8 @@ class _StructureDataBaseViewer(ipw.VBox):
     DEFAULT_SELECTION_OPACITY = 0.2
     DEFAULT_SELECTION_RADIUS = 6
     DEFAULT_SELECTION_COLOR = "green"
+    REPRESENTATION_PREFIX = "_aiidalab_viewer_representation_"
+    DEFAULT_REPRESENTATION = "_aiidalab_viewer_representation_default"
 
     def __init__(
         self,
@@ -479,7 +481,7 @@ class _StructureDataBaseViewer(ipw.VBox):
         # The default representation is always present and cannot be deleted.
         self._all_representations = [
             NglViewerRepresentation(
-                uuid="_aiidalab_viewer_representation_default",
+                uuid=self.DEFAULT_REPRESENTATION,
                 deletable=False,
             )
         ]
@@ -1107,9 +1109,9 @@ class StructureDataViewer(_StructureDataBaseViewer):
 
         # Add default representation array if it is not present.
         # This will make sure that the new structure is displayed at the beginning.
-        if "_aiidalab_viewer_representation_default" not in structure.arrays:
+        if self.DEFAULT_REPRESENTATION not in structure.arrays:
             structure.set_array(
-                "_aiidalab_viewer_representation_default",
+                self.DEFAULT_REPRESENTATION,
                 np.full(len(structure), True, dtype=bool),
             )
         return structure  # This also includes the case when the structure is None.
