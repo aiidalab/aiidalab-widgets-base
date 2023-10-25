@@ -94,6 +94,11 @@ panels_add_bootstrap_css = False
 # of the sidebar.
 html_logo = "_static/aiidalab_logo.png"
 
+
+html_theme_options = {
+    "navigation_with_keys": True,
+}
+
 # -- Modifications for Readthedocs ----------------------------------------
 
 
