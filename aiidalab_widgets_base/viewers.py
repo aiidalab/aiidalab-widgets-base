@@ -526,7 +526,7 @@ class _StructureDataBaseViewer(ipw.VBox):
         ]
         self._apply_representations()
 
-    def delete_representation(self, representation):
+    def delete_representation(self, representation: NglViewerRepresentation):
         try:
             index = self._all_representations.index(representation)
         except ValueError:
