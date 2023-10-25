@@ -1129,37 +1129,38 @@ class StructureDataViewer(_StructureDataBaseViewer):
 
         self._viewer.clear_representations(component=0)
 
-        if structure:
-            # Make sure that the representation arrays from structure are present in the viewer.
-            structure_uuids = [
-                uuid
-                for uuid in structure.arrays
-                if uuid.startswith("_aiidalab_viewer_representation_")
-            ]
-            rep_uuids = [rep.uuid for rep in self._all_representations]
-
-            for uuid in structure_uuids:
-                try:
-                    index = rep_uuids.index(uuid)
-                    self._all_representations[
-                        index
-                    ].sync_myself_to_array_from_atoms_object(structure)
-                except ValueError:
-                    self._add_representation(
-                        uuid=uuid,
-                        indices=np.where(structure.arrays[uuid])[0],
-                    )
-            # Empty atoms selection for the representations that are not present in the structure.
-            # Typically this happens when a new structure is imported.
-            for i, uuid in enumerate(rep_uuids):
-                if uuid not in structure_uuids:
-                    self._all_representations[i].selection.value = ""
-
-            self._observe_supercell()  # To trigger an update of the displayed structure
-            self.set_trait("cell", structure.cell)
-        else:
+        if not structure:
             self.set_trait("displayed_structure", None)
             self.set_trait("cell", None)
+            return
+
+        # Make sure that the representation arrays from structure are present in the viewer.
+        structure_uuids = [
+            uuid
+            for uuid in structure.arrays
+            if uuid.startswith("_aiidalab_viewer_representation_")
+        ]
+        rep_uuids = [rep.uuid for rep in self._all_representations]
+
+        for uuid in structure_uuids:
+            try:
+                index = rep_uuids.index(uuid)
+                self._all_representations[index].sync_myself_to_array_from_atoms_object(
+                    structure
+                )
+            except ValueError:
+                self._add_representation(
+                    uuid=uuid,
+                    indices=np.where(structure.arrays[uuid])[0],
+                )
+        # Empty atoms selection for the representations that are not present in the structure.
+        # Typically this happens when a new structure is imported.
+        for i, uuid in enumerate(rep_uuids):
+            if uuid not in structure_uuids:
+                self._all_representations[i].selection.value = ""
+
+        self._observe_supercell()  # To trigger an update of the displayed structure
+        self.set_trait("cell", structure.cell)
 
     @tl.observe("displayed_structure")
     def _observe_displayed_structure(self, change):
