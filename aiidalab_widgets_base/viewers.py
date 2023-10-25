@@ -257,13 +257,13 @@ class NglViewerRepresentation(ipw.HBox):
 class _StructureDataBaseViewer(ipw.VBox):
     """Base viewer class for AiiDA structure or trajectory objects.
 
-    :param configure_view: If True, add configuration tabs (deprecated)
-    :type configure_view: bool
-    :param configuration_tabs: List of configuration tabs (default: ["Selection", "Appearance", "Cell", "Download"])
-    :type configure_view: list
-    :param default_camera: default camera (orthographic|perspective), can be changed in the Appearance tab
-    :type default_camera: string
-
+    Traits:
+        _all_representations: list, containing all the representations of the structure.
+        input_selection: list used mostly by external tools to populate the selection field.
+        selection: list of currently selected atoms.
+        displayed_selection: list of currently displayed atoms in the displayed structure, which also includes super-cell.
+        supercell: list of supercell dimensions.
+        cell: ase.cell.Cell object.
     """
 
     _all_representations = tl.List()
@@ -285,6 +285,12 @@ class _StructureDataBaseViewer(ipw.VBox):
         default_camera="orthographic",
         **kwargs,
     ):
+        """Initialize the viewer.
+
+        :param configure_view: If True, add configuration tabs (deprecated).
+        :param configuration_tabs: List of configuration tabs (default: ["Selection", "Appearance", "Cell", "Download"]).
+        :param default_camera: default camera (orthographic|perspective), can be changed in the Appearance tab.
+        """
         # Defining viewer box.
 
         # Nglviwer
