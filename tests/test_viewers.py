@@ -1,3 +1,4 @@
+import ase
 import pytest
 import traitlets as tl
 from aiida import orm
@@ -8,9 +9,6 @@ from aiidalab_widgets_base import viewers
 @pytest.mark.usefixtures("aiida_profile_clean")
 def test_pbc_structure_data_viewer(structure_data_object):
     """Test the periodicity of the structure viewer widget."""
-
-    import ase
-
     # Prepare a structure with periodicity xy
     ase_input = ase.Atoms(
         symbols="Li2",
@@ -66,7 +64,7 @@ def test_structure_data_viewer(structure_data_object):
     format_cases = [
         (
             "Extended xyz",
-            """MgpMYXR0aWNlPSIzLjg0NzM3IDAuMCAwLjAgMS45MjM2ODUgMy4zMzE5MiAwLjAgMS45MjM2ODUgMS4xMTA2NCAzLjE0MTM2NCIgUHJvcGVydGllcz1zcGVjaWVzOlM6MTpwb3M6UjozOm1hc3NlczpSOjE6X2FpaWRhbGFiX3ZpZXdlcl9yZXByZXNlbnRhdGlvbl9kZWZhdWx0Okw6MSBwYmM9IlQgVCBUIgpTaSAgICAgICAwLjAwMDAwMDAwICAgICAgIDAuMDAwMDAwMDAgICAgICAgMC4wMDAwMDAwMCAgICAgIDI4LjA4NTUwMDAwICBUClNpICAgICAgIDEuOTIzNjg1MDAgICAgICAgMS4xMTA2NDAwMCAgICAgICAwLjc4NTM0MTAwICAgICAgMjguMDg1NTAwMDAgIFQK""",
+            """MgpMYXR0aWNlPSIzLjg0NzM3IDAuMCAwLjAgMS45MjM2ODUgMy4zMzE5MiAwLjAgMS45MjM2ODUgMS4xMTA2NCAzLjE0MTM2NCIgUHJvcGVydGllcz1zcGVjaWVzOlM6MTpwb3M6UjozOm1hc3NlczpSOjE6X2FpaWRhbGFiX3ZpZXdlcl9yZXByZXNlbnRhdGlvbl9kZWZhdWx0Okk6MSBwYmM9IlQgVCBUIgpTaSAgICAgICAwLjAwMDAwMDAwICAgICAgIDAuMDAwMDAwMDAgICAgICAgMC4wMDAwMDAwMCAgICAgIDI4LjA4NTUwMDAwICAgICAgICAwClNpICAgICAgIDEuOTIzNjg1MDAgICAgICAgMS4xMTA2NDAwMCAgICAgICAwLjc4NTM0MTAwICAgICAgMjguMDg1NTAwMDAgICAgICAgIDAK""",
         ),
         (
             "xsf",
@@ -210,6 +208,16 @@ def test_structure_data_viewer(structure_data_object):
     v._all_representations[1].type.value = "spacefill"
     v._apply_representations()
     assert v.atoms_not_represented.value == ""
+
+    # Add an atom to the structure.
+    new_structure = v.structure.copy()
+    new_structure.append(ase.Atom("C", (0.5, 0.5, 0.5)))
+    v.structure = None
+    v.structure = new_structure
+
+    # The new atom should appear in the default representation.
+    assert v._all_representations[0].selection.value == "1 3"
+    assert "3" not in v.atoms_not_represented.value
 
     # Delete the second representation.
     assert v._all_representations[0].delete_button.layout.visibility == "hidden"

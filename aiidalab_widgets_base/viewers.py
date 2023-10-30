@@ -135,7 +135,7 @@ class NglViewerRepresentation(ipw.HBox):
 
     master_class = None  # The structure viewer class that contains this representation.
 
-    def __init__(self, uuid=None, indices=None, deletable=True):
+    def __init__(self, uuid=None, indices=None, deletable=True, atom_show_threshold=1):
         """Initialize the representation.
 
         uuid: str
@@ -144,8 +144,11 @@ class NglViewerRepresentation(ipw.HBox):
             List of indices to be displayed.
         deletable: bool
             If True, add a button to delete the representation.
+        atom_show_threshold: int
+            only show the atom if the corresponding value in the representation array is larger or equal than this threshold.
         """
 
+        self.atom_show_threshold = atom_show_threshold
         self.uuid = uuid or f"_aiidalab_viewer_representation_{shortuuid.uuid()}"
 
         self.show = ipw.Checkbox(
@@ -217,12 +220,12 @@ class NglViewerRepresentation(ipw.HBox):
     def add_myself_to_atoms_object(self, structure: ase.Atoms | None):
         """Add representation array to the structure object. If the array already exists, update it."""
         if structure:
-            array_representation = np.full(len(structure), False, dtype=bool)
+            array_representation = np.full(len(structure), -1, dtype=int)
             selection = np.array(
                 string_range_to_list(self.selection.value, shift=-1)[0], dtype=int
             )
             # Only attempt to display the existing atoms.
-            array_representation[selection[selection < len(structure)]] = True
+            array_representation[selection[selection < len(structure)]] = 1
             structure.set_array(self.uuid, array_representation)
             return True
         return False
@@ -231,7 +234,7 @@ class NglViewerRepresentation(ipw.HBox):
         """Return an array of booleans indicating which atoms are present in the representation."""
         if structure:
             if self.uuid in structure.arrays:
-                return structure.arrays[self.uuid]
+                return structure.arrays[self.uuid] >= self.atom_show_threshold
         return None
 
     def nglview_parameters(self, indices):
@@ -489,6 +492,7 @@ class _StructureDataBaseViewer(ipw.VBox):
             NglViewerRepresentation(
                 uuid=self.DEFAULT_REPRESENTATION,
                 deletable=False,
+                atom_show_threshold=0,
             )
         ]
 
@@ -1118,7 +1122,7 @@ class StructureDataViewer(_StructureDataBaseViewer):
         if self.DEFAULT_REPRESENTATION not in structure.arrays:
             structure.set_array(
                 self.DEFAULT_REPRESENTATION,
-                np.full(len(structure), True, dtype=bool),
+                np.zeros(len(structure), dtype=int),
             )
         return structure  # This also includes the case when the structure is None.
 
@@ -1151,7 +1155,7 @@ class StructureDataViewer(_StructureDataBaseViewer):
             except ValueError:
                 self._add_representation(
                     uuid=uuid,
-                    indices=np.where(structure.arrays[uuid])[0],
+                    indices=np.where(structure.arrays[self.uuid] >= 1)[0],
                 )
         # Empty atoms selection for the representations that are not present in the structure.
         # Typically this happens when a new structure is imported.
