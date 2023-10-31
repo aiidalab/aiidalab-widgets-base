@@ -227,8 +227,6 @@ class NglViewerRepresentation(ipw.HBox):
             # Only attempt to display the existing atoms.
             array_representation[selection[selection < len(structure)]] = 1
             structure.set_array(self.uuid, array_representation)
-            return True
-        return False
 
     def atoms_in_representaion(self, structure: ase.Atoms | None = None):
         """Return an array of booleans indicating which atoms are present in the representation."""
