@@ -149,7 +149,7 @@ class NglViewerRepresentation(ipw.HBox):
         """
 
         self.atom_show_threshold = atom_show_threshold
-        self.uuid = uuid or f"_aiidalab_viewer_representation_{shortuuid.uuid()}"
+        self.uuid = uuid or f"{self.REPRESENTATION_PREFIX}{shortuuid.uuid()}"
 
         self.show = ipw.Checkbox(
             value=True,
@@ -566,10 +566,7 @@ class _StructureDataBaseViewer(ipw.VBox):
 
         # Remove missing representations from the structure.
         for array in self.structure.arrays:
-            if (
-                array.startswith("_aiidalab_viewer_representation_")
-                and array not in rep_uuids
-            ):
+            if array.startswith(self.REPRESENTATION_PREFIX) and array not in rep_uuids:
                 del self.structure.arrays[array]
         self._observe_structure({"new": self.structure})
         self._check_missing_atoms_in_representations()
@@ -1140,7 +1137,7 @@ class StructureDataViewer(_StructureDataBaseViewer):
         structure_uuids = [
             uuid
             for uuid in structure.arrays
-            if uuid.startswith("_aiidalab_viewer_representation_")
+            if uuid.startswith(self.REPRESENTATION_PREFIX)
         ]
         rep_uuids = [rep.uuid for rep in self._all_representations]
 
