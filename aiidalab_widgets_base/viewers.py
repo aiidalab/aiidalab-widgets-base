@@ -135,7 +135,7 @@ class NglViewerRepresentation(ipw.HBox):
 
     master_class = None  # The structure viewer class that contains this representation.
 
-    def __init__(self, uuid=None, indices=None, deletable=True, atom_show_threshold=1):
+    def __init__(self, uuid, indices=None, deletable=True, atom_show_threshold=1):
         """Initialize the representation.
 
         uuid: str
@@ -149,7 +149,7 @@ class NglViewerRepresentation(ipw.HBox):
         """
 
         self.atom_show_threshold = atom_show_threshold
-        self.uuid = uuid or f"{self.REPRESENTATION_PREFIX}{shortuuid.uuid()}"
+        self.uuid = uuid
 
         self.show = ipw.Checkbox(
             value=True,
@@ -524,7 +524,10 @@ class _StructureDataBaseViewer(ipw.VBox):
     def _add_representation(self, _=None, uuid=None, indices=None):
         """Add a representation to the list of representations."""
         self._all_representations = self._all_representations + [
-            NglViewerRepresentation(uuid=uuid, indices=indices)
+            NglViewerRepresentation(
+                uuid=uuid or f"{self.REPRESENTATION_PREFIX}{shortuuid.uuid()}",
+                indices=indices,
+            )
         ]
         self._apply_representations()
 
