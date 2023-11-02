@@ -133,7 +133,7 @@ class NglViewerRepresentation(ipw.HBox):
     each specifying how to visually represent a particular subset of atoms.
     """
 
-    master_class = None  # The structure viewer class that contains this representation.
+    viewer_class = None  # The structure viewer class that contains this representation.
 
     def __init__(self, uuid, indices=None, deletable=True, atom_show_threshold=1):
         """Initialize the representation.
@@ -207,7 +207,7 @@ class NglViewerRepresentation(ipw.HBox):
         )
 
     def delete_myself(self, _):
-        self.master_class.delete_representation(self)
+        self.viewer_class.delete_representation(self)
 
     def sync_myself_to_array_from_atoms_object(self, structure: ase.Atoms | None):
         """Update representation from the structure object."""
@@ -552,7 +552,7 @@ class _StructureDataBaseViewer(ipw.VBox):
         """Update the list of representations."""
         self.representation_output.children = change["new"]
         if change["new"]:
-            self._all_representations[-1].master_class = self
+            self._all_representations[-1].viewer_class = self
 
     def _apply_representations(self, change=None):
         """Apply the representations to the displayed structure."""
