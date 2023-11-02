@@ -56,7 +56,7 @@ def test_several_data_viewers(
 
 
 @pytest.mark.usefixtures("aiida_profile_clean")
-def test_structure_data_viewer(structure_data_object):
+def test_structure_data_viewer_storage(structure_data_object):
     v = viewers.viewer(structure_data_object)
     assert isinstance(v, viewers.StructureDataViewer)
 
@@ -80,7 +80,10 @@ def test_structure_data_viewer(structure_data_object):
         v.file_format.label = fmt
         assert v._prepare_payload() == out
 
-    # Selection of atoms.
+
+@pytest.mark.usefixtures("aiida_profile_clean")
+def test_structure_data_viewer_selection(structure_data_object):
+    v = viewers.viewer(structure_data_object)
 
     # Direct selection.
     v._selected_atoms.value = "1..2"
@@ -188,7 +191,10 @@ def test_structure_data_viewer(structure_data_object):
     v.apply_displayed_selection()
     assert v.wrong_syntax.layout.visibility == "visible"
 
-    # Test representations.
+
+@pytest.mark.usefixtures("aiida_profile_clean")
+def test_structure_data_viewer_representation(structure_data_object):
+    v = viewers.viewer(structure_data_object)
 
     # By default, there should be one "default" representation.
     assert len(v._all_representations) == 1

@@ -48,7 +48,6 @@ def test_structure_manager_widget(structure_data_object):
     # Store the modified structure.
     structure_manager_widget.btn_store.click()
     assert structure_manager_widget.structure_node.is_stored
-    stored_structure = structure_manager_widget.structure_node
 
     # Undo the structure modification.
     structure_manager_widget.undo()
@@ -58,6 +57,9 @@ def test_structure_manager_widget(structure_data_object):
     structure_manager_widget.undo()  # Undo the structure creation.
     assert structure_manager_widget.structure is None
 
+
+@pytest.mark.usefixtures("aiida_profile_clean")
+def test_structure_manager_widget_multiple_importers_editors(structure_data_object):
     # Test the widget with multiple importers, editors. Specify the viewer and the node class
     base_editor = awb.BasicStructureEditor(title="Basic Editor")
     structure_manager_widget = awb.StructureManagerWidget(
@@ -74,7 +76,7 @@ def test_structure_manager_widget(structure_data_object):
     )
 
     assert structure_manager_widget.structure is None
-    structure_manager_widget.input_structure = stored_structure
+    structure_manager_widget.input_structure = structure_data_object
 
     # Set action vector perpendicular to screen.
     base_editor.def_perpendicular_to_screen()
