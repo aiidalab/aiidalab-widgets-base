@@ -1454,4 +1454,3 @@ class BasicStructureEditor(ipw.VBox):
         # we must be sure trait atoms is set before trait selection
         self.structure = atoms
         self.input_selection = None
-        self.input_selection = []
