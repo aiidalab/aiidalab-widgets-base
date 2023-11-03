@@ -1,5 +1,6 @@
 """Some utility functions used acrross the repository."""
 import threading
+from enum import Enum
 from typing import Any, Tuple
 
 import ipywidgets as ipw
@@ -170,6 +171,33 @@ class StatusHTML(_StatusWidgetMixin, ipw.HTML):
     @traitlets.observe("message")
     def _observe_message(self, change):
         self.show_temporary_message(change["new"])
+
+
+# Define the message levels as Enum
+class MessageLevel(Enum):
+    INFO = "info"
+    WARNING = "warning"
+    ERROR = "danger"
+    SUCCESS = "success"
+
+
+def wrap_message(message, level=MessageLevel.INFO):
+    """Wrap message into HTML code with the given level."""
+    # mapping level to fa icon
+    # https://fontawesome.com/v4.7.0/icons/
+    mapping = {
+        MessageLevel.INFO: "info-circle",
+        MessageLevel.WARNING: "exclamation-triangle",
+        MessageLevel.ERROR: "exclamation-circle",
+        MessageLevel.SUCCESS: "check-circle",
+    }
+
+    # The message is wrapped into a div with the class "alert" and the icon of the given level
+    return f"""
+        <div class="alert alert-{level.value}" role="alert" style="margin-bottom: 0px; padding: 6px 12px;">
+            <i class="fa fa-{mapping[level]}"></i>{message}
+        </div>
+    """
 
 
 def ase2spglib(ase_structure: Atoms) -> Tuple[Any, Any, Any]:

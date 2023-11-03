@@ -5,7 +5,6 @@ import functools
 import io
 import pathlib
 import tempfile
-from collections import OrderedDict
 
 import ase
 import ipywidgets as ipw
@@ -98,7 +97,10 @@ class StructureManagerWidget(ipw.VBox):
 
         # Store format selector.
         data_format = ipw.RadioButtons(
-            options=self.SUPPORTED_DATA_FORMATS, description="Data type:"
+            options=tuple(
+                (key, value) for key, value in self.SUPPORTED_DATA_FORMATS.items()
+            ),
+            description="Data type:",
         )
         tl.link((data_format, "label"), (self, "node_class"))
 
@@ -658,9 +660,7 @@ class StructureBrowserWidget(ipw.VBox):
         matches = {n[0] for n in qbuild.iterall()}
         matches = sorted(matches, reverse=True, key=lambda n: n.ctime)
 
-        options = OrderedDict()
-        options[f"Select a Structure ({len(matches)} found)"] = False
-
+        options = [(f"Select a Structure ({len(matches)} found)", False)]
         for mch in matches:
             label = f"PK: {mch.pk}"
             label += " | " + mch.ctime.strftime("%Y-%m-%d %H:%M")
@@ -668,7 +668,7 @@ class StructureBrowserWidget(ipw.VBox):
             label += " | " + mch.node_type.split(".")[-2]
             label += " | " + mch.label
             label += " | " + mch.description
-            options[label] = mch
+            options.append((label, mch))
 
         self.results.options = options
 
@@ -685,13 +685,6 @@ class SmilesWidget(ipw.VBox):
 
     def __init__(self, title=""):
         self.title = title
-
-        try:
-            from openbabel import openbabel  # noqa: F401
-            from openbabel import pybel  # noqa: F401
-        except ImportError:
-            self.disable_openbabel = True
-
         try:  # noqa: TC101
             from rdkit import Chem  # noqa: F401
             from rdkit.Chem import AllChem  # noqa: F401
@@ -735,30 +728,6 @@ class SmilesWidget(ipw.VBox):
 
         return atoms
 
-    def _pybel_opt(self, smiles, steps):
-        """Optimize a molecule using force field and pybel (needed for complex SMILES)."""
-        from openbabel import openbabel as ob
-        from openbabel import pybel as pb
-
-        obconversion = ob.OBConversion()
-        obconversion.SetInFormat("smi")
-        obmol = ob.OBMol()
-        obconversion.ReadString(obmol, smiles)
-
-        pbmol = pb.Molecule(obmol)
-        pbmol.make3D(forcefield="uff", steps=50)
-
-        pbmol.localopt(forcefield="gaff", steps=200)
-        pbmol.localopt(forcefield="mmff94", steps=100)
-
-        f_f = pb._forcefields["uff"]
-        f_f.Setup(pbmol.OBMol)
-        f_f.ConjugateGradients(steps, 1.0e-9)
-        f_f.GetCoordinates(pbmol.OBMol)
-        species = [ase.data.chemical_symbols[atm.atomicnum] for atm in pbmol.atoms]
-        positions = np.asarray([atm.coords for atm in pbmol.atoms])
-        return self._make_ase(species, positions, smiles)
-
     def _rdkit_opt(self, smiles, steps):
         """Optimize a molecule using force field and rdkit (needed for complex SMILES)."""
         from rdkit import Chem
@@ -774,6 +743,14 @@ class SmilesWidget(ipw.VBox):
 
         conf_id = AllChem.EmbedMolecule(mol, maxAttempts=20, randomSeed=42)
         if conf_id < 0:
+            # Retry with different generation method that is supposed to be
+            # more stable. Perhaps we should switch to it by default.
+            # https://greglandrum.github.io/rdkit-blog/posts/2021-01-31-looking-at-random-coordinate-embedding.html#look-at-some-of-the-troublesome-structures
+            # https://www.rdkit.org/docs/source/rdkit.Chem.rdDistGeom.html#rdkit.Chem.rdDistGeom.EmbedMolecule
+            conf_id = AllChem.EmbedMolecule(
+                mol, maxAttempts=20, useRandomCoords=True, randomSeed=422
+            )
+        if conf_id < 0:
             self.output.value = "RDKit ERROR: Could not generate conformer"
             return None
         if AllChem.UFFHasAllMoleculeParams(mol):
@@ -787,28 +764,20 @@ class SmilesWidget(ipw.VBox):
         return self._make_ase(species, positions, smiles)
 
     def _mol_from_smiles(self, smiles, steps=1000):
-        """Convert SMILES to ase structure try rdkit then pybel"""
-
-        # Canonicalize the SMILES code
-        # https://en.wikipedia.org/wiki/Simplified_molecular-input_line-entry_system#Terminology
-        canonical_smiles = self.canonicalize_smiles(smiles)
-        if not canonical_smiles:
-            return None
-
-        if canonical_smiles != smiles:
-            self.output.value = f"Canonical SMILES: {canonical_smiles}"
-
+        """Convert SMILES to ASE structure using RDKit"""
         try:
-            return self._rdkit_opt(canonical_smiles, steps)
+            canonical_smiles = self.canonicalize_smiles(smiles)
+            ase = self._rdkit_opt(canonical_smiles, steps)
         except ValueError as e:
             self.output.value = str(e)
-            if self.disable_openbabel:
-                return None
-            self.output.value += " Trying OpenBabel..."
-            return self._pybel_opt(smiles, steps)
+            return None
+        else:
+            if canonical_smiles != smiles:
+                self.output.value = f"Canonical SMILES: {canonical_smiles}"
+            return ase
 
     def _on_button_pressed(self, change=None):
-        """Convert SMILES to ase structure when button is pressed."""
+        """Convert SMILES to ASE structure when button is pressed."""
         self.output.value = ""
 
         if not self.smiles.value:
@@ -821,19 +790,25 @@ class SmilesWidget(ipw.VBox):
         if self.output.value == spinner:
             self.output.value = ""
 
-    def canonicalize_smiles(self, smiles):
+    # https://en.wikipedia.org/wiki/Simplified_molecular-input_line-entry_system#Terminology
+    @staticmethod
+    def canonicalize_smiles(smiles: str) -> str:
+        """Canonicalize the SMILES code.
+
+        :raises ValueError: if SMILES is invalid or if canonicalization fails
+        """
         from rdkit import Chem
 
         mol = Chem.MolFromSmiles(smiles, sanitize=True)
         if mol is None:
-            # Something is seriously wrong with the SMILES code,
-            # just return None and don't attempt anything else.
-            self.output.value = "RDkit ERROR: Invalid SMILES string"
-            return None
+            # Something is seriously wrong with the SMILES code
+            msg = "Invalid SMILES string"
+            raise ValueError(msg)
+
         canonical_smiles = Chem.MolToSmiles(mol, isomericSmiles=True, canonical=True)
         if not canonical_smiles:
-            self.output.value = "RDkit ERROR: Could not canonicalize SMILES"
-            return None
+            msg = "SMILES canonicalization failed"
+            raise ValueError(msg)
         return canonical_smiles
 
     @tl.default("structure")
