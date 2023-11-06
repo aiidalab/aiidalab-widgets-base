@@ -1,5 +1,4 @@
 """Module to provide functionality to import structures."""
-
 import datetime
 import functools
 import io
@@ -14,7 +13,7 @@ import traitlets as tl
 from aiida import engine, orm, plugins
 
 # Local imports
-from .data import LigandSelectorWidget
+from .data import FunctionalGroupSelectorWidget
 from .utils import StatusHTML, exceptions, get_ase_from_file, get_formula
 from .viewers import StructureDataViewer
 
@@ -39,9 +38,7 @@ class StructureManagerWidget(ipw.VBox):
     input_structure = tl.Union(
         [tl.Instance(ase.Atoms), tl.Instance(orm.Data)], allow_none=True
     )
-    structure = tl.Union(
-        [tl.Instance(ase.Atoms), tl.Instance(orm.Data)], allow_none=True
-    )
+    structure = tl.Instance(ase.Atoms, allow_none=True)
     structure_node = tl.Instance(orm.Data, allow_none=True, read_only=True)
     node_class = tl.Unicode()
 
@@ -84,8 +81,8 @@ class StructureManagerWidget(ipw.VBox):
         if viewer:
             self.viewer = viewer
         else:
-            self.viewer = StructureDataViewer(**kwargs)
-        tl.dlink((self, "structure_node"), (self.viewer, "structure"))
+            self.viewer = StructureDataViewer()
+        tl.dlink((self, "structure"), (self.viewer, "structure"))
 
         # Store button.
         self.btn_store = ipw.Button(description="Store in AiiDA", disabled=True)
@@ -184,6 +181,10 @@ class StructureManagerWidget(ipw.VBox):
             for i, editor in enumerate(editors):
                 editors_tab.set_title(i, editor.title)
                 tl.link((editor, "structure"), (self, "structure"))
+                if editor.has_trait("input_selection"):
+                    tl.dlink(
+                        (editor, "input_selection"), (self.viewer, "input_selection")
+                    )
                 if editor.has_trait("selection"):
                     tl.link((editor, "selection"), (self.viewer, "selection"))
                 if editor.has_trait("camera_orientation"):
@@ -336,6 +337,7 @@ class StructureManagerWidget(ipw.VBox):
         This function enables/disables `btn_store` widget if structure is provided/set to None.
         Also, the function sets `structure_node` trait to the selected node type.
         """
+
         if not self.structure_set_by_undo:
             self.history.append(change["new"])
 
@@ -1195,7 +1197,7 @@ class BasicStructureEditor(ipw.VBox):
                 self.element.disabled = True
 
         # Ligand selection.
-        self.ligand = LigandSelectorWidget()
+        self.ligand = FunctionalGroupSelectorWidget()
         self.ligand.observe(disable_element, names="value")
 
         # Add atom.
@@ -1406,6 +1408,8 @@ class BasicStructureEditor(ipw.VBox):
             self.action_vector * self.displacement.value
         )
 
+        self.input_selection = None  # Clear selection.
+
         self.structure, self.input_selection = atoms, selection
 
     @_register_structure
@@ -1415,7 +1419,7 @@ class BasicStructureEditor(ipw.VBox):
 
         # The action.
         atoms.positions[self.selection] += np.array(self.str2vec(self.dxyz.value))
-
+        self.input_selection = None  # Clear selection.
         self.structure, self.input_selection = atoms, selection
 
     @_register_structure
@@ -1425,7 +1429,7 @@ class BasicStructureEditor(ipw.VBox):
         # The action.
         geo_center = np.average(self.structure[self.selection].get_positions(), axis=0)
         atoms.positions[self.selection] += self.str2vec(self.dxyz.value) - geo_center
-
+        self.input_selection = None  # Clear selection.
         self.structure, self.input_selection = atoms, selection
 
     @_register_structure
@@ -1439,6 +1443,7 @@ class BasicStructureEditor(ipw.VBox):
         center = self.str2vec(self.point.value)
         rotated_subset.rotate(self.phi.value, v=vec, center=center, rotate_cell=False)
         atoms.positions[self.selection] = rotated_subset.positions
+        self.input_selection = None  # Clear selection.
 
         self.structure, self.input_selection = atoms, selection
 
@@ -1472,6 +1477,8 @@ class BasicStructureEditor(ipw.VBox):
 
         # Mirror atoms.
         atoms.positions[selection] -= 2 * projections
+
+        self.input_selection = None  # Clear selection.
 
         self.structure, self.input_selection = atoms, selection
 
@@ -1519,6 +1526,7 @@ class BasicStructureEditor(ipw.VBox):
             initial_ligand = self.ligand.rotate(
                 align_to=self.action_vector, remove_anchor=True
             )
+
             for idx in self.selection:
                 position = self.structure.positions[idx].copy()
                 lgnd = initial_ligand.copy()
@@ -1534,6 +1542,7 @@ class BasicStructureEditor(ipw.VBox):
     @_register_selection
     def copy_sel(self, _=None, atoms=None, selection=None):
         """Copy selected atoms and shift by 1.0 A along X-axis."""
+
         last_atom = atoms.get_global_number_of_atoms()
 
         # The action
@@ -1541,15 +1550,15 @@ class BasicStructureEditor(ipw.VBox):
         add_atoms.translate([1.0, 0, 0])
         atoms += add_atoms
 
-        new_selection = list(range(last_atom, last_atom + len(selection)))
-        self.structure, self.input_selection = atoms, new_selection
+        self.structure, self.input_selection = atoms, list(
+            range(last_atom, last_atom + len(selection))
+        )
 
     @_register_structure
     @_register_selection
     def add(self, _=None, atoms=None, selection=None):
         """Add atoms."""
         last_atom = atoms.get_global_number_of_atoms()
-
         if self.ligand.value == 0:
             initial_ligand = ase.Atoms([ase.Atom(self.element.value, [0, 0, 0])])
             rad = SYMBOL_RADIUS[self.element.value]
@@ -1575,6 +1584,8 @@ class BasicStructureEditor(ipw.VBox):
 
         new_selection = list(range(last_atom, last_atom + len(selection) * len(lgnd)))
 
+        # The order of the traitlets below is important -
+        # we must be sure trait atoms is set before trait selection
         self.structure, self.input_selection = atoms, new_selection
 
     @_register_structure
@@ -1583,6 +1594,7 @@ class BasicStructureEditor(ipw.VBox):
         """Remove selected atoms."""
         del [atoms[selection]]
 
+        # The order of the traitlets below is important -
+        # we must be sure trait atoms is set before trait selection
         self.structure = atoms
         self.input_selection = None
-        self.input_selection = []
