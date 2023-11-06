@@ -11,7 +11,7 @@ See also the `corresponding git repository <https://github.com/aiidalab/aiidalab
     :titlesonly:
     :glob:
 
-    notebooks/aiida_datatypes_viewers
+    notebooks/viewers
     notebooks/computational_resources
     notebooks/process
     notebooks/process_list
