@@ -23,7 +23,7 @@ def connect_to_eln(eln_instance=None, **kwargs):
     except (FileNotFoundError, json.JSONDecodeError, KeyError):
         return (
             None,
-            f"Can't open '{ELN_CONFIG}' (ELN configuration file). Instance: {eln_instance}",
+            f"Can't open {ELN_CONFIG!r} (ELN configuration file). Instance: {eln_instance}",
         )
 
     # If no ELN instance was specified, trying the default one.
@@ -35,7 +35,7 @@ def connect_to_eln(eln_instance=None, **kwargs):
             eln_config = config[eln_instance]
             eln_type = eln_config.pop("eln_type", None)
         else:  # The selected instance is not present in the config.
-            return None, f"Didn't find configuration for the '{eln_instance}' instance."
+            return None, f"Didn't find configuration for the {eln_instance!r} instance."
 
         # If the ELN type cannot be identified - aborting.
         if not eln_type:
@@ -73,7 +73,7 @@ class ElnImportWidget(ipw.VBox):
 
         if eln is None:
             url = f"{path_to_root}aiidalab-widgets-base/notebooks/eln_configure.ipynb"
-            error_message.value = f"""Warning! The access to ELN is not configured. Please follow <a href="{url}" target="_blank">the link</a> to configure it.</br> More details: {msg}"""
+            error_message.value = f"""Warning! The access to ELN is not configured. Please follow <a href={url!r} target="_blank">the link</a> to configure it.</br> More details: {msg!r}"""
             return
 
         tl.dlink((eln, "node"), (self, "node"))

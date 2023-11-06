@@ -34,7 +34,7 @@ def predefine_settings(obj, **kwargs):
         if hasattr(obj, key):
             setattr(obj, key, value)
         else:
-            raise AttributeError(f"'{obj}' object has no attribute '{key}'")
+            raise AttributeError(f"{obj!r} object has no attribute {key!r}")
 
 
 def get_ase_from_file(fname, file_format=None):  # pylint: disable=redefined-builtin
