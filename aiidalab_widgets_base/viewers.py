@@ -611,21 +611,21 @@ class _StructureDataBaseViewer(ipw.VBox):
 
         cutoff = neighborlist.natural_cutoffs(structure, mult=1.09)
         bonds = []
+
         if len(structure) > 1:
             ii, jj, distances = neighborlist.neighbor_list(
                 "ijD", structure, cutoff, self_interaction=False
             )
-            for id1, id2, d_mic in zip(ii, jj, distances):
+            for id1, id2, bond_length in zip(ii, jj, distances):
                 i = structure[id1]
                 j = structure[id2]
 
                 v1 = np.array([i.x, i.y, i.z])
-                mic_vector = d_mic
                 if povray:
                     bond = vapory.Cylinder(
                         v1,
                         v1
-                        + mic_vector
+                        + bond_length
                         * Radius[i.symbol]
                         / (Radius[i.symbol] + Radius[j.symbol]),
                         0.2,
@@ -645,7 +645,7 @@ class _StructureDataBaseViewer(ipw.VBox):
                             tuple(
                                 (
                                     v1
-                                    + mic_vector
+                                    + bond_length
                                     * Radius[i.symbol]
                                     / (Radius[i.symbol] + Radius[j.symbol])
                                 ).tolist()
