@@ -512,23 +512,6 @@ class _StructureDataBaseViewer(ipw.VBox):
         representation_accordion.set_title(0, "Representations")
         representation_accordion.selected_index = None
 
-        info_output = ipw.HTML()
-
-        def info(change=None):
-            if info_output.value == "":
-                info_output.value = """
-                The default representation is the nglview "spacefill" with only spheres.
-                The "ball+stick" representation overwrites the nglview one and bonds are represented as nglview shapes.
-                If atoms are added (for example adding a functional group) they will be assigned to the first representation.
-                Atoms that do not belong to any representation are listed separately and are not visulaized.
-                Atoms not visualized are not editable.
-                """
-            else:
-                info_output.value = ""
-
-        info_button = ipw.Button(description="Info")
-        info_button.on_click(info)
-
         return ipw.VBox(
             [
                 supercell_selector,
