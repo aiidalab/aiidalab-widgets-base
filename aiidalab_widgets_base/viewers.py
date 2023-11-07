@@ -250,8 +250,8 @@ class NglViewerRepresentation(ipw.HBox):
         }
         if self.type.value == "ball+stick":
             nglview_parameters_dict["params"]["aspectRatio"] = self.size.value
-        else:
-            nglview_parameters_dict["params"]["radiusScale"] = 0.1 * self.size.value
+        elif self.type.value == "spacefill":
+            nglview_parameters_dict["params"]["radiusScale"] = self.size.value * 0.3
 
         return nglview_parameters_dict
 
@@ -626,38 +626,35 @@ class _StructureDataBaseViewer(ipw.VBox):
 
         radius = radius / 5
 
-        cutOff = neighborlist.natural_cutoffs(structure, mult=1.09)
+        cutoff = neighborlist.natural_cutoffs(structure, mult=1.09)
         bonds = []
         if len(structure) > 1:
-            ii, jj, D = neighborlist.neighbor_list(
-                "ijD", structure, cutOff, self_interaction=False
+            ii, jj, distances = neighborlist.neighbor_list(
+                "ijD", structure, cutoff, self_interaction=False
             )
-            for id1, id2, d_mic in zip(ii, jj, D):
+            for id1, id2, d_mic in zip(ii, jj, distances):
                 i = structure[id1]
                 j = structure[id2]
 
                 v1 = np.array([i.x, i.y, i.z])
-                v2 = np.array([j.x, j.y, j.z])
                 mic_vector = d_mic
                 if povray:
-                    bond = Cylinder(
+                    bond = vapory.Cylinder(
                         v1,
                         v1
                         + mic_vector
                         * Radius[i.symbol]
                         / (Radius[i.symbol] + Radius[j.symbol]),
                         0.2,
-                        Pigment("color", np.array(Colors[i.symbol])),
-                        Finish("phong", 0.8, "reflection", 0.05),
+                        vapory.Pigment("color", np.array(Colors[i.symbol])),
+                        vapory.Finish("phong", 0.8, "reflection", 0.05),
                     )
                     bonds.append(bond)
                 else:
                     if color == "element":
-                        color0 = colors.jmol_colors[structure.numbers[id1]].tolist()
-                        color1 = colors.jmol_colors[structure.numbers[id2]].tolist()
+                        bond_color = colors.jmol_colors[structure.numbers[id1]].tolist()
                     else:
-                        color0 = RGB_colors[color]
-                        color1 = RGB_colors[color]
+                        bond_color = RGB_colors[color]
                     bonds.append(
                         (
                             "cylinder",
@@ -670,7 +667,7 @@ class _StructureDataBaseViewer(ipw.VBox):
                                     / (Radius[i.symbol] + Radius[j.symbol])
                                 ).tolist()
                             ),
-                            tuple(color0),
+                            tuple(bond_color),
                             radius,
                         )
                     )
