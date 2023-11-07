@@ -528,7 +528,6 @@ class _StructureDataBaseViewer(ipw.VBox):
 
         info_button = ipw.Button(description="Info")
         info_button.on_click(info)
-        self.representation_output = ipw.Box(layout=BOX_LAYOUT)
 
         return ipw.VBox(
             [
@@ -606,17 +605,16 @@ class _StructureDataBaseViewer(ipw.VBox):
             for i in idsl
             if self.structure.arrays["representationsshow"][i]
         ]
-        ids = self.list_to_nglview(idsl_rep)
         radiusscale = 1
         if representation.repr_type.value == "ball+stick":
             radiusscale = 0.3
         params = {
             "type": "spacefill",
             "params": {
-                "sele": ids,
+                "sele": "@" + ",".join(str(s) for s in idsl_rep),
                 "opacity": 1,
                 "color": representation.color.value,
-                "radiusScale": radiusscale * representation.radius.value,
+                "radiusScale": radiusscale * representation.size.value,
             },
         }
 
@@ -663,14 +661,16 @@ class _StructureDataBaseViewer(ipw.VBox):
                     bonds.append(
                         (
                             "cylinder",
-                            v1.tolist(),
-                            (
-                                v1
-                                + mic_vector
-                                * Radius[i.symbol]
-                                / (Radius[i.symbol] + Radius[j.symbol])
-                            ).tolist(),
-                            color0,
+                            tuple(v1.tolist()),
+                            tuple(
+                                (
+                                    v1
+                                    + mic_vector
+                                    * Radius[i.symbol]
+                                    / (Radius[i.symbol] + Radius[j.symbol])
+                                ).tolist()
+                            ),
+                            tuple(color0),
                             radius,
                         )
                     )
@@ -679,15 +679,10 @@ class _StructureDataBaseViewer(ipw.VBox):
     def _apply_representations(self, change=None):
         """Apply the representations to the displayed structure."""
         rep_uuids = []
-        self.shapes = []
 
         # Representation can only be applied if a structure is present.
         if self.structure is None:
             return
-
-        self.remove_shape_components()
-        # negative value means an atom is not assigned to a representation
-        # initially no atom is assigned to a representation
 
         # Add existing representations to the structure.
         for representation in self._all_representations:
@@ -700,16 +695,6 @@ class _StructureDataBaseViewer(ipw.VBox):
                 del self.structure.arrays[array]
         self._observe_structure({"new": self.structure})
         self._check_missing_atoms_in_representations()
-
-        # Add bonds.
-        for representation in self._all_representations:
-            if representation.type.value == "ball+stick":
-                if representation.show.value:
-                    self.shapes += self.compute_bonds(
-                        self.structure,
-                        representation.radius.value,
-                        representation.color.value,
-                    )
 
     def _check_missing_atoms_in_representations(self):
         missing_atoms = np.zeros(self.natoms)
@@ -742,13 +727,6 @@ class _StructureDataBaseViewer(ipw.VBox):
             else:
                 displayed_selection = [index]
             self.displayed_selection = displayed_selection
-
-    def list_to_nglview(self, list):
-        """Converts a list of structures to a nglview widget"""
-        sele = "none"
-        if list:
-            sele = "@" + ",".join(str(s) for s in list)
-        return sele
 
     def highlight_atoms(
         self,
@@ -791,13 +769,6 @@ class _StructureDataBaseViewer(ipw.VBox):
                     kwargs=params["params"],
                 )
 
-    def remove_shape_components(self, c=None):
-        """Remove all components of shapes, supposed to be all components >0"""
-        while hasattr(self._viewer, "component_1"):
-            self._viewer.component_1.clear_representations()
-            cid = self._viewer.component_1.id
-            self._viewer.remove_component(cid)
-
     def remove_viewer_components(self, c=None):
         """Remove all components from the viewer except the one specified."""
         self.shapes = []
@@ -805,16 +776,6 @@ class _StructureDataBaseViewer(ipw.VBox):
             self._viewer.component_0.clear_representations()
             cid = self._viewer.component_0.id
             self._viewer.remove_component(cid)
-
-    def update_viewer(self, c=None):
-        if self.displayed_structure:
-            self._viewer.set_representations(self.repr_params, component=0)
-            self._viewer.add_unitcell()
-            # bonds
-            if self.shapes:
-                self._viewer._add_shape(self.shapes, name="bonds")
-
-            self._viewer.center()
 
     @tl.observe("cell")
     def _observe_cell(self, _=None):
@@ -1303,18 +1264,31 @@ class StructureDataViewer(_StructureDataBaseViewer):
                     default_representation=False,
                     name="Structure",
                 )
-                nglview_params = [
-                    rep.nglview_parameters(
-                        np.where(rep.atoms_in_representaion(self.displayed_structure))[
-                            0
-                        ]
-                    )
-                    for rep in self._all_representations
-                    if rep.show.value
-                ]
+                bonds = []
+                nglview_params = []
+                for representation in self._all_representations:
+                    if representation.show.value:
+                        indices = np.where(
+                            representation.atoms_in_representaion(
+                                self.displayed_structure
+                            )
+                        )[0]
+                        nglview_params.append(
+                            representation.nglview_parameters(indices)
+                        )
+
+                        # Add bonds if ball+stick representation is used.
+                        if representation.type.value == "ball+stick":
+                            bonds += self.compute_bonds(
+                                self.displayed_structure[indices],
+                                representation.size.value * 0.2,
+                                representation.color.value,
+                            )
                 self._viewer.set_representations(nglview_params, component=0)
                 self._viewer.add_unitcell()
+                self._viewer._add_shape(set(bonds), name="bonds")
                 self._viewer.center()
+
         self.displayed_selection = []
 
     def d_from(self, operand):
