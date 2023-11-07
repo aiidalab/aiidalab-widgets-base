@@ -237,6 +237,19 @@ def test_basic_cell_editor_widget(structure_data_object):
     widget._to_primitive_cell()
     assert widget.structure.get_chemical_formula() == "Si2"
 
+    # Change the cell parameters.
+    widget.cell_parameters.children[2].children[1].value = 10.0
+    widget._apply_cell_parameters()
+    assert widget.structure.cell.cellpar()[2] == 10.0
+
+    # make supercell using cell transformation
+    widget.cell_transformation.children[0].children[0].value = 2
+    widget._apply_cell_transformation()
+    assert widget.structure.get_chemical_formula() == "Si4"
+    # reset the cell transformation matrix
+    widget._reset_cell_transformation_matrix()
+    assert widget.cell_transformation.children[0].children[0].value == 1
+
 
 @pytest.mark.usefixtures("aiida_profile_clean")
 def test_basic_structure_editor(structure_data_object):
