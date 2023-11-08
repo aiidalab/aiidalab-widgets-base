@@ -555,30 +555,6 @@ class _StructureDataBaseViewer(ipw.VBox):
         if change["new"]:
             self._all_representations[-1].viewer_class = self
 
-    def update_representations(self, change=None):
-        """Update the representations using the list of representations"""
-        number_of_representation_widgets = len(self.all_representations)
-        if self.displayed_structure:
-            if number_of_representation_widgets == 0:
-                self.n_all_representations = 0
-                self.add_representation(None)
-
-            representations = self.structure.arrays["representations"]
-            for rep in set(representations):
-                if (
-                    rep >= 0
-                ):  # negative values are used for atoms not represented (different from the case of hidden representations)
-                    self.all_representations[
-                        int(rep)
-                    ].selection.value = list_to_string_range(
-                        [int(i) for i in np.where(representations == rep)[0]], shift=1
-                    )
-            # empty selection field for unused representations
-            for rep in range(number_of_representation_widgets):
-                if rep not in {int(i) for i in representations}:
-                    self.all_representations[rep].selection.value = ""
-            self.apply_representations()
-
     def representation_parameters(self, representation):
         """Return the parameters dictionary of a representation."""
         idsl = string_range_to_list(representation.selection.value, shift=-1)[0]
