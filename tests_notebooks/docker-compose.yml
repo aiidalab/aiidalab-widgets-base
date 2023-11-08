@@ -16,7 +16,3 @@ services:
             - ..:/home/jovyan/apps/aiidalab-widgets-base
         ports:
             - 8998:8888
-        deploy:
-            resources:
-                limits:
-                    memory: 2000M
