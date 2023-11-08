@@ -555,30 +555,6 @@ class _StructureDataBaseViewer(ipw.VBox):
         if change["new"]:
             self._all_representations[-1].viewer_class = self
 
-    def representation_parameters(self, representation):
-        """Return the parameters dictionary of a representation."""
-        idsl = string_range_to_list(representation.selection.value, shift=-1)[0]
-        idsl_rep = [
-            i + rep * self.natoms
-            for rep in range(np.prod(self.supercell))
-            for i in idsl
-            if self.structure.arrays["representationsshow"][i]
-        ]
-        radiusscale = 1
-        if representation.repr_type.value == "ball+stick":
-            radiusscale = 0.3
-        params = {
-            "type": "spacefill",
-            "params": {
-                "sele": "@" + ",".join(str(s) for s in idsl_rep),
-                "opacity": 1,
-                "color": representation.color.value,
-                "radiusScale": radiusscale * representation.size.value,
-            },
-        }
-
-        return params
-
     def compute_bonds(self, structure, radius=1.0, color="element", povray=False):
         """Compute the bonds between atoms."""
         from ase import neighborlist
