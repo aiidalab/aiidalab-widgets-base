@@ -641,74 +641,6 @@ class _StructureDataBaseViewer(ipw.VBox):
         else:
             self.atoms_not_represented.value = ""
 
-    def _on_atom_click(self, _=None):
-        """Update selection when clicked on atom."""
-        if hasattr(self._viewer, "component_0"):
-            # Did not click on atom:
-            if "atom1" not in self._viewer.picked.keys():
-                return
-
-            index = self._viewer.picked["atom1"]["index"]
-
-            displayed_selection = self.displayed_selection.copy()
-            if displayed_selection:
-                if index not in displayed_selection:
-                    displayed_selection.append(index)
-                else:
-                    displayed_selection.remove(index)
-            else:
-                displayed_selection = [index]
-            self.displayed_selection = displayed_selection
-
-    def highlight_atoms(
-        self,
-        list_of_atoms,
-    ):
-        """Highlighting atoms according to the provided list."""
-        if not hasattr(self._viewer, "component_0"):
-            return
-
-        # Create the dictionaries for highlight_representations.
-        for i, representation in enumerate(self._all_representations):
-            # First remove the previous highlight_representation.
-            self._viewer._remove_representations_by_name(
-                repr_name=f"highlight_representation_{i}", component=0
-            )
-
-            # Then add the new one if needed.
-            indices = np.intersect1d(
-                list_of_atoms,
-                np.where(
-                    representation.atoms_in_representaion(self.displayed_structure)
-                )[0],
-            )
-            if len(indices) > 0:
-                params = representation.nglview_parameters(indices)
-                params["params"]["name"] = f"highlight_representation_{i}"
-                params["params"]["opacity"] = 0.8
-                params["params"]["color"] = "darkgreen"
-                params["params"]["component_index"] = 0
-                if "radiusScale" in params["params"]:
-                    params["params"]["radiusScale"] *= 1.2
-                else:
-                    params["params"]["aspectRatio"] *= 1.2
-
-                # Use directly the remote call for more flexibility.
-                self._viewer._remote_call(
-                    "addRepresentation",
-                    target="compList",
-                    args=[params["type"]],
-                    kwargs=params["params"],
-                )
-
-    def remove_viewer_components(self, c=None):
-        """Remove all components from the viewer except the one specified."""
-        self.shapes = []
-        while hasattr(self._viewer, "component_0"):
-            self._viewer.component_0.clear_representations()
-            cid = self._viewer.component_0.id
-            self._viewer.remove_component(cid)
-
     @tl.observe("cell")
     def _observe_cell(self, _=None):
         # Updtate the Cell and Periodicity.
@@ -987,6 +919,74 @@ class _StructureDataBaseViewer(ipw.VBox):
             payload = base64.b64encode(raw.read()).decode()
         self._download(payload=payload, filename=fname)
         self.render_btn.disabled = False
+
+    def _on_atom_click(self, _=None):
+        """Update selection when clicked on atom."""
+        if hasattr(self._viewer, "component_0"):
+            # Did not click on atom:
+            if "atom1" not in self._viewer.picked.keys():
+                return
+
+            index = self._viewer.picked["atom1"]["index"]
+
+            displayed_selection = self.displayed_selection.copy()
+            if displayed_selection:
+                if index not in displayed_selection:
+                    displayed_selection.append(index)
+                else:
+                    displayed_selection.remove(index)
+            else:
+                displayed_selection = [index]
+            self.displayed_selection = displayed_selection
+
+    def highlight_atoms(
+        self,
+        list_of_atoms,
+    ):
+        """Highlighting atoms according to the provided list."""
+        if not hasattr(self._viewer, "component_0"):
+            return
+
+        # Create the dictionaries for highlight_representations.
+        for i, representation in enumerate(self._all_representations):
+            # First remove the previous highlight_representation.
+            self._viewer._remove_representations_by_name(
+                repr_name=f"highlight_representation_{i}", component=0
+            )
+
+            # Then add the new one if needed.
+            indices = np.intersect1d(
+                list_of_atoms,
+                np.where(
+                    representation.atoms_in_representaion(self.displayed_structure)
+                )[0],
+            )
+            if len(indices) > 0:
+                params = representation.nglview_parameters(indices)
+                params["params"]["name"] = f"highlight_representation_{i}"
+                params["params"]["opacity"] = 0.8
+                params["params"]["color"] = "darkgreen"
+                params["params"]["component_index"] = 0
+                if "radiusScale" in params["params"]:
+                    params["params"]["radiusScale"] *= 1.2
+                else:
+                    params["params"]["aspectRatio"] *= 1.2
+
+                # Use directly the remote call for more flexibility.
+                self._viewer._remote_call(
+                    "addRepresentation",
+                    target="compList",
+                    args=[params["type"]],
+                    kwargs=params["params"],
+                )
+
+    def remove_viewer_components(self, c=None):
+        """Remove all components from the viewer except the one specified."""
+        self.shapes = []
+        while hasattr(self._viewer, "component_0"):
+            self._viewer.component_0.clear_representations()
+            cid = self._viewer.component_0.id
+            self._viewer.remove_component(cid)
 
     @tl.default("supercell")
     def _default_supercell(self):
