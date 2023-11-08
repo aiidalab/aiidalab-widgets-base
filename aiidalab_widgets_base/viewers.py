@@ -234,7 +234,7 @@ class NglViewerRepresentation(ipw.HBox):
         if structure:
             if self.uuid in structure.arrays:
                 return structure.arrays[self.uuid] >= self.atom_show_threshold
-        return None
+        return []
 
     def nglview_parameters(self, indices):
         """Return the parameters dictionary of a representation."""
