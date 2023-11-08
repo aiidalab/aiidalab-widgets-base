@@ -555,57 +555,57 @@ class _StructureDataBaseViewer(ipw.VBox):
         if change["new"]:
             self._all_representations[-1].viewer_class = self
 
-    def compute_bonds(self, structure, radius=1.0, color="element", povray=False):
-        """Compute the bonds between atoms."""
-        from ase import neighborlist
+    def _compute_bonds(self, structure, radius=1.0, color="element", povray=False):
+        """Create an array of bonds for the structure."""
+
+        import ase.neighborlist
 
         radius = radius / 5
 
-        cutoff = neighborlist.natural_cutoffs(structure, mult=1.09)
+        cutoff = ase.neighborlist.natural_cutoffs(structure, mult=1.09)
         bonds = []
 
+        def povray_cylinder(v1, v2, radius, atom, color):
+            color = np.array(Colors[atom.symbol])
+            return vapory.Cylinder(
+                v1,
+                v2,
+                radius,
+                vapory.Pigment("color", np.array(color)),
+                vapory.Finish("phong", 0.8, "reflection", 0.05),
+            )
+
+        def cylinder(v1, v2, radius, atom, color):
+            color = (
+                colors.jmol_colors[atom.number].tolist()
+                if color == "element"
+                else RGB_colors[color]
+            )
+            return (
+                "cylinder",
+                tuple(v1),
+                tuple(v2),
+                tuple(color),
+                radius,
+            )
+
+        # Choose the correct function for computing the cylinder.
+        compute_cylinder = povray_cylinder if povray else cylinder
+
         if len(structure) > 1:
-            ii, jj, distances = neighborlist.neighbor_list(
+            ii, jj, bond_lengths = ase.neighborlist.neighbor_list(
                 "ijD", structure, cutoff, self_interaction=False
             )
-            for id1, id2, bond_length in zip(ii, jj, distances):
-                i = structure[id1]
-                j = structure[id2]
+            for id1, id2, bond_length in zip(ii, jj, bond_lengths):
+                atom1, atom2 = structure[id1], structure[id2]
 
-                v1 = np.array([i.x, i.y, i.z])
-                if povray:
-                    bond = vapory.Cylinder(
-                        v1,
-                        v1
-                        + bond_length
-                        * Radius[i.symbol]
-                        / (Radius[i.symbol] + Radius[j.symbol]),
-                        0.2,
-                        vapory.Pigment("color", np.array(Colors[i.symbol])),
-                        vapory.Finish("phong", 0.8, "reflection", 0.05),
-                    )
-                    bonds.append(bond)
-                else:
-                    if color == "element":
-                        bond_color = colors.jmol_colors[structure.numbers[id1]].tolist()
-                    else:
-                        bond_color = RGB_colors[color]
-                    bonds.append(
-                        (
-                            "cylinder",
-                            tuple(v1.tolist()),
-                            tuple(
-                                (
-                                    v1
-                                    + bond_length
-                                    * Radius[i.symbol]
-                                    / (Radius[i.symbol] + Radius[j.symbol])
-                                ).tolist()
-                            ),
-                            tuple(bond_color),
-                            radius,
-                        )
-                    )
+                # Bond parameters
+                v1 = np.array([atom1.x, atom1.y, atom1.z])
+                half_bond_point = v1 + bond_length * Radius[atom1.symbol] / (
+                    Radius[atom1.symbol] + Radius[atom2.symbol]
+                )
+                cylinder = compute_cylinder(v1, half_bond_point, radius, atom1, color)
+                bonds.append(cylinder)
         return bonds
 
     def _apply_representations(self, change=None):
@@ -853,7 +853,7 @@ class _StructureDataBaseViewer(ipw.VBox):
             ixyz = omat[0:3, 0:3].dot(i + omat[0:3, 3])
             vertices[n] = np.array([-ixyz[0], ixyz[1], ixyz[2]])
 
-        bonds = self.compute_bonds(bb, povray=True)
+        bonds = self._compute_bonds(bb, povray=True)
 
         edges = []
         for x, i in enumerate(vertices):
@@ -1210,7 +1210,7 @@ class StructureDataViewer(_StructureDataBaseViewer):
 
                         # Add bonds if ball+stick representation is used.
                         if representation.type.value == "ball+stick":
-                            bonds += self.compute_bonds(
+                            bonds += self._compute_bonds(
                                 self.displayed_structure[indices],
                                 representation.size.value * 0.2,
                                 representation.color.value,
