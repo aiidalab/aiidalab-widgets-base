@@ -80,6 +80,17 @@ def test_structure_data_viewer_storage(structure_data_object):
         v.file_format.label = fmt
         assert v._prepare_payload() == out
 
+    # Monkey patch the viewer to avoid the need for a running X server.
+    # fmt: off
+    v._viewer._camera_orientation = [
+        16.619212980943573, 0, 0, 0,
+        0, 16.619212980943573, 0, 0,
+        0, 0, 16.619212980943573, 0,
+        -1.6859999895095825, -1.6859999895095825, -0.6669999957084656, 1,
+    ]
+    # fmt: on
+    v._render_structure()
+
 
 @pytest.mark.usefixtures("aiida_profile_clean")
 def test_structure_data_viewer_selection(structure_data_object):
