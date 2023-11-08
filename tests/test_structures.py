@@ -17,8 +17,8 @@ def test_structure_manager_widget(structure_data_object):
         editors=[
             awb.BasicStructureEditor(title="Basic Editor"),
         ],
+        input_structure=structure_data_object,
     )
-    structure_manager_widget.input_structure = structure_data_object
 
     assert structure_manager_widget.structure is not None
     assert isinstance(structure_manager_widget.structure, ase.Atoms)
@@ -27,9 +27,13 @@ def test_structure_manager_widget(structure_data_object):
     assert structure_manager_widget.viewer.periodicity.value == "Periodicity: xyz"
 
     # Store structure and check that it is stored.
-    structure_manager_widget.store_structure()
+    structure_manager_widget.btn_store.click()
     assert structure_manager_widget.structure_node.is_stored
     assert structure_manager_widget.structure_node.pk is not None
+
+    # Try to store the stored structure.
+    structure_manager_widget.btn_store.click()
+    assert "Already stored" in structure_manager_widget.output.value
 
     # Simulate the structure modification.
     new_structure = structure_manager_widget.structure.copy()
@@ -41,20 +45,41 @@ def test_structure_manager_widget(structure_data_object):
         structure_manager_widget.structure[0].position == new_structure[0].position
     )
 
+    # Store the modified structure.
+    structure_manager_widget.btn_store.click()
+    assert structure_manager_widget.structure_node.is_stored
+
     # Undo the structure modification.
     structure_manager_widget.undo()
     assert np.any(
         structure_manager_widget.structure[0].position != new_structure[0].position
     )
+    structure_manager_widget.undo()  # Undo the structure creation.
+    assert structure_manager_widget.structure is None
 
-    # test the widget can be instantiated with empty inputs
+
+@pytest.mark.usefixtures("aiida_profile_clean")
+def test_structure_manager_widget_multiple_importers_editors(structure_data_object):
+    # Test the widget with multiple importers, editors. Specify the viewer and the node class
+    base_editor = awb.BasicStructureEditor(title="Basic Editor")
     structure_manager_widget = awb.StructureManagerWidget(
         importers=[
             awb.StructureUploadWidget(title="From computer"),
+            awb.StructureBrowserWidget(title="AiiDA database"),
         ],
+        editors=[
+            base_editor,
+            awb.BasicCellEditor(title="Cell Editor"),
+        ],
+        viewer=awb.viewers.StructureDataViewer(),
+        node_class="StructureData",
     )
 
     assert structure_manager_widget.structure is None
+    structure_manager_widget.input_structure = structure_data_object
+
+    # Set action vector perpendicular to screen.
+    base_editor.def_perpendicular_to_screen()
 
 
 @pytest.mark.usefixtures("aiida_profile_clean")
@@ -212,6 +237,19 @@ def test_basic_cell_editor_widget(structure_data_object):
     widget._to_primitive_cell()
     assert widget.structure.get_chemical_formula() == "Si2"
 
+    # Change the cell parameters.
+    widget.cell_parameters.children[2].children[1].value = 10.0
+    widget._apply_cell_parameters()
+    assert widget.structure.cell.cellpar()[2] == 10.0
+
+    # make supercell using cell transformation
+    widget.cell_transformation.children[0].children[0].value = 2
+    widget._apply_cell_transformation()
+    assert widget.structure.get_chemical_formula() == "Si4"
+    # reset the cell transformation matrix
+    widget._reset_cell_transformation_matrix()
+    assert widget.cell_transformation.children[0].children[0].value == 1
+
 
 @pytest.mark.usefixtures("aiida_profile_clean")
 def test_basic_structure_editor(structure_data_object):
@@ -222,12 +260,16 @@ def test_basic_structure_editor(structure_data_object):
     # Set the structure.
     widget.structure = structure_data_object.get_ase()
 
-    # Set first action point vector to the first atom.
+    # Set first vector point vector to the first atom.
     widget.selection = [0]
     widget.def_axis_p1()
     assert widget.axis_p1.value == "0.0 0.0 0.0"
 
-    # Set second action point vector to the second atom.
+    # Set action point to the first atom.
+    widget.def_point()
+    assert widget.point.value == "0.0 0.0 0.0"
+
+    # Set second vector point vector to the second atom.
     widget.selection = [1]
     widget.def_axis_p2()
     assert widget.axis_p2.value == "1.92 1.11 0.79"
@@ -279,3 +321,10 @@ def test_basic_structure_editor(structure_data_object):
     widget.element.value = "O"
     widget.mod_element()
     assert widget.structure.get_chemical_formula() == "COSi"
+
+    # Add a ligand.
+    widget.ligand.label = "Methyl -CH3"
+    widget.selection = [2]
+    widget.add()
+    assert len(widget.structure) == 7
+    assert widget.structure.get_chemical_formula() == "C2H3OSi"

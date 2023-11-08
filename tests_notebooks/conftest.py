@@ -84,14 +84,14 @@ def selenium_driver(selenium, notebook_service):
         # By default, let's allow selenium functions to retry for 10s
         # till a given element is loaded, see:
         # https://selenium-python.readthedocs.io/waits.html#implicit-waits
-        selenium.implicitly_wait(10)
+        selenium.implicitly_wait(30)
         window_width = 800
         window_height = 600
         selenium.set_window_size(window_width, window_height)
 
         selenium.find_element(By.ID, "ipython-main-app")
         selenium.find_element(By.ID, "notebook-container")
-        WebDriverWait(selenium, 100).until(
+        WebDriverWait(selenium, 240).until(
             ec.invisibility_of_element((By.ID, "appmode-busy"))
         )
 

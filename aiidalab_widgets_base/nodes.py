@@ -308,7 +308,7 @@ class _AppIcon:
         return f"""
             <table style="border-collapse:separate;border-spacing:15px;">
             <tr>
-                <td style="width:200px"> <a href="{self.link}" target="_blank">  <img src="{self.logo}"> </a></td>
+                <td style="width:200px"> <a href={self.link!r} target="_blank">  <img src={self.logo!r}> </a></td>
                 <td style="width:800px"> <p style="font-size:16px;">{self.description} </p></td>
             </tr>
             </table>

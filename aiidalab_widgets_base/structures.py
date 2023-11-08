@@ -1,5 +1,4 @@
 """Module to provide functionality to import structures."""
-
 import datetime
 import functools
 import io
@@ -14,7 +13,7 @@ import traitlets as tl
 from aiida import engine, orm, plugins
 
 # Local imports
-from .data import LigandSelectorWidget
+from .data import FunctionalGroupSelectorWidget
 from .utils import StatusHTML, exceptions, get_ase_from_file, get_formula
 from .viewers import StructureDataViewer
 
@@ -39,9 +38,7 @@ class StructureManagerWidget(ipw.VBox):
     input_structure = tl.Union(
         [tl.Instance(ase.Atoms), tl.Instance(orm.Data)], allow_none=True
     )
-    structure = tl.Union(
-        [tl.Instance(ase.Atoms), tl.Instance(orm.Data)], allow_none=True
-    )
+    structure = tl.Instance(ase.Atoms, allow_none=True)
     structure_node = tl.Instance(orm.Data, allow_none=True, read_only=True)
     node_class = tl.Unicode()
 
@@ -84,8 +81,8 @@ class StructureManagerWidget(ipw.VBox):
         if viewer:
             self.viewer = viewer
         else:
-            self.viewer = StructureDataViewer(**kwargs)
-        tl.dlink((self, "structure_node"), (self.viewer, "structure"))
+            self.viewer = StructureDataViewer()
+        tl.dlink((self, "structure"), (self.viewer, "structure"))
 
         # Store button.
         self.btn_store = ipw.Button(description="Store in AiiDA", disabled=True)
@@ -184,6 +181,10 @@ class StructureManagerWidget(ipw.VBox):
             for i, editor in enumerate(editors):
                 editors_tab.set_title(i, editor.title)
                 tl.link((editor, "structure"), (self, "structure"))
+                if editor.has_trait("input_selection"):
+                    tl.dlink(
+                        (editor, "input_selection"), (self.viewer, "input_selection")
+                    )
                 if editor.has_trait("selection"):
                     tl.link((editor, "selection"), (self.viewer, "selection"))
                 if editor.has_trait("camera_orientation"):
@@ -336,6 +337,7 @@ class StructureManagerWidget(ipw.VBox):
         This function enables/disables `btn_store` widget if structure is provided/set to None.
         Also, the function sets `structure_node` trait to the selected node type.
         """
+
         if not self.structure_set_by_undo:
             self.history.append(change["new"])
 
@@ -895,7 +897,53 @@ class BasicCellEditor(ipw.VBox):
             layout={"width": "initial"},
         )
         conventional_cell.on_click(self._to_conventional_cell)
-
+        cell_parameters = (
+            self.structure.get_cell_lengths_and_angles()
+            if self.structure
+            else [1, 0, 0, 0, 0, 0]
+        )
+        self.cell_parameters = ipw.HBox(
+            [
+                ipw.VBox(
+                    [
+                        ipw.HTML(
+                            description=["a(Å)", "b(Å)", "c(Å)", "α", "β", "γ"][i],
+                            layout={"width": "30px"},
+                        ),
+                        ipw.FloatText(
+                            value=cell_parameters[i], layout={"width": "100px"}
+                        ),
+                    ]
+                )
+                for i in range(6)
+            ]
+        )
+        # cell transformation matrix (4x4)
+        self.cell_transformation = ipw.VBox(
+            [
+                ipw.HBox(
+                    [
+                        ipw.IntText(value=1 if i == j else 0, layout={"width": "60px"})
+                        for j in range(3)
+                    ]
+                    + [ipw.FloatText(value=0, layout={"width": "60px"})]
+                )
+                for i in range(3)
+            ]
+        )
+        apply_cell_parameters_button = ipw.Button(description="Apply cell parameters")
+        apply_cell_parameters_button.on_click(self._apply_cell_parameters)
+        self.scale_atoms_position = ipw.Checkbox(
+            description="Scale atoms position",
+            value=False,
+            indent=False,
+        )
+        apply_cell_transformation = ipw.Button(description="Apply transformation")
+        apply_cell_transformation.on_click(self._apply_cell_transformation)
+        reset_transformatioin_button = ipw.Button(
+            description="Reset matrix",
+        )
+        reset_transformatioin_button.on_click(self._reset_cell_transformation_matrix)
         super().__init__(
             children=[
                 ipw.HBox(
@@ -905,6 +953,35 @@ class BasicCellEditor(ipw.VBox):
                     ],
                 ),
                 self._status_message,
+                ipw.VBox(
+                    [
+                        ipw.HTML(
+                            "<b>Cell parameters:</b>",
+                            layout={"margin": "20px 0px 10px 0px"},
+                        ),
+                        self.cell_parameters,
+                        ipw.HBox(
+                            [
+                                apply_cell_parameters_button,
+                                self.scale_atoms_position,
+                            ]
+                        ),
+                    ],
+                    layout={"margin": "0px 0px 0px 20px"},
+                ),
+                ipw.VBox(
+                    [
+                        ipw.HTML(
+                            "<b>Cell Transformation:</b>",
+                            layout={"margin": "20px 0px 10px 0px"},
+                        ),
+                        self.cell_transformation,
+                        ipw.HBox(
+                            [apply_cell_transformation, reset_transformatioin_button]
+                        ),
+                    ],
+                    layout={"margin": "0px 0px 0px 20px"},
+                ),
             ],
         )
 
@@ -942,6 +1019,71 @@ class BasicCellEditor(ipw.VBox):
             numbers=numbers,
             pbc=[True, True, True],
         )
+
+    @tl.observe("structure")
+    def _observe_structure(self, change):
+        """Update cell after the structure has been modified."""
+        if change["new"] is not None:
+            cell_parameters = change["new"].cell.cellpar()
+            for i in range(6):
+                self.cell_parameters.children[i].children[1].value = round(
+                    cell_parameters[i], 4
+                )
+        else:
+            for i in range(6):
+                self.cell_parameters.children[i].children[1].value = 0
+
+    @_register_structure
+    def _apply_cell_parameters(self, _=None, atoms=None):
+        """Apply the cell parameters to the structure."""
+        # only update structure when atoms is not None.
+        cell_parameters = [
+            self.cell_parameters.children[i].children[1].value for i in range(6)
+        ]
+        if atoms is not None:
+            atoms.set_cell(
+                ase.cell.Cell.fromcellpar(cell_parameters),
+                scale_atoms=self.scale_atoms_position.value,
+            )
+            self.structure = atoms
+
+    @_register_structure
+    def _apply_cell_transformation(self, _=None, atoms=None):
+        """Apply the transformation matrix to the structure."""
+        from ase.build import make_supercell
+
+        # only update structure when atoms is not None.
+        if atoms is not None:
+            mat = np.zeros((3, 3))
+            translate = np.zeros(3)
+            for i in range(3):
+                translate[i] = self.cell_transformation.children[i].children[3].value
+                for j in range(3):
+                    mat[i][j] = self.cell_transformation.children[i].children[j].value
+            # transformation matrix may not work due to singularity, or
+            # the number of generated atoms is not correct
+            try:
+                atoms = make_supercell(atoms, mat)
+            except Exception as e:
+                self._status_message.message = """
+            <div class="alert alert-info">
+            <strong>The transformation matrix is wrong! {}</strong>
+            </div>
+            """.format(
+                    e
+                )
+                return
+            # translate
+            atoms.translate(-atoms.cell.array.dot(translate))
+            self.structure = atoms
+
+    @_register_structure
+    def _reset_cell_transformation_matrix(self, _=None, atoms=None):
+        """Reset the transformation matrix to identity matrix."""
+        for i in range(3):
+            for j in range(4):
+                self.cell_transformation.children[i].children[j].value = 0
+            self.cell_transformation.children[i].children[i].value = 1
 
 
 class BasicStructureEditor(ipw.VBox):
@@ -1051,7 +1193,7 @@ class BasicStructureEditor(ipw.VBox):
                 self.element.disabled = True
 
         # Ligand selection.
-        self.ligand = LigandSelectorWidget()
+        self.ligand = FunctionalGroupSelectorWidget()
         self.ligand.observe(disable_element, names="value")
 
         # Add atom.
@@ -1262,6 +1404,8 @@ class BasicStructureEditor(ipw.VBox):
             self.action_vector * self.displacement.value
         )
 
+        self.input_selection = None  # Clear selection.
+
         self.structure, self.input_selection = atoms, selection
 
     @_register_structure
@@ -1271,7 +1415,7 @@ class BasicStructureEditor(ipw.VBox):
 
         # The action.
         atoms.positions[self.selection] += np.array(self.str2vec(self.dxyz.value))
-
+        self.input_selection = None  # Clear selection.
         self.structure, self.input_selection = atoms, selection
 
     @_register_structure
@@ -1281,7 +1425,7 @@ class BasicStructureEditor(ipw.VBox):
         # The action.
         geo_center = np.average(self.structure[self.selection].get_positions(), axis=0)
         atoms.positions[self.selection] += self.str2vec(self.dxyz.value) - geo_center
-
+        self.input_selection = None  # Clear selection.
         self.structure, self.input_selection = atoms, selection
 
     @_register_structure
@@ -1295,6 +1439,7 @@ class BasicStructureEditor(ipw.VBox):
         center = self.str2vec(self.point.value)
         rotated_subset.rotate(self.phi.value, v=vec, center=center, rotate_cell=False)
         atoms.positions[self.selection] = rotated_subset.positions
+        self.input_selection = None  # Clear selection.
 
         self.structure, self.input_selection = atoms, selection
 
@@ -1328,6 +1473,8 @@ class BasicStructureEditor(ipw.VBox):
 
         # Mirror atoms.
         atoms.positions[selection] -= 2 * projections
+
+        self.input_selection = None  # Clear selection.
 
         self.structure, self.input_selection = atoms, selection
 
@@ -1375,6 +1522,7 @@ class BasicStructureEditor(ipw.VBox):
             initial_ligand = self.ligand.rotate(
                 align_to=self.action_vector, remove_anchor=True
             )
+
             for idx in self.selection:
                 position = self.structure.positions[idx].copy()
                 lgnd = initial_ligand.copy()
@@ -1390,6 +1538,7 @@ class BasicStructureEditor(ipw.VBox):
     @_register_selection
     def copy_sel(self, _=None, atoms=None, selection=None):
         """Copy selected atoms and shift by 1.0 A along X-axis."""
+
         last_atom = atoms.get_global_number_of_atoms()
 
         # The action
@@ -1397,15 +1546,15 @@ class BasicStructureEditor(ipw.VBox):
         add_atoms.translate([1.0, 0, 0])
         atoms += add_atoms
 
-        new_selection = list(range(last_atom, last_atom + len(selection)))
-        self.structure, self.input_selection = atoms, new_selection
+        self.structure, self.input_selection = atoms, list(
+            range(last_atom, last_atom + len(selection))
+        )
 
     @_register_structure
     @_register_selection
     def add(self, _=None, atoms=None, selection=None):
         """Add atoms."""
         last_atom = atoms.get_global_number_of_atoms()
-
         if self.ligand.value == 0:
             initial_ligand = ase.Atoms([ase.Atom(self.element.value, [0, 0, 0])])
             rad = SYMBOL_RADIUS[self.element.value]
@@ -1431,6 +1580,8 @@ class BasicStructureEditor(ipw.VBox):
 
         new_selection = list(range(last_atom, last_atom + len(selection) * len(lgnd)))
 
+        # The order of the traitlets below is important -
+        # we must be sure trait atoms is set before trait selection
         self.structure, self.input_selection = atoms, new_selection
 
     @_register_structure
@@ -1439,6 +1590,7 @@ class BasicStructureEditor(ipw.VBox):
         """Remove selected atoms."""
         del [atoms[selection]]
 
+        # The order of the traitlets below is important -
+        # we must be sure trait atoms is set before trait selection
         self.structure = atoms
         self.input_selection = None
-        self.input_selection = []

@@ -1,8 +1,12 @@
 """Widgets that allow to query online databases."""
+import re
+
 import ase
 import ipywidgets as ipw
 import requests
 import traitlets as tl
+
+TEMPLATE_PATTERN = re.compile(r"\{\{.*\}\}")
 
 
 class CodQueryWidget(ipw.VBox):
@@ -204,179 +208,211 @@ class OptimadeQueryWidget(ipw.VBox):
 class ComputationalResourcesDatabaseWidget(ipw.VBox):
     """Extract the setup of a known computer from the AiiDA code registry."""
 
-    default_calc_job_plugin = tl.Unicode(allow_none=True)
-    ssh_config = tl.Dict()
-    computer_setup = tl.Dict()
-    code_setup = tl.Dict()
-    database = tl.Dict()
+    _default_database_source = (
+        "https://aiidateam.github.io/aiida-resource-registry/database.json"
+    )
 
-    def __init__(self, **kwargs):
+    database_source = tl.Unicode(allow_none=True)
+
+    computer_setup = tl.Dict()
+    computer_configure = tl.Dict()
+    code_setup = tl.Dict()
+
+    STYLE = {"description_width": "180px"}
+    LAYOUT = {"width": "400px"}
+
+    def __init__(
+        self,
+        default_calc_job_plugin=None,
+        database_source=None,
+        show_reset_button=True,
+        **kwargs,
+    ):
+        if database_source is None:
+            database_source = self._default_database_source
+
+        self.default_calc_job_plugin = default_calc_job_plugin
+
         # Select domain.
-        self.inp_domain = ipw.Dropdown(
-            options=[],
-            description="Domain",
+        self.domain_selector = ipw.Dropdown(
+            options=(),
+            description="Domain:",
             disabled=False,
+            layout=self.LAYOUT,
+            style=self.STYLE,
         )
-        self.inp_domain.observe(self._domain_changed, names=["value", "options"])
+        self.domain_selector.observe(self._domain_changed, names=["value", "options"])
 
         # Select computer.
-        self.inp_computer = ipw.Dropdown(
-            options=[],
+        self.computer_selector = ipw.Dropdown(
+            options=(),
             description="Computer:",
             disabled=False,
+            layout=self.LAYOUT,
+            style=self.STYLE,
         )
-        self.inp_computer.observe(self._computer_changed, names=["value", "options"])
+        self.computer_selector.observe(
+            self._computer_changed, names=["value", "options"]
+        )
 
         # Select code.
-        self.inp_code = ipw.Dropdown(
-            options=[],
+        self.code_selector = ipw.Dropdown(
+            options=(),
             description="Code:",
             disabled=False,
+            layout=self.LAYOUT,
+            style=self.STYLE,
         )
-        self.inp_code.observe(self._code_changed, names=["value", "options"])
+        self.code_selector.observe(self._code_changed, names=["value", "options"])
 
-        btn_reset = ipw.Button(description="Reset")
-        btn_reset.on_click(self._reset)
+        reset_button = ipw.Button(description="Reset")
+        reset_button.on_click(self.reset)
+
+        if show_reset_button is False:
+            reset_button.layout.display = "none"
 
         super().__init__(
             children=[
-                self.inp_domain,
-                self.inp_computer,
-                self.inp_code,
-                btn_reset,
+                self.domain_selector,
+                self.computer_selector,
+                self.code_selector,
+                reset_button,
             ],
             **kwargs,
         )
-        self.update()
-        self._reset()
+        self.database_source = database_source
+        self.reset()
 
-    def _reset(self, _=None):
-        self.inp_domain.value = None
+    def reset(self, _=None):
+        """Reset widget and traits"""
+        with self.hold_trait_notifications():
+            self.domain_selector.value = None
+            self.computer_selector.value = None
+            self.code_selector.value = None
 
-    def clean_up_database(self, database, plugin):
-        for domain in list(database.keys()):
-            for computer in list(database[domain].keys() - {"default"}):
-                for code in list(
-                    database[domain][computer].keys()
-                    - {"computer-configure", "computer-setup"}
-                ):
-                    if (
-                        plugin
-                        != database[domain][computer][code]["default_calc_job_plugin"]
-                    ):
-                        del database[domain][computer][code]
-                # If no codes remained that correspond to the chosen plugin, remove the computer.
-                if (
-                    len(
-                        database[domain][computer].keys()
-                        - {"computer-configure", "computer-setup"}
-                    )
-                    == 0
-                ):
-                    del database[domain][computer]
-            # If no computers remained - remove the domain.
-            if len(database[domain].keys() - {"default"}) == 0:
-                del database[domain]
-            # Making sure the 'default' key still points to an existing computer.
-            elif database[domain]["default"] not in database[domain]:
-                database[domain]["default"] = sorted(
-                    database[domain].keys() - {"default"}
-                )[0]
-        return database
-
-    def update(self, _=None):
-        database = requests.get(
-            "https://aiidateam.github.io/aiida-code-registry/database_v2_1.json"
-        ).json()
-        self.database = (
-            self.clean_up_database(database, self.default_calc_job_plugin)
-            if self.default_calc_job_plugin
-            else database
+    @tl.observe("database_source")
+    def _database_source_changed(self, _=None):
+        self.database = self._database_generator(
+            self.database_source, self.default_calc_job_plugin
         )
 
-    @tl.observe("database")
-    def _observer_database_change(self, _=None):
-        self.inp_domain.options = self.database.keys()
-        self._reset()
+        # Update domain selector.
+        self.domain_selector.options = self.database.keys()
+        self.reset()
 
-    def _domain_changed(self, _=None):
-        with self.hold_trait_notifications():
-            self.inp_computer.value = None
-            try:
-                self.inp_computer.options = [
+    @staticmethod
+    def _database_generator(database_source, default_calc_job_plugin):
+        """From database source JSON and default calc job plugin, generate resource database"""
+        try:
+            database = requests.get(database_source).json()
+        except Exception:
+            database = {}
+
+        if default_calc_job_plugin is None:
+            return database
+
+        # filter database by default calc job plugin
+        for domain, domain_value in database.copy().items():
+            for computer, computer_value in domain_value.copy().items():
+                if computer == "default":
+                    # skip default computer
+                    continue
+
+                for code, code_value in list(computer_value["codes"].items()):
+                    # check if code plugin matches default plugin
+                    # if not, remove code
+                    plugin = re.sub(
+                        TEMPLATE_PATTERN, r".*", code_value["default_calc_job_plugin"]
+                    )
+                    if re.match(plugin, default_calc_job_plugin) is None:
+                        del computer_value["codes"][code]
+
+                if len(computer_value["codes"]) == 0:
+                    # remove computer since no codes defined in this computer source
+                    del domain_value[computer]
+                    if domain_value.get("default") == computer:
+                        # also remove default computer from domain
+                        del domain_value["default"]
+
+            if len(domain_value) == 0:
+                # remove domain since no computers with required codes defined in this domain source
+                del database[domain]
+                continue
+
+            if domain_value["default"] not in domain_value:
+                # make sure default computer is still points to existing computer
+                domain_value["default"] = sorted(domain_value.keys() - {"default"})[0]
+
+        return database
+
+    def _domain_changed(self, change=None):
+        """callback when new domain selected"""
+        with self.hold_trait_notifications():  # To prevent multiple calls to callbacks
+            if change["new"] is None:
+                self.computer_selector.options = ()
+                self.computer_selector.value = None
+                self.code_selector.options = ()
+                self.code_selector.value = None
+                return
+            else:
+                selected_domain = self.domain_selector.value
+
+            with self.hold_trait_notifications():
+                self.computer_selector.options = tuple(
                     key
-                    for key in self.database[self.inp_domain.value].keys()
+                    for key in self.database.get(selected_domain, {}).keys()
                     if key != "default"
-                ]
-                self.inp_computer.value = self.database[self.inp_domain.value][
-                    "default"
-                ]
-            except KeyError:
-                self.inp_computer.options = []
-                return
+                )
+                self.computer_selector.value = self.database.get(
+                    selected_domain, {}
+                ).get("default")
 
-    def _computer_changed(self, _=None):
-        """Read settings from the YAML files and populate self.database with them."""
-
+    def _computer_changed(self, change=None):
+        """callback when new computer selected"""
         with self.hold_trait_notifications():
-            if self.inp_computer.value is None:
-                self.inp_code.options = []
-                self.inp_code.value = None
-                self.ssh_config = {}
-                self.computer_setup = {}
+            if change["new"] is None:
+                self.code_selector.options = ()
+                self.code_selector.value = None
+                self.computer_setup, self.computer_configure = {}, {}
                 return
+            else:
+                self.code_selector.value = None
+                selected_computer = self.computer_selector.value
 
-            self.inp_code.options = [
-                key
-                for key in self.database[self.inp_domain.value][
-                    self.inp_computer.value
-                ].keys()
-                if key not in ("computer-setup", "computer-configure")
-            ]
+            selected_domain = self.domain_selector.value
 
-            setup = self.database[self.inp_domain.value][self.inp_computer.value][
-                "computer-setup"
-            ]
-            config = self.database[self.inp_domain.value][self.inp_computer.value][
-                "computer-configure"
-            ]
-            ssh_config = {"hostname": setup["hostname"]}
-            if "proxy_command" in config:
-                ssh_config["proxy_command"] = config["proxy_command"]
-            if "proxy_jump" in config:
-                ssh_config["proxy_jump"] = config["proxy_jump"]
+            computer_dict = self.database.get(selected_domain, {}).get(
+                selected_computer, {}
+            )
 
-            self.ssh_config = ssh_config  # To notify the trait change
+            self.code_selector.options = list(computer_dict.get("codes", {}).keys())
+            self.code_selector.value = None
 
-            self.computer_setup = {
-                "setup": setup,
-                "configure": config,
-            }
+            computer_setup = computer_dict.get("computer", {}).get("computer-setup", {})
+            computer_configure = computer_dict.get("computer", {}).get(
+                "computer-configure", {}
+            )
 
-            self._code_changed()
+            if "hostname" in computer_setup:
+                computer_configure["hostname"] = computer_setup.get("hostname")
 
-    def _code_changed(self, _=None):
+            self.computer_setup = computer_setup
+            self.computer_configure = computer_configure
+
+    def _code_changed(self, change=None):
         """Update code settings."""
-        with self.hold_trait_notifications():
-            if self.inp_code.value is None:
-                self.code_setup = {}
-                return
-            code_setup = self.database[self.inp_domain.value][self.inp_computer.value][
-                self.inp_code.value
-            ]
+        if change["new"] is None:
+            self.code_setup = {}
+            return
+        else:
+            selected_code = self.code_selector.value
 
-            if (
-                "label"
-                in self.database[self.inp_domain.value][self.inp_computer.value][
-                    "computer-setup"
-                ]
-            ):
-                code_setup["computer"] = self.database[self.inp_domain.value][
-                    self.inp_computer.value
-                ]["computer-setup"]["label"]
+        selected_domain = self.domain_selector.value
+        selected_computer = self.computer_selector.value
 
-            self.code_setup = code_setup
-
-    @tl.default("default_calc_job_plugin")
-    def _default_calc_job_plugin(self):
-        return None
+        self.code_setup = (
+            self.database.get(selected_domain, {})
+            .get(selected_computer, {})
+            .get("codes", {})
+            .get(selected_code, {})
+        )
