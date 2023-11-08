@@ -982,8 +982,7 @@ class _StructureDataBaseViewer(ipw.VBox):
 
     def remove_viewer_components(self, c=None):
         """Remove all components from the viewer except the one specified."""
-        self.shapes = []
-        while hasattr(self._viewer, "component_0"):
+        if hasattr(self._viewer, "component_0"):
             self._viewer.component_0.clear_representations()
             cid = self._viewer.component_0.id
             self._viewer.remove_component(cid)
