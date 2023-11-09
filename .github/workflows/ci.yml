@@ -119,6 +119,9 @@ jobs:
             - name: Check out app
               uses: actions/checkout@v3
 
+            - name: Install povray
+              run: sudo apt-get install povray
+
             - name: Set up Python
               uses: actions/setup-python@v4
               with:
