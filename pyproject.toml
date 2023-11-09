@@ -15,7 +15,8 @@ filterwarnings = [
     # TODO: This comes from a transitive dependency of optimade_client
     # Remove this when this issue is addressed:
     # https://github.com/CasperWA/ipywidgets-extended/issues/85
-    'ignore:metadata.*trait.*<traitlets.traitlets.Unicode object:DeprecationWarning:traitlets',
+    'ignore::DeprecationWarning:ipywidgets_extended',
+    'ignore:metadata.*traitlets.traitlets.Unicode object:DeprecationWarning:traitlets',
     # For some reason we get this error, perhaps because we do
     # not unload the AiiDA profile? Let's ignore this for now.
     # E pytest.PytestUnraisableExceptionWarning: Exception ignored in: <function Popen.__del__>
@@ -24,6 +25,7 @@ filterwarnings = [
     # E     _warn("subprocess %s is still running" % self.pid,
     # E ResourceWarning: subprocess 382685 is still running
     'ignore:Exception ignored in:pytest.PytestUnraisableExceptionWarning:_pytest',
+    'ignore::DeprecationWarning:pytest_html',
     'ignore::DeprecationWarning:jupyter_client',
     'ignore::DeprecationWarning:selenium',
     'ignore::DeprecationWarning:pytest_selenium',
