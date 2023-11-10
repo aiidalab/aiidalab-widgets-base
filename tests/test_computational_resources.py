@@ -502,7 +502,7 @@ def test_resource_setup_widget_default():
     # and the computer/code setup widget will be updated accordingly.
     w.comp_resources_database.domain_selector.value = "daint.cscs.ch"
     w.comp_resources_database.computer_selector.value = "mc"
-    w.comp_resources_database.code_selector.value = "QE-7.2-exe-template"
+    w.comp_resources_database.code_selector.value = "QuantumESPRESSO-7.2"
 
     # Test before the template is filled, the warning message is displayed.
     w._on_quick_setup()
@@ -584,7 +584,7 @@ def test_resource_setup_widget_for_password_configure(monkeypatch, tmp_path):
     # and the computer/code setup widget will be updated accordingly.
     w.comp_resources_database.domain_selector.value = "merlin.psi.ch"
     w.comp_resources_database.computer_selector.value = "cpu"
-    w.comp_resources_database.code_selector.value = "QE-7.0-exe-template"
+    w.comp_resources_database.code_selector.value = "QuantumESPRESSO-7.0"
 
     # Fill in the computer name and trigger the setup button again, the message should be updated.
     for (
@@ -651,7 +651,7 @@ def test_resource_setup_widget_computer_change_code_reset():
     # and the computer/code setup widget will be updated accordingly.
     w.comp_resources_database.domain_selector.value = "daint.cscs.ch"
     w.comp_resources_database.computer_selector.value = "mc"
-    w.comp_resources_database.code_selector.value = "QE-7.2-exe-template"
+    w.comp_resources_database.code_selector.value = "QuantumESPRESSO-7.2"
 
     assert w.template_code._help_text.layout.display == "block"
 
@@ -668,7 +668,7 @@ def test_resource_setup_widget_detailed_setup():
 
     w.comp_resources_database.domain_selector.value = "daint.cscs.ch"
     w.comp_resources_database.computer_selector.value = "mc"
-    w.comp_resources_database.code_selector.value = "pw-7.0"
+    w.comp_resources_database.code_selector.value = "cp2k-9.1"
 
     # Test the detailed setup widget is displayed with the label updated because the
     # information can get from the default of the template variables.
@@ -735,7 +735,7 @@ def test_computer_resource_setup_widget_default(monkeypatch, tmp_path):
 
     w_resource.comp_resources_database.domain_selector.value = "merlin.psi.ch"
     w_resource.comp_resources_database.computer_selector.value = "cpu"
-    w_resource.comp_resources_database.code_selector.value = "QE-7.0-exe-template"
+    w_resource.comp_resources_database.code_selector.value = "QuantumESPRESSO-7.0"
 
     # Fill in the computer name and trigger the setup button again, the message should be updated.
     for (
