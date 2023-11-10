@@ -114,7 +114,7 @@ def test_computational_resources_code_setup(
     selenium_driver, aiidalab_exec, final_screenshot
 ):
     """Test the quicksetup of the code"""
-    # check the code cp2k is not in code list
+    # check the code CP2K is not in code list
     output = aiidalab_exec("verdi code list").decode().strip()
     assert "cp2k" not in output
 
@@ -148,6 +148,6 @@ def test_computational_resources_code_setup(
     ).click()
     time.sleep(1.0)
 
-    # check the new code pw-7.0@daint-mc is in code list
+    # check the new code cp2k-9.1@daint-mc is in code list
     output = aiidalab_exec("verdi code list").decode().strip()
     assert "cp2k-9.1@daint-mc" in output
