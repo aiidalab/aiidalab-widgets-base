@@ -839,7 +839,19 @@ class AiidaComputerSetup(ipw.VBox):
             raise common.ValidationError(msg)
 
     def _configure_computer_ssh(self, computer: orm.Computer, user: orm.User):
-        """Configure the computer with SSH transport"""
+        """Configure the computer with SSH transport
+
+        There are three sources of authparams information:
+        - the SSH config file
+        - the computer_configure dictionary
+        - the default values
+
+        Priority is given to the computer_configure dictionary, then to the SSH config file, then to the default values.
+        At the moment, there is no overlap between the SSH config file and the computer_configure dictionary.
+
+        The proxyjump and proxycommend can be read from both the SSH config file and the computer_configure dictionary,
+        since the SSH config file is generated from the computer_configure dictionary in `SshComputerSetup._write_ssh_config`.
+        """
         sshcfg = aiida_ssh_plugin.parse_sshconfig(self.hostname.value)
         authparams = {
             "port": int(sshcfg.get("port", 22)),
@@ -871,10 +883,19 @@ class AiidaComputerSetup(ipw.VBox):
                 message = "SSH username is not provided"
                 raise RuntimeError(message) from exc
 
-        if "proxycommand" in sshcfg:
-            authparams["proxy_command"] = sshcfg["proxycommand"]
-        elif "proxyjump" in sshcfg:
-            authparams["proxy_jump"] = sshcfg["proxyjump"]
+        if "proxy_jump" in self.computer_configure:
+            authparams["proxy_jump"] = self.computer_configure["proxy_jump"]
+
+        if "proxy_command" in self.computer_configure:
+            authparams["proxy_command"] = self.computer_configure["proxy_command"]
+
+        if "key_filename" in self.computer_configure:
+            authparams["key_filename"] = os.path.expanduser(
+                self.computer_configure["key_filename"]
+            )
+
+        if "key_policy" in self.computer_configure:
+            authparams["key_policy"] = self.computer_configure["key_policy"]
 
         computer.configure(user=user, **authparams)
         return True

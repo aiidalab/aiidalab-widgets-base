@@ -1,3 +1,4 @@
+import os
 import re
 from pathlib import Path
 
@@ -113,6 +114,8 @@ def test_aiida_computer_setup_widget_default():
         "proxy_jump": "ela.cscs.ch",
         "safe_interval": 10,
         "use_login_shell": True,
+        "key_filename": "~/.ssh/cscs-key",
+        "key_policy": "AutoAddPolicy",
         "username": "aiida",
     }
 
@@ -124,6 +127,13 @@ def test_aiida_computer_setup_widget_default():
     computer = orm.load_computer("daint")
     assert computer.label == "daint"
     assert computer.hostname == "daint.cscs.ch"
+    assert computer.configure().get_auth_params()["proxy_jump"] == "ela.cscs.ch"
+    assert computer.configure().get_auth_params()["safe_interval"] == 10
+    assert computer.configure().get_auth_params()["use_login_shell"] is True
+    assert computer.configure().get_auth_params()["key_filename"] == os.path.expanduser(
+        "~/.ssh/cscs-key"
+    )
+    assert computer.configure().get_auth_params()["key_policy"] == "AutoAddPolicy"
 
     # Reset the widget and check that a few attributes are reset.
     widget.computer_setup = {}
