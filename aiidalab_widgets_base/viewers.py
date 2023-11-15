@@ -21,7 +21,7 @@ from ase.data import colors
 from IPython.display import clear_output, display
 from matplotlib.colors import to_rgb
 
-from .dicts import Colors, Radius, RGB_colors
+from .dicts import RGB_COLORS, Colors, Radius
 from .misc import CopyToClipboardButton, ReversePolishNotation
 from .utils import ase2spglib, list_to_string_range, string_range_to_list
 
@@ -577,15 +577,15 @@ class _StructureDataBaseViewer(ipw.VBox):
 
         def cylinder(v1, v2, radius, atom, color):
             color = (
-                colors.jmol_colors[atom.number].tolist()
+                tuple(colors.jmol_colors[atom.number].tolist())
                 if color == "element"
-                else RGB_colors[color]
+                else RGB_COLORS[color]
             )
             return (
                 "cylinder",
                 tuple(v1),
                 tuple(v2),
-                tuple(color),
+                color,
                 radius,
             )
 
