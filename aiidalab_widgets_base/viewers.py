@@ -600,10 +600,12 @@ class _StructureDataBaseViewer(ipw.VBox):
 
                 # Bond parameters
                 v1 = atom1.position
-                half_bond_point = v1 + bond_vector * Radius[atom1.symbol] / (
+                intermediate_point = v1 + bond_vector * Radius[atom1.symbol] / (
                     Radius[atom1.symbol] + Radius[atom2.symbol]
                 )
-                cylinder = compute_cylinder(v1, half_bond_point, radius, atom1, color)
+                cylinder = compute_cylinder(
+                    v1, intermediate_point, radius, atom1, color
+                )
                 bonds.append(cylinder)
         return bonds
 
