@@ -231,9 +231,8 @@ class NglViewerRepresentation(ipw.HBox):
 
     def atoms_in_representaion(self, structure: ase.Atoms | None = None):
         """Return an array of booleans indicating which atoms are present in the representation."""
-        if structure:
-            if self.uuid in structure.arrays:
-                return structure.arrays[self.uuid] >= self.atom_show_threshold
+        if structure and self.uuid in structure.arrays:
+            return structure.arrays[self.uuid] >= self.atom_show_threshold
         return []
 
     def nglview_parameters(self, indices):
