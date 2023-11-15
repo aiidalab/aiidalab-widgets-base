@@ -136,10 +136,10 @@ class NglViewerRepresentation(ipw.HBox):
 
     viewer_class = None  # The structure viewer class that contains this representation.
 
-    def __init__(self, uuid, indices=None, deletable=True, atom_show_threshold=1):
+    def __init__(self, style_id, indices=None, deletable=True, atom_show_threshold=1):
         """Initialize the representation.
 
-        uuid: str
+        style_id: str
             Unique identifier for the representation.
         indices: list
             List of indices to be displayed.
@@ -150,7 +150,7 @@ class NglViewerRepresentation(ipw.HBox):
         """
 
         self.atom_show_threshold = atom_show_threshold
-        self.uuid = uuid
+        self.style_id = style_id
 
         self.show = ipw.Checkbox(
             value=True,
@@ -213,7 +213,7 @@ class NglViewerRepresentation(ipw.HBox):
     def sync_myself_to_array_from_atoms_object(self, structure: ase.Atoms | None):
         """Update representation from the structure object."""
         if structure:
-            if self.uuid in structure.arrays:
+            if self.style_id in structure.arrays:
                 self.selection.value = list_to_string_range(
                     np.where(self.atoms_in_representaion(structure))[0], shift=1
                 )
@@ -227,12 +227,12 @@ class NglViewerRepresentation(ipw.HBox):
             )
             # Only attempt to display the existing atoms.
             array_representation[selection[selection < len(structure)]] = 1
-            structure.set_array(self.uuid, array_representation)
+            structure.set_array(self.style_id, array_representation)
 
     def atoms_in_representaion(self, structure: ase.Atoms | None = None):
         """Return an array of booleans indicating which atoms are present in the representation."""
-        if structure and self.uuid in structure.arrays:
-            return structure.arrays[self.uuid] >= self.atom_show_threshold
+        if structure and self.style_id in structure.arrays:
+            return structure.arrays[self.style_id] >= self.atom_show_threshold
         return []
 
     def nglview_parameters(self, indices):
@@ -488,7 +488,7 @@ class _StructureDataBaseViewer(ipw.VBox):
         # The default representation is always present and cannot be deleted.
         self._all_representations = [
             NglViewerRepresentation(
-                uuid=self.DEFAULT_REPRESENTATION,
+                style_id=self.DEFAULT_REPRESENTATION,
                 deletable=False,
                 atom_show_threshold=0,
             )
@@ -521,11 +521,11 @@ class _StructureDataBaseViewer(ipw.VBox):
             ]
         )
 
-    def _add_representation(self, _=None, uuid=None, indices=None):
+    def _add_representation(self, _=None, style_id=None, indices=None):
         """Add a representation to the list of representations."""
         self._all_representations = self._all_representations + [
             NglViewerRepresentation(
-                uuid=uuid or f"{self.REPRESENTATION_PREFIX}{shortuuid.uuid()}",
+                style_id=style_id or f"{self.REPRESENTATION_PREFIX}{shortuuid.uuid()}",
                 indices=indices,
             )
         ]
@@ -542,8 +542,8 @@ class _StructureDataBaseViewer(ipw.VBox):
             self._all_representations[:index] + self._all_representations[index + 1 :]
         )
 
-        if representation.uuid in self.structure.arrays:
-            del self.structure.arrays[representation.uuid]
+        if representation.style_id in self.structure.arrays:
+            del self.structure.arrays[representation.style_id]
         del representation
         self._apply_representations()
 
@@ -609,7 +609,7 @@ class _StructureDataBaseViewer(ipw.VBox):
 
     def _apply_representations(self, change=None):
         """Apply the representations to the displayed structure."""
-        rep_uuids = []
+        representation_ids = []
 
         # Representation can only be applied if a structure is present.
         if self.structure is None:
@@ -618,11 +618,14 @@ class _StructureDataBaseViewer(ipw.VBox):
         # Add existing representations to the structure.
         for representation in self._all_representations:
             representation.add_myself_to_atoms_object(self.structure)
-            rep_uuids.append(representation.uuid)
+            representation_ids.append(representation.style_id)
 
         # Remove missing representations from the structure.
         for array in self.structure.arrays:
-            if array.startswith(self.REPRESENTATION_PREFIX) and array not in rep_uuids:
+            if (
+                array.startswith(self.REPRESENTATION_PREFIX)
+                and array not in representation_ids
+            ):
                 del self.structure.arrays[array]
         self._observe_structure({"new": self.structure})
         self._check_missing_atoms_in_representations()
@@ -1156,28 +1159,28 @@ class StructureDataViewer(_StructureDataBaseViewer):
             return
 
         # Make sure that the representation arrays from structure are present in the viewer.
-        structure_uuids = [
-            uuid
-            for uuid in structure.arrays
-            if uuid.startswith(self.REPRESENTATION_PREFIX)
+        structure_ids = [
+            style_id
+            for style_id in structure.arrays
+            if style_id.startswith(self.REPRESENTATION_PREFIX)
         ]
-        rep_uuids = [rep.uuid for rep in self._all_representations]
+        representation_ids = [rep.style_id for rep in self._all_representations]
 
-        for uuid in structure_uuids:
+        for style_id in structure_ids:
             try:
-                index = rep_uuids.index(uuid)
+                index = representation_ids.index(style_id)
                 self._all_representations[index].sync_myself_to_array_from_atoms_object(
                     structure
                 )
             except ValueError:
                 self._add_representation(
-                    uuid=uuid,
-                    indices=np.where(structure.arrays[self.uuid] >= 1)[0],
+                    style_id=style_id,
+                    indices=np.where(structure.arrays[self.style_id] >= 1)[0],
                 )
         # Empty atoms selection for the representations that are not present in the structure.
         # Typically this happens when a new structure is imported.
-        for i, uuid in enumerate(rep_uuids):
-            if uuid not in structure_uuids:
+        for i, style_id in enumerate(representation_ids):
+            if style_id not in structure_ids:
                 self._all_representations[i].selection.value = ""
 
         self._observe_supercell()  # To trigger an update of the displayed structure

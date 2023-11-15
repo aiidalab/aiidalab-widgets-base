@@ -209,7 +209,9 @@ def test_structure_data_viewer_representation(structure_data_object):
 
     # By default, there should be one "default" representation.
     assert len(v._all_representations) == 1
-    assert v._all_representations[0].uuid == "_aiidalab_viewer_representation_default"
+    assert (
+        v._all_representations[0].style_id == "_aiidalab_viewer_representation_default"
+    )
     assert v._all_representations[0].selection.value == "1..2"
 
     # Display only one atom.
