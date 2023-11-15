@@ -599,7 +599,7 @@ class _StructureDataBaseViewer(ipw.VBox):
                 atom1, atom2 = structure[id1], structure[id2]
 
                 # Bond parameters
-                v1 = np.array([atom1.x, atom1.y, atom1.z])
+                v1 = atom1.position
                 half_bond_point = v1 + bond_length * Radius[atom1.symbol] / (
                     Radius[atom1.symbol] + Radius[atom2.symbol]
                 )
