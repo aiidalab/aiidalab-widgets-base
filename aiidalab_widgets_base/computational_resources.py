@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import copy
 import enum
-import os
 import re
 import subprocess
 import threading
@@ -841,12 +840,11 @@ class AiidaComputerSetup(ipw.VBox):
     def _configure_computer_ssh(self, computer: orm.Computer, user: orm.User):
         """Configure the computer with SSH transport
 
-        There are three sources of authparams information:
+        There are three sources of authparams information ordered by priority increase:
+        - the default values
         - the SSH config file
         - the computer_configure dictionary
-        - the default values
 
-        Priority is given to the computer_configure dictionary, then to the SSH config file, then to the default values.
         At the moment, there is no overlap between the SSH config file and the computer_configure dictionary.
 
         The proxyjump and proxycommend can be read from both the SSH config file and the computer_configure dictionary,
@@ -856,8 +854,8 @@ class AiidaComputerSetup(ipw.VBox):
         authparams = {
             "port": int(sshcfg.get("port", 22)),
             "look_for_keys": True,
-            "key_filename": os.path.expanduser(
-                sshcfg.get("identityfile", ["~/.ssh/id_rsa"])[0]
+            "key_filename": str(
+                Path(sshcfg.get("identityfile", ["~/.ssh/id_rsa"])[0]).expanduser()
             ),
             "timeout": 60,
             "allow_agent": True,
@@ -890,8 +888,8 @@ class AiidaComputerSetup(ipw.VBox):
             authparams["proxy_command"] = self.computer_configure["proxy_command"]
 
         if "key_filename" in self.computer_configure:
-            authparams["key_filename"] = os.path.expanduser(
-                self.computer_configure["key_filename"]
+            authparams["key_filename"] = str(
+                Path(self.computer_configure["key_filename"]).expanduser()
             )
 
         if "key_policy" in self.computer_configure:

@@ -1,4 +1,3 @@
-import os
 import re
 from pathlib import Path
 
@@ -130,8 +129,8 @@ def test_aiida_computer_setup_widget_default():
     assert computer.configure().get_auth_params()["proxy_jump"] == "ela.cscs.ch"
     assert computer.configure().get_auth_params()["safe_interval"] == 10
     assert computer.configure().get_auth_params()["use_login_shell"] is True
-    assert computer.configure().get_auth_params()["key_filename"] == os.path.expanduser(
-        "~/.ssh/cscs-key"
+    assert computer.configure().get_auth_params()["key_filename"] == str(
+        Path("~/.ssh/cscs-key").expanduser()
     )
     assert computer.configure().get_auth_params()["key_policy"] == "AutoAddPolicy"
 
