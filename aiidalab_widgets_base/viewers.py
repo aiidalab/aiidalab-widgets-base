@@ -592,15 +592,15 @@ class _StructureDataBaseViewer(ipw.VBox):
         compute_cylinder = povray_cylinder if povray else cylinder
 
         if len(structure) > 1:
-            ii, jj, bond_lengths = ase.neighborlist.neighbor_list(
+            ii, jj, bond_vectors = ase.neighborlist.neighbor_list(
                 "ijD", structure, cutoff, self_interaction=False
             )
-            for id1, id2, bond_length in zip(ii, jj, bond_lengths):
+            for id1, id2, bond_vector in zip(ii, jj, bond_vectors):
                 atom1, atom2 = structure[id1], structure[id2]
 
                 # Bond parameters
                 v1 = atom1.position
-                half_bond_point = v1 + bond_length * Radius[atom1.symbol] / (
+                half_bond_point = v1 + bond_vector * Radius[atom1.symbol] / (
                     Radius[atom1.symbol] + Radius[atom2.symbol]
                 )
                 cylinder = compute_cylinder(v1, half_bond_point, radius, atom1, color)
