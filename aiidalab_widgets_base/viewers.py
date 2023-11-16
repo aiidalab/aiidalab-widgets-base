@@ -249,9 +249,9 @@ class NglViewerRepresentation(ipw.HBox):
             },
         }
         if self.type.value == "ball+stick":
-            nglview_parameters_dict["params"]["radiusScale"] = self.size.value * 0.1
+            nglview_parameters_dict["params"]["radiusScale"] = self.size.value * 0.08
         elif self.type.value == "spacefill":
-            nglview_parameters_dict["params"]["radiusScale"] = self.size.value * 0.3
+            nglview_parameters_dict["params"]["radiusScale"] = self.size.value * 0.25
 
         return nglview_parameters_dict
 
@@ -560,8 +560,11 @@ class _StructureDataBaseViewer(ipw.VBox):
 
         import ase.neighborlist
 
-        radius = radius / 5
+        # The radius is scaled by 0.04 to have a better visual appearance.
+        radius = radius * 0.04
 
+        # The value 1.09 is chosen based on our experience. It is a good compromise between showing too many bonds
+        # and not showing bonds that should be there.
         cutoff = ase.neighborlist.natural_cutoffs(structure, mult=1.09)
         bonds = []
 
@@ -968,10 +971,6 @@ class _StructureDataBaseViewer(ipw.VBox):
                 params["params"]["opacity"] = 0.8
                 params["params"]["color"] = "darkgreen"
                 params["params"]["component_index"] = 0
-                if "radiusScale" in params["params"]:
-                    params["params"]["radiusScale"] *= 1.2
-                else:
-                    params["params"]["aspectRatio"] *= 1.2
 
                 # Use directly the remote call for more flexibility.
                 self._viewer._remote_call(
@@ -1213,7 +1212,7 @@ class StructureDataViewer(_StructureDataBaseViewer):
                         if representation.type.value == "ball+stick":
                             bonds += self._compute_bonds(
                                 self.displayed_structure[indices],
-                                representation.size.value * 0.2,
+                                representation.size.value,
                                 representation.color.value,
                             )
                 self._viewer.set_representations(nglview_params, component=0)
