@@ -251,3 +251,19 @@ def test_structure_data_viewer_representation(structure_data_object):
 
     with pytest.raises(tl.TraitError):
         v.structure = orm.Int(1)
+
+
+@pytest.mark.usefixtures("aiida_profile_clean")
+def test_compute_bonds_in_structure_data_viewer():
+    # Check the function to compute bonds.
+    water = ase.Atoms(
+        symbols=["O", "H", "H"],
+        positions=[
+            (0.0, 0.0, 0.119262),
+            (0.0, 0.763239, -0.477047),
+            (0.0, -0.763239, -0.477047),
+        ],
+    )
+    viewer = viewers.StructureDataViewer()
+    bonds = viewer._compute_bonds(water)
+    assert len(bonds) == 4
