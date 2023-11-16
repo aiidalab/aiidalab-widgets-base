@@ -233,7 +233,8 @@ class NglViewerRepresentation(ipw.HBox):
         """Return an array of booleans indicating which atoms are present in the representation."""
         if structure and self.style_id in structure.arrays:
             return structure.arrays[self.style_id] >= self.atom_show_threshold
-        return np.zeros(self.natoms, dtype=bool)
+        natoms = 0 if not structure else len(structure)
+        return np.zeros(natoms, dtype=bool)
 
     def nglview_parameters(self, indices):
         """Return the parameters dictionary of a representation."""
