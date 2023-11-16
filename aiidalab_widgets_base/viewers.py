@@ -215,7 +215,7 @@ class NglViewerRepresentation(ipw.HBox):
         if structure:
             if self.style_id in structure.arrays:
                 self.selection.value = list_to_string_range(
-                    np.where(self.atoms_in_representaion(structure))[0], shift=1
+                    np.where(self.atoms_in_representation(structure))[0], shift=1
                 )
 
     def add_myself_to_atoms_object(self, structure: ase.Atoms | None):
@@ -229,11 +229,11 @@ class NglViewerRepresentation(ipw.HBox):
             array_representation[selection[selection < len(structure)]] = 1
             structure.set_array(self.style_id, array_representation)
 
-    def atoms_in_representaion(self, structure: ase.Atoms | None = None):
+    def atoms_in_representation(self, structure: ase.Atoms | None = None):
         """Return an array of booleans indicating which atoms are present in the representation."""
         if structure and self.style_id in structure.arrays:
             return structure.arrays[self.style_id] >= self.atom_show_threshold
-        return []
+        return np.zeros(self.natoms, dtype=bool)
 
     def nglview_parameters(self, indices):
         """Return the parameters dictionary of a representation."""
@@ -635,7 +635,7 @@ class _StructureDataBaseViewer(ipw.VBox):
     def _check_missing_atoms_in_representations(self):
         missing_atoms = np.zeros(self.natoms)
         for rep in self._all_representations:
-            missing_atoms += rep.atoms_in_representaion(self.structure)
+            missing_atoms += rep.atoms_in_representation(self.structure)
         missing_atoms = np.where(missing_atoms == 0)[0]
         if len(missing_atoms) > 0:
             self.atoms_not_represented.value = (
@@ -962,7 +962,7 @@ class _StructureDataBaseViewer(ipw.VBox):
             indices = np.intersect1d(
                 list_of_atoms,
                 np.where(
-                    representation.atoms_in_representaion(self.displayed_structure)
+                    representation.atoms_in_representation(self.displayed_structure)
                 )[0],
             )
             if len(indices) > 0:
@@ -1204,7 +1204,7 @@ class StructureDataViewer(_StructureDataBaseViewer):
                 for representation in self._all_representations:
                     if representation.show.value:
                         indices = np.where(
-                            representation.atoms_in_representaion(
+                            representation.atoms_in_representation(
                                 self.displayed_structure
                             )
                         )[0]
