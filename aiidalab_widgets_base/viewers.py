@@ -17,10 +17,11 @@ import spglib
 import traitlets as tl
 import vapory
 from aiida import cmdline, orm, tools
+from ase.data import colors
 from IPython.display import clear_output, display
 from matplotlib.colors import to_rgb
 
-from .dicts import Colors, Radius
+from .dicts import RGB_COLORS, Colors, Radius
 from .misc import CopyToClipboardButton, ReversePolishNotation
 from .utils import ase2spglib, list_to_string_range, string_range_to_list
 
@@ -135,10 +136,10 @@ class NglViewerRepresentation(ipw.HBox):
 
     viewer_class = None  # The structure viewer class that contains this representation.
 
-    def __init__(self, uuid, indices=None, deletable=True, atom_show_threshold=1):
+    def __init__(self, style_id, indices=None, deletable=True, atom_show_threshold=1):
         """Initialize the representation.
 
-        uuid: str
+        style_id: str
             Unique identifier for the representation.
         indices: list
             List of indices to be displayed.
@@ -149,7 +150,7 @@ class NglViewerRepresentation(ipw.HBox):
         """
 
         self.atom_show_threshold = atom_show_threshold
-        self.uuid = uuid
+        self.style_id = style_id
 
         self.show = ipw.Checkbox(
             value=True,
@@ -212,9 +213,9 @@ class NglViewerRepresentation(ipw.HBox):
     def sync_myself_to_array_from_atoms_object(self, structure: ase.Atoms | None):
         """Update representation from the structure object."""
         if structure:
-            if self.uuid in structure.arrays:
+            if self.style_id in structure.arrays:
                 self.selection.value = list_to_string_range(
-                    np.where(self.atoms_in_representaion(structure))[0], shift=1
+                    np.where(self.atoms_in_representation(structure))[0], shift=1
                 )
 
     def add_myself_to_atoms_object(self, structure: ase.Atoms | None):
@@ -226,19 +227,19 @@ class NglViewerRepresentation(ipw.HBox):
             )
             # Only attempt to display the existing atoms.
             array_representation[selection[selection < len(structure)]] = 1
-            structure.set_array(self.uuid, array_representation)
+            structure.set_array(self.style_id, array_representation)
 
-    def atoms_in_representaion(self, structure: ase.Atoms | None = None):
+    def atoms_in_representation(self, structure: ase.Atoms | None = None):
         """Return an array of booleans indicating which atoms are present in the representation."""
-        if structure:
-            if self.uuid in structure.arrays:
-                return structure.arrays[self.uuid] >= self.atom_show_threshold
-        return None
+        if structure and self.style_id in structure.arrays:
+            return structure.arrays[self.style_id] >= self.atom_show_threshold
+        natoms = 0 if not structure else len(structure)
+        return np.zeros(natoms, dtype=bool)
 
     def nglview_parameters(self, indices):
         """Return the parameters dictionary of a representation."""
         nglview_parameters_dict = {
-            "type": self.type.value,
+            "type": "spacefill",
             "params": {
                 "sele": "@" + ",".join(map(str, indices))
                 if len(indices) > 0
@@ -248,9 +249,9 @@ class NglViewerRepresentation(ipw.HBox):
             },
         }
         if self.type.value == "ball+stick":
-            nglview_parameters_dict["params"]["aspectRatio"] = self.size.value
-        else:
-            nglview_parameters_dict["params"]["radiusScale"] = 0.1 * self.size.value
+            nglview_parameters_dict["params"]["radiusScale"] = self.size.value * 0.08
+        elif self.type.value == "spacefill":
+            nglview_parameters_dict["params"]["radiusScale"] = self.size.value * 0.25
 
         return nglview_parameters_dict
 
@@ -488,7 +489,7 @@ class _StructureDataBaseViewer(ipw.VBox):
         # The default representation is always present and cannot be deleted.
         self._all_representations = [
             NglViewerRepresentation(
-                uuid=self.DEFAULT_REPRESENTATION,
+                style_id=self.DEFAULT_REPRESENTATION,
                 deletable=False,
                 atom_show_threshold=0,
             )
@@ -521,11 +522,11 @@ class _StructureDataBaseViewer(ipw.VBox):
             ]
         )
 
-    def _add_representation(self, _=None, uuid=None, indices=None):
+    def _add_representation(self, _=None, style_id=None, indices=None):
         """Add a representation to the list of representations."""
         self._all_representations = self._all_representations + [
             NglViewerRepresentation(
-                uuid=uuid or f"{self.REPRESENTATION_PREFIX}{shortuuid.uuid()}",
+                style_id=style_id or f"{self.REPRESENTATION_PREFIX}{shortuuid.uuid()}",
                 indices=indices,
             )
         ]
@@ -542,8 +543,8 @@ class _StructureDataBaseViewer(ipw.VBox):
             self._all_representations[:index] + self._all_representations[index + 1 :]
         )
 
-        if representation.uuid in self.structure.arrays:
-            del self.structure.arrays[representation.uuid]
+        if representation.style_id in self.structure.arrays:
+            del self.structure.arrays[representation.style_id]
         del representation
         self._apply_representations()
 
@@ -554,9 +555,76 @@ class _StructureDataBaseViewer(ipw.VBox):
         if change["new"]:
             self._all_representations[-1].viewer_class = self
 
+    def _povray_cylinder(self, v1, v2, radius, color):
+        """Create a cylinder for POVRAY."""
+        return vapory.Cylinder(
+            v1,
+            v2,
+            radius,
+            vapory.Pigment("color", color),
+            vapory.Finish("phong", 0.8, "reflection", 0.05),
+        )
+
+    def _cylinder(self, v1, v2, radius, color):
+        """Create a cylinder for NGLViewer."""
+        return (
+            "cylinder",
+            tuple(v1),
+            tuple(v2),
+            tuple(color),
+            radius,
+        )
+
+    def _compute_bonds(self, structure, radius=1.0, color="element", povray=False):
+        """Create an list of bonds for the structure."""
+
+        import ase.neighborlist
+
+        bonds = []
+        if len(structure) <= 1:
+            return []
+        # The radius is scaled by 0.04 to have a better visual appearance.
+        radius = radius * 0.04
+
+        # The value 1.09 is chosen based on our experience. It is a good compromise between showing too many bonds
+        # and not showing bonds that should be there.
+        cutoff = ase.neighborlist.natural_cutoffs(structure, mult=1.09)
+
+        ii, bond_vectors = ase.neighborlist.neighbor_list(
+            "iD", structure, cutoff, self_interaction=False
+        )
+        nb = len(ii)
+        # bond start position
+        v1 = structure.positions[ii]
+        # middle position
+        v2 = v1 + bond_vectors * 0.5
+
+        # Choose the correct way for computing the cylinder.
+        if povray:
+            symbols = structure.get_chemical_symbols()
+            bonds = [
+                self._povray_cylinder(v1[ib], v2[ib], radius, Colors[symbols[ii[ib]]])
+                for ib in range(nb)
+            ]
+        else:
+            if color == "element":
+                numbers = structure.get_atomic_numbers()
+                bonds = [
+                    self._cylinder(
+                        v1[ib], v2[ib], radius, colors.jmol_colors[numbers[ii[ib]]]
+                    )
+                    for ib in range(nb)
+                ]
+            else:
+                bonds = [
+                    self._cylinder(v1[ib], v2[ib], radius, RGB_COLORS[color])
+                    for ib in range(nb)
+                ]
+        return bonds
+
     def _apply_representations(self, change=None):
         """Apply the representations to the displayed structure."""
-        rep_uuids = []
+        representation_ids = []
 
         # Representation can only be applied if a structure is present.
         if self.structure is None:
@@ -565,11 +633,14 @@ class _StructureDataBaseViewer(ipw.VBox):
         # Add existing representations to the structure.
         for representation in self._all_representations:
             representation.add_myself_to_atoms_object(self.structure)
-            rep_uuids.append(representation.uuid)
+            representation_ids.append(representation.style_id)
 
         # Remove missing representations from the structure.
         for array in self.structure.arrays:
-            if array.startswith(self.REPRESENTATION_PREFIX) and array not in rep_uuids:
+            if (
+                array.startswith(self.REPRESENTATION_PREFIX)
+                and array not in representation_ids
+            ):
                 del self.structure.arrays[array]
         self._observe_structure({"new": self.structure})
         self._check_missing_atoms_in_representations()
@@ -577,7 +648,7 @@ class _StructureDataBaseViewer(ipw.VBox):
     def _check_missing_atoms_in_representations(self):
         missing_atoms = np.zeros(self.natoms)
         for rep in self._all_representations:
-            missing_atoms += rep.atoms_in_representaion(self.structure)
+            missing_atoms += rep.atoms_in_representation(self.structure)
         missing_atoms = np.where(missing_atoms == 0)[0]
         if len(missing_atoms) > 0:
             self.atoms_not_represented.value = (
@@ -799,42 +870,7 @@ class _StructureDataBaseViewer(ipw.VBox):
             ixyz = omat[0:3, 0:3].dot(i + omat[0:3, 3])
             vertices[n] = np.array([-ixyz[0], ixyz[1], ixyz[2]])
 
-        bonds = []
-
-        cutoff = ase.neighborlist.natural_cutoffs(
-            bb
-        )  # Takes the cutoffs from the ASE database
-        neighbor_list = ase.neighborlist.NeighborList(
-            cutoff, self_interaction=False, bothways=False
-        )
-        neighbor_list.update(bb)
-        matrix = neighbor_list.get_connectivity_matrix()
-
-        for k in matrix.keys():
-            i = bb[k[0]]
-            j = bb[k[1]]
-
-            v1 = np.array([i.x, i.y, i.z])
-            v2 = np.array([j.x, j.y, j.z])
-            midi = v1 + (v2 - v1) * Radius[i.symbol] / (
-                Radius[i.symbol] + Radius[j.symbol]
-            )
-            bond = vapory.Cylinder(
-                v1,
-                midi,
-                0.2,
-                vapory.Pigment("color", np.array(Colors[i.symbol])),
-                vapory.Finish("phong", 0.8, "reflection", 0.05),
-            )
-            bonds.append(bond)
-            bond = vapory.Cylinder(
-                v2,
-                midi,
-                0.2,
-                vapory.Pigment("color", np.array(Colors[j.symbol])),
-                vapory.Finish("phong", 0.8, "reflection", 0.05),
-            )
-            bonds.append(bond)
+        bonds = self._compute_bonds(bb, povray=True)
 
         edges = []
         for x, i in enumerate(vertices):
@@ -939,7 +975,7 @@ class _StructureDataBaseViewer(ipw.VBox):
             indices = np.intersect1d(
                 list_of_atoms,
                 np.where(
-                    representation.atoms_in_representaion(self.displayed_structure)
+                    representation.atoms_in_representation(self.displayed_structure)
                 )[0],
             )
             if len(indices) > 0:
@@ -948,10 +984,6 @@ class _StructureDataBaseViewer(ipw.VBox):
                 params["params"]["opacity"] = 0.8
                 params["params"]["color"] = "darkgreen"
                 params["params"]["component_index"] = 0
-                if "radiusScale" in params["params"]:
-                    params["params"]["radiusScale"] *= 1.2
-                else:
-                    params["params"]["aspectRatio"] *= 1.2
 
                 # Use directly the remote call for more flexibility.
                 self._viewer._remote_call(
@@ -962,6 +994,7 @@ class _StructureDataBaseViewer(ipw.VBox):
                 )
 
     def remove_viewer_components(self, c=None):
+        """Remove all components from the viewer except the one specified."""
         if hasattr(self._viewer, "component_0"):
             self._viewer.component_0.clear_representations()
             cid = self._viewer.component_0.id
@@ -1137,28 +1170,28 @@ class StructureDataViewer(_StructureDataBaseViewer):
             return
 
         # Make sure that the representation arrays from structure are present in the viewer.
-        structure_uuids = [
-            uuid
-            for uuid in structure.arrays
-            if uuid.startswith(self.REPRESENTATION_PREFIX)
+        structure_ids = [
+            style_id
+            for style_id in structure.arrays
+            if style_id.startswith(self.REPRESENTATION_PREFIX)
         ]
-        rep_uuids = [rep.uuid for rep in self._all_representations]
+        representation_ids = [rep.style_id for rep in self._all_representations]
 
-        for uuid in structure_uuids:
+        for style_id in structure_ids:
             try:
-                index = rep_uuids.index(uuid)
+                index = representation_ids.index(style_id)
                 self._all_representations[index].sync_myself_to_array_from_atoms_object(
                     structure
                 )
             except ValueError:
                 self._add_representation(
-                    uuid=uuid,
-                    indices=np.where(structure.arrays[self.uuid] >= 1)[0],
+                    style_id=style_id,
+                    indices=np.where(structure.arrays[self.style_id] >= 1)[0],
                 )
         # Empty atoms selection for the representations that are not present in the structure.
         # Typically this happens when a new structure is imported.
-        for i, uuid in enumerate(rep_uuids):
-            if uuid not in structure_uuids:
+        for i, style_id in enumerate(representation_ids):
+            if style_id not in structure_ids:
                 self._all_representations[i].selection.value = ""
 
         self._observe_supercell()  # To trigger an update of the displayed structure
@@ -1175,18 +1208,31 @@ class StructureDataViewer(_StructureDataBaseViewer):
                     default_representation=False,
                     name="Structure",
                 )
-                nglview_params = [
-                    rep.nglview_parameters(
-                        np.where(rep.atoms_in_representaion(self.displayed_structure))[
-                            0
-                        ]
-                    )
-                    for rep in self._all_representations
-                    if rep.show.value
-                ]
+                bonds = []
+                nglview_params = []
+                for representation in self._all_representations:
+                    if representation.show.value:
+                        indices = np.where(
+                            representation.atoms_in_representation(
+                                self.displayed_structure
+                            )
+                        )[0]
+                        nglview_params.append(
+                            representation.nglview_parameters(indices)
+                        )
+
+                        # Add bonds if ball+stick representation is used.
+                        if representation.type.value == "ball+stick":
+                            bonds += self._compute_bonds(
+                                self.displayed_structure[indices],
+                                representation.size.value,
+                                representation.color.value,
+                            )
                 self._viewer.set_representations(nglview_params, component=0)
                 self._viewer.add_unitcell()
+                self._viewer._add_shape(set(bonds), name="bonds")
                 self._viewer.center()
+
         self.displayed_selection = []
 
     def d_from(self, operand):

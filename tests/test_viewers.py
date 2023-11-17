@@ -80,6 +80,17 @@ def test_structure_data_viewer_storage(structure_data_object):
         v.file_format.label = fmt
         assert v._prepare_payload() == out
 
+    # Monkey patch the viewer to avoid the need for a running X server.
+    # fmt: off
+    v._viewer._camera_orientation = [
+        16.619212980943573, 0, 0, 0,
+        0, 16.619212980943573, 0, 0,
+        0, 0, 16.619212980943573, 0,
+        -1.6859999895095825, -1.6859999895095825, -0.6669999957084656, 1,
+    ]
+    # fmt: on
+    v._render_structure()
+
 
 @pytest.mark.usefixtures("aiida_profile_clean")
 def test_structure_data_viewer_selection(structure_data_object):
@@ -198,7 +209,9 @@ def test_structure_data_viewer_representation(structure_data_object):
 
     # By default, there should be one "default" representation.
     assert len(v._all_representations) == 1
-    assert v._all_representations[0].uuid == "_aiidalab_viewer_representation_default"
+    assert (
+        v._all_representations[0].style_id == "_aiidalab_viewer_representation_default"
+    )
     assert v._all_representations[0].selection.value == "1..2"
 
     # Display only one atom.
@@ -238,3 +251,19 @@ def test_structure_data_viewer_representation(structure_data_object):
 
     with pytest.raises(tl.TraitError):
         v.structure = orm.Int(1)
+
+
+@pytest.mark.usefixtures("aiida_profile_clean")
+def test_compute_bonds_in_structure_data_viewer():
+    # Check the function to compute bonds.
+    water = ase.Atoms(
+        symbols=["O", "H", "H"],
+        positions=[
+            (0.0, 0.0, 0.119262),
+            (0.0, 0.763239, -0.477047),
+            (0.0, -0.763239, -0.477047),
+        ],
+    )
+    viewer = viewers.StructureDataViewer()
+    bonds = viewer._compute_bonds(water)
+    assert len(bonds) == 4
