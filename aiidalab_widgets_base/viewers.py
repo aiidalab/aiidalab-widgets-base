@@ -575,17 +575,44 @@ class _StructureDataBaseViewer(ipw.VBox):
             # Get bond parameters
             v1 = structure.positions[ii]
             # middle position
-            v2 = v1 + bond_vectors*0.5
+            v2 = v1 + bond_vectors * 0.5
             # Choose the correct way for computing the cylinder.
             if povray:
                 symbols = structure.get_chemical_symbols()
-                bonds = [vapory.Cylinder(v1[ib], v2[ib], radius, vapory.Pigment("color", Colors[symbols[ii[ib]]]), vapory.Finish("phong", 0.8, "reflection", 0.05)) for ib in range(nb)]
+                bonds = [
+                    vapory.Cylinder(
+                        v1[ib],
+                        v2[ib],
+                        radius,
+                        vapory.Pigment("color", Colors[symbols[ii[ib]]]),
+                        vapory.Finish("phong", 0.8, "reflection", 0.05),
+                    )
+                    for ib in range(nb)
+                ]
             else:
                 numbers = structure.get_atomic_numbers()
                 if color == "element":
-                    bonds = [("cylinder", tuple(v1[ib]), tuple(v2[ib]), tuple(colors.jmol_colors[numbers[ii[ib]]]), radius) for ib in range(nb)]
+                    bonds = [
+                        (
+                            "cylinder",
+                            tuple(v1[ib]),
+                            tuple(v2[ib]),
+                            tuple(colors.jmol_colors[numbers[ii[ib]]]),
+                            radius,
+                        )
+                        for ib in range(nb)
+                    ]
                 else:
-                    bonds = [("cylinder", tuple(v1[ib]), tuple(v2[ib]), RGB_COLORS[color], radius) for ib in range(nb)]
+                    bonds = [
+                        (
+                            "cylinder",
+                            tuple(v1[ib]),
+                            tuple(v2[ib]),
+                            RGB_COLORS[color],
+                            radius,
+                        )
+                        for ib in range(nb)
+                    ]
         return bonds
 
     def _apply_representations(self, change=None):
