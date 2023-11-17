@@ -560,59 +560,64 @@ class _StructureDataBaseViewer(ipw.VBox):
 
         import ase.neighborlist
 
+        bonds = []
+        if len(structure) <= 1:
+            return bonds
         # The radius is scaled by 0.04 to have a better visual appearance.
         radius = radius * 0.04
 
         # The value 1.09 is chosen based on our experience. It is a good compromise between showing too many bonds
         # and not showing bonds that should be there.
         cutoff = ase.neighborlist.natural_cutoffs(structure, mult=1.09)
-        bonds = []
-        if len(structure) > 1:
-            ii, bond_vectors = ase.neighborlist.neighbor_list(
-                "iD", structure, cutoff, self_interaction=False
+
+        ii, bond_vectors = ase.neighborlist.neighbor_list(
+            "iD", structure, cutoff, self_interaction=False
+        )
+        nb = len(ii)
+        # bond start position
+        v1 = structure.positions[ii]
+        # middle position
+        v2 = v1 + bond_vectors * 0.5
+
+        # Choose the correct way for computing the cylinder.
+        def povray_cylinder(v1, v2, radius, color):
+            return vapory.Cylinder(
+                v1,
+                v2,
+                radius,
+                vapory.Pigment("color", color),
+                vapory.Finish("phong", 0.8, "reflection", 0.05),
             )
-            nb = len(ii)
-            # Get bond parameters
-            v1 = structure.positions[ii]
-            # middle position
-            v2 = v1 + bond_vectors * 0.5
-            # Choose the correct way for computing the cylinder.
-            if povray:
-                symbols = structure.get_chemical_symbols()
+
+        def cylinder(v1, v2, radius, color):
+            return (
+                "cylinder",
+                tuple(v1),
+                tuple(v2),
+                tuple(color),
+                radius,
+            )
+
+        if povray:
+            symbols = structure.get_chemical_symbols()
+            bonds = [
+                povray_cylinder(v1[ib], v2[ib], radius, Colors[symbols[ii[ib]]])
+                for ib in range(nb)
+            ]
+        else:
+            if color == "element":
+                numbers = structure.get_atomic_numbers()
                 bonds = [
-                    vapory.Cylinder(
-                        v1[ib],
-                        v2[ib],
-                        radius,
-                        vapory.Pigment("color", Colors[symbols[ii[ib]]]),
-                        vapory.Finish("phong", 0.8, "reflection", 0.05),
+                    cylinder(
+                        v1[ib], v2[ib], radius, colors.jmol_colors[numbers[ii[ib]]]
                     )
                     for ib in range(nb)
                 ]
             else:
-                numbers = structure.get_atomic_numbers()
-                if color == "element":
-                    bonds = [
-                        (
-                            "cylinder",
-                            tuple(v1[ib]),
-                            tuple(v2[ib]),
-                            tuple(colors.jmol_colors[numbers[ii[ib]]]),
-                            radius,
-                        )
-                        for ib in range(nb)
-                    ]
-                else:
-                    bonds = [
-                        (
-                            "cylinder",
-                            tuple(v1[ib]),
-                            tuple(v2[ib]),
-                            RGB_COLORS[color],
-                            radius,
-                        )
-                        for ib in range(nb)
-                    ]
+                bonds = [
+                    cylinder(v1[ib], v2[ib], radius, RGB_COLORS[color])
+                    for ib in range(nb)
+                ]
         return bonds
 
     def _apply_representations(self, change=None):
