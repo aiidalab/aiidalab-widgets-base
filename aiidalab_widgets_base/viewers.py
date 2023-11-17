@@ -555,14 +555,34 @@ class _StructureDataBaseViewer(ipw.VBox):
         if change["new"]:
             self._all_representations[-1].viewer_class = self
 
+    def _povray_cylinder(self, v1, v2, radius, color):
+        """Create a cylinder for POVRAY."""
+        return vapory.Cylinder(
+            v1,
+            v2,
+            radius,
+            vapory.Pigment("color", color),
+            vapory.Finish("phong", 0.8, "reflection", 0.05),
+        )
+
+    def _cylinder(self, v1, v2, radius, color):
+        """Create a cylinder for NGLViewer."""
+        return (
+            "cylinder",
+            tuple(v1),
+            tuple(v2),
+            tuple(color),
+            radius,
+        )
+
     def _compute_bonds(self, structure, radius=1.0, color="element", povray=False):
-        """Create an array of bonds for the structure."""
+        """Create an list of bonds for the structure."""
 
         import ase.neighborlist
 
         bonds = []
         if len(structure) <= 1:
-            return bonds
+            return []
         # The radius is scaled by 0.04 to have a better visual appearance.
         radius = radius * 0.04
 
@@ -580,42 +600,24 @@ class _StructureDataBaseViewer(ipw.VBox):
         v2 = v1 + bond_vectors * 0.5
 
         # Choose the correct way for computing the cylinder.
-        def povray_cylinder(v1, v2, radius, color):
-            return vapory.Cylinder(
-                v1,
-                v2,
-                radius,
-                vapory.Pigment("color", color),
-                vapory.Finish("phong", 0.8, "reflection", 0.05),
-            )
-
-        def cylinder(v1, v2, radius, color):
-            return (
-                "cylinder",
-                tuple(v1),
-                tuple(v2),
-                tuple(color),
-                radius,
-            )
-
         if povray:
             symbols = structure.get_chemical_symbols()
             bonds = [
-                povray_cylinder(v1[ib], v2[ib], radius, Colors[symbols[ii[ib]]])
+                self._povray_cylinder(v1[ib], v2[ib], radius, Colors[symbols[ii[ib]]])
                 for ib in range(nb)
             ]
         else:
             if color == "element":
                 numbers = structure.get_atomic_numbers()
                 bonds = [
-                    cylinder(
+                    self._cylinder(
                         v1[ib], v2[ib], radius, colors.jmol_colors[numbers[ii[ib]]]
                     )
                     for ib in range(nb)
                 ]
             else:
                 bonds = [
-                    cylinder(v1[ib], v2[ib], radius, RGB_COLORS[color])
+                    self._cylinder(v1[ib], v2[ib], radius, RGB_COLORS[color])
                     for ib in range(nb)
                 ]
         return bonds
