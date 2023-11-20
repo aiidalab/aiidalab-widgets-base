@@ -47,9 +47,12 @@ def viewer(obj, **kwargs):
             f"This viewer works only with AiiDA objects, got {type(obj)}", stacklevel=2
         )
         return obj
-
-    if obj.node_type in AIIDA_VIEWER_MAPPING:
-        _viewer = AIIDA_VIEWER_MAPPING[obj.node_type]
+    if isinstance(obj, orm.Data):
+        key = obj.node_type
+    else:
+        key = obj.process_type
+    if key in AIIDA_VIEWER_MAPPING:
+        _viewer = AIIDA_VIEWER_MAPPING[key]
         return _viewer(obj, **kwargs)
     else:
         # No viewer registered for this type, return object itself
