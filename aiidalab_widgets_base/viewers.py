@@ -52,8 +52,10 @@ def viewer(obj, **kwargs):
     if key in AIIDA_VIEWER_MAPPING:
         _viewer = AIIDA_VIEWER_MAPPING[key]
         return _viewer(obj, **kwargs)
-    elif isinstance(obj, orm.ProcessNode):
-        return ProcessNodeViewerWidget(obj, **kwargs)
+    # backward capacity
+    elif isinstance(obj, orm.ProcessNode) and obj.node_type in AIIDA_VIEWER_MAPPING:
+        _viewer = AIIDA_VIEWER_MAPPING[obj.node_type]
+        return _viewer(obj, **kwargs)
     else:
         # No viewer registered for this type, return object itself
         return obj
