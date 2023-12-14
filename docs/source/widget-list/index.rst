@@ -11,10 +11,8 @@ See also the `corresponding git repository <https://github.com/aiidalab/aiidalab
     :titlesonly:
     :glob:
 
-    notebooks/aiida_datatypes_viewers
-    notebooks/codes_computers
-    notebooks/setup_computer
-    notebooks/setup_code
+    notebooks/viewers
+    notebooks/computational_resources
     notebooks/process
     notebooks/process_list
     notebooks/structures

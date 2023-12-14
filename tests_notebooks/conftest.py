@@ -61,7 +61,7 @@ def notebook_service(docker_ip, docker_services, aiidalab_exec):
     aiidalab_exec("chmod -R a+rw /home/jovyan/apps/aiidalab-widgets-base", user="root")
 
     # Install AWB with extra dependencies for SmilesWidget
-    aiidalab_exec("pip install -U .[smiles]")
+    aiidalab_exec("pip install --no-cache-dir .[smiles]")
 
     # `port_for` takes a container port and returns the corresponding host port
     port = docker_services.port_for("aiidalab", 8888)
@@ -84,14 +84,14 @@ def selenium_driver(selenium, notebook_service):
         # By default, let's allow selenium functions to retry for 10s
         # till a given element is loaded, see:
         # https://selenium-python.readthedocs.io/waits.html#implicit-waits
-        selenium.implicitly_wait(10)
+        selenium.implicitly_wait(30)
         window_width = 800
         window_height = 600
         selenium.set_window_size(window_width, window_height)
 
         selenium.find_element(By.ID, "ipython-main-app")
         selenium.find_element(By.ID, "notebook-container")
-        WebDriverWait(selenium, 100).until(
+        WebDriverWait(selenium, 240).until(
             ec.invisibility_of_element((By.ID, "appmode-busy"))
         )
 

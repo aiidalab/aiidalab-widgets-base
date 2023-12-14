@@ -261,7 +261,7 @@ class ProcessFollowerWidget(ipw.VBox):
         self,
         process=None,
         followers=None,
-        update_interval=0.1,
+        update_interval=1.0,
         path_to_root="../",
         **kwargs,
     ):
@@ -302,7 +302,6 @@ class ProcessFollowerWidget(ipw.VBox):
 
         if self._monitor is None:
             self._monitor = ProcessMonitor(
-                process=self.process,
                 callbacks=[self.update],
                 on_sealed=self._run_after_completed,
                 timeout=self.update_interval,
@@ -415,7 +414,6 @@ class ProgressBarWidget(ipw.VBox):
             value=0,
             min=0,
             max=2,
-            step=1,
             description="Progress:",
             bar_style="warning",  # 'success', 'info', 'warning', 'danger' or ''
             orientation="horizontal",
@@ -538,7 +536,7 @@ class RunningCalcJobOutputWidget(ipw.VBox):
         self.title = title
         self.selection = ipw.Dropdown(
             description="Select calculation:",
-            options={p.id: p for p in get_running_calcs(self.process)},
+            options=tuple((p.id, p) for p in get_running_calcs(self.process)),
             style={"description_width": "initial"},
         )
         self.output = CalcJobOutputWidget()
@@ -551,9 +549,9 @@ class RunningCalcJobOutputWidget(ipw.VBox):
             return
         with self.hold_trait_notifications():
             old_label = self.selection.label
-            self.selection.options = {
-                str(p.id): p for p in get_running_calcs(self.process)
-            }
+            self.selection.options = tuple(
+                (str(p.id), p) for p in get_running_calcs(self.process)
+            )
             # If the selection remains the same.
             if old_label in self.selection.options:
                 self.label = old_label  # After changing options trait, the label and value traits might change as well.
