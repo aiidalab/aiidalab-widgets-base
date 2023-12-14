@@ -511,7 +511,7 @@ def test_resource_setup_widget_default():
     # and the computer/code setup widget will be updated accordingly.
     w.comp_resources_database.domain_selector.value = "daint.cscs.ch"
     w.comp_resources_database.computer_selector.value = "mc"
-    w.comp_resources_database.code_selector.value = "QuantumESPRESSO-7.2"
+    w.comp_resources_database.code_selector.value = "QuantumESPRESSO"
 
     # Test before the template is filled, the warning message is displayed.
     w._on_quick_setup()
@@ -560,7 +560,7 @@ def test_resource_setup_widget_default():
     w._on_quick_setup()
 
     assert w.success
-    assert orm.load_code("pw-7.2@daint-mc")
+    assert orm.load_code("pw-7.1@daint-mc")
 
     # test select new resource reset the widget, success trait, and message trait.
     w.reset()
@@ -660,7 +660,7 @@ def test_resource_setup_widget_computer_change_code_reset():
     # and the computer/code setup widget will be updated accordingly.
     w.comp_resources_database.domain_selector.value = "daint.cscs.ch"
     w.comp_resources_database.computer_selector.value = "mc"
-    w.comp_resources_database.code_selector.value = "QuantumESPRESSO-7.2"
+    w.comp_resources_database.code_selector.value = "QuantumESPRESSO"
 
     assert w.template_code._help_text.layout.display == "block"
 
