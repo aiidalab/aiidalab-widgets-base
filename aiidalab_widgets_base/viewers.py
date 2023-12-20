@@ -109,15 +109,15 @@ class DictViewer(ipw.VBox):
         </style>
         """
 
-        pd.set_option("max_colwidth", 40)
+        pd.set_option("max_colwidth", 100)
         dataf = pd.DataFrame(
             [(key, value) for key, value in sorted(parameter.get_dict().items())],
             columns=["Key", "Value"],
         )
-        self.value += dataf.to_html(
-            classes="df", index=False
-        )  # specify that exported table belongs to 'df' class
+        # specify that exported table belongs to 'df' class
         # this is used to setup table's appearance using CSS
+        # `colwidths-auto` and `table` are also required for proper table rendering in MyST: https://myst-parser.readthedocs.io/en/latest/syntax/tables.html
+        self.value += dataf.to_html(classes="df colwidths-auto table", index=False)
         if downloadable:
             payload = base64.b64encode(dataf.to_csv(index=False).encode()).decode()
             fname = f"{parameter.pk}.csv"

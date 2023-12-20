@@ -8,11 +8,31 @@ import sys
 import time
 from pathlib import Path
 
-# Load the dummy profile to make sure the docs build succeed even if the current
-# default profile of the AiiDA installation is not configured.
-from aiida.manage.configuration import load_documentation_profile
 
-load_documentation_profile()
+# Load the temp profile to make sure the docs build succeed even if the current
+# default profile of the AiiDA installation is not configured.
+def load_temp_profile():
+    """Load the temp profile to make sure the docs build succeed even if the current
+    default profile of the AiiDA installation is not configured.
+    """
+    from aiida import load_profile
+    from aiida.manage.configuration import get_config
+    from aiida.storage.sqlite_temp import SqliteTempBackend
+
+    profile = load_profile(
+        SqliteTempBackend.create_profile(
+            "readthedocs",
+            options={"warnings.development_version": False, "runner.poll.interval": 1},
+            debug=False,
+        ),
+        allow_switch=True,
+    )
+    config = get_config()
+    config.add_profile(profile)
+    config.set_default_profile(profile.name)
+
+
+load_temp_profile()
 
 from aiidalab_widgets_base import __version__  # pylint: disable=wrong-import-position
 

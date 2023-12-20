@@ -210,3 +210,25 @@ def ase2spglib(ase_structure: Atoms) -> Tuple[Any, Any, Any]:
     numbers = ase_structure.get_atomic_numbers()
 
     return (lattice, positions, numbers)
+
+
+# Load the temp profile for notebooks on readthedocs
+def load_temp_profile():
+    """Load the temp profile to make sure the docs build succeed even if the current
+    default profile of the AiiDA installation is not configured.
+    """
+    from aiida import load_profile
+    from aiida.manage.configuration import get_config
+    from aiida.storage.sqlite_temp import SqliteTempBackend
+
+    profile = load_profile(
+        SqliteTempBackend.create_profile(
+            "readthedocs",
+            options={"warnings.development_version": False, "runner.poll.interval": 1},
+            debug=False,
+        ),
+        allow_switch=True,
+    )
+    config = get_config()
+    config.add_profile(profile)
+    config.set_default_profile(profile.name)
