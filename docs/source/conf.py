@@ -8,13 +8,37 @@ import sys
 import time
 from pathlib import Path
 
-# Load the dummy profile to make sure the docs build succeed even if the current
-# default profile of the AiiDA installation is not configured.
-from aiida.manage.configuration import load_documentation_profile
 
-load_documentation_profile()
+# Load the temp profile to make sure the docs build succeed even if the current
+# default profile of the AiiDA installation is not configured.
+def load_temp_profile():
+    """Load the temp profile to make sure the docs build succeed even if the current
+    default profile of the AiiDA installation is not configured.
+    """
+    from aiida import load_profile
+    from aiida.manage.configuration import get_config
+    from aiida.storage.sqlite_temp import SqliteTempBackend
+
+    profile = load_profile(
+        SqliteTempBackend.create_profile(
+            "readthedocs",
+            options={"warnings.development_version": False, "runner.poll.interval": 1},
+            debug=False,
+        ),
+        allow_switch=True,
+    )
+    config = get_config()
+    config.add_profile(profile)
+    config.set_default_profile(profile.name)
+
+
+load_temp_profile()
 
 from aiidalab_widgets_base import __version__  # pylint: disable=wrong-import-position
+
+# work around unpickleable functions
+sys.path.append(str(Path(__file__).parent))
+from ipywidgets_docs_utils import jupyterlab_markdown_heading
 
 # Add any Sphinx extension module names here, as strings. They can be
 # extensions coming with Sphinx (named 'sphinx.ext.*') or your custom
@@ -27,7 +51,21 @@ extensions = [
     "myst_nb",
 ]
 
-nb_execution_mode = "off"
+myst_heading_anchors = 4
+myst_heading_slug_func = jupyterlab_markdown_heading
+
+nb_ipywidgets_js = {
+    "https://cdnjs.cloudflare.com/ajax/libs/require.js/2.3.4/require.min.js": {
+        "integrity": "sha256-Ae2Vz/4ePdIu6ZyI/5ZGsYnb+m0JlOmKPjt6XZ9JJkA=",
+        "crossorigin": "anonymous",
+    },
+    "https://cdn.jsdelivr.net/npm/@jupyter-widgets/html-manager@*/dist/embed-amd.js": {
+        "data-jupyter-widgets-cdn": "https://cdn.jsdelivr.net/npm/",
+        "crossorigin": "anonymous",
+    },
+}
+
+nb_execution_mode = "cache"
 
 # Add any paths that contain templates here, relative to this directory.
 templates_path = ["_templates"]
