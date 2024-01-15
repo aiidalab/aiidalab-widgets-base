@@ -100,7 +100,7 @@ class ComputationalResourcesWidget(ipw.VBox):
 
         self._setup_new_code_output = ipw.Output(layout={"width": self._output_width})
 
-        self._default_user_email = orm.User.objects.get_default().email
+        self._default_user_email = orm.User.collection.get_default().email
 
         children = [
             ipw.HBox([self.code_select_dropdown, self.btn_setup_new_code]),
@@ -125,15 +125,7 @@ class ComputationalResourcesWidget(ipw.VBox):
 
     def _get_codes(self):
         """Query the list of available codes."""
-
-        user = (
-            orm.QueryBuilder()
-            .append(
-                orm.User,
-                filters={"email": self._default_user_email},
-            )
-            .one()[0]
-        )
+        user = orm.User.collection.get(email=self._default_user_email)
 
         filters = (
             {"attributes.input_plugin": self.default_calc_job_plugin}
