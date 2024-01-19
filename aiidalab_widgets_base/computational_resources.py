@@ -662,6 +662,7 @@ class AiidaComputerSetup(ipw.VBox):
 
     def __init__(self, **kwargs):
         self._on_setup_computer_success = []
+        self._default_user_email = orm.User.collection.get_default().email
 
         # List of widgets to be displayed.
         self.label = ipw.Text(
@@ -830,7 +831,7 @@ class AiidaComputerSetup(ipw.VBox):
 
     def _configure_computer(self, computer: orm.Computer, transport: str):
         # Use default AiiDA user
-        user = orm.User.collection.get_default()
+        user = orm.User.collection.get(email=self._default_user_email)
         if transport == "core.ssh":
             self._configure_computer_ssh(computer, user)
         elif transport == "core.local":
@@ -1315,6 +1316,7 @@ class ComputerDropdownWidget(ipw.VBox):
 
         description (str): Text to display before dropdown.
         """
+        self._default_user_email = orm.User.collection.get_default().email
 
         self.output = ipw.HTML()
         self._dropdown = ipw.Dropdown(
@@ -1353,7 +1355,7 @@ class ComputerDropdownWidget(ipw.VBox):
         """Get the list of available computers."""
 
         # Getting the current user.
-        user = orm.User.collection.get_default()
+        user = orm.User.collection.get(email=self._default_user_email)
 
         return [
             (c[0].label, c[0].uuid)
