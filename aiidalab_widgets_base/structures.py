@@ -328,7 +328,6 @@ class StructureManagerWidget(ipw.VBox):
         elif isinstance(change["new"], StructureData):
             self.structure = change["new"].get_ase()
 
-
     @tl.observe("structure")
     def _structure_changed(self, change=None):
         """Perform some operations that depend on the value of `structure` trait.
