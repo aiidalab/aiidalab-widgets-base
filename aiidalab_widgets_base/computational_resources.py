@@ -100,6 +100,8 @@ class ComputationalResourcesWidget(ipw.VBox):
 
         self._setup_new_code_output = ipw.Output(layout={"width": self._output_width})
 
+        self._default_user_email = orm.User.collection.get_default().email
+
         children = [
             ipw.HBox([self.code_select_dropdown, self.btn_setup_new_code]),
             self._setup_new_code_output,
@@ -123,8 +125,8 @@ class ComputationalResourcesWidget(ipw.VBox):
 
     def _get_codes(self):
         """Query the list of available codes."""
+        user = orm.User.collection.get(email=self._default_user_email)
 
-        user = orm.User.collection.get_default()
         filters = (
             {"attributes.input_plugin": self.default_calc_job_plugin}
             if self.default_calc_job_plugin
@@ -660,6 +662,7 @@ class AiidaComputerSetup(ipw.VBox):
 
     def __init__(self, **kwargs):
         self._on_setup_computer_success = []
+        self._default_user_email = orm.User.collection.get_default().email
 
         # List of widgets to be displayed.
         self.label = ipw.Text(
@@ -828,7 +831,7 @@ class AiidaComputerSetup(ipw.VBox):
 
     def _configure_computer(self, computer: orm.Computer, transport: str):
         # Use default AiiDA user
-        user = orm.User.collection.get_default()
+        user = orm.User.collection.get(email=self._default_user_email)
         if transport == "core.ssh":
             self._configure_computer_ssh(computer, user)
         elif transport == "core.local":
@@ -1313,6 +1316,7 @@ class ComputerDropdownWidget(ipw.VBox):
 
         description (str): Text to display before dropdown.
         """
+        self._default_user_email = orm.User.collection.get_default().email
 
         self.output = ipw.HTML()
         self._dropdown = ipw.Dropdown(
@@ -1351,7 +1355,7 @@ class ComputerDropdownWidget(ipw.VBox):
         """Get the list of available computers."""
 
         # Getting the current user.
-        user = orm.User.collection.get_default()
+        user = orm.User.collection.get(email=self._default_user_email)
 
         return [
             (c[0].label, c[0].uuid)
