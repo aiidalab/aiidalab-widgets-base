@@ -65,6 +65,10 @@ jobs:
                       **/requirements*.txt
 
             - name: Install package test dependencies
+              # Test test will actually happened in the container, here only need to install
+              # the pytest-docker dependency.
+              # To add the dependencies to the container, we need to add them to the
+              # installation command in the `test_notebooks/conftest.py`.
               run: pip install -e .[dev]
 
             - name: Set jupyter token env
@@ -133,7 +137,7 @@ jobs:
                       **/requirements*.txt
 
             - name: Install package
-              run: pip install -e .[dev,smiles]
+              run: pip install -e .[dev,smiles,optimade]
 
             - name: Run pytest
               run: pytest -v tests --cov
