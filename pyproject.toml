@@ -12,7 +12,7 @@ filterwarnings = [
     'ignore:Creating AiiDA configuration:UserWarning:aiida',
     'ignore:crystal system:UserWarning:ase.io.cif',
     'ignore::DeprecationWarning:ase.atoms',
-    # TODO: This comes from a transitive dependency of optimade_client
+    # TODO: This comes from a transitive dependency of ipyoptimade
     # Remove this when this issue is addressed:
     # https://github.com/CasperWA/ipywidgets-extended/issues/85
     'ignore::DeprecationWarning:ipywidgets_extended',
