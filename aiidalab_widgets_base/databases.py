@@ -156,7 +156,17 @@ class OptimadeQueryWidget(ipw.VBox):
         title: str = None,
         **kwargs,
     ) -> None:
-        from optimade_client import default_parameters, query_filter, query_provider
+        try:
+            from optimade_client import default_parameters, query_filter, query_provider
+        except ImportError:
+            super().__init__(
+                [
+                    ipw.HTML(
+                        "This widget requires the `optimade-client` package to be installed."
+                    )
+                ]
+            )
+            return
 
         providers_header = ipw.HTML("<h4>Select a provider</h4>")
         providers = query_provider.OptimadeQueryProviderWidget(
