@@ -8,16 +8,7 @@ import sys
 import time
 from pathlib import Path
 
-from aiida import load_profile
-from aiida.storage.sqlite_temp import SqliteTempBackend
-
 from aiidalab_widgets_base import __version__  # pylint: disable=wrong-import-position
-
-# Load a tmp profile for the readthedocs build
-
-
-temp_profile = SqliteTempBackend.create_profile("temp-profile")
-load_profile(temp_profile, allow_switch=True)
 
 # Add any Sphinx extension module names here, as strings. They can be
 # extensions coming with Sphinx (named 'sphinx.ext.*') or your custom
