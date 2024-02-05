@@ -8,12 +8,6 @@ import sys
 import time
 from pathlib import Path
 
-# Load the dummy profile to make sure the docs build succeed even if the current
-# default profile of the AiiDA installation is not configured.
-from aiida.manage.configuration import load_documentation_profile
-
-load_documentation_profile()
-
 from aiidalab_widgets_base import __version__  # pylint: disable=wrong-import-position
 
 # Add any Sphinx extension module names here, as strings. They can be
