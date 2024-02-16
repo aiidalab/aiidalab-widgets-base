@@ -161,10 +161,11 @@ class OptimadeQueryWidget(ipw.VBox):
         except ImportError:
             super().__init__(
                 [
-                    ipw.HTML("""
+                    ipw.HTML(
+                        """
                         <div style="margin: 10px 0; padding: 10px; background-color: #ffcc00; color: black; border-left: 6px solid #ffeb3b;">
                             <i class="fa fa-exclamation-triangle" aria-hidden="true"></i>
-                            &nbsp;This widget requires the <code>optimade-client</code> package to be installed. 
+                            &nbsp;This widget requires the <code>optimade-client</code> package to be installed.
                             Please run <code>pip install optimade-client</code> to install the missing package.
                         </div>"""
                     )
