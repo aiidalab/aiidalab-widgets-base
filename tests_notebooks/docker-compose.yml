@@ -4,7 +4,13 @@ version: '3.4'
 services:
 
     aiidalab:
-        image: ghcr.io/aiidalab/full-stack:${TAG:-latest}
+        # TODO: after the oldest aiida-core supported version is v2.4.0,
+        # move to use ghcr.io registry to pull the image, the dockerhub registry has
+        # a rate limit of 100 pulls per 6 hours.
+        # aiida-core < 2.4.0 is not push to ghcr.io because of CI issues
+        # The CI is fixed in https://github.com/aiidalab/aiidalab-docker-stack/pull/390 and
+        # from aiida-core 2.4.0 the images are pushed to ghcr.io.
+        image: aiidalab/full-stack:${TAG:-latest}
         environment:
             RMQHOST: messaging
             TZ: Europe/Zurich

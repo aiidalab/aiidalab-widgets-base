@@ -77,7 +77,9 @@ def notebook_service(docker_ip, docker_services, aiidalab_exec):
     output = aiidalab_exec("verdi --version").decode("utf-8").strip()
     after_version = output.split(" ")[-1]
 
-    assert before_version != after_version
+    assert (
+        before_version == after_version
+    ), f"aiida-core version was changed from {before_version} to {after_version}."
 
     # `port_for` takes a container port and returns the corresponding host port
     port = docker_services.port_for("aiidalab", 8888)
