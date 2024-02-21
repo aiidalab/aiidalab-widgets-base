@@ -1,7 +1,7 @@
 """Some utility functions used acrross the repository."""
 import threading
 from enum import Enum
-from typing import Any, Tuple
+from typing import Any
 
 import ipywidgets as ipw
 import more_itertools as mit
@@ -200,7 +200,7 @@ def wrap_message(message, level=MessageLevel.INFO):
     """
 
 
-def ase2spglib(ase_structure: Atoms) -> Tuple[Any, Any, Any]:
+def ase2spglib(ase_structure: Atoms) -> tuple[Any, Any, Any]:
     """
     Convert ase Atoms instance to spglib cell in the format defined at
     https://spglib.github.io/spglib/python-spglib.html#crystal-structure-cell
