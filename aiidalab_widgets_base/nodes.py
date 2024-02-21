@@ -1,6 +1,5 @@
 """Widgets to work with AiiDA nodes."""
 import functools
-import typing
 
 import ipytree
 import ipywidgets as ipw
@@ -93,9 +92,7 @@ class AiidaOutputsTreeNode(ipytree.Node):
     icon = tl.Unicode("folder").tag(sync=True)
     disabled = tl.Bool(True).tag(sync=True)
 
-    def __init__(
-        self, name, parent_pk, namespaces: typing.Tuple[str, ...] = (), **kwargs
-    ):
+    def __init__(self, name, parent_pk, namespaces: tuple[str, ...] = (), **kwargs):
         self.parent_pk = parent_pk
         self.nodes_registry = {}
         self.namespaces = namespaces
