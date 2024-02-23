@@ -109,7 +109,7 @@ jobs:
             matrix:
                 tag: [latest]
                 python-version: ['3.9', '3.10']
-                aiida-core-version: [2.1.2, 2.4.3]          # test on the latest and the oldest supported version
+                aiida-core-version: [2.2.2, 2.4.3]          # test on the latest and the oldest supported version
             fail-fast: false
 
         runs-on: ubuntu-latest
