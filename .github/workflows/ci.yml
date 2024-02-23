@@ -41,9 +41,9 @@ jobs:
 
         strategy:
             matrix:
-                tag: [latest]
                 browser: [Chrome, Firefox]
                 python-version: ['3.10']
+                aiida-core-version: [2.1.2, 2.4.3]          # test on the latest and the oldest supported version
             fail-fast: false
 
         runs-on: ubuntu-latest
@@ -91,13 +91,13 @@ jobs:
             - name: Run pytest
               run: pytest -v --driver ${{ matrix.browser }} tests_notebooks
               env:
-                  TAG: ${{ matrix.tag }}
+                  TAG: aiida-${{ matrix.aiida-core-version }}
 
             - name: Upload screenshots as artifacts
               if: always()
               uses: actions/upload-artifact@v3
               with:
-                  name: Screenshots-${{ matrix.tag }}-${{ matrix.browser }}
+                  name: Screenshots-aiida-${{ matrix.aiida-core-version }}-${{ matrix.browser }}
                   path: screenshots/
                   if-no-files-found: error
 
@@ -107,8 +107,8 @@ jobs:
 
         strategy:
             matrix:
-                tag: [latest]
                 python-version: ['3.9', '3.10']
+                aiida-core-version: [2.2.2, 2.4.3]          # test on the latest and the oldest supported version
             fail-fast: false
 
         runs-on: ubuntu-latest
@@ -137,12 +137,10 @@ jobs:
                       **/requirements*.txt
 
             - name: Install package
-              run: pip install -e .[dev,smiles,optimade]
+              run: pip install -e .[dev,smiles,optimade] aiida-core==${{ matrix.aiida-core-version }}
 
             - name: Run pytest
               run: pytest -v tests --cov
-              env:
-                  TAG: ${{ matrix.tag }}
 
             - name: Upload coverage reports to Codecov
               uses: codecov/codecov-action@v3

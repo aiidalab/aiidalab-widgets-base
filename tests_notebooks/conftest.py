@@ -60,8 +60,26 @@ def notebook_service(docker_ip, docker_services, aiidalab_exec):
     # make it writeable for jovyan user, needed for `pip install`
     aiidalab_exec("chmod -R a+rw /home/jovyan/apps/aiidalab-widgets-base", user="root")
 
+    # The aiida-core version is pinned in the requirements.txt file only after
+    # we release the docker stack with aiida-core v2.4.0 in:
+    # https://github.com/aiidalab/aiidalab-docker-stack/commit/dfa65151017362fefeb56d97fed3c1b8f25537c5
+    # There is a possibility that aiida-core version will be overwritten by the installation of AWB.
+    # TODO: We can move this before/after version check after the lowest supported aiida-core version is 2.4.0.
+
+    # Get the aiida-core version before installing AWB
+    output = aiidalab_exec("verdi --version").decode("utf-8").strip()
+    before_version = output.split(" ")[-1]
+
     # Install AWB with extra dependencies for SmilesWidget
     aiidalab_exec("pip install --no-cache-dir .[smiles,optimade]")
+
+    # Get the aiida-core version before installing AWB
+    output = aiidalab_exec("verdi --version").decode("utf-8").strip()
+    after_version = output.split(" ")[-1]
+
+    assert (
+        before_version == after_version
+    ), f"aiida-core version was changed from {before_version} to {after_version}."
 
     # `port_for` takes a container port and returns the corresponding host port
     port = docker_services.port_for("aiidalab", 8888)
