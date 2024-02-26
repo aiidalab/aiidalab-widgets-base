@@ -157,7 +157,7 @@ class OptimadeQueryWidget(ipw.VBox):
         **kwargs,
     ) -> None:
         try:
-            from optimade_client import default_parameters, query_filter, query_provider
+            from ipyoptimade import default_parameters, query_filter, query_provider
         except ImportError:
             super().__init__(
                 [
