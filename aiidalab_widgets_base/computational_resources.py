@@ -1603,7 +1603,7 @@ class _ResourceSetupBaseWidget(ipw.VBox):
         enable_detailed_setup=True,
     ):
         if not any((enable_detailed_setup, enable_quick_setup)):
-            raise ValueError(  # noqa
+            raise ValueError(
                 "At least one of `enable_quick_setup` and `enable_detailed_setup` should be True."
             )
 

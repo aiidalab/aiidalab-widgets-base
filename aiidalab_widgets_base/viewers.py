@@ -414,9 +414,9 @@ class _StructureDataBaseViewer(ipw.VBox):
             [
                 ipw.HTML(
                     description="Super cell:", style={"description_width": "initial"}
-                )
+                ),
+                *_supercell,
             ]
-            + _supercell
         )
 
         # 2. Choose background color.
@@ -523,11 +523,12 @@ class _StructureDataBaseViewer(ipw.VBox):
 
     def _add_representation(self, _=None, style_id=None, indices=None):
         """Add a representation to the list of representations."""
-        self._all_representations = self._all_representations + [
+        self._all_representations = [
+            *self._all_representations,
             NglViewerRepresentation(
                 style_id=style_id or f"{self.REPRESENTATION_PREFIX}{shortuuid.uuid()}",
                 indices=indices,
-            )
+            ),
         ]
         self._apply_representations()
 
@@ -913,13 +914,13 @@ class _StructureDataBaseViewer(ipw.VBox):
             for i in bb
         ]
 
-        objects = (
-            [light]
-            + spheres
-            + edges
-            + bonds
-            + [vapory.Background("color", np.array(to_rgb(self._viewer.background)))]
-        )
+        objects = [
+            light,
+            *spheres,
+            *edges,
+            *bonds,
+            vapory.Background("color", np.array(to_rgb(self._viewer.background))),
+        ]
 
         scene = vapory.Scene(camera, objects=objects)
         fname = bb.get_chemical_formula() + ".png"

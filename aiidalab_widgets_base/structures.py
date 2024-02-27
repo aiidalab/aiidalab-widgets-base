@@ -118,8 +118,11 @@ class StructureManagerWidget(ipw.VBox):
             self._structure_importers(importers),
             self.viewer,
             ipw.HBox(
-                store_and_description
-                + [self.structure_label, self.structure_description]
+                [
+                    *store_and_description,
+                    self.structure_label,
+                    self.structure_description,
+                ]
             ),
         ]
 
@@ -131,7 +134,7 @@ class StructureManagerWidget(ipw.VBox):
             accordion.set_title(0, "Edit Structure")
             children += [accordion]
 
-        super().__init__(children=children + [self.output], **kwargs)
+        super().__init__(children=[*children, self.output], **kwargs)
 
     def _structure_importers(self, importers):
         """Preparing structure importers."""
@@ -483,7 +486,7 @@ class StructureExamplesWidget(ipw.VBox):
             raise TypeError(
                 f"parameter examples should be of type list, {type(examples)} given"
             )
-        return [("Select structure", False)] + examples
+        return [("Select structure", False), *examples]
 
     def _on_select_structure(self, change=None):
         """When structure is selected."""

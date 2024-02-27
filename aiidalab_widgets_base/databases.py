@@ -152,8 +152,8 @@ class OptimadeQueryWidget(ipw.VBox):
 
     def __init__(
         self,
-        embedded: bool = True,
-        title: str = None,
+        embedded=True,
+        title=None,
         **kwargs,
     ) -> None:
         try:

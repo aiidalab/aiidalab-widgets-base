@@ -249,7 +249,7 @@ class ElnConfigureWidget(ipw.VBox):
             self.write_to_config(config)
             default_eln = None
 
-        self.eln_instance.options = [("Setup new ELN", {})] + list(config.items())
+        self.eln_instance.options = [("Setup new ELN", {}), *list(config.items())]
         if default_eln:
             self.eln_instance.label = default_eln
 

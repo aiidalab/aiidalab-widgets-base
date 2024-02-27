@@ -38,7 +38,7 @@ target-version = "py39"
 
 
 [tool.ruff.lint]
-ignore = ["E501", "E402", "ARG002", "TRY003"]
+ignore = ["E501", "E402", "ARG002", "TRY003", "RUF001", "RUF012"]
 select = [
   "A",    # flake8-builtins
   "ARG",  # flake8-unused-arguments
@@ -51,7 +51,7 @@ select = [
   "PLE",  # pylint error rules
   "PLW",  # pylint warning rules
   "PLC",  # pylint convention rules
-  #"RUF",  # ruff-specific rules
+  "RUF",  # ruff-specific rules
   "TRY",  # Tryceratops
   "UP"    # pyupgrade
 ]
