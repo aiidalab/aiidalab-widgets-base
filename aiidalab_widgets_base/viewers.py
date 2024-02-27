@@ -1049,7 +1049,7 @@ class _StructureDataBaseViewer(ipw.VBox):
         else:
             self.wrong_syntax.layout.visibility = "visible"
 
-    def download(self, _change=None):
+    def download(self, _=None):
         """Prepare a structure for downloading."""
         payload = self._prepare_payload(self.file_format.value["format"])
         if payload is None:
@@ -1520,11 +1520,11 @@ class FolderDataViewer(ipw.VBox):
             children.append(self.download_btn)
         super().__init__(children, **kwargs)
 
-    def change_file_view(self, _change=None):
+    def change_file_view(self, _=None):
         with self._folder.base.repository.open(self.files.value) as fobj:
             self.text.value = fobj.read()
 
-    def download(self, _change=None):
+    def download(self, _=None):
         """Prepare for downloading."""
         from IPython.display import Javascript
 
