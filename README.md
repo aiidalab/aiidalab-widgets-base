@@ -18,11 +18,11 @@ Hosted on [aiidalab-widgets-base.readthedocs.io](https://aiidalab-widgets-base.r
 
 ## For maintainers
 
-To create a new release, clone the repository, install development dependencies with `pip install -e '.[dev]'`, and then execute `bumpver update [--major|--minor|--patch] [--tag-num --tag [alpha|beta|rc]]`.
-This will:
+To create a new release, clone the repository, checkout to the desired release version say, `release/2.2.0`. Install development dependencies with `pip install -e '.[dev]'`, and then execute `bumpver update [--major|--minor|--patch] [--tag-num --tag [alpha|beta|rc]]`. Make a PR to the `main` branch (or `support/x` branch for backport support with cherry-pick commits from `main`).
 
-  1. Create a tagged release with bumped version and push it to the repository.
-  2. Trigger a GitHub actions workflow that creates a GitHub release and publishes it on PyPI.
+This will trigger a GHA workflow that test publish to TestPyPI.
+
+Once the PR is merged, [create a new release on GitHub](https://github.com/aiidalab/aiidalab-widgets-base/releases/new) with the tag name `v2.2.0` and the release title `v2.2.0`. This will trigger a GHA workflow that publishes to PyPI.
 
 Additional notes:
 
