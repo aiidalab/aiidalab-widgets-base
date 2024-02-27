@@ -47,7 +47,7 @@ jobs:
     publish-test:
 
         name: Build and publish on TestPyPI
-        if: startsWith(github.ref, 'refs/heads/release/')
+        if: startsWith(github.ref, 'refs/heads/release/') && github.repository_owner == 'aiidalab'
 
         needs: [build]
         runs-on: ubuntu-latest
@@ -74,7 +74,7 @@ jobs:
     publish:
 
         name: Build and publish on PyPI
-        if: startsWith(github.ref, 'refs/tags/v')
+        if: startsWith(github.ref, 'refs/tags/v') && github.repository_owner == 'aiidalab'
 
         needs: [build]
         runs-on: ubuntu-latest
