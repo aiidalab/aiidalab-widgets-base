@@ -217,7 +217,7 @@ class StructureManagerWidget(ipw.VBox):
         ):
             # Make a link between self.input_structure and self.structure_node
             @engine.calcfunction
-            def user_modifications(source_structure):
+            def user_modifications(_source_structure):
                 return self.structure_node
 
             structure_node = user_modifications(self.input_structure)
