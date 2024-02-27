@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 """Jupyter viewers for AiiDA data objects."""
-# pylint: disable=no-self-use
 
 import base64
 import copy
@@ -111,7 +110,7 @@ class DictViewer(ipw.VBox):
 
         pd.set_option("max_colwidth", 40)
         dataf = pd.DataFrame(
-            [(key, value) for key, value in sorted(parameter.get_dict().items())],
+            sorted(parameter.get_dict().items()),
             columns=["Key", "Value"],
         )
         self.value += dataf.to_html(
@@ -445,7 +444,7 @@ class _StructureDataBaseViewer(ipw.VBox):
 
         # 4. Center button.
         center_button = ipw.Button(description="Center molecule")
-        center_button.on_click(lambda c: self._viewer.center())
+        center_button.on_click(lambda _: self._viewer.center())
 
         # 5. representations buttons
         self.representations_header = ipw.HBox(
@@ -1049,7 +1048,7 @@ class _StructureDataBaseViewer(ipw.VBox):
         else:
             self.wrong_syntax.layout.visibility = "visible"
 
-    def download(self, change=None):  # pylint: disable=unused-argument
+    def download(self, _change=None):
         """Prepare a structure for downloading."""
         payload = self._prepare_payload(self.file_format.value["format"])
         if payload is None:
@@ -1086,7 +1085,7 @@ class _StructureDataBaseViewer(ipw.VBox):
 
         file_format = file_format if file_format else self.file_format.value["format"]
         tmp = NamedTemporaryFile()
-        self.structure.write(tmp.name, format=file_format)  # pylint: disable=no-member
+        self.structure.write(tmp.name, format=file_format)
         with open(tmp.name, "rb") as raw:
             return base64.b64encode(raw.read()).decode()
 
@@ -1520,11 +1519,11 @@ class FolderDataViewer(ipw.VBox):
             children.append(self.download_btn)
         super().__init__(children, **kwargs)
 
-    def change_file_view(self, change=None):  # pylint: disable=unused-argument
+    def change_file_view(self, _change=None):
         with self._folder.base.repository.open(self.files.value) as fobj:
             self.text.value = fobj.read()
 
-    def download(self, change=None):  # pylint: disable=unused-argument
+    def download(self, _change=None):
         """Prepare for downloading."""
         from IPython.display import Javascript
 
@@ -1559,18 +1558,14 @@ class BandsDataViewer(ipw.VBox):
         output_notebook(hide_banner=True)
         out = ipw.Output()
         with out:
-            plot_info = bands._get_bandplot_data(
-                cartesian=True, join_symbol="|"
-            )  # pylint: disable=protected-access
+            plot_info = bands._get_bandplot_data(cartesian=True, join_symbol="|")
             # Extract relevant data
             y_data = plot_info["y"].transpose().tolist()
             x_data = [plot_info["x"] for i in range(len(y_data))]
             labels = plot_info["labels"]
             # Create the figure
             plot = figure(y_axis_label=f"Dispersion ({bands.units})")
-            plot.multi_line(
-                x_data, y_data, line_width=2, line_color="red"
-            )  # pylint: disable=too-many-function-args
+            plot.multi_line(x_data, y_data, line_width=2, line_color="red")
             plot.xaxis.ticker = [label[0] for label in labels]
             # This trick was suggested here: https://github.com/bokeh/bokeh/issues/8166#issuecomment-426124290
             plot.xaxis.major_label_overrides = {

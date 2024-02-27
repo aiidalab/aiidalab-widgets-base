@@ -469,7 +469,7 @@ class StructureExamplesWidget(ipw.VBox):
 
     def __init__(self, examples, title="", **kwargs):
         self.title = title
-        self.on_structure_selection = lambda structure_ase, name: None
+        self.on_structure_selection = lambda _structure_ase, _name: None
         self._select_structure = ipw.Dropdown(
             options=self.get_example_structures(examples)
         )
@@ -687,7 +687,7 @@ class SmilesWidget(ipw.VBox):
 
     def __init__(self, title=""):
         self.title = title
-        try:  # noqa: TC101
+        try:
             from rdkit import Chem  # noqa: F401
             from rdkit.Chem import AllChem  # noqa: F401
         except ImportError:
@@ -1065,13 +1065,11 @@ class BasicCellEditor(ipw.VBox):
             try:
                 atoms = make_supercell(atoms, mat)
             except Exception as e:
-                self._status_message.message = """
+                self._status_message.message = f"""
             <div class="alert alert-info">
-            <strong>The transformation matrix is wrong! {}</strong>
+            <strong>The transformation matrix is wrong! {e}</strong>
             </div>
-            """.format(
-                    e
-                )
+            """
                 return
             # translate
             atoms.translate(-atoms.cell.array.dot(translate))
@@ -1546,8 +1544,9 @@ class BasicStructureEditor(ipw.VBox):
         add_atoms.translate([1.0, 0, 0])
         atoms += add_atoms
 
-        self.structure, self.input_selection = atoms, list(
-            range(last_atom, last_atom + len(selection))
+        self.structure, self.input_selection = (
+            atoms,
+            list(range(last_atom, last_atom + len(selection))),
         )
 
     @_register_structure

@@ -156,7 +156,7 @@ class ProcessInputsWidget(ipw.VBox):
         self.info = ipw.HTML()
 
         self.flat_mapping = self.generate_flat_mapping(process=process) or {}
-        inputs_list = [(key, value) for key, value in self.flat_mapping.items()]
+        inputs_list = list(self.flat_mapping.items())
 
         self._inputs = ipw.Dropdown(
             options=[("Select input", "")] + inputs_list,
