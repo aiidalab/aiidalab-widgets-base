@@ -52,8 +52,8 @@ def get_ase_from_file(fname, file_format=None):  # pylint: disable=redefined-bui
 
 def find_ranges(iterable):
     """Yield range of consecutive numbers."""
-    for group in mit.consecutive_groups(iterable):
-        group = list(group)
+    for grp in mit.consecutive_groups(iterable):
+        group = list(grp)
         if len(group) == 1:
             yield group[0]
         else:

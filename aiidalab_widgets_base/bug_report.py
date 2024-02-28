@@ -28,6 +28,7 @@ def find_installed_packages(python_bin: str | None = None) -> dict[str, str]:
         [python_bin, "-m", "pip", "list", "--format=json"],
         encoding="utf-8",
         capture_output=True,
+        check=True,
     ).stdout
 
     return {package["name"]: package["version"] for package in json.loads(output)}
@@ -160,7 +161,7 @@ def install_create_github_issue_exception_handler(output, url, labels=None):
             display(welcome_message, app_with_work_chain_selector, footer)
 
     """
-    global _ORIGINAL_EXCEPTION_HANDLER
+    global _ORIGINAL_EXCEPTION_HANDLER  # noqa
 
     if labels is None:
         labels = []
