@@ -2,14 +2,12 @@
 name: Publish on Test PyPI and PyPI
 
 on:
-    push:
+    pull_request:
         branches:
-      # Commits pushed to release/ branches are published on Test PyPI if they
-      # have a new version number.
+        # Commits pushed to release/ branches are published on Test PyPI if they
+        # have a new version number.
             - release/**
-        tags:
-      # Tags that start with the "v" prefix are published on PyPI.
-            - v*
+    release:
 
 jobs:
 
@@ -47,7 +45,7 @@ jobs:
     publish-test:
 
         name: Build and publish on TestPyPI
-        if: startsWith(github.ref, 'refs/heads/release/') && github.repository_owner == 'aiidalab'
+        if: github.repository_owner == 'aiidalab'
 
         needs: [build]
         runs-on: ubuntu-latest
@@ -76,7 +74,7 @@ jobs:
         name: Build and publish on PyPI
         if: startsWith(github.ref, 'refs/tags/v') && github.repository_owner == 'aiidalab'
 
-        needs: [build]
+        needs: [build, publish-test]
         runs-on: ubuntu-latest
 
         environment:
@@ -96,10 +94,3 @@ jobs:
               with:
                   user: __token__
                   password: ${{ secrets.PYPI_API_TOKEN }}
-
-            - uses: softprops/action-gh-release@v0.1.15
-              name: Create release
-              with:
-                  files: |
-                      dist/*
-                  generate_release_notes: true
