@@ -2,14 +2,12 @@
 name: Publish on Test PyPI and PyPI
 
 on:
-    push:
+    pull_request:
         branches:
-      # Commits pushed to release/ branches are published on Test PyPI if they
-      # have a new version number.
+        # Commits pushed to release/ branches are published on Test PyPI if they
+        # have a new version number.
             - release/**
-        tags:
-      # Tags that start with the "v" prefix are published on PyPI.
-            - v*
+    release:
 
 jobs:
 
@@ -47,9 +45,7 @@ jobs:
     publish-test:
 
         name: Build and publish on TestPyPI
-        if: >
-            startsWith(github.ref, 'refs/heads/release/') ||
-            startsWith(github.ref, 'refs/tags/')
+        if: github.repository_owner == 'aiidalab'
 
         needs: [build]
         runs-on: ubuntu-latest
@@ -67,19 +63,18 @@ jobs:
 
             - name: Publish distribution on Test PyPI
               uses: pypa/gh-action-pypi-publish@release/v1
-              if: startsWith(github.ref, 'refs/heads/release/')
               with:
                   user: __token__
                   password: ${{ secrets.PYPI_API_TOKEN }}
-                  repository_url: https://test.pypi.org/legacy/
-                  skip_existing: true
+                  repository-url: https://test.pypi.org/legacy/
+                  skip-existing: true
 
     publish:
 
         name: Build and publish on PyPI
-        if: startsWith(github.ref, 'refs/tags')
+        if: startsWith(github.ref, 'refs/tags/v') && github.repository_owner == 'aiidalab'
 
-        needs: [build]
+        needs: [build, publish-test]
         runs-on: ubuntu-latest
 
         environment:
@@ -93,14 +88,6 @@ jobs:
               with:
                   name: release
                   path: dist/
-
-            - uses: softprops/action-gh-release@v0.1.15
-              name: Create release
-              if: startsWith(github.ref, 'refs/tags/v')
-              with:
-                  files: |
-                      dist/*
-                  generate_release_notes: true
 
             - name: Publish distribution on PyPI
               uses: pypa/gh-action-pypi-publish@release/v1

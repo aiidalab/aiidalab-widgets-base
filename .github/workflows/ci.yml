@@ -14,30 +14,7 @@ concurrency:
 
 jobs:
 
-    pre-commit:
-    # Adapted from: https://github.com/CasperWA/voila-optimade-client
-
-        runs-on: ubuntu-latest
-
-        steps:
-            - uses: actions/checkout@v4
-
-            - name: Setup Python
-              uses: actions/setup-python@v5
-              with:
-                  python-version: '3.10'
-                  cache: pip
-                  cache-dependency-path: |
-                      .pre-commit-config.yaml
-                      **/setup.cfg
-                      **/pyproject.toml
-                      **/requirements*.txt
-
-            - uses: pre-commit/action@v3.0.1
-
     test-notebooks:
-
-        needs: [pre-commit]
 
         strategy:
             matrix:
@@ -102,8 +79,6 @@ jobs:
                   if-no-files-found: error
 
     test-package:
-
-        needs: [pre-commit]
 
         strategy:
             matrix:
