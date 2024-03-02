@@ -9,7 +9,7 @@ on:
         # before it is pushed to the actual PyPI index.
             - release/**
     release:
-        published:
+        types: [published]
 
 jobs:
 
