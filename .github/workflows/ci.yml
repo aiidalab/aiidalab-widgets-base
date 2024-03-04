@@ -110,7 +110,7 @@ jobs:
               run: curl -LsSf https://astral.sh/uv/install.sh | sh
 
             - name: Install package
-              run: uv pip install --system -e ".[dev,smiles,optimade]" aiida-core==${{ matrix.aiida-core-version }}
+              run: uv pip install --system "aiidalab_widgets_base[dev,smiles,optimade] @ ." aiida-core==${{ matrix.aiida-core-version }}
 
             - name: Run pytest
               run: pytest -v tests --cov
