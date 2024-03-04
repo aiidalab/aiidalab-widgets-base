@@ -113,7 +113,7 @@ jobs:
               run: pip install -e .[dev,smiles,optimade] aiida-core==${{ matrix.aiida-core-version }}
 
             - name: Install package with uv
-              run: uv pip install --system "aiidalab_widgets_base[dev,smiles,optimade] @ ." aiida-core==${{ matrix.aiida-core-version }}
+              run: uv pip install --reinstall --system "aiidalab_widgets_base[dev,smiles,optimade] @ ." aiida-core==${{ matrix.aiida-core-version }}
 
             - name: Run pytest
               run: |
