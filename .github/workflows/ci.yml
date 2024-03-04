@@ -113,7 +113,10 @@ jobs:
               run: uv pip install --system "aiidalab_widgets_base[dev,smiles,optimade] @ ." aiida-core==${{ matrix.aiida-core-version }}
 
             - name: Run pytest
-              run: pytest -v tests --cov
+              run: |
+                  which pytest
+                  which python
+                  python -m pytest -v tests --cov
 
             - name: Upload coverage reports to Codecov
               uses: codecov/codecov-action@v4
