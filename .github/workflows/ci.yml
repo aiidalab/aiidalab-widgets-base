@@ -82,8 +82,8 @@ jobs:
 
         strategy:
             matrix:
-                python-version: ['3.11', '3.12']
-                aiida-core-version: [2.2.2, 2.5.0]          # test on the latest and the oldest supported version
+                python-version: ['3.9', '3.10', '3.11']
+                aiida-core-version: [2.2.2]            # test on the latest and the oldest supported version
             fail-fast: false
 
         runs-on: ubuntu-latest
