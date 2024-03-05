@@ -114,10 +114,9 @@ jobs:
 
             - name: Print versions and paths (before uv)
               run: |
-                  which pytest
-                  which python
+                  which pytest && which python
                   python -c "import sys; print(sys.version); print(sys.modules)"
-                  python -c "import site; site.getsitepackages()"
+                  python -c "import site; print(site.getsitepackages())"
 
             - name: Install package with uv
               if: true
@@ -126,10 +125,9 @@ jobs:
 
             - name: Print versions and paths (after uv)
               run: |
-                  which pytest
-                  which python
+                  which pytest && which python
                   python -c "import sys; print(sys.version); print(sys.modules)"
-                  python -c "import site; site.getsitepackages()"
+                  python -c "import site; print(site.getsitepackages())"
 
             - name: Run pytest
               run: |
