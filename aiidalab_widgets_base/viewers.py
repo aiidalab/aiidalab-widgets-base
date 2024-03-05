@@ -1132,11 +1132,25 @@ class StructureDataViewer(_StructureDataBaseViewer):
 
     @tl.observe("supercell")
     def _observe_supercell(self, _=None):
+        import io
+
         if self.structure is not None:
             self.set_trait(
                 "displayed_structure", None
             )  # To make sure the structure is always updated.
-            self.set_trait("displayed_structure", self.structure.repeat(self.supercell))
+            # because nglview loads the structure through save and load a temp "pdb" file
+            # thus could change the cell and positions of the structure
+            # we need to mimic the behavior of nglview and update the cell and positions
+            sio = io.StringIO()  # Create an in-memory "file"
+            ase.io.write(sio, self.structure, format="proteindatabank")
+            # Reset the StringIO object's position to the beginning
+            sio.seek(0)
+            pdb_structure = ase.io.read(sio, format="proteindatabank")
+            structure = self.structure.repeat(self.supercell)
+            # only copy the cell and positions from the pdb_structure, and keep the representation arrays
+            structure.cell = pdb_structure.cell
+            structure.positions = pdb_structure.positions
+            self.set_trait("displayed_structure", structure)
 
     @tl.validate("structure")
     def _valid_structure(self, change):
