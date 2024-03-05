@@ -1146,6 +1146,7 @@ class StructureDataViewer(_StructureDataBaseViewer):
             # Reset the StringIO object's position to the beginning
             sio.seek(0)
             pdb_structure = ase.io.read(sio, format="proteindatabank")
+            pdb_structure = pdb_structure.repeat(self.supercell)
             structure = self.structure.repeat(self.supercell)
             # only copy the cell and positions from the pdb_structure, and keep the representation arrays
             structure.cell = pdb_structure.cell
