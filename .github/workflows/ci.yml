@@ -112,15 +112,27 @@ jobs:
             - name: Install package with pip
               run: pip install -e .[dev,smiles,optimade] aiida-core==${{ matrix.aiida-core-version }}
 
-            - name: Install package with uv
-              if: false
-              run: uv --version && uv pip install -v --reinstall --system "aiidalab_widgets_base[dev,smiles,optimade] @ ." aiida-core==${{ matrix.aiida-core-version
-                  }}
-
-            - name: Run pytest
+            - name: Print versions and paths (before uv)
               run: |
                   which pytest
                   which python
+                  python -c "import sys; print(sys.version); print(sys.modules)"
+                  python -c "import site; site.getsitepackages()"
+
+            - name: Install package with uv
+              if: true
+              run: uv --version && uv pip install -v --reinstall --system "aiidalab_widgets_base[dev,smiles,optimade] @ ." aiida-core==${{ matrix.aiida-core-version
+                  }}
+
+            - name: Print versions and paths (after uv)
+              run: |
+                  which pytest
+                  which python
+                  python -c "import sys; print(sys.version); print(sys.modules)"
+                  python -c "import site; site.getsitepackages()"
+
+            - name: Run pytest
+              run: |
                   python -m pytest -v tests --cov
 
             - name: Upload coverage reports to Codecov
