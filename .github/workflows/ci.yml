@@ -109,25 +109,8 @@ jobs:
             - name: Install uv
               run: curl -LsSf https://astral.sh/uv/install.sh | sh
 
-            - name: Install package with pip
-              run: pip install -e .[dev,smiles,optimade] aiida-core==${{ matrix.aiida-core-version }}
-
-            - name: Print versions and paths (before uv)
-              run: |
-                  which pytest && which python
-                  python -c "import sys; print(sys.version); print(sys.modules)"
-                  python -c "import site; print(site.getsitepackages())"
-
             - name: Install package with uv
-              if: true
-              run: uv --version && uv pip install -v --reinstall --system "aiidalab_widgets_base[dev,smiles,optimade] @ ." aiida-core==${{ matrix.aiida-core-version
-                  }}
-
-            - name: Print versions and paths (after uv)
-              run: |
-                  which pytest && which python
-                  python -c "import sys; print(sys.version); print(sys.modules)"
-                  python -c "import site; print(site.getsitepackages())"
+              run: uv pip install --system "aiidalab_widgets_base[dev,smiles,optimade] @ ." aiida-core==${{ matrix.aiida-core-version }}
 
             - name: Run pytest
               run: |
