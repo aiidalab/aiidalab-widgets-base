@@ -119,7 +119,7 @@ jobs:
                   python -c "import site; print(site.getsitepackages())"
 
             - name: Install package with uv
-              if: false
+              if: true
               run: uv --version && uv pip install -v --reinstall --system "aiidalab_widgets_base[dev,smiles,optimade] @ ." aiida-core==${{ matrix.aiida-core-version
                   }}
 
