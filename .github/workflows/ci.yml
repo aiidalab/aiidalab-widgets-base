@@ -85,8 +85,9 @@ jobs:
 
         strategy:
             matrix:
-                python-version: ['3.9', '3.10', '3.11']
-                aiida-core-version: [2.2.2]            # test on the latest and the oldest supported version
+                python-version: ['3.9', '3.10']
+                # Test on the latest and oldest supported version
+                aiida-core-version: [2.2.2, 2.4.3]
             fail-fast: false
 
         runs-on: ubuntu-latest
@@ -116,8 +117,7 @@ jobs:
               run: uv pip install --system "aiidalab_widgets_base[dev,smiles,optimade] @ ." aiida-core==${{ matrix.aiida-core-version }}
 
             - name: Run pytest
-              run: |
-                  python -m pytest -v tests --cov
+              run: python -m pytest -v tests --cov
 
             - name: Upload coverage reports to Codecov
               uses: codecov/codecov-action@v4
