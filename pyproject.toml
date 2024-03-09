@@ -28,6 +28,8 @@ filterwarnings = [
     'ignore::DeprecationWarning:jupyter_client',
     'ignore::DeprecationWarning:selenium',
     'ignore::DeprecationWarning:pytest_selenium',
+    'ignore:::vapory',
+    'ignore:::CifFile',
 ]
 
 [tool.ruff]
