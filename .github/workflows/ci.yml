@@ -45,11 +45,14 @@ jobs:
                       **/pyproject.toml
                       **/requirements*.txt
 
-            - name: Install package test dependencies
+            - name: Install uv
+              run: curl -LsSf https://astral.sh/uv/install.sh | sh
+
               # Notebook tests happen in the container, here we only need to install
               # the pytest-docker dependency. Unfortunately, pip does not allow to
               # only install [dev] dependencies so we end up installing all the rest as well.
-              run: pip install -e .[dev]
+            - name: Install package dev dependencies with uv
+              run: uv pip install --system "aiidalab_widgets_base[dev] @ ." aiida-core==${{ matrix.aiida-core-version }}
 
             - name: Set jupyter token env
               run: echo "JUPYTER_TOKEN=$(openssl rand -hex 32)" >> $GITHUB_ENV
