@@ -52,7 +52,7 @@ jobs:
               # the pytest-docker dependency. Unfortunately, pip does not allow to
               # only install [dev] dependencies so we end up installing all the rest as well.
             - name: Install package dev dependencies with uv
-              run: uv pip install --system "aiidalab_widgets_base[dev] @ ." aiida-core==${{ matrix.aiida-core-version }}
+              run: uv pip install --compile --system "aiidalab_widgets_base[dev] @ ." aiida-core==${{ matrix.aiida-core-version }}
 
             - name: Set jupyter token env
               run: echo "JUPYTER_TOKEN=$(openssl rand -hex 32)" >> $GITHUB_ENV
@@ -117,7 +117,7 @@ jobs:
               run: curl --proto '=https' --tlsv1.2 -LsSf https://github.com/astral-sh/uv/releases/download/0.1.21/uv-installer.sh | sh
 
             - name: Install package with uv
-              run: uv pip install --system "aiidalab_widgets_base[dev,smiles,optimade] @ ." aiida-core==${{ matrix.aiida-core-version }}
+              run: uv pip install --compile --system "aiidalab_widgets_base[dev,smiles,optimade] @ ." aiida-core==${{ matrix.aiida-core-version }}
 
             - name: Run pytest
               run: pytest -sv tests --cov
