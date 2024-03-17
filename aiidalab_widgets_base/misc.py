@@ -20,7 +20,7 @@ class CopyToClipboardButton(ipw.Button):
         from IPython.display import Javascript, display
 
         javas = Javascript(
-            """
+            f"""
            function copyStringToClipboard (str) {{
                // Create new element
                var el = document.createElement('textarea');
@@ -37,10 +37,8 @@ class CopyToClipboardButton(ipw.Button):
                // Remove temporary element
                document.body.removeChild(el);
             }}
-            copyStringToClipboard("{selection}");
-       """.format(
-                selection=self.value
-            )
+            copyStringToClipboard("{self.value}");
+        """
         )  # For the moment works for Chrome, but doesn't work for Firefox.
         if self.value:  # If no value provided - do nothing.
             display(javas)

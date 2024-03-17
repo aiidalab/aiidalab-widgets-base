@@ -14,36 +14,13 @@ concurrency:
 
 jobs:
 
-    pre-commit:
-    # Adapted from: https://github.com/CasperWA/voila-optimade-client
-
-        runs-on: ubuntu-latest
-
-        steps:
-            - uses: actions/checkout@v4
-
-            - name: Setup Python
-              uses: actions/setup-python@v4
-              with:
-                  python-version: '3.10'
-                  cache: pip
-                  cache-dependency-path: |
-                      .pre-commit-config.yaml
-                      **/setup.cfg
-                      **/pyproject.toml
-                      **/requirements*.txt
-
-            - uses: pre-commit/action@v3.0.0
-
     test-notebooks:
-
-        needs: [pre-commit]
 
         strategy:
             matrix:
-                tag: [latest]
                 browser: [Chrome, Firefox]
                 python-version: ['3.10']
+                aiida-core-version: [2.1.2, 2.4.3]          # test on the latest and the oldest supported version
             fail-fast: false
 
         runs-on: ubuntu-latest
@@ -55,7 +32,7 @@ jobs:
               uses: actions/checkout@v4
 
             - name: Set up Python
-              uses: actions/setup-python@v4
+              uses: actions/setup-python@v5
               with:
                   python-version: ${{ matrix.python-version }}
                   cache: pip
@@ -65,6 +42,10 @@ jobs:
                       **/requirements*.txt
 
             - name: Install package test dependencies
+              # Test test will actually happened in the container, here only need to install
+              # the pytest-docker dependency.
+              # To add the dependencies to the container, we need to add them to the
+              # installation command in the `test_notebooks/conftest.py`.
               run: pip install -e .[dev]
 
             - name: Set jupyter token env
@@ -87,24 +68,22 @@ jobs:
             - name: Run pytest
               run: pytest -v --driver ${{ matrix.browser }} tests_notebooks
               env:
-                  TAG: ${{ matrix.tag }}
+                  TAG: aiida-${{ matrix.aiida-core-version }}
 
             - name: Upload screenshots as artifacts
               if: always()
-              uses: actions/upload-artifact@v3
+              uses: actions/upload-artifact@v4
               with:
-                  name: Screenshots-${{ matrix.tag }}-${{ matrix.browser }}
+                  name: Screenshots-aiida-${{ matrix.aiida-core-version }}-${{ matrix.browser }}
                   path: screenshots/
                   if-no-files-found: error
 
     test-package:
 
-        needs: [pre-commit]
-
         strategy:
             matrix:
-                tag: [latest]
-                python-version: ['3.8', '3.9', '3.10']
+                python-version: ['3.9', '3.10']
+                aiida-core-version: [2.2.2, 2.4.3]          # test on the latest and the oldest supported version
             fail-fast: false
 
         runs-on: ubuntu-latest
@@ -123,7 +102,7 @@ jobs:
               run: sudo apt-get install povray
 
             - name: Set up Python
-              uses: actions/setup-python@v4
+              uses: actions/setup-python@v5
               with:
                   python-version: ${{ matrix.python-version }}
                   cache: pip
@@ -133,14 +112,13 @@ jobs:
                       **/requirements*.txt
 
             - name: Install package
-              run: pip install -e .[dev,smiles]
+              run: pip install -e .[dev,smiles,optimade] aiida-core==${{ matrix.aiida-core-version }}
 
             - name: Run pytest
               run: pytest -v tests --cov
-              env:
-                  TAG: ${{ matrix.tag }}
 
             - name: Upload coverage reports to Codecov
-              uses: codecov/codecov-action@v3
+              uses: codecov/codecov-action@v4
               with:
                   flags: python-${{ matrix.python-version }}
+                  token: ${{ secrets.CODECOV_TOKEN }}

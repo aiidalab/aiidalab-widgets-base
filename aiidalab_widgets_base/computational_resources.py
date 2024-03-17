@@ -376,7 +376,7 @@ class SshComputerSetup(ipw.VBox):
             "",
         ]
         if not fpath.exists():
-            subprocess.run(keygen_cmd, capture_output=True)
+            subprocess.run(keygen_cmd, capture_output=True, check=True)
 
     def _can_login(self):
         """Check if it is possible to login into the remote host."""
@@ -1028,6 +1028,7 @@ class AiidaComputerSetup(ipw.VBox):
         process_result = subprocess.run(
             ["verdi", "computer", "test", "--print-traceback", self.label.value],
             capture_output=True,
+            check=False,
         )
 
         if process_result.returncode == 0:
@@ -1602,7 +1603,7 @@ class _ResourceSetupBaseWidget(ipw.VBox):
         enable_detailed_setup=True,
     ):
         if not any((enable_detailed_setup, enable_quick_setup)):
-            raise ValueError(  # noqa
+            raise ValueError(
                 "At least one of `enable_quick_setup` and `enable_detailed_setup` should be True."
             )
 

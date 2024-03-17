@@ -152,11 +152,26 @@ class OptimadeQueryWidget(ipw.VBox):
 
     def __init__(
         self,
-        embedded: bool = True,
-        title: str = None,
+        embedded=True,
+        title=None,
         **kwargs,
     ) -> None:
-        from optimade_client import default_parameters, query_filter, query_provider
+        try:
+            from ipyoptimade import default_parameters, query_filter, query_provider
+        except ImportError:
+            super().__init__(
+                [
+                    ipw.HTML(
+                        """
+                        <div style="margin: 10px 0; padding: 10px; background-color: #ffcc00; color: black; border-left: 6px solid #ffeb3b;">
+                            <i class="fa fa-exclamation-triangle" aria-hidden="true"></i>
+                            &nbsp;This widget requires the <code>optimade-client</code> package to be installed.
+                            Please run <code>pip install optimade-client</code> to install the missing package.
+                        </div>"""
+                    )
+                ]
+            )
+            return
 
         providers_header = ipw.HTML("<h4>Select a provider</h4>")
         providers = query_provider.OptimadeQueryProviderWidget(
