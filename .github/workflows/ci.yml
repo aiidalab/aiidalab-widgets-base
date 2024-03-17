@@ -39,20 +39,15 @@ jobs:
               uses: actions/setup-python@v5
               with:
                   python-version: ${{ matrix.python-version }}
-                  cache: pip
-                  cache-dependency-path: |
-                      **/setup.cfg
-                      **/pyproject.toml
-                      **/requirements*.txt
 
             - name: Install uv
               run: curl --proto '=https' --tlsv1.2 -LsSf https://github.com/astral-sh/uv/releases/download/0.1.21/uv-installer.sh | sh
 
               # Notebook tests happen in the container, here we only need to install
-              # the pytest-docker dependency. Unfortunately, pip does not allow to
+              # the pytest-docker dependency. Unfortunately, uv/pip does not allow to
               # only install [dev] dependencies so we end up installing all the rest as well.
-            - name: Install package dev dependencies with uv
-              run: uv pip install --compile --system "aiidalab_widgets_base[dev] @ ." aiida-core==${{ matrix.aiida-core-version }}
+            - name: Install dev dependencies with uv
+              run: uv pip install --system "aiidalab_widgets_base[dev] @ ."
 
             - name: Set jupyter token env
               run: echo "JUPYTER_TOKEN=$(openssl rand -hex 32)" >> $GITHUB_ENV
