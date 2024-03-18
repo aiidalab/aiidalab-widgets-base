@@ -44,7 +44,7 @@ jobs:
               # the pytest-docker dependency.
               # To add the dependencies to the container, we need to add them to the
               # installation command in the `test_notebooks/conftest.py`.
-              run: uv pip install --system "aiidalab_widgets_base[dev] @ ."
+              run: uv pip install --system -e .[dev]
 
             - name: Set jupyter token env
               run: echo "JUPYTER_TOKEN=$(openssl rand -hex 32)" >> $GITHUB_ENV
@@ -114,7 +114,7 @@ jobs:
             # Ideally, these would be fixed, but vapory is largely unmaintained,
             # so here we simply keep the pip behaviour with the --compile flag.
             # See https://github.com/astral-sh/uv/issues/1928#issuecomment-1968857514
-              run: uv pip install --compile --system "aiidalab_widgets_base[dev,smiles,optimade] @ ." aiida-core==${{ matrix.aiida-core-version }}
+              run: uv pip install --compile --system -e .[dev,smiles,optimade] aiida-core==${{ matrix.aiida-core-version }}
 
             - name: Run pytest
               run: pytest -v tests --cov
