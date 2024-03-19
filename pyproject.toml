@@ -8,8 +8,6 @@ build-backend = "setuptools.build_meta"
 [tool.pytest.ini_options]
 filterwarnings = [
     'error',
-    'ignore::DeprecationWarning:vapory',
-    'ignore::DeprecationWarning:CifFile',
     'ignore::DeprecationWarning:bokeh.core.property.primitive',
     'ignore:Creating AiiDA configuration:UserWarning:aiida',
     'ignore:crystal system:UserWarning:ase.io.cif',
