@@ -1136,7 +1136,14 @@ class StructureDataViewer(_StructureDataBaseViewer):
             self.set_trait(
                 "displayed_structure", None
             )  # To make sure the structure is always updated.
-            self.set_trait("displayed_structure", self.structure.repeat(self.supercell))
+            # because nglview loads the structure through save and load a temp "pdb" file
+            # thus change the cell and positions into standard form.
+            # we need to mimic this process and update the cell and positions
+            pdb_structure = self.structure.copy()
+            pdb_structure.set_cell(
+                self.structure.cell.standard_form()[0], scale_atoms=True
+            )
+            self.set_trait("displayed_structure", pdb_structure.repeat(self.supercell))
 
     @tl.validate("structure")
     def _valid_structure(self, change):
