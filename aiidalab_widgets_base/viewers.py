@@ -1521,16 +1521,22 @@ class FolderDataViewer(ipw.VBox):
         super().__init__(children, **kwargs)
 
     def change_file_view(self, _=None):
-        with self._folder.base.repository.open(self.files.value) as fobj:
-            self.text.value = fobj.read()
+        try:
+            with self._folder.base.repository.open(self.files.value) as fobj:
+                self.text.value = fobj.read()
+        except UnicodeDecodeError:
+            self.text.value = "[Binary file, preview not available]"
 
     def download(self, _=None):
         """Prepare for downloading."""
         from IPython.display import Javascript
 
-        payload = base64.b64encode(
-            self._folder.get_object_content(self.files.value).encode()
-        ).decode()
+        try:
+            stuff = self._folder.get_object_content(self.files.value).encode()
+        except UnicodeDecodeError:
+            stuff = self._folder.get_object_content(self.files.value, "rb")
+        payload = base64.b64encode(stuff).decode()
+
         javas = Javascript(
             f"""
             var link = document.createElement('a');
