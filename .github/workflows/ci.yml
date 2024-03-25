@@ -1,9 +1,13 @@
 ---
-# Run basic tests for this app on the latest aiidalab-docker image.
+# Run unit tests and notebook tests on the latest aiidalab-docker image.
 
-name: continuous-integration
+name: CI
 
-on: [push, pull_request]
+on:
+    push:
+        branches:
+            - main
+    pull_request:
 
 
 # https://docs.github.com/en/actions/using-jobs/using-concurrency
@@ -37,14 +41,13 @@ jobs:
                   python-version: ${{ matrix.python-version }}
 
             - name: Install uv
-              run: curl --proto '=https' --tlsv1.2 -LsSf https://github.com/astral-sh/uv/releases/download/0.1.21/uv-installer.sh | sh
+              run: curl --proto '=https' --tlsv1.2 -LsSf https://github.com/astral-sh/uv/releases/download/0.1.24/uv-installer.sh | sh
 
             - name: Install package test dependencies
-              # Test test will actually happened in the container, here only need to install
-              # the pytest-docker dependency.
-              # To add the dependencies to the container, we need to add them to the
-              # installation command in the `test_notebooks/conftest.py`.
-              run: uv pip install --system -e .[dev]
+              # Notebook tests happen in the container, here we only need to install
+              # the pytest-docker dependency. Unfortunately, uv/pip does not allow to
+              # only install [dev] dependencies so we end up installing all the rest as well.
+              run: uv pip install --system .[dev]
 
             - name: Set jupyter token env
               run: echo "JUPYTER_TOKEN=$(openssl rand -hex 32)" >> $GITHUB_ENV
@@ -81,7 +84,8 @@ jobs:
         strategy:
             matrix:
                 python-version: ['3.9', '3.10']
-                aiida-core-version: [2.2.2, 2.4.3]          # test on the latest and the oldest supported version
+                # Test on the latest and oldest supported version
+                aiida-core-version: [2.2.2, 2.4.3]
             fail-fast: false
 
         runs-on: ubuntu-latest
@@ -105,7 +109,7 @@ jobs:
                   python-version: ${{ matrix.python-version }}
 
             - name: Install uv
-              run: curl --proto '=https' --tlsv1.2 -LsSf https://github.com/astral-sh/uv/releases/download/0.1.21/uv-installer.sh | sh
+              run: curl --proto '=https' --tlsv1.2 -LsSf https://github.com/astral-sh/uv/releases/download/0.1.24/uv-installer.sh | sh
 
             - name: Install package
             # NOTE: uv (unlike pip) does not compile python to bytecode after install.
@@ -114,7 +118,7 @@ jobs:
             # Ideally, these would be fixed, but vapory is largely unmaintained,
             # so here we simply keep the pip behaviour with the --compile flag.
             # See https://github.com/astral-sh/uv/issues/1928#issuecomment-1968857514
-              run: uv pip install --compile --system -e .[dev,smiles,optimade] aiida-core==${{ matrix.aiida-core-version }}
+              run: uv pip install --compile --system .[dev,smiles,optimade] aiida-core==${{ matrix.aiida-core-version }}
 
             - name: Run pytest
               run: pytest -v tests --cov
