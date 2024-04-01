@@ -1,4 +1,5 @@
 """Reusable widgets for AiiDAlab applications."""
+
 from aiida.manage import get_profile
 
 _WARNING_TEMPLATE = """
