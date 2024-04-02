@@ -672,9 +672,15 @@ class _StructureDataBaseViewer(ipw.VBox):
                 *self.cell.array[2]
             )
 
-            self.cell_a_length.value = f"|<i><b>a</b></i>|: {self.cell.lengths()[0]:.4f}"
-            self.cell_b_length.value = f"|<i><b>b</b></i>|: {self.cell.lengths()[1]:.4f}"
-            self.cell_c_length.value = f"|<i><b>c</b></i>|: {self.cell.lengths()[2]:.4f}"
+            self.cell_a_length.value = (
+                f"|<i><b>a</b></i>|: {self.cell.lengths()[0]:.4f}"
+            )
+            self.cell_b_length.value = (
+                f"|<i><b>b</b></i>|: {self.cell.lengths()[1]:.4f}"
+            )
+            self.cell_c_length.value = (
+                f"|<i><b>c</b></i>|: {self.cell.lengths()[2]:.4f}"
+            )
 
             self.cell_alpha.value = f"&alpha;: {self.cell.angles()[0]:.4f}"
             self.cell_beta.value = f"&beta;: {self.cell.angles()[1]:.4f}"
