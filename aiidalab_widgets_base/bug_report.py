@@ -4,6 +4,7 @@ Authors:
 
     * Carl Simon Adorf <simon.adorf@epfl.ch>
 """
+
 from __future__ import annotations
 
 import base64

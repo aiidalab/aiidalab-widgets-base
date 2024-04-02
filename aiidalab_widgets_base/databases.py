@@ -1,4 +1,5 @@
 """Widgets that allow to query online databases."""
+
 import re
 
 import ase

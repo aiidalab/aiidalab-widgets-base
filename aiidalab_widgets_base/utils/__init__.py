@@ -1,4 +1,5 @@
 """Some utility functions used acrross the repository."""
+
 import threading
 from enum import Enum
 from typing import Any

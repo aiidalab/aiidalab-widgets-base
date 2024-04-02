@@ -1,4 +1,5 @@
 """Some useful classes used acrross the repository."""
+
 import io
 import tokenize
 

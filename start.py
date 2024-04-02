@@ -1,4 +1,5 @@
 """Start page appearance."""
+
 import ipywidgets as ipw
 
 TEMPLATE = """
