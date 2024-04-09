@@ -111,7 +111,7 @@ jobs:
                   python-version: ${{ matrix.python-version }}
 
             - name: Install uv
-              run: curl --proto '=https' --tlsv1.2 -LsSf https://github.com/astral-sh/uv/releases/download/0.1.29/uv-installer.sh | sh
+              run: curl --proto '=https' --tlsv1.2 -LsSf https://github.com/astral-sh/uv/releases/download/0.1.31/uv-installer.sh | sh
 
             - name: Install package
             # NOTE: uv (unlike pip) does not compile python to bytecode after install.
