@@ -9,6 +9,8 @@ on:
             - main
     pull_request:
 
+env:
+    FORCE_COLOR: '1'
 
 # https://docs.github.com/en/actions/using-jobs/using-concurrency
 concurrency:
@@ -84,7 +86,8 @@ jobs:
             matrix:
                 python-version: ['3.9', '3.10']
                 # Test on the latest and oldest supported version
-                aiida-core-version: ['git+https://github.com/sphuber/aiida-core@feature/improved-profile-fixtures']
+                aiida-core-version:
+                    - git+https://github.com/sphuber/aiida-core@feature/improved-profile-fixtures
             fail-fast: false
 
         runs-on: ubuntu-latest
