@@ -84,7 +84,7 @@ jobs:
             matrix:
                 python-version: ['3.9', '3.10']
                 # Test on the latest and oldest supported version
-                aiida-core-version: [2.2.2, 2.4.3]
+                aiida-core-version: ['git+https://github.com/sphuber/aiida-core@feature/improved-profile-fixtures']
             fail-fast: false
 
         runs-on: ubuntu-latest
@@ -108,7 +108,7 @@ jobs:
                   python-version: ${{ matrix.python-version }}
 
             - name: Install uv
-              run: curl --proto '=https' --tlsv1.2 -LsSf https://github.com/astral-sh/uv/releases/download/0.1.27/uv-installer.sh | sh
+              run: curl --proto '=https' --tlsv1.2 -LsSf https://github.com/astral-sh/uv/releases/download/0.1.29/uv-installer.sh | sh
 
             - name: Install package
             # NOTE: uv (unlike pip) does not compile python to bytecode after install.
@@ -117,7 +117,7 @@ jobs:
             # Ideally, these would be fixed, but vapory is largely unmaintained,
             # so here we simply keep the pip behaviour with the --compile flag.
             # See https://github.com/astral-sh/uv/issues/1928#issuecomment-1968857514
-              run: uv pip install --compile --system .[dev,smiles,optimade] aiida-core==${{ matrix.aiida-core-version }}
+              run: uv pip install --compile --system .[dev,smiles,optimade] ${{ matrix.aiida-core-version }}
 
             - name: Run pytest
               run: pytest -v tests --cov
