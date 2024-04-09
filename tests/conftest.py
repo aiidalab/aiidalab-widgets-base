@@ -10,19 +10,18 @@ import numpy as np
 import pytest
 from aiida import engine, orm, plugins
 
-pytest_plugins = ["aiida.manage.tests.pytest_fixtures"]
+pytest_plugins = ["aiida.tools.pytest_fixtures"]
 
 
 @pytest.fixture
-def fixture_localhost(aiida_localhost):
+def localhost(aiida_localhost):
     """Return a localhost `Computer`."""
-    localhost = aiida_localhost
-    localhost.set_default_mpiprocs_per_machine(1)
-    return localhost
+    aiida_localhost.set_default_mpiprocs_per_machine(1)
+    return aiida_localhost
 
 
 @pytest.fixture
-def generate_calc_job_node(fixture_localhost):
+def generate_calc_job_node(localhost):
     """Fixture to generate a mock `CalcJobNode` for testing parsers."""
 
     def flatten_inputs(inputs, prefix=""):
@@ -60,7 +59,7 @@ def generate_calc_job_node(fixture_localhost):
         from plumpy import ProcessState
 
         if computer is None:
-            computer = fixture_localhost
+            computer = localhost
 
         filepath_folder = None
 
@@ -275,9 +274,11 @@ def folder_data_object():
 
 
 @pytest.fixture
-def aiida_local_code_bash(aiida_local_code_factory):
+def aiida_local_code_bash(aiida_code_installed):
     """Return a `Code` configured for the bash executable."""
-    return aiida_local_code_factory(executable="bash", entry_point="bash")
+    return aiida_code_installed(
+        filepath_executable="/bin/bash", default_calc_job_plugin="bash"
+    )
 
 
 @pytest.fixture
