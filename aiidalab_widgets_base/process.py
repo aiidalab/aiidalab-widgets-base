@@ -1,4 +1,5 @@
 """Widgets to work with processes."""
+
 # pylint: disable=no-self-use
 # Built-in imports
 from __future__ import annotations

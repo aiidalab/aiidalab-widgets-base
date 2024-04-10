@@ -1,4 +1,5 @@
 """Module to provide functionality to import structures."""
+
 import datetime
 import functools
 import io

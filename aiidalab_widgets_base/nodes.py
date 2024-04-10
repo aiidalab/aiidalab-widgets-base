@@ -1,4 +1,5 @@
 """Widgets to work with AiiDA nodes."""
+
 import functools
 
 import ipytree
