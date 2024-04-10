@@ -67,7 +67,7 @@ class AiidaNodeTreeNode(ipytree.Node):
         super().__init__(name=name, **kwargs)
 
     @tl.default("opened")
-    def _default_openend(self):
+    def _default_opened(self):
         return True
 
 
