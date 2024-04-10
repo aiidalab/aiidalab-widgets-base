@@ -141,6 +141,10 @@ class NodesTreeWidget(ipw.Output):
             display(self._tree)
 
     def _observe_tree_selected_nodes(self, change):
+        for node in change["new"]:
+            if hasattr(node, "pk"):
+                # find the selected node and build the tree from it, so that users can expand and explore the tree
+                self._build_tree(self.find_node(node.pk))
         return self.set_trait(
             "selected_nodes",
             tuple(
@@ -251,8 +255,8 @@ class NodesTreeWidget(ipw.Output):
 
     @classmethod
     def _build_tree(cls, root):
-        """Recursively build a tree nodes graph for a given tree node."""
-        root.nodes = [cls._build_tree(child) for child in cls._find_children(root)]
+        """Build a tree nodes graph for a given tree node."""
+        root.nodes = list(cls._find_children(root))
         return root
 
     @classmethod
