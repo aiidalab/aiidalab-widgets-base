@@ -1,4 +1,5 @@
-"""Useful functions that provide access to some data. """
+"""Useful functions that provide access to some data."""
+
 import ipywidgets as ipw
 import numpy as np
 from ase import Atom, Atoms
