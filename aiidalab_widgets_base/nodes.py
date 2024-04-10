@@ -68,7 +68,7 @@ class AiidaNodeTreeNode(ipytree.Node):
 
     @tl.default("opened")
     def _default_openend(self):
-        return False
+        return True
 
 
 class AiidaProcessNodeTreeNode(AiidaNodeTreeNode):
@@ -91,7 +91,7 @@ class CalcFunctionTreeNode(AiidaProcessNodeTreeNode):
 
 class AiidaOutputsTreeNode(ipytree.Node):
     icon = tl.Unicode("folder").tag(sync=True)
-    disabled = tl.Bool(True).tag(sync=True)
+    disabled = tl.Bool(False).tag(sync=True)
 
     def __init__(self, name, parent_pk, namespaces: tuple[str, ...] = (), **kwargs):
         self.parent_pk = parent_pk
@@ -142,9 +142,14 @@ class NodesTreeWidget(ipw.Output):
 
     def _observe_tree_selected_nodes(self, change):
         for node in change["new"]:
-            if hasattr(node, "pk"):
-                # find the selected node and build the tree from it, so that users can expand and explore the tree
-                self._build_tree(self.find_node(node.pk))
+            # find the selected node and build the tree from it, so that users can expand and explore the tree
+            node_pk = (
+                node.parent_pk
+                if isinstance(node, AiidaOutputsTreeNode)
+                else getattr(node, "pk", None)
+            )
+
+            self._build_tree(self.find_node(node_pk, getattr(node, "namespaces", None)))
         return self.set_trait(
             "selected_nodes",
             tuple(
@@ -288,9 +293,16 @@ class NodesTreeWidget(ipw.Output):
             for tree_node in self._walk_tree(root_node):
                 self._update_tree_node(tree_node)
 
-    def find_node(self, pk):
+    def find_node(self, pk, namespaces=None):
+        """Find a node by its pk and namespaces.
+        If node is an output node, it is identified by the parent pk and namespaces, otherwise by the pk."""
         for node in self._walk_tree(self._tree):
-            if getattr(node, "pk", None) == pk:
+            node_pk = (
+                node.parent_pk
+                if isinstance(node, AiidaOutputsTreeNode)
+                else getattr(node, "pk", None)
+            )
+            if node_pk == pk and getattr(node, "namespaces", None) == namespaces:
                 return node
         raise KeyError(pk)
 
