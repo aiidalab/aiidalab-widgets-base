@@ -189,9 +189,19 @@ class NodesTreeWidget(ipw.Output):
                 name = calc_info(node)
             else:
                 name = str(node)
-        return cls.NODE_TYPE.get(type(node), UnknownTypeTreeNode)(
+        tree_node = cls.NODE_TYPE.get(type(node), UnknownTypeTreeNode)(
             pk=node.pk, name=name, **kwargs
         )
+        # Set the style based on the process state of the node
+        if isinstance(node, orm.ProcessNode):
+            process_state = (
+                engine.ProcessState.EXCEPTED if node.is_failed else node.process_state
+            )
+            tree_node.icon_style = cls.PROCESS_STATE_STYLE.get(
+                process_state, cls.PROCESS_STATE_STYLE_DEFAULT
+            )
+
+        return tree_node
 
     @classmethod
     def _find_called(cls, root):
