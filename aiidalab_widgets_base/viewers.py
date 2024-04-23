@@ -1136,7 +1136,18 @@ class StructureDataViewer(_StructureDataBaseViewer):
             self.set_trait(
                 "displayed_structure", None
             )  # To make sure the structure is always updated.
-            self.set_trait("displayed_structure", self.structure.repeat(self.supercell))
+            # nglview displays structures by first saving them to a temporary "pdb" file, which necessitates
+            # converting the unit cell and atomic positions into a standard form where the a-axis aligns along the x-axis.
+            # This transformation can cause discrepancies between the atom positions and custom bonds calculated from the original structure.
+            # To mitigate this, we transform the "displayed_structure" into the standard form prior to rendering in nglview.
+            # This ensures that nglview's internal handling does not further modify the structure unexpectedly.
+            standard_structure = self.structure.copy()
+            standard_structure.set_cell(
+                self.structure.cell.standard_form()[0], scale_atoms=True
+            )
+            self.set_trait(
+                "displayed_structure", standard_structure.repeat(self.supercell)
+            )
 
     @tl.validate("structure")
     def _valid_structure(self, change):
