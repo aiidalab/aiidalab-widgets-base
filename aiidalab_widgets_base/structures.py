@@ -191,11 +191,11 @@ class StructureManagerWidget(ipw.VBox):
                     )
                 if editor.has_trait("selection"):
                     tl.link((editor, "selection"), (self.viewer, "selection"))
-                if editor.has_trait("camera_orientation"):
-                    tl.dlink(
-                        (self.viewer._viewer, "_camera_orientation"),
-                        (editor, "camera_orientation"),
-                    )
+                # if editor.has_trait("camera_orientation"):
+                #     tl.dlink(
+                #         (self.viewer._viewer, "_camera_orientation"),
+                #         (editor, "camera_orientation"),
+                #     )
             return editors_tab
         return None
 
@@ -341,7 +341,6 @@ class StructureManagerWidget(ipw.VBox):
         This function enables/disables `btn_store` widget if structure is provided/set to None.
         Also, the function sets `structure_node` trait to the selected node type.
         """
-
         if not self.structure_set_by_undo:
             self.history.append(change["new"])
 
