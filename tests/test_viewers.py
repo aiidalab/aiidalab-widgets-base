@@ -282,3 +282,25 @@ def test_compute_bonds_in_structure_data_viewer():
     viewer = viewers.StructureDataViewer()
     bonds = viewer._compute_bonds(water)
     assert len(bonds) == 4
+
+
+@pytest.mark.usefixtures("aiida_profile_clean")
+def test_loading_viewer_using_process_type(generate_calc_job_node):
+    """Test loading a viewer widget based on the process type of the process node."""
+    from aiidalab_widgets_base import register_viewer_widget
+
+    # Define and register a viewer widget for the calculation type identified by "aiida.calculations:abc".
+    @register_viewer_widget("aiida.calculations:abc")
+    class AbcViewer:
+        def __init__(self, node=None):
+            self.node = node
+
+    # Generate a calc job node with the specific entry point "abc".
+    process = generate_calc_job_node(entry_point_name="abc")
+    # Load the viewer widget for the generated process node.
+    viewer = viewers.viewer(process)
+    # Verify that the loaded viewer is the correct type and is associated with the intended node.
+    assert isinstance(
+        viewer, AbcViewer
+    ), "Viewer is not an instance of the expected viewer class."
+    assert viewer.node == process, "Viewer's node does not match the test process node."

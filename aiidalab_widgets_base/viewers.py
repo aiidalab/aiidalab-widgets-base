@@ -47,8 +47,12 @@ def viewer(obj, **kwargs):
         )
         return obj
 
-    if obj.node_type in AIIDA_VIEWER_MAPPING:
-        _viewer = AIIDA_VIEWER_MAPPING[obj.node_type]
+    _viewer = AIIDA_VIEWER_MAPPING.get(obj.node_type)
+    if isinstance(obj, orm.ProcessNode):
+        # Allow to register specific viewers based on obj.process_type
+        _viewer = AIIDA_VIEWER_MAPPING.get(obj.process_type, _viewer)
+
+    if _viewer:
         return _viewer(obj, **kwargs)
     else:
         # No viewer registered for this type, return object itself
