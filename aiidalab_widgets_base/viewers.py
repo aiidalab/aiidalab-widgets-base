@@ -1141,11 +1141,13 @@ class StructureDataViewer(_StructureDataBaseViewer):
             # This transformation can cause discrepancies between the atom positions and custom bonds calculated from the original structure.
             # To mitigate this, we transform the "displayed_structure" into the standard form prior to rendering in nglview.
             # This ensures that nglview's internal handling does not further modify the structure unexpectedly.
-            pdb_structure = self.structure.copy()
-            pdb_structure.set_cell(
+            standard_structure = self.structure.copy()
+            standard_structure.set_cell(
                 self.structure.cell.standard_form()[0], scale_atoms=True
             )
-            self.set_trait("displayed_structure", pdb_structure.repeat(self.supercell))
+            self.set_trait(
+                "displayed_structure", standard_structure.repeat(self.supercell)
+            )
 
     @tl.validate("structure")
     def _valid_structure(self, change):
