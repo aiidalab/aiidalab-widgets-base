@@ -1140,7 +1140,18 @@ class StructureDataViewer(_StructureDataBaseViewer):
             self.set_trait(
                 "displayed_structure", None
             )  # To make sure the structure is always updated.
-            self.set_trait("displayed_structure", self.structure.repeat(self.supercell))
+            # nglview displays structures by first saving them to a temporary "pdb" file, which necessitates
+            # converting the unit cell and atomic positions into a standard form where the a-axis aligns along the x-axis.
+            # This transformation can cause discrepancies between the atom positions and custom bonds calculated from the original structure.
+            # To mitigate this, we transform the "displayed_structure" into the standard form prior to rendering in nglview.
+            # This ensures that nglview's internal handling does not further modify the structure unexpectedly.
+            standard_structure = self.structure.copy()
+            standard_structure.set_cell(
+                self.structure.cell.standard_form()[0], scale_atoms=True
+            )
+            self.set_trait(
+                "displayed_structure", standard_structure.repeat(self.supercell)
+            )
 
     @tl.validate("structure")
     def _valid_structure(self, change):
@@ -1525,20 +1536,25 @@ class FolderDataViewer(ipw.VBox):
         super().__init__(children, **kwargs)
 
     def change_file_view(self, _=None):
-        with self._folder.base.repository.open(self.files.value) as fobj:
-            self.text.value = fobj.read()
+        try:
+            with self._folder.base.repository.open(self.files.value) as fobj:
+                self.text.value = fobj.read()
+        except UnicodeDecodeError:
+            self.text.value = "[Binary file, preview not available]"
 
     def download(self, _=None):
-        """Prepare for downloading."""
+        """Download selected file."""
         from IPython.display import Javascript
 
-        payload = base64.b64encode(
-            self._folder.get_object_content(self.files.value).encode()
-        ).decode()
+        # TODO: Preparing large files for download might take a while.
+        # Can we do a streaming solution?
+        raw_bytes = self._folder.get_object_content(self.files.value, "rb")
+        base64_payload = base64.b64encode(raw_bytes).decode()
+
         javas = Javascript(
             f"""
             var link = document.createElement('a');
-            link.href = "data:;base64,{payload}"
+            link.href = "data:;base64,{base64_payload}"
             link.download = "{self.files.value}"
             document.body.appendChild(link);
             link.click();

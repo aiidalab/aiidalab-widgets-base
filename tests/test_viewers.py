@@ -22,9 +22,7 @@ def test_pbc_structure_data_viewer(structure_data_object):
 
 
 @pytest.mark.usefixtures("aiida_profile_clean")
-def test_several_data_viewers(
-    bands_data_object, folder_data_object, generate_calc_job_node
-):
+def test_several_data_viewers(bands_data_object, generate_calc_job_node):
     v = viewers.viewer(orm.Int(1))
 
     # No viewer for Int, so it should return the input
@@ -38,10 +36,6 @@ def test_several_data_viewers(
     v = viewers.viewer(bands_data_object)
     assert isinstance(v, viewers.BandsDataViewer)
 
-    # FolderDataViewer
-    v = viewers.viewer(folder_data_object)
-    assert isinstance(v, viewers.FolderDataViewer)
-
     # ProcessNodeViewer
     process = generate_calc_job_node(
         inputs={
@@ -53,6 +47,27 @@ def test_several_data_viewers(
     )
     v = viewers.viewer(process)
     assert isinstance(v, viewers.ProcessNodeViewerWidget)
+
+
+@pytest.mark.usefixtures("aiida_profile_clean")
+def test_folder_data_viewer(folder_data_object):
+    v = viewers.viewer(folder_data_object)
+    assert isinstance(v, viewers.FolderDataViewer)
+
+    v.files.value = "test1.txt"
+    assert v.text.value == "content of test1.txt"
+
+    v.files.value = "test2.txt"
+    assert v.text.value == "content of test2.txt"
+    v.download_btn.click()
+    # NOTE: We're testing the download() method directly as well,
+    # since triggering it via self.download_btn.click() callback
+    # seems to swallow all exceptions.
+    v.download()
+
+    v.files.value = "test.bin"
+    assert v.text.value == "[Binary file, preview not available]"
+    v.download()
 
 
 @pytest.mark.usefixtures("aiida_profile_clean")
