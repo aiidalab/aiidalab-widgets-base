@@ -1136,9 +1136,11 @@ class StructureDataViewer(_StructureDataBaseViewer):
             self.set_trait(
                 "displayed_structure", None
             )  # To make sure the structure is always updated.
-            # because nglview loads the structure through save and load a temp "pdb" file
-            # thus change the cell and positions into standard form.
-            # we need to mimic this process and update the cell and positions
+            # nglview displays structures by first saving them to a temporary "pdb" file, which necessitates
+            # converting the unit cell and atomic positions into a standard form where the a-axis aligns along the x-axis.
+            # This transformation can cause discrepancies between the atom positions and custom bonds calculated from the original structure.
+            # To mitigate this, we transform the "displayed_structure" into the standard form prior to rendering in nglview.
+            # This ensures that nglview's internal handling does not further modify the structure unexpectedly.
             pdb_structure = self.structure.copy()
             pdb_structure.set_cell(
                 self.structure.cell.standard_form()[0], scale_atoms=True
