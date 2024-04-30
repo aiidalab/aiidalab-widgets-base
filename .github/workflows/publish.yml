@@ -1,8 +1,10 @@
 ---
-name: Publish on Test PyPI and PyPI
+name: Publish on (Test) PyPI
 
 on:
     pull_request:
+        branches:
+            - 'release/**'
     release:
         types: [published]
 
