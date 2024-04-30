@@ -7,7 +7,7 @@ on:
         # Commits pushed to release/ branches are published on Test PyPI if they
         # have a new version number. This allows the maintainer to check the release
         # before it is pushed to the actual PyPI index.
-            - release/**
+            - 'release/**'
     release:
         types: [published]
 
