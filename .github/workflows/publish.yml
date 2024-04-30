@@ -16,6 +16,7 @@ jobs:
 
     build:
 
+        name: Build package
         runs-on: ubuntu-latest
 
         steps:
@@ -47,7 +48,7 @@ jobs:
 
     publish-test:
 
-        name: Build and publish on TestPyPI
+        name: Publish on TestPyPI
         if: github.repository_owner == 'aiidalab'
 
         needs: [build]
@@ -74,7 +75,7 @@ jobs:
 
     publish:
 
-        name: Build and publish on PyPI
+        name: Publish on PyPI
         if: startsWith(github.ref, 'refs/tags/v') && github.repository_owner == 'aiidalab'
 
         needs: [build, publish-test]
