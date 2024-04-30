@@ -2,7 +2,11 @@
 name: Publish on (Test) PyPI
 
 on:
-    pull_request:
+    push:
+        # Commits pushed to release/ branches are published on Test PyPI
+        # if they have a new version number.
+        # If the version is the same, the worflow will still complete successfully,
+        # but the already published version on Test PyPI will not be updated.
         branches:
             - 'release/**'
     release:
