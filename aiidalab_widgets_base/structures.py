@@ -221,7 +221,7 @@ class StructureManagerWidget(ipw.VBox):
         ):
             # Make a link between self.input_structure and self.structure_node
             @engine.calcfunction
-            def user_modifications(source_structure): # noqa
+            def user_modifications(source_structure): # noqa F841
                 return self.structure_node
 
             structure_node = user_modifications(self.input_structure)
