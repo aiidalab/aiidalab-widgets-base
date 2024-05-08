@@ -9,6 +9,7 @@ build-backend = "setuptools.build_meta"
 filterwarnings = [
     'error',
     'ignore::sqlalchemy.exc.SAWarning',
+    'ignore::aiida.common.warnings.AiidaDeprecationWarning',
     'ignore::DeprecationWarning:bokeh.core.property.primitive',
     'ignore:Creating AiiDA configuration:UserWarning:aiida',
     'ignore:crystal system:UserWarning:ase.io.cif',
