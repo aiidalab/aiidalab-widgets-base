@@ -8,6 +8,7 @@ build-backend = "setuptools.build_meta"
 [tool.pytest.ini_options]
 filterwarnings = [
     'error',
+    'ignore::sqlalchemy.exc.SAWarning',
     'ignore::DeprecationWarning:bokeh.core.property.primitive',
     'ignore:Creating AiiDA configuration:UserWarning:aiida',
     'ignore:crystal system:UserWarning:ase.io.cif',
