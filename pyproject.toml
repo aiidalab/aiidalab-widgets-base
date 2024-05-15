@@ -22,11 +22,7 @@ filterwarnings = [
     # For some reason we get this error, see
     # https://github.com/aiidalab/aiidalab-widgets-base/issues/551
     'ignore:Exception ignored in:pytest.PytestUnraisableExceptionWarning:_pytest',
-    #'ignore::DeprecationWarning:pytest_html',
     'ignore::DeprecationWarning:jupyter_client',
-    #'ignore::DeprecationWarning:selenium',
-    #'ignore::DeprecationWarning:pytest_selenium',
-    'ignore:datetime.datetime.utcfromtimestamp:DeprecationWarning:aio_pika',
 ]
 
 [tool.ruff]
