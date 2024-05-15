@@ -4,6 +4,8 @@
 
 version: 2
 
+# Using uv installer to speed up the build
+# https://docs.readthedocs.io/en/stable/build-customization.html#install-dependencies-with-uv
 build:
     os: ubuntu-22.04
     tools:
