@@ -14,10 +14,4 @@ build:
         - asdf global uv latest
         - uv venv
         - uv pip install .[docs]
-
-# Build documentation in the "docs/" directory with Sphinx
-sphinx:
-    configuration: docs/source/conf.py
-    builder: html
-    # Let the build fail if there are any warnings
-    fail_on_warning: true
+        - .venv/bin/python -m sphinx -W -b html docs/source $READTHEDOCS_OUTPUT/html
