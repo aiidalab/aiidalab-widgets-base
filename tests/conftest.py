@@ -149,7 +149,7 @@ def generate_calc_job_node(aiida_localhost):
 
 
 @pytest.fixture
-def multiply_add_completed_workchain(aiida_code_bash):
+def multiply_add_completed_workchain(aiida_local_code_bash):
     """Return a `MultiplyAddWorkChain` instance with a `finished` process state and exit status of 0."""
     from aiida.workflows.arithmetic.multiply_add import MultiplyAddWorkChain
 
@@ -157,14 +157,14 @@ def multiply_add_completed_workchain(aiida_code_bash):
         "x": orm.Int(1),
         "y": orm.Int(2),
         "z": orm.Int(3),
-        "code": aiida_code_bash,
+        "code": aiida_local_code_bash,
     }
     _, process = engine.run_get_node(MultiplyAddWorkChain, **inputs)
     return process
 
 
 @pytest.fixture
-def multiply_add_process_builder_ready(aiida_code_bash):
+def multiply_add_process_builder_ready(aiida_local_code_bash):
     """Return a `MultiplyAddWorkChain` builder with all inputs set."""
     from aiida.workflows.arithmetic.multiply_add import MultiplyAddWorkChain
 
@@ -172,7 +172,7 @@ def multiply_add_process_builder_ready(aiida_code_bash):
     builder.x = orm.Int(1)
     builder.y = orm.Int(2)
     builder.z = orm.Int(3)
-    builder.code = aiida_code_bash
+    builder.code = aiida_local_code_bash
     return builder
 
 
@@ -270,11 +270,9 @@ def folder_data_object():
 
 
 @pytest.fixture
-def aiida_code_bash(aiida_code_installed):
+def aiida_local_code_bash(aiida_local_code_factory):
     """Return a `Code` configured for the bash executable."""
-    return aiida_code_installed(
-        filepath_executable="/bin/bash", default_calcjob_plugin="bash"
-    )
+    return aiida_local_code_factory(executable="bash", entry_point="bash")
 
 
 @pytest.fixture
