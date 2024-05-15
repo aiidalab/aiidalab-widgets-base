@@ -353,9 +353,7 @@ class ComputationalResourcesDatabaseWidget(ipw.VBox):
             if len(domain_value) == 0:
                 # remove domain since no computers with required codes defined in this domain source
                 del database[domain]
-                continue
-
-            if domain_value["default"] not in domain_value:
+            elif domain_value.get("default") not in domain_value:
                 # make sure default computer is still points to existing computer
                 domain_value["default"] = sorted(domain_value.keys() - {"default"})[0]
 
