@@ -14,4 +14,6 @@ build:
         - asdf global uv latest
         - uv venv
         - uv pip install .[docs]
+        - ls .venv/bin/
+        - . .venv/bin/activate
         - .venv/bin/python -m sphinx -W -b html docs/source $READTHEDOCS_OUTPUT/html
