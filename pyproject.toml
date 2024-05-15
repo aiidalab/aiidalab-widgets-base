@@ -26,6 +26,7 @@ filterwarnings = [
     'ignore::DeprecationWarning:jupyter_client',
     'ignore::DeprecationWarning:selenium',
     'ignore::DeprecationWarning:pytest_selenium',
+    'ignore:datetime.datetime.utcfromtimestamp:DeprecationWarning:aio_pika',
 ]
 
 [tool.ruff]
