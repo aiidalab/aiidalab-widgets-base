@@ -2,11 +2,14 @@
 
 # -*- coding: utf-8 -*-
 """Sphinx configuration for aiidalab-widgets-base."""
-import os
-import subprocess
-import sys
+
 import time
+import warnings
 from pathlib import Path
+
+warnings.filterwarnings(
+    "ignore", category=UserWarning, message="Creating AiiDA configuration folder .*"
+)
 
 from aiidalab_widgets_base import __version__  # pylint: disable=wrong-import-position
 
@@ -112,37 +115,23 @@ def run_apidoc(_):
     build on readthedocs.
     See also https://github.com/rtfd/readthedocs.org/issues/1139
     """
+    # https://github.com/readthedocs/readthedocs.org/issues/1139#issuecomment-715284488
+    from sphinx.ext.apidoc import main
+
     source_dir = Path(__file__).resolve().parent
     apidoc_dir = source_dir / "apidoc"
     package_dir = source_dir.parent.parent / "aiidalab_widgets_base"
 
     symlink_example_notebooks(source_dir)
 
-    # In #1139, they suggest the route below, but this ended up
-    # calling sphinx-build, not sphinx-apidoc
-    # from sphinx.apidoc import main
-    # main([None, '-e', '-o', apidoc_dir, package_dir, '--force'])
-
-    cmd_path = "sphinx-apidoc"
-    if hasattr(sys, "real_prefix"):  # Check to see if we are in a virtualenv
-        # If we are, assemble the path manually
-        cmd_path = os.path.abspath(os.path.join(sys.prefix, "bin", "sphinx-apidoc"))
-
     options = [
-        "-o",
-        apidoc_dir,
-        package_dir,
-        "--private",
         "--force",
         "--no-toc",
+        "-o",
+        str(apidoc_dir),
+        str(package_dir),
     ]
-
-    # See https://stackoverflow.com/a/30144019
-    env = os.environ.copy()
-    env[
-        "SPHINX_APIDOC_OPTIONS"
-    ] = "members,special-members,private-members,undoc-members,show-inheritance"
-    subprocess.check_call([cmd_path, *options], env=env)
+    main(options)
 
 
 def setup(app):
