@@ -10,8 +10,8 @@ build:
         python: '3.11'
     commands:
         - asdf plugin add uv
-        - asdf install uv latest
-        - asdf global uv latest
+        - asdf install uv 0.1.44
+        - asdf global uv 0.1.44
         - uv venv
         - uv pip install .[docs]
-        - . .venv/bin/activate && .venv/bin/python -m sphinx -W -b html docs/source $READTHEDOCS_OUTPUT/html
+        - . .venv/bin/activate && .venv/bin/python -m sphinx -W --keep-going -d _build/doctrees -D language=en -b html docs/source $READTHEDOCS_OUTPUT/html
