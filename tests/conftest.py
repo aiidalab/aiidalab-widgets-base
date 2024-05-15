@@ -154,9 +154,9 @@ def multiply_add_completed_workchain(aiida_local_code_bash):
     from aiida.workflows.arithmetic.multiply_add import MultiplyAddWorkChain
 
     inputs = {
-        "x": orm.Int(1).store(),
-        "y": orm.Int(2).store(),
-        "z": orm.Int(3).store(),
+        "x": orm.Int(1),
+        "y": orm.Int(2),
+        "z": orm.Int(3),
         "code": aiida_local_code_bash,
     }
     _, process = engine.run_get_node(MultiplyAddWorkChain, **inputs)
@@ -169,9 +169,9 @@ def multiply_add_process_builder_ready(aiida_local_code_bash):
     from aiida.workflows.arithmetic.multiply_add import MultiplyAddWorkChain
 
     builder = MultiplyAddWorkChain.get_builder()
-    builder.x = orm.Int(1).store()
-    builder.y = orm.Int(2).store()
-    builder.z = orm.Int(3).store()
+    builder.x = orm.Int(1)
+    builder.y = orm.Int(2)
+    builder.z = orm.Int(3)
     builder.code = aiida_local_code_bash
     return builder
 
