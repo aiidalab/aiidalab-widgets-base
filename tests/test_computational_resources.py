@@ -287,7 +287,7 @@ def test_aiida_code_setup(aiida_localhost):
     assert code.label == "bash"
     assert code.description == "Bash interpreter"
     assert str(code.filepath_executable) == "/bin/bash"
-    assert code.get_input_plugin_name() == "core.arithmetic.add"
+    assert code.default_calc_job_plugin == "core.arithmetic.add"
 
     # Reset the widget and check that a few attributes are reset.
     widget.code_setup = {}
