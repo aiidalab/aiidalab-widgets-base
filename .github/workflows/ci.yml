@@ -9,6 +9,8 @@ on:
             - main
     pull_request:
 
+env:
+    FORCE_COLOR: 1
 
 # https://docs.github.com/en/actions/using-jobs/using-concurrency
 concurrency:
