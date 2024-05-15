@@ -1,4 +1,5 @@
 """Widgets to manage AiiDA export."""
+
 import os
 
 import ipywidgets as ipw
@@ -40,8 +41,6 @@ class ExportButtonWidget(ipw.Button):
             document.body.appendChild(link);
             link.click();
             document.body.removeChild(link);
-            """.format(
-                payload=payload, filename=f"export_{self.process.id}.aiida"
-            )
+            """.format(payload=payload, filename=f"export_{self.process.id}.aiida")
         )
         display(javas)

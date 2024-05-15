@@ -1,4 +1,5 @@
 """Module to provide functionality to import structures."""
+
 import datetime
 import functools
 import io
@@ -118,8 +119,11 @@ class StructureManagerWidget(ipw.VBox):
             self._structure_importers(importers),
             self.viewer,
             ipw.HBox(
-                store_and_description
-                + [self.structure_label, self.structure_description]
+                [
+                    *store_and_description,
+                    self.structure_label,
+                    self.structure_description,
+                ]
             ),
         ]
 
@@ -131,7 +135,7 @@ class StructureManagerWidget(ipw.VBox):
             accordion.set_title(0, "Edit Structure")
             children += [accordion]
 
-        super().__init__(children=children + [self.output], **kwargs)
+        super().__init__(children=[*children, self.output], **kwargs)
 
     def _structure_importers(self, importers):
         """Preparing structure importers."""
@@ -217,7 +221,7 @@ class StructureManagerWidget(ipw.VBox):
         ):
             # Make a link between self.input_structure and self.structure_node
             @engine.calcfunction
-            def user_modifications(source_structure):
+            def user_modifications(source_structure):  # noqa F841
                 return self.structure_node
 
             structure_node = user_modifications(self.input_structure)
@@ -469,7 +473,7 @@ class StructureExamplesWidget(ipw.VBox):
 
     def __init__(self, examples, title="", **kwargs):
         self.title = title
-        self.on_structure_selection = lambda structure_ase, name: None
+        self.on_structure_selection = lambda _structure_ase, _name: None
         self._select_structure = ipw.Dropdown(
             options=self.get_example_structures(examples)
         )
@@ -483,7 +487,7 @@ class StructureExamplesWidget(ipw.VBox):
             raise TypeError(
                 f"parameter examples should be of type list, {type(examples)} given"
             )
-        return [("Select structure", False)] + examples
+        return [("Select structure", False), *examples]
 
     def _on_select_structure(self, change=None):
         """When structure is selected."""
@@ -687,7 +691,7 @@ class SmilesWidget(ipw.VBox):
 
     def __init__(self, title=""):
         self.title = title
-        try:  # noqa: TC101
+        try:
             from rdkit import Chem  # noqa: F401
             from rdkit.Chem import AllChem  # noqa: F401
         except ImportError:
@@ -1065,13 +1069,11 @@ class BasicCellEditor(ipw.VBox):
             try:
                 atoms = make_supercell(atoms, mat)
             except Exception as e:
-                self._status_message.message = """
+                self._status_message.message = f"""
             <div class="alert alert-info">
-            <strong>The transformation matrix is wrong! {}</strong>
+            <strong>The transformation matrix is wrong! {e}</strong>
             </div>
-            """.format(
-                    e
-                )
+            """
                 return
             # translate
             atoms.translate(-atoms.cell.array.dot(translate))
@@ -1546,8 +1548,9 @@ class BasicStructureEditor(ipw.VBox):
         add_atoms.translate([1.0, 0, 0])
         atoms += add_atoms
 
-        self.structure, self.input_selection = atoms, list(
-            range(last_atom, last_atom + len(selection))
+        self.structure, self.input_selection = (
+            atoms,
+            list(range(last_atom, last_atom + len(selection))),
         )
 
     @_register_structure

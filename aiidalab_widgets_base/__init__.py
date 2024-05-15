@@ -1,4 +1,5 @@
 """Reusable widgets for AiiDAlab applications."""
+
 from aiida.manage import get_profile
 
 _WARNING_TEMPLATE = """
@@ -116,4 +117,4 @@ __all__ = [
     "viewer",
 ]
 
-__version__ = "2.1.0"
+__version__ = "2.2.1"

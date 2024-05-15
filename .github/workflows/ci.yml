@@ -1,9 +1,13 @@
 ---
-# Run basic tests for this app on the latest aiidalab-docker image.
+# Run unit tests and notebook tests on the latest aiidalab-docker image.
 
-name: continuous-integration
+name: CI
 
-on: [push, pull_request]
+on:
+    push:
+        branches:
+            - main
+    pull_request:
 
 
 # https://docs.github.com/en/actions/using-jobs/using-concurrency
@@ -14,36 +18,12 @@ concurrency:
 
 jobs:
 
-    pre-commit:
-    # Adapted from: https://github.com/CasperWA/voila-optimade-client
-
-        runs-on: ubuntu-latest
-
-        steps:
-            - uses: actions/checkout@v4
-
-            - name: Setup Python
-              uses: actions/setup-python@v4
-              with:
-                  python-version: '3.10'
-                  cache: pip
-                  cache-dependency-path: |
-                      .pre-commit-config.yaml
-                      **/setup.cfg
-                      **/pyproject.toml
-                      **/requirements*.txt
-
-            - uses: pre-commit/action@v3.0.0
-
     test-notebooks:
-
-        needs: [pre-commit]
 
         strategy:
             matrix:
-                tag: [latest]
                 browser: [Chrome, Firefox]
-                python-version: ['3.10']
+                aiida-core-version: [2.1.2, 2.4.3]          # test on the latest and the oldest supported version
             fail-fast: false
 
         runs-on: ubuntu-latest
@@ -55,17 +35,18 @@ jobs:
               uses: actions/checkout@v4
 
             - name: Set up Python
-              uses: actions/setup-python@v4
+              uses: actions/setup-python@v5
               with:
-                  python-version: ${{ matrix.python-version }}
-                  cache: pip
-                  cache-dependency-path: |
-                      **/setup.cfg
-                      **/pyproject.toml
-                      **/requirements*.txt
+                  python-version: '3.10'
+
+            - name: Install uv
+              run: curl --proto '=https' --tlsv1.2 -LsSf https://github.com/astral-sh/uv/releases/download/0.1.27/uv-installer.sh | sh
 
             - name: Install package test dependencies
-              run: pip install -e .[dev]
+              # Notebook tests happen in the container, here we only need to install
+              # the pytest-docker dependency. Unfortunately, uv/pip does not allow to
+              # only install [dev] dependencies so we end up installing all the rest as well.
+              run: uv pip install --system .[dev]
 
             - name: Set jupyter token env
               run: echo "JUPYTER_TOKEN=$(openssl rand -hex 32)" >> $GITHUB_ENV
@@ -87,24 +68,23 @@ jobs:
             - name: Run pytest
               run: pytest -v --driver ${{ matrix.browser }} tests_notebooks
               env:
-                  TAG: ${{ matrix.tag }}
+                  TAG: aiida-${{ matrix.aiida-core-version }}
 
             - name: Upload screenshots as artifacts
               if: always()
-              uses: actions/upload-artifact@v3
+              uses: actions/upload-artifact@v4
               with:
-                  name: Screenshots-${{ matrix.tag }}-${{ matrix.browser }}
+                  name: Screenshots-aiida-${{ matrix.aiida-core-version }}-${{ matrix.browser }}
                   path: screenshots/
                   if-no-files-found: error
 
     test-package:
 
-        needs: [pre-commit]
-
         strategy:
             matrix:
-                tag: [latest]
-                python-version: ['3.8', '3.9', '3.10']
+                python-version: ['3.9', '3.10']
+                # Test on the latest and oldest supported version
+                aiida-core-version: [2.2.2, 2.4.3]
             fail-fast: false
 
         runs-on: ubuntu-latest
@@ -120,27 +100,30 @@ jobs:
               uses: actions/checkout@v4
 
             - name: Install povray
-              run: sudo apt-get install povray
+              run: sudo apt-get update && sudo apt-get install povray
 
             - name: Set up Python
-              uses: actions/setup-python@v4
+              uses: actions/setup-python@v5
               with:
                   python-version: ${{ matrix.python-version }}
-                  cache: pip
-                  cache-dependency-path: |
-                      **/setup.cfg
-                      **/pyproject.toml
-                      **/requirements*.txt
+
+            - name: Install uv
+              run: curl --proto '=https' --tlsv1.2 -LsSf https://github.com/astral-sh/uv/releases/download/0.1.27/uv-installer.sh | sh
 
             - name: Install package
-              run: pip install -e .[dev,smiles]
+            # NOTE: uv (unlike pip) does not compile python to bytecode after install.
+            # This uncovered a lot of SyntaxError(s) in the vapory package,
+            # since pip swallows these by default (WTH?).
+            # Ideally, these would be fixed, but vapory is largely unmaintained,
+            # so here we simply keep the pip behaviour with the --compile flag.
+            # See https://github.com/astral-sh/uv/issues/1928#issuecomment-1968857514
+              run: uv pip install --compile --system .[dev,smiles,optimade] aiida-core==${{ matrix.aiida-core-version }}
 
             - name: Run pytest
               run: pytest -v tests --cov
-              env:
-                  TAG: ${{ matrix.tag }}
 
             - name: Upload coverage reports to Codecov
-              uses: codecov/codecov-action@v3
+              uses: codecov/codecov-action@v4
               with:
                   flags: python-${{ matrix.python-version }}
+                  token: ${{ secrets.CODECOV_TOKEN }}

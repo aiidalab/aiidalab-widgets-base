@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 """Jupyter viewers for AiiDA data objects."""
-# pylint: disable=no-self-use
 
 import base64
 import copy
@@ -48,8 +47,12 @@ def viewer(obj, **kwargs):
         )
         return obj
 
-    if obj.node_type in AIIDA_VIEWER_MAPPING:
-        _viewer = AIIDA_VIEWER_MAPPING[obj.node_type]
+    _viewer = AIIDA_VIEWER_MAPPING.get(obj.node_type)
+    if isinstance(obj, orm.ProcessNode):
+        # Allow to register specific viewers based on obj.process_type
+        _viewer = AIIDA_VIEWER_MAPPING.get(obj.process_type, _viewer)
+
+    if _viewer:
         return _viewer(obj, **kwargs)
     else:
         # No viewer registered for this type, return object itself
@@ -111,7 +114,7 @@ class DictViewer(ipw.VBox):
 
         pd.set_option("max_colwidth", 40)
         dataf = pd.DataFrame(
-            [(key, value) for key, value in sorted(parameter.get_dict().items())],
+            sorted(parameter.get_dict().items()),
             columns=["Key", "Value"],
         )
         self.value += dataf.to_html(
@@ -415,9 +418,9 @@ class _StructureDataBaseViewer(ipw.VBox):
             [
                 ipw.HTML(
                     description="Super cell:", style={"description_width": "initial"}
-                )
+                ),
+                *_supercell,
             ]
-            + _supercell
         )
 
         # 2. Choose background color.
@@ -445,7 +448,7 @@ class _StructureDataBaseViewer(ipw.VBox):
 
         # 4. Center button.
         center_button = ipw.Button(description="Center molecule")
-        center_button.on_click(lambda c: self._viewer.center())
+        center_button.on_click(lambda _: self._viewer.center())
 
         # 5. representations buttons
         self.representations_header = ipw.HBox(
@@ -524,11 +527,12 @@ class _StructureDataBaseViewer(ipw.VBox):
 
     def _add_representation(self, _=None, style_id=None, indices=None):
         """Add a representation to the list of representations."""
-        self._all_representations = self._all_representations + [
+        self._all_representations = [
+            *self._all_representations,
             NglViewerRepresentation(
                 style_id=style_id or f"{self.REPRESENTATION_PREFIX}{shortuuid.uuid()}",
                 indices=indices,
-            )
+            ),
         ]
         self._apply_representations()
 
@@ -672,14 +676,14 @@ class _StructureDataBaseViewer(ipw.VBox):
                 *self.cell.array[2]
             )
 
-            self.cell_a_length.value = "|<i><b>a</b></i>|: {:.4f}".format(
-                self.cell.lengths()[0]
+            self.cell_a_length.value = (
+                f"|<i><b>a</b></i>|: {self.cell.lengths()[0]:.4f}"
             )
-            self.cell_b_length.value = "|<i><b>b</b></i>|: {:.4f}".format(
-                self.cell.lengths()[1]
+            self.cell_b_length.value = (
+                f"|<i><b>b</b></i>|: {self.cell.lengths()[1]:.4f}"
             )
-            self.cell_c_length.value = "|<i><b>c</b></i>|: {:.4f}".format(
-                self.cell.lengths()[2]
+            self.cell_c_length.value = (
+                f"|<i><b>c</b></i>|: {self.cell.lengths()[2]:.4f}"
             )
 
             self.cell_alpha.value = f"&alpha;: {self.cell.angles()[0]:.4f}"
@@ -914,13 +918,13 @@ class _StructureDataBaseViewer(ipw.VBox):
             for i in bb
         ]
 
-        objects = (
-            [light]
-            + spheres
-            + edges
-            + bonds
-            + [vapory.Background("color", np.array(to_rgb(self._viewer.background)))]
-        )
+        objects = [
+            light,
+            *spheres,
+            *edges,
+            *bonds,
+            vapory.Background("color", np.array(to_rgb(self._viewer.background))),
+        ]
 
         scene = vapory.Scene(camera, objects=objects)
         fname = bb.get_chemical_formula() + ".png"
@@ -1049,7 +1053,7 @@ class _StructureDataBaseViewer(ipw.VBox):
         else:
             self.wrong_syntax.layout.visibility = "visible"
 
-    def download(self, change=None):  # pylint: disable=unused-argument
+    def download(self, _=None):
         """Prepare a structure for downloading."""
         payload = self._prepare_payload(self.file_format.value["format"])
         if payload is None:
@@ -1086,7 +1090,7 @@ class _StructureDataBaseViewer(ipw.VBox):
 
         file_format = file_format if file_format else self.file_format.value["format"]
         tmp = NamedTemporaryFile()
-        self.structure.write(tmp.name, format=file_format)  # pylint: disable=no-member
+        self.structure.write(tmp.name, format=file_format)
         with open(tmp.name, "rb") as raw:
             return base64.b64encode(raw.read()).decode()
 
@@ -1136,7 +1140,18 @@ class StructureDataViewer(_StructureDataBaseViewer):
             self.set_trait(
                 "displayed_structure", None
             )  # To make sure the structure is always updated.
-            self.set_trait("displayed_structure", self.structure.repeat(self.supercell))
+            # nglview displays structures by first saving them to a temporary "pdb" file, which necessitates
+            # converting the unit cell and atomic positions into a standard form where the a-axis aligns along the x-axis.
+            # This transformation can cause discrepancies between the atom positions and custom bonds calculated from the original structure.
+            # To mitigate this, we transform the "displayed_structure" into the standard form prior to rendering in nglview.
+            # This ensures that nglview's internal handling does not further modify the structure unexpectedly.
+            standard_structure = self.structure.copy()
+            standard_structure.set_cell(
+                self.structure.cell.standard_form()[0], scale_atoms=True
+            )
+            self.set_trait(
+                "displayed_structure", standard_structure.repeat(self.supercell)
+            )
 
     @tl.validate("structure")
     def _valid_structure(self, change):
@@ -1520,21 +1535,26 @@ class FolderDataViewer(ipw.VBox):
             children.append(self.download_btn)
         super().__init__(children, **kwargs)
 
-    def change_file_view(self, change=None):  # pylint: disable=unused-argument
-        with self._folder.base.repository.open(self.files.value) as fobj:
-            self.text.value = fobj.read()
+    def change_file_view(self, _=None):
+        try:
+            with self._folder.base.repository.open(self.files.value) as fobj:
+                self.text.value = fobj.read()
+        except UnicodeDecodeError:
+            self.text.value = "[Binary file, preview not available]"
 
-    def download(self, change=None):  # pylint: disable=unused-argument
-        """Prepare for downloading."""
+    def download(self, _=None):
+        """Download selected file."""
         from IPython.display import Javascript
 
-        payload = base64.b64encode(
-            self._folder.get_object_content(self.files.value).encode()
-        ).decode()
+        # TODO: Preparing large files for download might take a while.
+        # Can we do a streaming solution?
+        raw_bytes = self._folder.get_object_content(self.files.value, "rb")
+        base64_payload = base64.b64encode(raw_bytes).decode()
+
         javas = Javascript(
             f"""
             var link = document.createElement('a');
-            link.href = "data:;base64,{payload}"
+            link.href = "data:;base64,{base64_payload}"
             link.download = "{self.files.value}"
             document.body.appendChild(link);
             link.click();
@@ -1559,18 +1579,14 @@ class BandsDataViewer(ipw.VBox):
         output_notebook(hide_banner=True)
         out = ipw.Output()
         with out:
-            plot_info = bands._get_bandplot_data(
-                cartesian=True, join_symbol="|"
-            )  # pylint: disable=protected-access
+            plot_info = bands._get_bandplot_data(cartesian=True, join_symbol="|")
             # Extract relevant data
             y_data = plot_info["y"].transpose().tolist()
             x_data = [plot_info["x"] for i in range(len(y_data))]
             labels = plot_info["labels"]
             # Create the figure
             plot = figure(y_axis_label=f"Dispersion ({bands.units})")
-            plot.multi_line(
-                x_data, y_data, line_width=2, line_color="red"
-            )  # pylint: disable=too-many-function-args
+            plot.multi_line(x_data, y_data, line_width=2, line_color="red")
             plot.xaxis.ticker = [label[0] for label in labels]
             # This trick was suggested here: https://github.com/bokeh/bokeh/issues/8166#issuecomment-426124290
             plot.xaxis.major_label_overrides = {

@@ -1,7 +1,8 @@
 """Some utility functions used acrross the repository."""
+
 import threading
 from enum import Enum
-from typing import Any, Tuple
+from typing import Any
 
 import ipywidgets as ipw
 import more_itertools as mit
@@ -52,8 +53,8 @@ def get_ase_from_file(fname, file_format=None):  # pylint: disable=redefined-bui
 
 def find_ranges(iterable):
     """Yield range of consecutive numbers."""
-    for group in mit.consecutive_groups(iterable):
-        group = list(group)
+    for grp in mit.consecutive_groups(iterable):
+        group = list(grp)
         if len(group) == 1:
             yield group[0]
         else:
@@ -200,7 +201,7 @@ def wrap_message(message, level=MessageLevel.INFO):
     """
 
 
-def ase2spglib(ase_structure: Atoms) -> Tuple[Any, Any, Any]:
+def ase2spglib(ase_structure: Atoms) -> tuple[Any, Any, Any]:
     """
     Convert ase Atoms instance to spglib cell in the format defined at
     https://spglib.github.io/spglib/python-spglib.html#crystal-structure-cell

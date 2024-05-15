@@ -147,7 +147,7 @@ class ElnExportWidget(ipw.VBox):
 
     def send_to_eln(self, _=None):
         if self.eln and self.eln.is_connected:
-            self.message.value = f"\u29D7 Sending data to {self.eln.eln_instance}..."
+            self.message.value = f"\u29d7 Sending data to {self.eln.eln_instance}..."
             with requests_cache.disabled():
                 # Since the cache is enabled in AiiDAlab, we disable it here to get correct results.
                 self.eln.export_data()
@@ -155,7 +155,7 @@ class ElnExportWidget(ipw.VBox):
                 f"\u2705 The data were successfully sent to {self.eln.eln_instance}."
             )
         else:
-            self.message.value = f"""\u274C Something isn't right! We were not able to send the data to the "<strong>{self.eln.eln_instance}</strong>" ELN instance. Please follow <a href="{self.path_to_root}/aiidalab-widgets-base/notebooks/eln_configure.ipynb" target="_blank">the link</a> to update the ELN's configuration."""
+            self.message.value = f"""\u274c Something isn't right! We were not able to send the data to the "<strong>{self.eln.eln_instance}</strong>" ELN instance. Please follow <a href="{self.path_to_root}/aiidalab-widgets-base/notebooks/eln_configure.ipynb" target="_blank">the link</a> to update the ELN's configuration."""
 
     def handle_output(self, _=None):
         with self._output:
@@ -249,9 +249,7 @@ class ElnConfigureWidget(ipw.VBox):
             self.write_to_config(config)
             default_eln = None
 
-        self.eln_instance.options = [("Setup new ELN", {})] + [
-            (k, v) for k, v in config.items()
-        ]
+        self.eln_instance.options = [("Setup new ELN", {}), *list(config.items())]
         if default_eln:
             self.eln_instance.label = default_eln
 
@@ -275,7 +273,7 @@ class ElnConfigureWidget(ipw.VBox):
             if self.eln.is_connected:
                 self.my_output.value = "\u2705 Connected."
                 return
-        self.my_output.value = f"\u274C Not connected. {err_message}"
+        self.my_output.value = f"\u274c Not connected. {err_message}"
 
     def display_eln_config(self, value=None):
         """Display ELN configuration specific to the selected type of ELN."""

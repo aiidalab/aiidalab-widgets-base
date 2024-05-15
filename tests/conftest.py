@@ -264,12 +264,15 @@ def folder_data_object():
     """Return a `FolderData` object."""
     FolderData = plugins.DataFactory("core.folder")  # noqa: N806
     folder_data = FolderData()
-    with io.StringIO("content of test1 filelike") as fobj:
+    with io.StringIO("content of test1.txt") as fobj:
         folder_data.put_object_from_filelike(fobj, path="test1.txt")
-    with io.StringIO("content of test2 filelike") as fobj:
+    with io.StringIO("content of test2.txt") as fobj:
         folder_data.put_object_from_filelike(fobj, path="test2.txt")
-    with io.StringIO("content of test_long file" * 1000) as fobj:
+    with io.StringIO("content of test_long.txt" * 1000) as fobj:
         folder_data.put_object_from_filelike(fobj, path="test_long.txt")
+    # NOTE: The byte-sequence is chosen so that it is not valid UTF-8
+    with io.BytesIO(b"\xf8\x01") as fobj:
+        folder_data.put_object_from_filelike(fobj, path="test.bin")
 
     return folder_data
 

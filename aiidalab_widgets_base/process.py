@@ -1,4 +1,5 @@
 """Widgets to work with processes."""
+
 # pylint: disable=no-self-use
 # Built-in imports
 from __future__ import annotations
@@ -156,10 +157,10 @@ class ProcessInputsWidget(ipw.VBox):
         self.info = ipw.HTML()
 
         self.flat_mapping = self.generate_flat_mapping(process=process) or {}
-        inputs_list = [(key, value) for key, value in self.flat_mapping.items()]
+        inputs_list = list(self.flat_mapping.items())
 
         self._inputs = ipw.Dropdown(
-            options=[("Select input", "")] + inputs_list,
+            options=[("Select input", ""), *inputs_list],
             description="Select input:",
             style={"description_width": "initial"},
             disabled=False,
@@ -230,7 +231,7 @@ class ProcessOutputsWidget(ipw.VBox):
             else []
         )
         outputs = ipw.Dropdown(
-            options=[("Select output", "")] + outputs_list,
+            options=[("Select output", ""), *outputs_list],
             label="Select output",
             description="Select outputs:",
             style={"description_width": "initial"},
@@ -285,7 +286,7 @@ class ProcessFollowerWidget(ipw.VBox):
                     )
                 )
         self.output = ipw.HTML()
-        super().__init__(children=[self.output] + self.followers, **kwargs)
+        super().__init__(children=[self.output, *self.followers], **kwargs)
         self.update()
 
     def update(self):
