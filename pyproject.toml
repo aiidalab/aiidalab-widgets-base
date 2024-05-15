@@ -8,8 +8,9 @@ build-backend = "setuptools.build_meta"
 [tool.pytest.ini_options]
 filterwarnings = [
     'error',
+    # This is needed since SQLAlchemy 2.0, see
     # https://github.com/aiidalab/aiidalab-widgets-base/issues/605
-    'ignore:Object of type <DbNode> not in session:sqlalchemy.exc.SAWarning',
+    'ignore:Object of type .* not in session, .* operation along .* will not proceed:sqlalchemy.exc.SAWarning',
     'ignore::DeprecationWarning:bokeh.core.property.primitive',
     'ignore:Creating AiiDA configuration:UserWarning:aiida',
     'ignore:The `Code` class:aiida.common.warnings.AiidaDeprecationWarning:',
