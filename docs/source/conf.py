@@ -1,6 +1,3 @@
-# pylint: disable=invalid-name
-
-# -*- coding: utf-8 -*-
 """Sphinx configuration for aiidalab-widgets-base."""
 
 import time
@@ -11,7 +8,7 @@ warnings.filterwarnings(
     "ignore", category=UserWarning, message="Creating AiiDA configuration folder .*"
 )
 
-from aiidalab_widgets_base import __version__  # pylint: disable=wrong-import-position
+from aiidalab_widgets_base import __version__
 
 # Add any Sphinx extension module names here, as strings. They can be
 # extensions coming with Sphinx (named 'sphinx.ext.*') or your custom
@@ -100,7 +97,7 @@ html_theme_options = {
 def symlink_example_notebooks(source_dir: Path):
     """Symlink example Jupyter notebooks.
 
-    Symlinks example jupyter notebooks so that they can be
+    Symlinks example Jupyter notebooks so that they can be
     included into the documentation.
     """
     notebooks_dir = source_dir.parent.parent / "notebooks"
