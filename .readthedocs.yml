@@ -16,4 +16,4 @@ build:
         - asdf global uv 0.1.44
         - uv venv
         - uv pip install .[docs]
-        - . .venv/bin/activate && .venv/bin/python -m sphinx -W --keep-going -d _build/doctrees -D language=en -b html docs/source $READTHEDOCS_OUTPUT/html
+        - .venv/bin/python -m sphinx -W --keep-going -d _build/doctrees -D language=en -b html docs/source $READTHEDOCS_OUTPUT/html
