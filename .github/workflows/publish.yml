@@ -1,13 +1,14 @@
 ---
-name: Publish on Test PyPI and PyPI
+name: Publish on (Test) PyPI
 
 on:
-    pull_request:
+    push:
+        # Commits pushed to release/ branches are published on Test PyPI
+        # if they have a new version number.
+        # If the version is the same, the worflow will still complete successfully,
+        # but the already published version on Test PyPI will not be updated.
         branches:
-        # Commits pushed to release/ branches are published on Test PyPI if they
-        # have a new version number. This allows the maintainer to check the release
-        # before it is pushed to the actual PyPI index.
-            - release/**
+            - 'release/**'
     release:
         types: [published]
 
@@ -15,6 +16,7 @@ jobs:
 
     build:
 
+        name: Build package
         runs-on: ubuntu-latest
 
         steps:
@@ -46,7 +48,7 @@ jobs:
 
     publish-test:
 
-        name: Build and publish on TestPyPI
+        name: Publish on TestPyPI
         if: github.repository_owner == 'aiidalab'
 
         needs: [build]
@@ -73,7 +75,7 @@ jobs:
 
     publish:
 
-        name: Build and publish on PyPI
+        name: Publish on PyPI
         if: startsWith(github.ref, 'refs/tags/v') && github.repository_owner == 'aiidalab'
 
         needs: [build, publish-test]

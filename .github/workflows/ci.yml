@@ -40,7 +40,7 @@ jobs:
                   python-version: '3.10'
 
             - name: Install uv
-              run: curl --proto '=https' --tlsv1.2 -LsSf https://github.com/astral-sh/uv/releases/download/0.1.27/uv-installer.sh | sh
+              run: curl --proto '=https' --tlsv1.2 -LsSf https://github.com/astral-sh/uv/releases/download/0.1.44/uv-installer.sh | sh
 
             - name: Install package test dependencies
               # Notebook tests happen in the container, here we only need to install

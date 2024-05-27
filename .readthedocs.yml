@@ -2,28 +2,18 @@
 # Read the Docs configuration file for Sphinx projects
 # See https://docs.readthedocs.io/en/stable/config-file/v2.html for details
 
-# Required
 version: 2
 
-# Set the OS, Python version and other tools you might need
+# Using uv installer to speed up the build
+# https://docs.readthedocs.io/en/stable/build-customization.html#install-dependencies-with-uv
 build:
     os: ubuntu-22.04
     tools:
-        python: '3.10'
-
-# Build documentation in the "docs/" directory with Sphinx
-sphinx:
-    configuration: docs/source/conf.py
-    builder: html
-    # Let the build fail if there are any warnings
-    fail_on_warning: true
-
-# Optional but recommended, declare the Python requirements required
-# to build your documentation
-# See https://docs.readthedocs.io/en/stable/guides/reproducible-builds.html
-python:
-    install:
-        - method: pip
-          path: .
-          extra_requirements:
-              - docs
+        python: '3.11'
+    commands:
+        - asdf plugin add uv
+        - asdf install uv 0.1.44
+        - asdf global uv 0.1.44
+        - uv venv
+        - uv pip install .[docs]
+        - .venv/bin/python -m sphinx -W --keep-going -d _build/doctrees -D language=en -b html docs/source $READTHEDOCS_OUTPUT/html
