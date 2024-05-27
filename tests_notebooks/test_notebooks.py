@@ -24,11 +24,6 @@ def test_aiida_datatypes_viewers(selenium_driver, final_screenshot):
     time.sleep(5)
 
 
-def test_eln_configure(selenium_driver, final_screenshot):
-    driver = selenium_driver("notebooks/eln_configure.ipynb")
-    driver.find_element(By.XPATH, '//button[text()="Set as default"]')
-
-
 def test_process(selenium_driver, final_screenshot):
     driver = selenium_driver("notebooks/process.ipynb")
     driver.find_element(By.XPATH, '//label[@title="Select calculation:"]')
@@ -100,14 +95,6 @@ def test_structure_from_examples_and_supercell_selection(
         By.XPATH, "//p[contains(text(), 'Selected unit cell atoms: 6')]"
     )
     driver.find_element(By.XPATH, "//p[contains(text(),'Id: 12; Symbol: O;')]")
-
-
-def test_eln_import(selenium_driver, final_screenshot):
-    driver = selenium_driver("notebooks/eln_import.ipynb")
-    # TODO: This find_element is not specific enough it seems,
-    # on the screenshot the page is still loading.
-    driver.find_element(By.ID, "tooltip")
-    time.sleep(5)
 
 
 def test_computational_resources_code_setup(

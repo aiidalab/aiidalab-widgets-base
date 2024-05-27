@@ -13,9 +13,6 @@ TEMPLATE = """
     <li><a href="{appbase}/notebooks/process_list.ipynb" target="_blank">Process list</a></li>
     <li><a href="{appbase}/notebooks/process.ipynb" target="_blank">Follow a process</a></li>
   </ul></td>
-  <td valign="top"><ul>
-    <li><a href="{appbase}/notebooks/eln_configure.ipynb" target="_blank">Configure ELN</a></li>
-  </ul></td>
 </tr>
 </table>
 """

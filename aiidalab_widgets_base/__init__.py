@@ -49,7 +49,6 @@ from .computational_resources import (
     ComputerDropdownWidget,
 )
 from .databases import CodQueryWidget, OptimadeQueryWidget
-from .elns import ElnConfigureWidget, ElnExportWidget, ElnImportWidget
 from .export import ExportButtonWidget
 from .nodes import NodesTreeWidget, OpenAiidaNodeInAppWidget
 from .process import (
@@ -87,9 +86,6 @@ __all__ = [
     "ComputerDatabaseWidget",
     "ComputationalResourcesWidget",
     "ComputerDropdownWidget",
-    "ElnConfigureWidget",
-    "ElnExportWidget",
-    "ElnImportWidget",
     "ExportButtonWidget",
     "MultiStructureUploadWidget",
     "NodesTreeWidget",
