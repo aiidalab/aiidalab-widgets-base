@@ -124,21 +124,24 @@ class ElnExportWidget(ipw.VBox):
         if self.node is None or self.eln is None:
             return
 
-        if not (info := self.node.base.extras.get("eln", {})):
-            q = orm.QueryBuilder().append(
-                orm.Node,
-                filters={"extras": {"has_key": "eln"}},
-                tag="source_node",
-                project="extras.eln",
-            )
-            q.append(
-                orm.Node,
-                filters={"uuid": self.node.uuid},
-                with_ancestors="source_node",
-            )
-            res = q.all(flat=True)
-            if len(res) > 0:
-                info = res[0]
+        if "eln" in self.node.extras:
+            info = self.node.extras["eln"]
+        else:
+            try:
+                q = orm.QueryBuilder().append(
+                    orm.Node,
+                    filters={"extras": {"has_key": "eln"}},
+                    tag="source_node",
+                    project="extras.eln",
+                )
+                q.append(
+                    orm.Node,
+                    filters={"uuid": self.node.uuid},
+                    with_ancestors="source_node",
+                )
+                info = q.all(flat=True)[0]
+            except IndexError:
+                info = {}
 
         self.eln.set_sample_config(**info)
 
