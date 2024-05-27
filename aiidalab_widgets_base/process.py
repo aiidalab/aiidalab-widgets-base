@@ -249,7 +249,7 @@ class ProcessOutputsWidget(ipw.VBox):
             clear_output()
             if change["new"]:
                 selected_output = self.process.outputs[change["new"]]
-                self.info.value = f"PK: {selected_output.id}"
+                self.info.value = f"PK: {selected_output.pk}"
                 display(viewer(selected_output))
 
 
@@ -537,7 +537,7 @@ class RunningCalcJobOutputWidget(ipw.VBox):
         self.title = title
         self.selection = ipw.Dropdown(
             description="Select calculation:",
-            options=tuple((p.id, p) for p in get_running_calcs(self.process)),
+            options=tuple((p.pk, p) for p in get_running_calcs(self.process)),
             style={"description_width": "initial"},
         )
         self.output = CalcJobOutputWidget()
@@ -551,7 +551,7 @@ class RunningCalcJobOutputWidget(ipw.VBox):
         with self.hold_trait_notifications():
             old_label = self.selection.label
             self.selection.options = tuple(
-                (str(p.id), p) for p in get_running_calcs(self.process)
+                (str(p.pk), p) for p in get_running_calcs(self.process)
             )
             # If the selection remains the same.
             if old_label in self.selection.options:

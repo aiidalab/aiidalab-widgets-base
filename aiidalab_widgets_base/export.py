@@ -11,7 +11,7 @@ class ExportButtonWidget(ipw.Button):
     def __init__(self, process, **kwargs):
         self.process = process
         if "description" not in kwargs:
-            kwargs["description"] = f"Export workflow ({self.process.id})"
+            kwargs["description"] = f"Export workflow ({self.process.pk})"
         if "layout" not in kwargs:
             kwargs["layout"] = {}
         kwargs["layout"]["width"] = "initial"
@@ -28,7 +28,7 @@ class ExportButtonWidget(ipw.Button):
 
         fname = os.path.join(tempfile.mkdtemp(), "export.aiida")
         subprocess.call(
-            ["verdi", "archive", "create", fname, "-N", str(self.process.id)]
+            ["verdi", "archive", "create", fname, "-N", str(self.process.pk)]
         )
         with open(fname, "rb") as fobj:
             b64 = base64.b64encode(fobj.read())
@@ -41,6 +41,6 @@ class ExportButtonWidget(ipw.Button):
             document.body.appendChild(link);
             link.click();
             document.body.removeChild(link);
-            """.format(payload=payload, filename=f"export_{self.process.id}.aiida")
+            """.format(payload=payload, filename=f"export_{self.process.pk}.aiida")
         )
         display(javas)

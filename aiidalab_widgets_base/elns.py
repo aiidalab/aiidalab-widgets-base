@@ -124,9 +124,8 @@ class ElnExportWidget(ipw.VBox):
         if self.node is None or self.eln is None:
             return
 
-        if "eln" in self.node.extras:
-            info = self.node.extras["eln"]
-        else:
+        info = self.node.base.extras.get("eln", {})
+        if not info:
             try:
                 q = orm.QueryBuilder().append(
                     orm.Node,
