@@ -5,7 +5,6 @@ import ipywidgets as ipw
 import requests_cache
 import traitlets as tl
 from aiida import orm
-from aiidalab_eln import get_eln_connector
 from IPython.display import clear_output, display
 
 ELN_CONFIG = Path.home() / ".aiidalab" / "aiidalab-eln-config.json"
@@ -15,6 +14,13 @@ ELN_CONFIG.parent.mkdir(
 
 
 def connect_to_eln(eln_instance=None, **kwargs):
+    try:
+        from aiidalab_eln import get_eln_connector
+    except ImportError:
+        return (
+            None,
+            "AiiDAlab-ELN connector not installed. Install with `pip install aiidalab-eln`",
+        )
     # assuming that the connection can only be established to the ELNs
     # with the stored configuration.
     try:
@@ -276,6 +282,15 @@ class ElnConfigureWidget(ipw.VBox):
 
     def display_eln_config(self, value=None):
         """Display ELN configuration specific to the selected type of ELN."""
+        try:
+            from aiidalab_eln import get_eln_connector
+        except ImportError:
+            with self._output:
+                clear_output()
+                msg = "AiiDAlab-ELN connector not installed. Install with `pip install aiidalab-eln`"
+                display(ipw.HTML(f"&#10060; {msg}"))
+            return
+
         try:
             eln_class = get_eln_connector(self.eln_types.value)
         except NotImplementedError as err:
