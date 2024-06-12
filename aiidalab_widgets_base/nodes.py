@@ -37,6 +37,13 @@ SELECTED_APPS = [
         "description": "Optimize atomic positions and/or unit cell employing Quantum ESPRESSO. Quantum ESPRESSO is preferable for small structures with no cell dimensions larger than 15 Å. Additionally, you can choose to compute electronic properties of the material such as band structure and density of states.",
     },
     {
+        "name": "surfaces",
+        "calculation_type": "geo_opt",
+        "notebook": "submit_geometry_optimization.ipynb",
+        "parameter_name": "structure_uuid",
+        "description": "Optimize atomic positions and/or unit cell employing CP2K. CP2K is preferable for large structures with cell dimensions larger than 15 Å.",
+    },
+    {
         "name": "aiidalab-lsmo",
         "calculation_type": "geo_opt",
         "notebook": "multistage_geo_opt_ddec.ipynb",
