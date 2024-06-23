@@ -56,12 +56,12 @@ jobs:
 
             # The Firefox and its engine geckodrive need do be installed manually to run
             # selenium tests.
-            #- name: Install Firefox
-                #  uses: browser-actions/setup-firefox@latest
-                #  with:
-            #      firefox-version: '96.0'
-            #  if: matrix.browser == 'Firefox'
-            #
+            - name: Install Firefox
+              if: matrix.browser == 'Firefox'
+              uses: browser-actions/setup-firefox@latest
+              with:
+                  firefox-version: '125.0'
+
             - name: Firefox version
               if: matrix.browser == 'Firefox'
               run: firefox --version
