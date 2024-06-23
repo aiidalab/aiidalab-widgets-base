@@ -8,7 +8,7 @@ from selenium.webdriver.support.wait import WebDriverWait
 
 
 def wait_till_not_busy(driver):
-    WebDriverWait(driver, 240).until(
+    WebDriverWait(driver, timeout=240, poll_frequency=1.0).until(
         ec.invisibility_of_element((By.ID, "appmode-busy"))
     )
 
