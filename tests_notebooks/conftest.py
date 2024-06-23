@@ -1,4 +1,5 @@
 import os
+import time
 from pathlib import Path
 from urllib.parse import urljoin
 
@@ -102,16 +103,17 @@ def selenium_driver(selenium, notebook_service):
         # By default, let's allow selenium functions to retry for 10s
         # till a given element is loaded, see:
         # https://selenium-python.readthedocs.io/waits.html#implicit-waits
-        selenium.implicitly_wait(60)
+        selenium.implicitly_wait(30)
         window_width = 800
         window_height = 600
         selenium.set_window_size(window_width, window_height)
 
         selenium.find_element(By.ID, "ipython-main-app")
         selenium.find_element(By.ID, "notebook-container")
-        WebDriverWait(selenium, timeout=340, poll_frequency=1.0).until(
+        WebDriverWait(selenium, timeout=240, poll_frequency=0.5).until(
             ec.invisibility_of_element((By.ID, "appmode-busy"))
         )
+        time.sleep(3)
 
         return selenium
 

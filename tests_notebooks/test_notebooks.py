@@ -27,7 +27,6 @@ def test_process_list(selenium_driver, final_screenshot):
 def test_aiida_datatypes_viewers(selenium_driver, final_screenshot):
     driver = selenium_driver("notebooks/viewers.ipynb")
     driver.set_window_size(1000, 2000)
-    wait_till_not_busy(driver)
     driver.find_element(By.CLASS_NAME, "widget-label")
     driver.find_element(By.XPATH, '//button[text()="Clear selection"]')
     wait_till_not_busy(driver)
@@ -64,6 +63,7 @@ def test_structures_generate_from_smiles(selenium_driver, final_screenshot):
     driver.find_element(By.XPATH, "//input[@placeholder='C=C']").send_keys("C")
     driver.find_element(By.XPATH, '//button[text()="Generate molecule"]').click()
     wait_till_not_busy(driver)
+    time.sleep(5)
 
     # Select the first atom
     driver.find_element(By.XPATH, "//*[text()='Selection']").click()
