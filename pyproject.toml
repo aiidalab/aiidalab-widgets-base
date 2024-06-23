@@ -25,6 +25,8 @@ filterwarnings = [
     # https://github.com/aiidalab/aiidalab-widgets-base/issues/551
     'ignore:Exception ignored in:pytest.PytestUnraisableExceptionWarning:_pytest',
     'ignore::DeprecationWarning:jupyter_client',
+    # This warning is coming from circus (aiida-core dependency):
+    # https://github.com/circus-tent/circus/issues/1215
     "ignore:'pipes' is deprecated and slated for removal in Python 3.13:DeprecationWarning:",
 ]
 
