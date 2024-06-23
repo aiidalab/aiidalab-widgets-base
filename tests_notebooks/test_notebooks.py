@@ -126,7 +126,7 @@ def test_computational_resources_code_setup(
 ):
     """Test the quicksetup of the code"""
     # check the code CP2K is not in code list
-    output = aiidalab_exec("verdi code list").decode().strip()
+    output = aiidalab_exec("verdi code list")
     assert "cp2k" not in output
 
     driver = selenium_driver("notebooks/computational_resources.ipynb")
@@ -160,5 +160,5 @@ def test_computational_resources_code_setup(
     time.sleep(1.0)
 
     # check the new code cp2k-9.1@daint-mc is in code list
-    output = aiidalab_exec("verdi code list").decode().strip()
+    output = aiidalab_exec("verdi code list")
     assert "cp2k-9.1@daint-mc" in output
