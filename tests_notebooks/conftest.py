@@ -64,7 +64,7 @@ def notebook_service(docker_ip, docker_services, aiidalab_exec):
     # we release the docker stack with aiida-core v2.4.0 in:
     # https://github.com/aiidalab/aiidalab-docker-stack/commit/dfa65151017362fefeb56d97fed3c1b8f25537c5
     # There is a possibility that aiida-core version will be overwritten by the installation of AWB.
-    # TODO: We can move this before/after version check after the lowest supported aiida-core version is 2.4.0.
+    # TODO: We can remove this before/after version check after the lowest supported aiida-core version is 2.4.0.
 
     # Get the aiida-core version before installing AWB
     output = aiidalab_exec("verdi --version").decode("utf-8").strip()
@@ -86,7 +86,7 @@ def notebook_service(docker_ip, docker_services, aiidalab_exec):
     url = f"http://{docker_ip}:{port}"
     token = os.environ["JUPYTER_TOKEN"]
     docker_services.wait_until_responsive(
-        timeout=30.0, pause=0.1, check=lambda: is_responsive(url)
+        timeout=30.0, pause=0.5, check=lambda: is_responsive(url)
     )
     return url, token
 

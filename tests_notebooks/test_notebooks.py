@@ -1,8 +1,16 @@
 import time
 
 import requests
+import selenium.webdriver.support.expected_conditions as ec
 from selenium.webdriver.common.by import By
 from selenium.webdriver.common.keys import Keys
+from selenium.webdriver.support.wait import WebDriverWait
+
+
+def wait_till_not_busy(driver):
+    WebDriverWait(driver, 240).until(
+        ec.invisibility_of_element((By.ID, "appmode-busy"))
+    )
 
 
 def test_notebook_service_available(notebook_service):
@@ -19,9 +27,10 @@ def test_process_list(selenium_driver, final_screenshot):
 def test_aiida_datatypes_viewers(selenium_driver, final_screenshot):
     driver = selenium_driver("notebooks/viewers.ipynb")
     driver.set_window_size(1000, 2000)
+    wait_till_not_busy(driver)
     driver.find_element(By.CLASS_NAME, "widget-label")
     driver.find_element(By.XPATH, '//button[text()="Clear selection"]')
-    time.sleep(5)
+    wait_till_not_busy(driver)
 
 
 def test_eln_configure(selenium_driver, final_screenshot):
@@ -54,7 +63,7 @@ def test_structures_generate_from_smiles(selenium_driver, final_screenshot):
     # Generate methane molecule from SMILES
     driver.find_element(By.XPATH, "//input[@placeholder='C=C']").send_keys("C")
     driver.find_element(By.XPATH, '//button[text()="Generate molecule"]').click()
-    time.sleep(5)
+    wait_till_not_busy(driver)
 
     # Select the first atom
     driver.find_element(By.XPATH, "//*[text()='Selection']").click()
@@ -62,6 +71,7 @@ def test_structures_generate_from_smiles(selenium_driver, final_screenshot):
         By.XPATH, "//label[text()='Select atoms:']/following-sibling::input"
     ).send_keys("1")
     driver.find_element(By.XPATH, '//button[text()="Apply selection"]').click()
+    wait_till_not_busy(driver)
     driver.find_element(By.XPATH, "//p[contains(text(),'Id: 1; Symbol: C;')]")
 
 
@@ -95,6 +105,7 @@ def test_structure_from_examples_and_supercell_selection(
     driver.find_element(By.XPATH, '//button[text()="Apply selection"]').click()
 
     # Make sure the selection is what we expect
+    wait_till_not_busy(driver)
     driver.find_element(By.XPATH, "//p[contains(text(), 'Selected atoms: 12')]")
     driver.find_element(
         By.XPATH, "//p[contains(text(), 'Selected unit cell atoms: 6')]"
