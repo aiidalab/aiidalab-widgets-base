@@ -61,15 +61,19 @@ jobs:
                 #  with:
             #      firefox-version: '96.0'
             #  if: matrix.browser == 'Firefox'
+            #
+            - name: Firefox version
+              if: matrix.browser == 'Firefox'
+              run: firefox --version
 
             - name: Install geckodriver
+              if: matrix.browser == 'Firefox'
               run: |
                   wget -c https://github.com/mozilla/geckodriver/releases/download/v0.34.0/geckodriver-v0.34.0-linux64.tar.gz
                   tar xf geckodriver-v0.34.0-linux64.tar.gz -C /usr/local/bin
-              if: matrix.browser == 'Firefox'
 
             - name: Run pytest
-              run: pytest -v --driver ${{ matrix.browser }} tests_notebooks
+              run: pytest -v --driver ${{ matrix.browser }} tests_notebooks/
               env:
                   TAG: aiida-${{ matrix.aiida-core-version }}
 
