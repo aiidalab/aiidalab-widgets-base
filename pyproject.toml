@@ -8,6 +8,8 @@ build-backend = "setuptools.build_meta"
 [tool.pytest.ini_options]
 filterwarnings = [
     'error',
+    # Ignore warnings coming from datetime module in Python 3.12
+    "ignore:datetime.datetime.:DeprecationWarning:",
     # This is needed since SQLAlchemy 2.0, see
     # https://github.com/aiidalab/aiidalab-widgets-base/issues/605
     'ignore:Object of type .* not in session, .* operation along .* will not proceed:sqlalchemy.exc.SAWarning',
