@@ -8,8 +8,12 @@ build-backend = "setuptools.build_meta"
 [tool.pytest.ini_options]
 filterwarnings = [
     'error',
-    # Ignore warnings coming from datetime module in Python 3.12
+    # The following deprecation warnings come from Python 3.12 stdlib modules
     "ignore:datetime.datetime.:DeprecationWarning:",
+    # This one is coming from plumpy
+    "ignore:There is no current event loop:DeprecationWarning:",
+    # This deprecation warning coming from sqlite3 module might go away if we update bokeh
+    "ignore:The default datetime adapter is deprecated as of Python 3.12; see the sqlite3 documentation for suggested replacement recipes:DeprecationWarning:",
     # This is needed since SQLAlchemy 2.0, see
     # https://github.com/aiidalab/aiidalab-widgets-base/issues/605
     'ignore:Object of type .* not in session, .* operation along .* will not proceed:sqlalchemy.exc.SAWarning',
