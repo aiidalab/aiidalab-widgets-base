@@ -10,7 +10,8 @@ on:
     pull_request:
 
 env:
-    FORCE_COLOR: 1
+    FORCE_COLOR: "1"
+    UV_VERSION: "0.2.17"
 
 # https://docs.github.com/en/actions/using-jobs/using-concurrency
 concurrency:
@@ -43,7 +44,7 @@ jobs:
                   python-version: '3.10'
 
             - name: Install uv
-              run: curl --proto '=https' --tlsv1.2 -LsSf https://github.com/astral-sh/uv/releases/download/0.1.44/uv-installer.sh | sh
+              run: curl --proto '=https' --tlsv1.2 -LsSf https://github.com/astral-sh/uv/releases/download/${UV_VERSION}/uv-installer.sh | sh
 
             - name: Install package test dependencies
               # Notebook tests happen in the container, here we only need to install
@@ -111,7 +112,7 @@ jobs:
                   python-version: ${{ matrix.python-version }}
 
             - name: Install uv
-              run: curl --proto '=https' --tlsv1.2 -LsSf https://github.com/astral-sh/uv/releases/download/0.1.27/uv-installer.sh | sh
+              run: curl --proto '=https' --tlsv1.2 -LsSf https://github.com/astral-sh/uv/releases/download/${UV_VERSION}/uv-installer.sh | sh
 
             - name: Install package
             # NOTE: uv (unlike pip) does not compile python to bytecode after install.
@@ -120,10 +121,10 @@ jobs:
             # Ideally, these would be fixed, but vapory is largely unmaintained,
             # so here we simply keep the pip behaviour with the --compile flag.
             # See https://github.com/astral-sh/uv/issues/1928#issuecomment-1968857514
-              run: uv pip install --compile --system .[dev,smiles,optimade,eln] aiida-core==${{ matrix.aiida-core-version }}
+              run: uv pip install --compile --system -e .[dev,smiles,optimade,eln] aiida-core==${{ matrix.aiida-core-version }}
 
             - name: Run pytest
-              run: pytest -v tests --cov
+              run: pytest -v tests --cov=aiidalab_widgets_base
 
             - name: Upload coverage reports to Codecov
               uses: codecov/codecov-action@v4
