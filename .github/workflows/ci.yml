@@ -72,7 +72,8 @@ jobs:
             - name: Run pytest
               run: pytest -v --driver ${{ matrix.browser }} tests_notebooks
               env:
-                  TAG: aiida-${{ matrix.aiida-core-version }}
+                  #TAG: aiida-${{ matrix.aiida-core-version }}
+                  TAG: pr-474
 
             - name: Upload screenshots as artifacts
               if: always()
