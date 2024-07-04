@@ -1196,7 +1196,17 @@ class AiidaCodeSetup(ipw.VBox):
                 "append_text",
             ]
 
+            containerized_codes_additional_items = [
+                "image_name",
+                "engine_command",
+            ]
+
             kwargs = {key: getattr(self, key).value for key in items_to_configure}
+
+            # Check for additional keys needed for orm.ContainerizedCode
+            for container_key in containerized_codes_additional_items:
+                if container_key in self.code_setup.keys():
+                    kwargs[container_key] = self.code_setup[container_key]
 
             # set computer from its widget value the UUID of the computer.
             computer = orm.load_computer(self.computer.value)
@@ -1205,7 +1215,7 @@ class AiidaCodeSetup(ipw.VBox):
             qb = orm.QueryBuilder()
             qb.append(orm.Computer, filters={"uuid": computer.uuid}, tag="computer")
             qb.append(
-                orm.InstalledCode,
+                (orm.InstalledCode, orm.ContainerizedCode),
                 with_computer="computer",
                 filters={"label": kwargs["label"]},
             )
@@ -1223,7 +1233,10 @@ class AiidaCodeSetup(ipw.VBox):
                 return False
 
             try:
-                code = orm.InstalledCode(computer=computer, **kwargs)
+                if "image_name" in kwargs.keys():
+                    code = orm.ContainerizedCode(computer=computer, **kwargs)
+                else:
+                    code = orm.InstalledCode(computer=computer, **kwargs)
             except (common.exceptions.InputValidationError, KeyError) as exception:
                 self.message = wrap_message(
                     f"Invalid input for code creation: <code>{exception}</code>",
