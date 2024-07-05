@@ -1196,7 +1196,7 @@ class AiidaCodeSetup(ipw.VBox):
                 "append_text",
             ]
 
-            containerized_codes_additional_items = [
+            containerized_code_additional_items = [
                 "image_name",
                 "engine_command",
             ]
