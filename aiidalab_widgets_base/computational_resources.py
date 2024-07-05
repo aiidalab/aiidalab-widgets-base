@@ -1204,7 +1204,7 @@ class AiidaCodeSetup(ipw.VBox):
             kwargs = {key: getattr(self, key).value for key in items_to_configure}
 
             # Check for additional keys needed for orm.ContainerizedCode
-            for container_key in containerized_codes_additional_items:
+            for container_key in containerized_code_additional_items:
                 if container_key in self.code_setup.keys():
                     kwargs[container_key] = self.code_setup[container_key]
 
