@@ -1215,7 +1215,7 @@ class AiidaCodeSetup(ipw.VBox):
             qb = orm.QueryBuilder()
             qb.append(orm.Computer, filters={"uuid": computer.uuid}, tag="computer")
             qb.append(
-                (orm.InstalledCode, orm.ContainerizedCode),
+                orm.AbstractCode,
                 with_computer="computer",
                 filters={"label": kwargs["label"]},
             )
