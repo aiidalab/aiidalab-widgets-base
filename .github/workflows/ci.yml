@@ -82,7 +82,7 @@ jobs:
 
         strategy:
             matrix:
-                python-version: ['3.9', '3.10']
+                python-version: ['3.9', '3.11']
                 # Test on the latest and oldest supported version
                 aiida-core-version: [2.2.2, 2.4.3]
             fail-fast: false
