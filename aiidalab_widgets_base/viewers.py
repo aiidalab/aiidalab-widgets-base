@@ -14,7 +14,6 @@ import numpy as np
 import shortuuid
 import spglib
 import traitlets as tl
-import vapory
 from aiida import cmdline, orm, tools
 from ase.data import colors
 from IPython.display import clear_output, display
@@ -561,6 +560,8 @@ class _StructureDataBaseViewer(ipw.VBox):
 
     def _povray_cylinder(self, v1, v2, radius, color):
         """Create a cylinder for POVRAY."""
+        import vapory
+
         return vapory.Cylinder(
             v1,
             v2,
@@ -831,6 +832,12 @@ class _StructureDataBaseViewer(ipw.VBox):
         # 4. Render a high quality image
         self.render_btn = ipw.Button(description="Render", icon="paint-brush")
         self.render_btn.on_click(self._render_structure)
+        try:
+            # TODO: We should also check for povray binary
+            import vapory  # noqa: F401
+        except ImportError:
+            # TODO: Display a warning with suggestion to install extras
+            self.render_btn.disabled = True
         self.render_box = ipw.VBox(
             children=[ipw.Label("Render an image with POVRAY:"), self.render_btn]
         )
@@ -839,6 +846,7 @@ class _StructureDataBaseViewer(ipw.VBox):
 
     def _render_structure(self, change=None):
         """Render the structure with POVRAY."""
+        import vapory
 
         if not isinstance(self.displayed_structure, ase.Atoms):
             return

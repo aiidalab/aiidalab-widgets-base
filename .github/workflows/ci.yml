@@ -121,7 +121,7 @@ jobs:
             # Ideally, these would be fixed, but vapory is largely unmaintained,
             # so here we simply keep the pip behaviour with the --compile flag.
             # See https://github.com/astral-sh/uv/issues/1928#issuecomment-1968857514
-              run: uv pip install --compile --system -e .[dev,smiles,optimade,eln] aiida-core==${{ matrix.aiida-core-version }}
+              run: uv pip install --compile --system -e .[dev,smiles,optimade,eln,vapory] aiida-core==${{ matrix.aiida-core-version }}
 
             - name: Run pytest
               run: pytest -v tests --cov=aiidalab_widgets_base
