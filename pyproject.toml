@@ -34,6 +34,7 @@ filterwarnings = [
     # This warning is coming from circus (aiida-core dependency):
     # https://github.com/circus-tent/circus/issues/1215
     "ignore:'pipes' is deprecated and slated for removal in Python 3.13:DeprecationWarning:",
+    "ignore::cryptography.utils.CryptographyDeprecationWarning:",
 ]
 
 [tool.ruff]
