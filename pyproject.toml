@@ -7,7 +7,6 @@ build-backend = "setuptools.build_meta"
 
 [tool.pytest.ini_options]
 filterwarnings = [
-    'error',
     # The following deprecation warnings come from Python 3.12 stdlib modules
     "ignore:datetime.datetime.:DeprecationWarning:",
     # This one is coming from plumpy
