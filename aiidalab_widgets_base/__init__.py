@@ -1,7 +1,5 @@
 """Reusable widgets for AiiDAlab applications."""
 
-from aiida.manage import get_profile
-
 _WARNING_TEMPLATE = """
 <div style="background-color: #f7f7f7; border: 2px solid #e0e0e0; padding: 20px; border-radius: 5px;">
     <p style="font-size: 16px; font-weight: bold; color: #ff5733;">Warning:</p>
@@ -27,22 +25,31 @@ def is_running_in_jupyter():
         return False
 
 
-# load the default profile if no profile is loaded, and raise a deprecation warning
-# this is a temporary solution to avoid breaking existing notebooks
-# this will be removed in the next major release
-if is_running_in_jupyter() and get_profile() is None:
-    # if no profile is loaded, load the default profile and raise a deprecation warning
-    from aiida import load_profile
+if is_running_in_jupyter():
+    from aiida.manage import get_profile
     from IPython.display import HTML, display
 
-    load_profile()
+    # load the default profile if no profile is loaded, and raise a deprecation warning
+    # this is a temporary solution to avoid breaking existing notebooks
+    # this will be removed in the next major release
+    if get_profile() is None:
+        # if no profile is loaded, load the default profile and raise a deprecation warning
+        from aiida import load_profile
 
-    profile = get_profile()
-    assert profile is not None, "Failed to load the default profile"
+        load_profile()
 
-    # raise a deprecation warning
-    warning = HTML(_WARNING_TEMPLATE.format(profile=profile.name, version="v3.0.0"))
-    display(warning)
+        profile = get_profile()
+        assert profile is not None, "Failed to load the default profile"
+
+        # raise a deprecation warning
+        warning = HTML(_WARNING_TEMPLATE.format(profile=profile.name, version="v3.0.0"))
+        display(warning)
+
+    from .static import styles
+    from .utils.loaders import load_css_stylesheet
+
+    load_css_stylesheet(package=styles)
+
 
 from .computational_resources import (
     ComputationalResourcesWidget,
