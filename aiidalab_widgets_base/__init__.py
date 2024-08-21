@@ -40,6 +40,8 @@ def is_running_in_jupyter():
 
 
 if is_running_in_jupyter():
+    from pathlib import Path
+
     from aiida.manage import get_profile
     from IPython.display import HTML, display
 
@@ -49,10 +51,9 @@ if is_running_in_jupyter():
     if get_profile() is None:
         load_default_profile()
 
-    from .static import styles
-    from .utils.loaders import load_css_stylesheet
+    from .utils.loaders import load_css
 
-    load_css_stylesheet(package=styles)
+    load_css(css_path=Path(__file__).parent / "static/styles")
 
 
 from .computational_resources import (
