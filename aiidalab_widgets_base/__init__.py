@@ -11,6 +11,20 @@ load_profile();</pre>
 """
 
 
+def load_default_profile():
+    """Loads the default profile if none loaded and warn of deprecation."""
+    from aiida import load_profile
+
+    load_profile()
+
+    profile = get_profile()
+    assert profile is not None, "Failed to load the default profile"
+
+    # raise a deprecation warning
+    warning = HTML(_WARNING_TEMPLATE.format(profile=profile.name, version="v3.0.0"))
+    display(warning)
+
+
 # We only detect profile and throw a warning if it is on the notebook
 # It is not necessary to do this in the unit tests
 def is_running_in_jupyter():
@@ -33,17 +47,7 @@ if is_running_in_jupyter():
     # this is a temporary solution to avoid breaking existing notebooks
     # this will be removed in the next major release
     if get_profile() is None:
-        # if no profile is loaded, load the default profile and raise a deprecation warning
-        from aiida import load_profile
-
-        load_profile()
-
-        profile = get_profile()
-        assert profile is not None, "Failed to load the default profile"
-
-        # raise a deprecation warning
-        warning = HTML(_WARNING_TEMPLATE.format(profile=profile.name, version="v3.0.0"))
-        display(warning)
+        load_default_profile()
 
     from .static import styles
     from .utils.loaders import load_css_stylesheet
