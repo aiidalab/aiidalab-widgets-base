@@ -5,6 +5,13 @@ from selenium.webdriver.common.by import By
 from selenium.webdriver.common.keys import Keys
 
 
+def test_load_css_stylesheet(selenium_driver):
+    """Test `load_css_stylesheet` function."""
+    driver = selenium_driver("notebooks/test.ipynb")
+    element = driver.find_element(By.CLASS_NAME, "for-testing-purposes")
+    assert element.value_of_css_property("color") == "rgba(255, 0, 0, 1)"
+
+
 def test_notebook_service_available(notebook_service):
     url, token = notebook_service
     response = requests.get(f"{url}/?token={token}")
