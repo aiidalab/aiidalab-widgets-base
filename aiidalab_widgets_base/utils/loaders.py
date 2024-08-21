@@ -16,18 +16,17 @@ def load_css_stylesheet(package: Package, filename: str = ""):
     """
     root = files(package)
 
-    filenames = []
     if filename:
-        filenames.append(filename)
+        filenames = [filename]
     else:
-        filenames.extend(
+        filenames = [
             path.name
             for path in root.iterdir()
             if path.is_file() and path.name.endswith(".css")
-        )
+        ]
 
-    for filename in filenames:
-        stylesheet = (root / filename).read_text()
+    for fn in filenames:
+        stylesheet = (root / fn).read_text()
         display(
             Javascript(f"""
                 var style = document.createElement('style');
