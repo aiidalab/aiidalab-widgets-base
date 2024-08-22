@@ -6,30 +6,37 @@ import ipywidgets as ipw
 class InfoBox(ipw.VBox):
     """The `InfoBox` component is used to provide additional info regarding a widget or an app."""
 
-    def __init__(self, **kwargs):
-        """`InfoBox` constructor."""
-        custom_css = kwargs.pop("custom-css", "")
+    def __init__(self, classes: list[str] | None = None, **kwargs):
+        """`InfoBox` constructor.
+
+        Parameters
+        ----------
+        `classes` : `list[str]`, optional
+            One or more CSS classes.
+        """
         super().__init__(**kwargs)
         self.add_class("info-box")
-        if custom_css:
-            self.add_class(custom_css)
+        for custom_classes in classes or []:
+            for custom_class in custom_classes.split(" "):
+                if custom_class:
+                    self.add_class(custom_class)
 
 
 class InAppGuide(InfoBox):
     """The `InfoAppGuide` is used to set up in-app guides that may be toggle in unison."""
 
-    def __init__(self, guide_class="", **kwargs):
+    def __init__(self, guide_id: str, classes: list[str] | None = None, **kwargs):
         """`InAppGuide` constructor.
 
-        parameters
+        Parameters
         ----------
-        `guide_class` : `str`
-            A CSS class marking the widget as part of a guide collection.
-            May also be used for custom styling.
+        `guide_id` : `str`
+            The unique identifier for the guide.
+        `classes` : `list[str]`, optional
+            One or more CSS classes.
         """
-        super().__init__(**kwargs)
-        self.add_class("in-app-guide")
-        self.add_class(guide_class)
+        classes = ["in-app-guide", *(classes or []), guide_id]
+        super().__init__(classes=classes, **kwargs)
 
 
 class FirstTimeUserMessage(ipw.VBox):
