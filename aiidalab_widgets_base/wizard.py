@@ -88,7 +88,7 @@ class WizardAppWidget(ipw.VBox):
 
     selected_index = tl.Int(allow_none=True)
 
-    def __init__(self, steps, hide_header=False, **kwargs):
+    def __init__(self, steps, show_header=True, **kwargs):
         # The number of steps must be greater than one
         # for this app's logic to make sense.
         if len(steps) < 2:
@@ -145,10 +145,17 @@ class WizardAppWidget(ipw.VBox):
         self.header = ipw.HBox(
             children=[self.back_button, self.reset_button, self.next_button]
         )
+        self.show_header = show_header
 
-        if hide_header:
-            self.header.layout.display = "none"
         super().__init__(children=[self.header, self.accordion], **kwargs)
+
+    @property
+    def show_header(self):
+        return self.header.layout.display != "none"
+
+    @show_header.setter
+    def show_header(self, value):
+        self.header.layout.display = "flex" if value else "none"
 
     def _update_titles(self):
         for i, (title, widget) in enumerate(zip(self.titles, self.accordion.children)):
