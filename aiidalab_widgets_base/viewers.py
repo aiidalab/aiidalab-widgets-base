@@ -1247,6 +1247,14 @@ class StructureDataViewer(_StructureDataBaseViewer):
                 self._viewer.add_unitcell()
                 self._viewer._add_shape(set(bonds), name="bonds")
                 self._viewer.center()
+                # In case of a structure with only one atom, the `center()` method will show a black sphere.
+                if len(self.displayed_structure) == 1:
+                    # get center of mass of the displayed structure
+                    com = self.displayed_structure.get_center_of_mass()
+                    # The default camera should be in the z direction, so we
+                    # shift the center of the control in z direction by 1
+                    com[2] -= 1
+                    self._viewer.control.center(com)
 
         self.displayed_selection = []
 
