@@ -113,11 +113,11 @@ def selenium_driver(selenium, notebook_service):
         # We wait until the appmode spinner disappears. However,
         # this does not seem to be fully robust, as the spinner might flash
         # while the page is still loading. So we add explicit sleep here as well.
-        time.sleep(1)
+        time.sleep(2)
         WebDriverWait(selenium, 240).until(
             ec.invisibility_of_element((By.ID, "appmode-busy"))
         )
-        time.sleep(5)
+        time.sleep(10)
 
         return selenium
 
