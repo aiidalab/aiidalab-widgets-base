@@ -483,12 +483,16 @@ class SshComputerSetup(ipw.VBox):
                 self.message = wrap_message(message, MessageLevel.ERROR)
                 return
 
-            filename = Path(private_key_fname).name
-
-            # if the private key filename is exist, generate random string and append to filename subfix
+            # if the private key filename exists, generate random string and append to filename subfix
             # then override current name.
-            if filename in [str(p.name) for p in Path(self._ssh_folder).iterdir()]:
-                private_key_fpath = self._ssh_folder / f"{filename}-{shortuuid.uuid()}"
+            if private_key_fname in [
+                str(p.name) for p in Path(self._ssh_folder).iterdir()
+            ]:
+                private_key_fpath = (
+                    self._ssh_folder / f"{private_key_fname}-{shortuuid.uuid()}"
+                )
+            else:
+                private_key_fpath = self._ssh_folder / private_key_fname
 
             self._add_private_key(private_key_fpath, private_key_content)
 
@@ -615,10 +619,18 @@ class SshComputerSetup(ipw.VBox):
     def _private_key(self) -> tuple[str | None, bytes | None]:
         """Unwrap private key file and setting filename and file content."""
         if self._inp_private_key.value:
-            (fname, _value), *_ = self._inp_private_key.value.items()
-            content = copy.copy(_value["content"])
-            self._inp_private_key.value.clear()
-            self._inp_private_key._counter = 0  # pylint: disable=protected-access
+            try:
+                (fname, value), *_ = (
+                    (fname, item["content"])
+                    for fname, item in self._inp_private_key.value.items()
+                )  # ipywidgets 7.x
+                value = value["content"]
+            except AttributeError:
+                (fname, value), *_ = (
+                    (f["name"], f.content.tobytes())
+                    for f in self._inp_private_key.value
+                )  # ipywidgets 8.x
+            content = copy.copy(value)
             return fname, content
         return None, None
 
