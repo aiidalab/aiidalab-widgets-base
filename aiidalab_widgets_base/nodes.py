@@ -7,7 +7,6 @@ import ipywidgets as ipw
 import traitlets as tl
 from aiida import common, engine, orm
 from aiida.cmdline.utils.ascii_vis import calc_info
-from aiidalab.app import _AiidaLabApp
 from IPython.display import clear_output, display
 
 CALCULATION_TYPES = [
@@ -326,6 +325,8 @@ class NodesTreeWidget(ipw.Output):
 
 class _AppIcon:
     def __init__(self, app, path_to_root, node):
+        from aiidalab.app import _AiidaLabApp
+
         name = app["name"]
         app_object = _AiidaLabApp.from_id(name)
         self.logo = app_object.metadata["logo"]

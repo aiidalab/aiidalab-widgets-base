@@ -99,16 +99,20 @@ def selenium_driver(selenium, notebook_service):
             url, f"apps/apps/aiidalab-widgets-base/{nb_path}?token={token}"
         )
         selenium.get(f"{url_with_token}")
-        # By default, let's allow selenium functions to retry for 10s
+        # By default, let's allow selenium functions to retry for 60s
         # till a given element is loaded, see:
         # https://selenium-python.readthedocs.io/waits.html#implicit-waits
-        selenium.implicitly_wait(30)
+        selenium.implicitly_wait(60)
         window_width = 800
         window_height = 600
         selenium.set_window_size(window_width, window_height)
 
         selenium.find_element(By.ID, "ipython-main-app")
         selenium.find_element(By.ID, "notebook-container")
+        selenium.find_element(By.ID, "appmode-busy")
+        # We wait until the appmode spinner disappears. However,
+        # this does not seem to be fully robust, as the spinner might flash
+        # while the page is still loading. So we add explicit sleep here as well.
         WebDriverWait(selenium, 240).until(
             ec.invisibility_of_element((By.ID, "appmode-busy"))
         )

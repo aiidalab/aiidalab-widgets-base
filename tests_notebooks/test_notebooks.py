@@ -5,6 +5,15 @@ from selenium.webdriver.common.by import By
 from selenium.webdriver.common.keys import Keys
 
 
+def test_loaded_css(selenium_driver):
+    driver = selenium_driver("tests_notebooks/test_notebook.ipynb")
+    element = driver.find_element(By.CLASS_NAME, "red-text")
+    assert element.value_of_css_property("color") in (
+        "rgba(255, 0, 0, 1)",  # Chrome
+        "rgb(255, 0, 0)",  # Firefox
+    )
+
+
 def test_notebook_service_available(notebook_service):
     url, token = notebook_service
     response = requests.get(f"{url}/?token={token}")

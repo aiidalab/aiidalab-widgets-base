@@ -2,10 +2,8 @@ import json
 from pathlib import Path
 
 import ipywidgets as ipw
-import requests_cache
 import traitlets as tl
 from aiida import orm
-from aiidalab_eln import get_eln_connector
 from IPython.display import clear_output, display
 
 ELN_CONFIG = Path.home() / ".aiidalab" / "aiidalab-eln-config.json"
@@ -15,6 +13,13 @@ ELN_CONFIG.parent.mkdir(
 
 
 def connect_to_eln(eln_instance=None, **kwargs):
+    try:
+        from aiidalab_eln import get_eln_connector
+    except ImportError:
+        return (
+            None,
+            "AiiDAlab-ELN connector not installed. Install with `pip install aiidalab-eln`",
+        )
     # assuming that the connection can only be established to the ELNs
     # with the stored configuration.
     try:
@@ -62,6 +67,8 @@ class ElnImportWidget(ipw.VBox):
     node = tl.Instance(orm.Node, allow_none=True)
 
     def __init__(self, path_to_root="../", **kwargs):
+        import requests_cache
+
         # Used to output additional settings.
         self._output = ipw.Output()
 
@@ -77,8 +84,9 @@ class ElnImportWidget(ipw.VBox):
             return
 
         tl.dlink((eln, "node"), (self, "node"))
+        # Since the requests cache is enabled globally in aiidalab package, we disable it here to get correct results.
+        # This can be removed once https://github.com/aiidalab/aiidalab/issues/196 is fixed.
         with requests_cache.disabled():
-            # Since the cache is enabled in AiiDAlab, we disable it here to get correct results.
             eln.import_data()
 
 
@@ -124,9 +132,8 @@ class ElnExportWidget(ipw.VBox):
         if self.node is None or self.eln is None:
             return
 
-        if "eln" in self.node.extras:
-            info = self.node.extras["eln"]
-        else:
+        info = self.node.base.extras.get("eln", {})
+        if not info:
             try:
                 q = orm.QueryBuilder().append(
                     orm.Node,
@@ -175,10 +182,13 @@ class ElnExportWidget(ipw.VBox):
         return all_structures, all_geoopts
 
     def send_to_eln(self, _=None):
+        import requests_cache
+
         if self.eln and self.eln.is_connected:
             self.message.value = f"\u29d7 Sending data to {self.eln.eln_instance}..."
+            # Since the requests cache is enabled globally in aiidalab package, we disable it here to get correct results.
+            # This can be removed once https://github.com/aiidalab/aiidalab/issues/196 is fixed.
             with requests_cache.disabled():
-                # Since the cache is enabled in AiiDAlab, we disable it here to get correct results.
                 self.eln.export_data()
             self.message.value = (
                 f"\u2705 The data were successfully sent to {self.eln.eln_instance}."
@@ -306,6 +316,15 @@ class ElnConfigureWidget(ipw.VBox):
 
     def display_eln_config(self, value=None):
         """Display ELN configuration specific to the selected type of ELN."""
+        try:
+            from aiidalab_eln import get_eln_connector
+        except ImportError:
+            with self._output:
+                clear_output()
+                msg = "AiiDAlab-ELN connector not installed. Install with `pip install aiidalab-eln`"
+                display(ipw.HTML(f"&#10060; {msg}"))
+            return
+
         try:
             eln_class = get_eln_connector(self.eln_types.value)
         except NotImplementedError as err:

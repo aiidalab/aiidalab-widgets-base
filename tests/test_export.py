@@ -9,7 +9,7 @@ def test_export_button_widget(multiply_add_completed_workchain, monkeypatch, tmp
 
     process = multiply_add_completed_workchain
     button = export.ExportButtonWidget(process)
-    assert button.description == f"Export workflow ({process.id})"
+    assert button.description == f"Export workflow ({process.pk})"
 
     # Test the export button. monkeypatch the `mkdtemp` function to return a
     # temporary directory in the `tmp_path` fixture to store the export file.
