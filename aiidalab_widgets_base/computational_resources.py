@@ -61,6 +61,8 @@ class ComputationalResourcesWidget(ipw.VBox):
         enable_detailed_setup=True,
         clear_after=None,
         default_calc_job_plugin=None,
+        include_setup_widget=True,
+        fetch_codes=True,
         **kwargs,
     ):
         """Dropdown for Codes for one input plugin.
@@ -73,7 +75,7 @@ class ComputationalResourcesWidget(ipw.VBox):
         self.setup_message = StatusHTML(clear_after=clear_after)
         self.code_select_dropdown = ipw.Dropdown(
             description=description,
-            disabled=True,
+            disabled=fetch_codes,  # disable if handled internally, enable otherwise
             value=None,
             style={"description_width": "initial"},
         )
@@ -95,33 +97,45 @@ class ComputationalResourcesWidget(ipw.VBox):
             self.refresh, names=["allow_disabled_computers", "allow_hidden_codes"]
         )
 
-        self.btn_setup_new_code = ipw.ToggleButton(description="Setup new code")
-        self.btn_setup_new_code.observe(self._setup_new_code, "value")
-
-        self._setup_new_code_output = ipw.Output(layout={"width": self._output_width})
-
         self._default_user_email = orm.User.collection.get_default().email
 
-        children = [
-            ipw.HBox([self.code_select_dropdown, self.btn_setup_new_code]),
-            self._setup_new_code_output,
-            self.output,
-        ]
+        selection_row = ipw.HBox(
+            children=[
+                self.code_select_dropdown,
+            ]
+        )
+
+        children = [selection_row]
+
+        if include_setup_widget:
+            self.btn_setup_new_code = ipw.ToggleButton(description="Setup new code")
+            self.btn_setup_new_code.observe(self._setup_new_code, "value")
+
+            selection_row.children += (self.btn_setup_new_code,)
+
+            self._setup_new_code_output = ipw.Output(
+                layout={"width": self._output_width}
+            )
+            children.append(self._setup_new_code_output)
+
+            # Computer/code setup
+            self.resource_setup = _ResourceSetupBaseWidget(
+                default_calc_job_plugin=self.default_calc_job_plugin,
+                enable_quick_setup=enable_quick_setup,
+                enable_detailed_setup=enable_detailed_setup,
+            )
+            self.resource_setup.observe(self.refresh, "success")
+            tl.dlink(
+                (self.resource_setup, "message"),
+                (self.setup_message, "message"),
+            )
+
+        children.append(self.output)
+
         super().__init__(children=children, **kwargs)
 
-        # Computer/code setup
-        self.resource_setup = _ResourceSetupBaseWidget(
-            default_calc_job_plugin=self.default_calc_job_plugin,
-            enable_quick_setup=enable_quick_setup,
-            enable_detailed_setup=enable_detailed_setup,
-        )
-        self.resource_setup.observe(self.refresh, "success")
-        tl.dlink(
-            (self.resource_setup, "message"),
-            (self.setup_message, "message"),
-        )
-
-        self.refresh()
+        if fetch_codes:
+            self.refresh()
 
     def _get_codes(self):
         """Query the list of available codes."""

@@ -802,3 +802,21 @@ def test_computer_resource_setup_widget_default(monkeypatch, tmp_path):
         content = f.read()
         assert "User aiida" in content
         assert "Host merlin-l-01.psi.ch" in content
+
+
+@pytest.mark.usefixtures("aiida_profile_clean")
+def test_optional_new_code_setup_widget():
+    widget = ComputationalResourcesWidget(include_setup_widget=False)
+    assert not hasattr(widget, "btn_setup_new_code")
+    assert not hasattr(widget, "_setup_new_code_output")
+    assert not hasattr(widget, "resource_setup")
+    selection_row = widget.children[0]  # type: ignore
+    assert len(selection_row.children) == 1  # no new code setup button
+
+
+@pytest.mark.usefixtures("aiida_profile_clean")
+def test_optional_code_fetching(pw_code):
+    widget = ComputationalResourcesWidget(fetch_codes=True)
+    assert len(widget.code_select_dropdown.options) != 0
+    widget = ComputationalResourcesWidget(fetch_codes=False)
+    assert len(widget.code_select_dropdown.options) == 0
