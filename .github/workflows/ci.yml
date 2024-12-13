@@ -27,7 +27,7 @@ jobs:
             matrix:
                 browser: [Chrome, Firefox]
                 # test on the latest and the oldest supported version
-                aiida-core-version: [2.1.2, 2.6.2]
+                aiida-core-version: [2.6.2]
             fail-fast: false
 
         runs-on: ubuntu-latest
@@ -74,7 +74,7 @@ jobs:
             - name: Run pytest
               run: pytest -v --driver ${{ matrix.browser }} tests_notebooks
               env:
-                  TAG: aiida-${{ matrix.aiida-core-version }}
+                  TAG: pr-455
 
             - name: Upload screenshots as artifacts
               if: always()
