@@ -1302,6 +1302,13 @@ class AiidaCodeSetup(ipw.VBox):
         for key, value in self.code_setup.items():
             if hasattr(self, key):
                 if key == "default_calc_job_plugin":
+                    if "None" in value:
+                        # NOTE: Using this widget through the `_ResourceSetupBaseWidget`
+                        # without an explicit `default_calc_job_plugin` causes `value`
+                        # to be "<plugin>.None", which is not a valid plugin name.
+                        # HACK to avoid the warning message
+                        # TODO see https://github.com/aiidalab/aiidalab-widgets-base/issues/648
+                        return
                     try:
                         self.default_calc_job_plugin.value = value
                     except tl.TraitError:
