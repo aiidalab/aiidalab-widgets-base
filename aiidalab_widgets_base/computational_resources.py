@@ -1302,13 +1302,6 @@ class AiidaCodeSetup(ipw.VBox):
         for key, value in self.code_setup.items():
             if hasattr(self, key):
                 if key == "default_calc_job_plugin":
-                    if "None" in value:
-                        # NOTE: Using this widget through the `_ResourceSetupBaseWidget`
-                        # without an explicit `default_calc_job_plugin` causes `value`
-                        # to be "<plugin>.None", which is not a valid plugin name.
-                        # HACK to avoid the warning message
-                        # TODO see https://github.com/aiidalab/aiidalab-widgets-base/issues/648
-                        return
                     try:
                         self.default_calc_job_plugin.value = value
                     except tl.TraitError:
@@ -1597,7 +1590,7 @@ class TemplateVariablesWidget(ipw.VBox):
                 # if the widget is not filled, use the original template var string e.g. {{ var }}
                 inp_dict = {}
                 for _var in line.vars:
-                    if self._template_variables[_var].widget.value == "":
+                    if self._template_variables[_var].widget.value in ("", None):
                         variable_key = self._template_variables[_var].widget.description
                         self.unfilled_variables.append(variable_key.strip(":"))
                         inp_dict[_var] = "{{ " + _var + " }}"
