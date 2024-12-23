@@ -283,6 +283,11 @@ class _StructureDataBaseViewer(ipw.VBox):
     DEFAULT_SELECTION_COLOR = "green"
     REPRESENTATION_PREFIX = "_aiidalab_viewer_representation_"
     DEFAULT_REPRESENTATION = "_aiidalab_viewer_representation_default"
+    _CELL_LABELS = {
+        1: ["length", "Å"],
+        2: ["area", "Å²"],
+        3: ["volume", "Å³"],
+    }
 
     def __init__(
         self,
@@ -714,12 +719,7 @@ class _StructureDataBaseViewer(ipw.VBox):
             # Calculate the volume of the cell using the function from orm.StructureData
             dimension_data = _get_dimensionality(self.structure.pbc, self.cell)
             # Determine the label and unit based on dimensionality
-            cell_labels = {
-                1: ["length", "Å"],
-                2: ["area", "Å²"],
-                3: ["volume", "Å³"],
-            }
-            cell_label = cell_labels.get(dimension_data["dim"])
+            cell_label = self._CELL_LABELS.get(dimension_data["dim"])
             if cell_label:
                 self.cell_volume.value = f"Cell {cell_label[0]}: {dimension_data['value']:.4f} ({cell_label[1]})"
             else:
