@@ -16,6 +16,7 @@ import spglib
 import traitlets as tl
 import vapory
 from aiida import cmdline, orm, tools
+from aiida.orm.nodes.data.structure import _get_dimensionality
 from ase.data import colors
 from IPython.display import clear_output, display
 from matplotlib.colors import to_rgb
@@ -710,6 +711,21 @@ class _StructureDataBaseViewer(ipw.VBox):
             self.periodicity.value = (
                 f"Periodicity: {periodicity_map[tuple(self.structure.pbc)]}"
             )
+            # Calculate the volume of the cell using the function from orm.StructureData
+            dimension_data = _get_dimensionality(self.structure.pbc, self.cell)
+            # Determine the label and unit based on dimensionality
+            cell_labels = {
+                1: ["length", "Å"],
+                2: ["area", "Å²"],
+                3: ["volume", "Å³"],
+            }
+            cell_label = cell_labels.get(dimension_data["dim"])
+            if cell_label:
+                self.cell_volume.value = f"Cell {cell_label[0]}: {dimension_data['value']:.4f} ({cell_label[1]})"
+            else:
+                self.cell_volume.value = f"Cell volume: -"
+            
+
         else:
             self.cell_a.value = "<i><b>a</b></i>:"
             self.cell_b.value = "<i><b>b</b></i>:"
@@ -743,6 +759,8 @@ class _StructureDataBaseViewer(ipw.VBox):
         self.cell_spacegroup = ipw.HTML()
         self.cell_hall = ipw.HTML()
         self.periodicity = ipw.HTML()
+
+        self.cell_volume = ipw.HTML()
 
         self._observe_cell()
 
@@ -791,6 +809,7 @@ class _StructureDataBaseViewer(ipw.VBox):
                         ),
                     ]
                 ),
+                self.cell_volume,
             ]
         )
 

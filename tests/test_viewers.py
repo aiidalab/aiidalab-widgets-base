@@ -19,6 +19,7 @@ def test_pbc_structure_data_viewer(structure_data_object):
     viewer = viewers.StructureDataViewer()
     viewer.structure = ase_input
     assert viewer.periodicity.value == "Periodicity: xy"
+    assert viewer.cell_volume.value == "Cell area: 12.2500 (Å²)"
 
 
 @pytest.mark.usefixtures("aiida_profile_clean")
