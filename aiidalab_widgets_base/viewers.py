@@ -723,8 +723,7 @@ class _StructureDataBaseViewer(ipw.VBox):
             if cell_label:
                 self.cell_volume.value = f"Cell {cell_label[0]}: {dimension_data['value']:.4f} ({cell_label[1]})"
             else:
-                self.cell_volume.value = f"Cell volume: -"
-            
+                self.cell_volume.value = "Cell volume: -"
 
         else:
             self.cell_a.value = "<i><b>a</b></i>:"
