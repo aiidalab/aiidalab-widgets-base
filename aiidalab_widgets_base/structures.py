@@ -976,7 +976,7 @@ class BasicCellEditor(ipw.VBox):
                 ipw.VBox(
                     [
                         ipw.HTML(
-                            "<b>Cell Transformation:</b>",
+                            "<b>Cell transformation:</b>",
                             layout={"margin": "20px 0px 10px 0px"},
                         ),
                         self.cell_transformation,
