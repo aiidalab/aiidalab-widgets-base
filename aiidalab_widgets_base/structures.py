@@ -132,7 +132,7 @@ class StructureManagerWidget(ipw.VBox):
             structure_editors = ipw.VBox([btn_undo, structure_editors])
             accordion = ipw.Accordion([structure_editors])
             accordion.selected_index = None
-            accordion.set_title(0, "Edit Structure")
+            accordion.set_title(0, "Edit structure")
             children += [accordion]
 
         super().__init__(children=[*children, self.output], **kwargs)
