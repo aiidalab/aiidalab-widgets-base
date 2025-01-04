@@ -283,6 +283,8 @@ class NodesTreeWidget(ipw.Output):
     def _update_tree_node(self, tree_node):
         if isinstance(tree_node, AiidaProcessNodeTreeNode):
             process_node = orm.load_node(tree_node.pk)
+            if process_node.process_state is None:
+                return
             tree_node.name = calc_info(process_node)
             # Override the process state in case that the process node has failed:
             # (This could be refactored with structural pattern matching with py>=3.10.)
