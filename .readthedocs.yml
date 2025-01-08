@@ -23,4 +23,4 @@ build:
             - uv pip install .[docs]
         build:
             html:
-                - uv run -m sphinx -W --keep-going -d _build/doctrees -D language=en -b html docs/source $READTHEDOCS_OUTPUT/html
+                - uv run sphinx-build -W --keep-going -d _build/doctrees -D language=en -b html docs/source $READTHEDOCS_OUTPUT/html
