@@ -1904,7 +1904,7 @@ class _ResourceSetupBaseWidget(ipw.VBox):
             + self.template_computer_configure.unfilled_variables
             + self.template_code.unfilled_variables
         ):
-            var_warn_message = ", ".join([f"<b>{v}</b>" for v in unfilled_variables])
+            var_warn_message = ", ".join({f"<b>{v}</b>" for v in unfilled_variables})
             self.message = wrap_message(
                 f"Please fill the template variables: {var_warn_message}",
                 MessageLevel.WARNING,
