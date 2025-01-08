@@ -119,7 +119,7 @@ class ComputationalResourcesWidget(ipw.VBox):
             children.append(self._setup_new_code_output)
 
             # Computer/code setup
-            self.resource_setup = _ResourceSetupBaseWidget(
+            self.resource_setup = ResourceSetupBaseWidget(
                 default_calc_job_plugin=self.default_calc_job_plugin,
                 enable_quick_setup=enable_quick_setup,
                 enable_detailed_setup=enable_detailed_setup,
@@ -1619,7 +1619,7 @@ class TemplateVariablesWidget(ipw.VBox):
         self.fill()
 
 
-class _ResourceSetupBaseWidget(ipw.VBox):
+class ResourceSetupBaseWidget(ipw.VBox):
     """The widget that allows to setup a computer and code.
     This is the building block of the `ComputationalResourcesDatabaseWidget` which
     will be directly used by the user.

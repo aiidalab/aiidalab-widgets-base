@@ -7,7 +7,7 @@ from aiida import orm
 from aiidalab_widgets_base import computational_resources
 from aiidalab_widgets_base.computational_resources import (
     ComputationalResourcesWidget,
-    _ResourceSetupBaseWidget,
+    ResourceSetupBaseWidget,
 )
 
 HTML_TAG_CLEANER = re.compile(r"<[^>]*>")
@@ -496,11 +496,11 @@ def test_template_variables_widget_help_text_disappear_if_no_template_str():
 def test_resource_setup_widget_default():
     """Test the _ResourceSetupBaseWidget."""
     with pytest.raises(ValueError):
-        w = _ResourceSetupBaseWidget(
+        w = ResourceSetupBaseWidget(
             enable_detailed_setup=False, enable_quick_setup=False
         )
 
-    w = _ResourceSetupBaseWidget()
+    w = ResourceSetupBaseWidget()
 
     # Test message is update correctly. By click setup button without filling in any information.
     w._on_quick_setup()
@@ -587,7 +587,7 @@ def test_resource_setup_widget_for_password_configure(monkeypatch, tmp_path):
     # monkeypatch home so the ssh key is generated in the temporary directory
     monkeypatch.setenv("HOME", str(tmp_path))
 
-    w = _ResourceSetupBaseWidget()
+    w = ResourceSetupBaseWidget()
 
     # Test select a new resource setup will update the output interface (e.g. ssh_config, computer_setup, code_setup)
     # and the computer/code setup widget will be updated accordingly.
@@ -654,7 +654,7 @@ def test_resource_setup_widget_for_password_configure(monkeypatch, tmp_path):
 @pytest.mark.usefixtures("aiida_profile_clean")
 def test_resource_setup_widget_computer_change_code_reset():
     """Test the _ResourceSetupBaseWidget that when computer template changed, the code selector widget is reset."""
-    w = _ResourceSetupBaseWidget()
+    w = ResourceSetupBaseWidget()
 
     # Test select a new resource setup will update the output interface (e.g. ssh_config, computer_setup, code_setup)
     # and the computer/code setup widget will be updated accordingly.
@@ -673,7 +673,7 @@ def test_resource_setup_widget_computer_change_code_reset():
 
 def test_resource_setup_widget_detailed_setup():
     """Detail branch test of the resource setup widget"""
-    w = _ResourceSetupBaseWidget()
+    w = ResourceSetupBaseWidget()
 
     w.comp_resources_database.domain_selector.value = "daint.cscs.ch"
     w.comp_resources_database.computer_selector.value = "mc"
