@@ -1193,6 +1193,13 @@ class AiidaCodeSetup(ipw.VBox):
         with self.setup_code_out:
             clear_output()
 
+            if not self.label.value:
+                self.message = wrap_message(
+                    "Please provide a code label.",
+                    MessageLevel.WARNING,
+                )
+                return False
+
             if not self.computer.value:
                 self.message = wrap_message(
                     "Please select an existing computer.",
@@ -1873,6 +1880,14 @@ class _ResourceSetupBaseWidget(ipw.VBox):
         if not self.aiida_computer_setup.some_values_provided:
             self.message = wrap_message(
                 "Please select a computer from the database.",
+                MessageLevel.ERROR,
+            )
+            return
+
+        # Raise error if the code is not selected.
+        if not self.comp_resources_database.code_selector.value:
+            self.message = wrap_message(
+                "Please select a code from the database.",
                 MessageLevel.ERROR,
             )
             return
