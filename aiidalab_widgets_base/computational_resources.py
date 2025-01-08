@@ -1666,6 +1666,11 @@ class _ResourceSetupBaseWidget(ipw.VBox):
             default_calc_job_plugin=default_calc_job_plugin,
             show_reset_button=False,
         )
+        ipw.dlink(
+            (self.comp_resources_database, "configured"),
+            (self.quick_setup_button, "disabled"),
+            lambda configured: not configured,
+        )
 
         # All templates
         self.template_computer_setup = TemplateVariablesWidget()
