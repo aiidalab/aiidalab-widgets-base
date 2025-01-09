@@ -119,7 +119,7 @@ class ComputationalResourcesWidget(ipw.VBox):
             children.append(self._setup_new_code_output)
 
             # Computer/code setup
-            self.resource_setup = _ResourceSetupBaseWidget(
+            self.resource_setup = ResourceSetupBaseWidget(
                 default_calc_job_plugin=self.default_calc_job_plugin,
                 enable_quick_setup=enable_quick_setup,
                 enable_detailed_setup=enable_detailed_setup,
@@ -1193,6 +1193,13 @@ class AiidaCodeSetup(ipw.VBox):
         with self.setup_code_out:
             clear_output()
 
+            if not self.label.value:
+                self.message = wrap_message(
+                    "Please provide a code label.",
+                    MessageLevel.WARNING,
+                )
+                return False
+
             if not self.computer.value:
                 self.message = wrap_message(
                     "Please select an existing computer.",
@@ -1229,7 +1236,7 @@ class AiidaCodeSetup(ipw.VBox):
             qb = orm.QueryBuilder()
             qb.append(orm.Computer, filters={"uuid": computer.uuid}, tag="computer")
             qb.append(
-                orm.AbstractCode,
+                orm.Code,
                 with_computer="computer",
                 filters={"label": kwargs["label"]},
             )
@@ -1612,7 +1619,7 @@ class TemplateVariablesWidget(ipw.VBox):
         self.fill()
 
 
-class _ResourceSetupBaseWidget(ipw.VBox):
+class ResourceSetupBaseWidget(ipw.VBox):
     """The widget that allows to setup a computer and code.
     This is the building block of the `ComputationalResourcesDatabaseWidget` which
     will be directly used by the user.
@@ -1658,6 +1665,11 @@ class _ResourceSetupBaseWidget(ipw.VBox):
         self.comp_resources_database = ComputationalResourcesDatabaseWidget(
             default_calc_job_plugin=default_calc_job_plugin,
             show_reset_button=False,
+        )
+        ipw.dlink(
+            (self.comp_resources_database, "configured"),
+            (self.quick_setup_button, "disabled"),
+            lambda configured: not configured,
         )
 
         # All templates
@@ -1877,6 +1889,14 @@ class _ResourceSetupBaseWidget(ipw.VBox):
             )
             return
 
+        # Raise error if the code is not selected.
+        if not self.comp_resources_database.code_selector.value:
+            self.message = wrap_message(
+                "Please select a code from the database.",
+                MessageLevel.ERROR,
+            )
+            return
+
         # Check if all the template variables are filled.
         # If not raise a warning and return (skip the setup).
         if (
@@ -1884,7 +1904,7 @@ class _ResourceSetupBaseWidget(ipw.VBox):
             + self.template_computer_configure.unfilled_variables
             + self.template_code.unfilled_variables
         ):
-            var_warn_message = ", ".join([f"<b>{v}</b>" for v in unfilled_variables])
+            var_warn_message = ", ".join({f"<b>{v}</b>" for v in unfilled_variables})
             self.message = wrap_message(
                 f"Please fill the template variables: {var_warn_message}",
                 MessageLevel.WARNING,
