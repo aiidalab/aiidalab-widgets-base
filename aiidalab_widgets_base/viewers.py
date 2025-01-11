@@ -311,6 +311,7 @@ class _StructureDataBaseViewer(ipw.VBox):
         self._viewer.stage.set_parameters(mouse_preset="pymol")
 
         view_box = ipw.VBox([self._viewer])
+        view_box.add_class("view-box")
 
         configuration_tabs_map = {
             "Cell": self._cell_tab(),
@@ -1150,6 +1151,7 @@ class StructureDataViewer(_StructureDataBaseViewer):
 
     def __init__(self, structure=None, **kwargs):
         super().__init__(**kwargs)
+        self.add_class("structure-viewer")
         self.structure = structure
 
     @tl.observe("supercell")

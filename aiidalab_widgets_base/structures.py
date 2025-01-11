@@ -137,6 +137,8 @@ class StructureManagerWidget(ipw.VBox):
 
         super().__init__(children=[*children, self.output], **kwargs)
 
+        self.add_class("structure-manager")
+
     def _structure_importers(self, importers):
         """Preparing structure importers."""
         if not isinstance(importers, (list, tuple)):
