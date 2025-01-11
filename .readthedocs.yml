@@ -11,8 +11,6 @@ build:
     tools:
         python: '3.11'
     jobs:
-        # Use uv to speed up the build
-        # https://docs.readthedocs.io/en/stable/build-customization.html#install-dependencies-with-uv
         pre_create_environment:
             - asdf plugin add uv
             - asdf install uv 0.5.15
@@ -25,3 +23,4 @@ build:
 sphinx:
     builder: html
     fail_on_warning: true
+    configuration: docs/source/conf.py
