@@ -160,7 +160,7 @@ class WizardAppWidget(ipw.VBox):
     def _update_titles(self):
         for i, (title, widget) in enumerate(zip(self.titles, self.accordion.children)):
             icon = self.ICONS.get(widget.state, str(widget.state).upper())
-            self.accordion.set_title(i, f"{icon} Step {i+1}: {title}")
+            self.accordion.set_title(i, f"{icon} Step {i + 1}: {title}")
 
     def _consider_auto_advance(self, _=None):
         """Determine whether the app should automatically advance to the next step.

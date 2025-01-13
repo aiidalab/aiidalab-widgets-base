@@ -91,13 +91,13 @@ from .wizard import WizardAppWidget, WizardAppWidgetStep
 
 __all__ = [
     "AiidaNodeViewWidget",
-    "BasicStructureEditor",
     "BasicCellEditor",
+    "BasicStructureEditor",
+    "CodQueryWidget",
     "CodeDatabaseWidget",
     "CodeDropdown",
-    "CodQueryWidget",
-    "ComputerDatabaseWidget",
     "ComputationalResourcesWidget",
+    "ComputerDatabaseWidget",
     "ComputerDropdownWidget",
     "ElnConfigureWidget",
     "ElnExportWidget",
