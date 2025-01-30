@@ -1204,7 +1204,7 @@ class BasicStructureEditor(ipw.VBox):
         btn_add = ipw.Button(description="Add to selected", layout={"width": "initial"})
         btn_add.on_click(self.add)
         self.bond_length = ipw.FloatText(
-            description="Bond lenght.", value=1.0, layout={"width": "140px"}
+            description="Bond length", value=1.0, layout={"width": "140px"}
         )
         use_covalent_radius = ipw.Checkbox(
             value=True,
