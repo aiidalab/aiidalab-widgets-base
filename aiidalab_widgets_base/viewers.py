@@ -522,9 +522,19 @@ class _StructureDataBaseViewer(ipw.VBox):
         representation_accordion.set_title(0, "Representations")
         representation_accordion.selected_index = None
 
+        info = ipw.HTML("""
+            <div style="line-height: 1.5; max-width: 460px; margin: 6px 2px;">
+                <b>Note:</b> The super cell settings here are <b>for visualization
+                purposes only</b>. To simulate a super cell, open the <b>Edit
+                structure</b> panel below, navigate to the <b>Edit cell</b> tab, and
+                use the <b>Cell transformation</b> controls.
+            </div>
+        """)
+
         return ipw.VBox(
             [
                 supercell_selector,
+                info,
                 background_color,
                 camera_type,
                 center_button,
