@@ -424,7 +424,7 @@ class _StructureDataBaseViewer(ipw.VBox):
         supercell_selector = ipw.HBox(
             [
                 ipw.HTML(
-                    description="Super cell:", style={"description_width": "initial"}
+                    description="Supercell:", style={"description_width": "initial"}
                 ),
                 *_supercell,
             ]
@@ -524,8 +524,8 @@ class _StructureDataBaseViewer(ipw.VBox):
 
         info = ipw.HTML("""
             <div style="line-height: 1.5; max-width: 460px; margin: 6px 2px;">
-                <b>Note:</b> The super cell settings here are <b>for visualization
-                purposes only</b>. To simulate a super cell, open the <b>Edit
+                <b>Note:</b> The supercell settings here are <b>for visualization
+                purposes only</b>. To simulate a supercell, open the <b>Edit
                 structure</b> panel below, navigate to the <b>Edit cell</b> tab, and
                 use the <b>Cell transformation</b> controls.
             </div>
@@ -1045,7 +1045,7 @@ class _StructureDataBaseViewer(ipw.VBox):
         # Exclude everything that is beyond the total number of atoms.
         selection_list = [x for x in value["new"] if x < self.natoms]
 
-        # In the case of a super cell, we need to multiply the selection as well
+        # In the case of a supercell, we need to multiply the selection as well
         multiplier = sum(self.supercell) - 2
         selection_list = [
             x + self.natoms * i for x in selection_list for i in range(multiplier)
@@ -1144,7 +1144,7 @@ class StructureDataViewer(_StructureDataBaseViewer):
         ASE Atoms object or to AiiDA structure object containing `get_ase()` method.
 
         displayed_structure (Atoms): Trait that contains a structure object that is
-        currently displayed (super cell, for example). The trait is generated automatically
+        currently displayed (supercell, for example). The trait is generated automatically
         and can't be set outside of the class.
     """
 
