@@ -113,29 +113,58 @@ class StructureManagerWidget(ipw.VBox):
             raise ValueError(
                 f"Unknown data format '{node_class}'. Options: {list(self.SUPPORTED_DATA_FORMATS.keys())}"
             )
-        self.output = ipw.HTML("")
 
-        children = [
-            self._structure_importers(importers),
-            self.viewer,
-            ipw.HBox(
-                [
-                    *store_and_description,
-                    self.structure_label,
-                    self.structure_description,
-                ]
-            ),
-        ]
+        viewer_panel = ipw.Accordion(
+            children=[
+                ipw.VBox(
+                    children=[
+                        self.viewer,
+                        ipw.HBox(
+                            children=[
+                                *store_and_description,
+                                self.structure_label,
+                                self.structure_description,
+                            ]
+                        ),
+                    ]
+                ),
+            ],
+            selected_index=0,
+        )
+        viewer_panel.set_title(0, "View structure")
 
         structure_editors = self._structure_editors(editors)
         if structure_editors:
-            structure_editors = ipw.VBox([btn_undo, structure_editors])
-            accordion = ipw.Accordion([structure_editors])
-            accordion.selected_index = None
-            accordion.set_title(0, "Edit structure")
-            children += [accordion]
+            structure_editors = ipw.VBox(
+                children=[
+                    btn_undo,
+                    structure_editors,
+                ]
+            )
 
-        super().__init__(children=[*children, self.output], **kwargs)
+        editor_panel = ipw.Accordion(
+            children=[
+                ipw.VBox(
+                    children=[
+                        structure_editors,
+                    ]
+                ),
+            ],
+            selected_index=None,
+        )
+        editor_panel.set_title(0, "Edit structure")
+
+        self.output = ipw.HTML("")
+
+        super().__init__(
+            children=[
+                self._structure_importers(importers),
+                viewer_panel,
+                editor_panel,
+                self.output,
+            ],
+            **kwargs,
+        )
 
         self.add_class("structure-manager")
 
