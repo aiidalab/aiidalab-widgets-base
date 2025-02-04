@@ -148,6 +148,7 @@ class WizardAppWidget(ipw.VBox):
 
         super().__init__(children=[self.header, self.accordion], **kwargs)
         ipw.link((self.accordion, "selected_index"), (self, "selected_index"))
+        self.selected_index = 0
 
     @property
     def show_header(self):
