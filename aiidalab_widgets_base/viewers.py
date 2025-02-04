@@ -16,6 +16,7 @@ import spglib
 import traitlets as tl
 import vapory
 from aiida import cmdline, orm, tools
+from aiida.orm.nodes.data.structure import _get_dimensionality
 from ase.data import colors
 from IPython.display import clear_output, display
 from matplotlib.colors import to_rgb
@@ -282,6 +283,11 @@ class _StructureDataBaseViewer(ipw.VBox):
     DEFAULT_SELECTION_COLOR = "green"
     REPRESENTATION_PREFIX = "_aiidalab_viewer_representation_"
     DEFAULT_REPRESENTATION = "_aiidalab_viewer_representation_default"
+    _CELL_LABELS = {
+        1: ["length", "Å"],
+        2: ["area", "Å²"],
+        3: ["volume", "Å³"],
+    }
 
     def __init__(
         self,
@@ -305,6 +311,7 @@ class _StructureDataBaseViewer(ipw.VBox):
         self._viewer.stage.set_parameters(mouse_preset="pymol")
 
         view_box = ipw.VBox([self._viewer])
+        view_box.add_class("view-box")
 
         configuration_tabs_map = {
             "Cell": self._cell_tab(),
@@ -417,7 +424,7 @@ class _StructureDataBaseViewer(ipw.VBox):
         supercell_selector = ipw.HBox(
             [
                 ipw.HTML(
-                    description="Super cell:", style={"description_width": "initial"}
+                    description="Supercell:", style={"description_width": "initial"}
                 ),
                 *_supercell,
             ]
@@ -515,9 +522,19 @@ class _StructureDataBaseViewer(ipw.VBox):
         representation_accordion.set_title(0, "Representations")
         representation_accordion.selected_index = None
 
+        info = ipw.HTML("""
+            <div style="line-height: 1.5; max-width: 460px; margin: 6px 2px;">
+                <b>Note:</b> The supercell settings here are <b>for visualization
+                purposes only</b>. To simulate a supercell, open the <b>Edit
+                structure</b> panel below, navigate to the <b>Edit cell</b> tab, and
+                use the <b>Cell transformation</b> controls.
+            </div>
+        """)
+
         return ipw.VBox(
             [
                 supercell_selector,
+                info,
                 background_color,
                 camera_type,
                 center_button,
@@ -710,6 +727,15 @@ class _StructureDataBaseViewer(ipw.VBox):
             self.periodicity.value = (
                 f"Periodicity: {periodicity_map[tuple(self.structure.pbc)]}"
             )
+            # Calculate the volume of the cell using the function from orm.StructureData
+            dimension_data = _get_dimensionality(self.structure.pbc, self.cell)
+            # Determine the label and unit based on dimensionality
+            cell_label = self._CELL_LABELS.get(dimension_data["dim"])
+            if cell_label:
+                self.cell_volume.value = f"Cell {cell_label[0]}: {dimension_data['value']:.4f} ({cell_label[1]})"
+            else:
+                self.cell_volume.value = "Cell volume: -"
+
         else:
             self.cell_a.value = "<i><b>a</b></i>:"
             self.cell_b.value = "<i><b>b</b></i>:"
@@ -743,6 +769,8 @@ class _StructureDataBaseViewer(ipw.VBox):
         self.cell_spacegroup = ipw.HTML()
         self.cell_hall = ipw.HTML()
         self.periodicity = ipw.HTML()
+
+        self.cell_volume = ipw.HTML()
 
         self._observe_cell()
 
@@ -791,6 +819,7 @@ class _StructureDataBaseViewer(ipw.VBox):
                         ),
                     ]
                 ),
+                self.cell_volume,
             ]
         )
 
@@ -1016,7 +1045,7 @@ class _StructureDataBaseViewer(ipw.VBox):
         # Exclude everything that is beyond the total number of atoms.
         selection_list = [x for x in value["new"] if x < self.natoms]
 
-        # In the case of a super cell, we need to multiply the selection as well
+        # In the case of a supercell, we need to multiply the selection as well
         multiplier = sum(self.supercell) - 2
         selection_list = [
             x + self.natoms * i for x in selection_list for i in range(multiplier)
@@ -1115,7 +1144,7 @@ class StructureDataViewer(_StructureDataBaseViewer):
         ASE Atoms object or to AiiDA structure object containing `get_ase()` method.
 
         displayed_structure (Atoms): Trait that contains a structure object that is
-        currently displayed (super cell, for example). The trait is generated automatically
+        currently displayed (supercell, for example). The trait is generated automatically
         and can't be set outside of the class.
     """
 
@@ -1132,6 +1161,7 @@ class StructureDataViewer(_StructureDataBaseViewer):
 
     def __init__(self, structure=None, **kwargs):
         super().__init__(**kwargs)
+        self.add_class("structure-viewer")
         self.structure = structure
 
     @tl.observe("supercell")

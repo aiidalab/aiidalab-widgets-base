@@ -19,6 +19,7 @@ def test_pbc_structure_data_viewer(structure_data_object):
     viewer = viewers.StructureDataViewer()
     viewer.structure = ase_input
     assert viewer.periodicity.value == "Periodicity: xy"
+    assert viewer.cell_volume.value == "Cell area: 12.2500 (Å²)"
 
 
 @pytest.mark.usefixtures("aiida_profile_clean")
@@ -300,7 +301,7 @@ def test_loading_viewer_using_process_type(generate_calc_job_node):
     # Load the viewer widget for the generated process node.
     viewer = viewers.viewer(process)
     # Verify that the loaded viewer is the correct type and is associated with the intended node.
-    assert isinstance(
-        viewer, AbcViewer
-    ), "Viewer is not an instance of the expected viewer class."
+    assert isinstance(viewer, AbcViewer), (
+        "Viewer is not an instance of the expected viewer class."
+    )
     assert viewer.node == process, "Viewer's node does not match the test process node."

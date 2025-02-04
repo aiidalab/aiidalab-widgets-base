@@ -61,6 +61,8 @@ class ComputationalResourcesWidget(ipw.VBox):
         enable_detailed_setup=True,
         clear_after=None,
         default_calc_job_plugin=None,
+        include_setup_widget=True,
+        fetch_codes=True,
         **kwargs,
     ):
         """Dropdown for Codes for one input plugin.
@@ -73,7 +75,7 @@ class ComputationalResourcesWidget(ipw.VBox):
         self.setup_message = StatusHTML(clear_after=clear_after)
         self.code_select_dropdown = ipw.Dropdown(
             description=description,
-            disabled=True,
+            disabled=fetch_codes,  # disable if handled internally, enable otherwise
             value=None,
             style={"description_width": "initial"},
         )
@@ -95,33 +97,45 @@ class ComputationalResourcesWidget(ipw.VBox):
             self.refresh, names=["allow_disabled_computers", "allow_hidden_codes"]
         )
 
-        self.btn_setup_new_code = ipw.ToggleButton(description="Setup new code")
-        self.btn_setup_new_code.observe(self._setup_new_code, "value")
-
-        self._setup_new_code_output = ipw.Output(layout={"width": self._output_width})
-
         self._default_user_email = orm.User.collection.get_default().email
 
-        children = [
-            ipw.HBox([self.code_select_dropdown, self.btn_setup_new_code]),
-            self._setup_new_code_output,
-            self.output,
-        ]
+        selection_row = ipw.HBox(
+            children=[
+                self.code_select_dropdown,
+            ]
+        )
+
+        children = [selection_row]
+
+        if include_setup_widget:
+            self.btn_setup_new_code = ipw.ToggleButton(description="Setup new code")
+            self.btn_setup_new_code.observe(self._setup_new_code, "value")
+
+            selection_row.children += (self.btn_setup_new_code,)
+
+            self._setup_new_code_output = ipw.Output(
+                layout={"width": self._output_width}
+            )
+            children.append(self._setup_new_code_output)
+
+            # Computer/code setup
+            self.resource_setup = ResourceSetupBaseWidget(
+                default_calc_job_plugin=self.default_calc_job_plugin,
+                enable_quick_setup=enable_quick_setup,
+                enable_detailed_setup=enable_detailed_setup,
+            )
+            self.resource_setup.observe(self.refresh, "success")
+            tl.dlink(
+                (self.resource_setup, "message"),
+                (self.setup_message, "message"),
+            )
+
+        children.append(self.output)
+
         super().__init__(children=children, **kwargs)
 
-        # Computer/code setup
-        self.resource_setup = _ResourceSetupBaseWidget(
-            default_calc_job_plugin=self.default_calc_job_plugin,
-            enable_quick_setup=enable_quick_setup,
-            enable_detailed_setup=enable_detailed_setup,
-        )
-        self.resource_setup.observe(self.refresh, "success")
-        tl.dlink(
-            (self.resource_setup, "message"),
-            (self.setup_message, "message"),
-        )
-
-        self.refresh()
+        if fetch_codes:
+            self.refresh()
 
     def _get_codes(self):
         """Query the list of available codes."""
@@ -1191,6 +1205,13 @@ class AiidaCodeSetup(ipw.VBox):
         with self.setup_code_out:
             clear_output()
 
+            if not self.label.value:
+                self.message = wrap_message(
+                    "Please provide a code label.",
+                    MessageLevel.WARNING,
+                )
+                return False
+
             if not self.computer.value:
                 self.message = wrap_message(
                     "Please select an existing computer.",
@@ -1227,7 +1248,7 @@ class AiidaCodeSetup(ipw.VBox):
             qb = orm.QueryBuilder()
             qb.append(orm.Computer, filters={"uuid": computer.uuid}, tag="computer")
             qb.append(
-                orm.AbstractCode,
+                orm.Code,
                 with_computer="computer",
                 filters={"label": kwargs["label"]},
             )
@@ -1588,7 +1609,7 @@ class TemplateVariablesWidget(ipw.VBox):
                 # if the widget is not filled, use the original template var string e.g. {{ var }}
                 inp_dict = {}
                 for _var in line.vars:
-                    if self._template_variables[_var].widget.value == "":
+                    if self._template_variables[_var].widget.value in ("", None):
                         variable_key = self._template_variables[_var].widget.description
                         self.unfilled_variables.append(variable_key.strip(":"))
                         inp_dict[_var] = "{{ " + _var + " }}"
@@ -1610,7 +1631,7 @@ class TemplateVariablesWidget(ipw.VBox):
         self.fill()
 
 
-class _ResourceSetupBaseWidget(ipw.VBox):
+class ResourceSetupBaseWidget(ipw.VBox):
     """The widget that allows to setup a computer and code.
     This is the building block of the `ComputationalResourcesDatabaseWidget` which
     will be directly used by the user.
@@ -1656,6 +1677,11 @@ class _ResourceSetupBaseWidget(ipw.VBox):
         self.comp_resources_database = ComputationalResourcesDatabaseWidget(
             default_calc_job_plugin=default_calc_job_plugin,
             show_reset_button=False,
+        )
+        ipw.dlink(
+            (self.comp_resources_database, "configured"),
+            (self.quick_setup_button, "disabled"),
+            lambda configured: not configured,
         )
 
         # All templates
@@ -1875,6 +1901,14 @@ class _ResourceSetupBaseWidget(ipw.VBox):
             )
             return
 
+        # Raise error if the code is not selected.
+        if not self.comp_resources_database.code_selector.value:
+            self.message = wrap_message(
+                "Please select a code from the database.",
+                MessageLevel.ERROR,
+            )
+            return
+
         # Check if all the template variables are filled.
         # If not raise a warning and return (skip the setup).
         if (
@@ -1882,7 +1916,7 @@ class _ResourceSetupBaseWidget(ipw.VBox):
             + self.template_computer_configure.unfilled_variables
             + self.template_code.unfilled_variables
         ):
-            var_warn_message = ", ".join([f"<b>{v}</b>" for v in unfilled_variables])
+            var_warn_message = ", ".join({f"<b>{v}</b>" for v in unfilled_variables})
             self.message = wrap_message(
                 f"Please fill the template variables: {var_warn_message}",
                 MessageLevel.WARNING,

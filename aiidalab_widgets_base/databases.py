@@ -234,6 +234,8 @@ class ComputationalResourcesDatabaseWidget(ipw.VBox):
     computer_configure = tl.Dict()
     code_setup = tl.Dict()
 
+    configured = tl.Bool(False)
+
     STYLE = {"description_width": "180px"}
     LAYOUT = {"width": "400px"}
 
@@ -413,6 +415,8 @@ class ComputationalResourcesDatabaseWidget(ipw.VBox):
             self.computer_setup = computer_setup
             self.computer_configure = computer_configure
 
+        self._set_configured()
+
     def _code_changed(self, change=None):
         """Update code settings."""
         if change["new"] is None:
@@ -430,3 +434,9 @@ class ComputationalResourcesDatabaseWidget(ipw.VBox):
             .get("codes", {})
             .get(selected_code, {})
         )
+
+        self._set_configured()
+
+    def _set_configured(self):
+        """Update state of the widget."""
+        self.configured = all((self.computer_setup, self.code_setup))
