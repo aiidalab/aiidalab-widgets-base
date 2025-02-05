@@ -11,7 +11,7 @@ on:
 
 env:
     FORCE_COLOR: "1"
-    UV_VERSION: "0.4.6"
+    UV_VERSION: "0.5.28"
 
 # https://docs.github.com/en/actions/using-jobs/using-concurrency
 concurrency:
@@ -27,10 +27,10 @@ jobs:
             matrix:
                 browser: [Chrome, Firefox]
                 # test on the latest and the oldest supported version
-                aiida-core-version: [2.1.2, 2.6.2]
+                aiida-core-version: [2.1.2, 2.6.3]
             fail-fast: false
 
-        runs-on: ubuntu-latest
+        runs-on: ubuntu-22.04
         timeout-minutes: 30
 
         steps:
@@ -90,10 +90,10 @@ jobs:
             matrix:
                 python-version: ['3.9', '3.11']
                 # Test on the latest and oldest supported version
-                aiida-core-version: [2.2.2, 2.6.2]
+                aiida-core-version: [2.2.2, 2.6.3]
             fail-fast: false
 
-        runs-on: ubuntu-latest
+        runs-on: ubuntu-24.04
         timeout-minutes: 30
         services:
             rabbitmq:
