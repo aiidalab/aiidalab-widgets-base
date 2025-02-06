@@ -72,7 +72,7 @@ def test_folder_data_viewer(folder_data_object):
 
 
 @pytest.mark.usefixtures("aiida_profile_clean")
-def test_structure_data_viewer_storage(structure_data_object):
+def test_structure_data_viewer_storage(monkeypatch, tmp_path, structure_data_object):
     v = viewers.viewer(structure_data_object)
     assert isinstance(v, viewers.StructureDataViewer)
 
@@ -105,6 +105,8 @@ def test_structure_data_viewer_storage(structure_data_object):
         -1.6859999895095825, -1.6859999895095825, -0.6669999957084656, 1,
     ]
     # fmt: on
+    # Avoid producing temporary files from povray in the repo
+    monkeypatch.chdir(tmp_path)
     v._render_structure()
 
 
