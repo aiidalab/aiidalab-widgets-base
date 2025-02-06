@@ -15,10 +15,19 @@ from packaging.version import Version
 # Load aiida's pytest fixtures
 # For aiida-core>=2.6 we load new fixtures which use sqlite backend.
 if Version(aiida_version) >= Version("2.6.0"):
-    aiida_core_fixtures = "aiida.tools.pytest_fixtures"
+    pytest_plugins = ["aiida.tools.pytest_fixtures"]
+
 else:
-    aiida_core_fixtures = "aiida.manage.tests.pytest_fixtures"
-pytest_plugins = [aiida_core_fixtures]
+    pytest_plugins = ["aiida.manage.tests.pytest_fixtures"]
+
+    @pytest.fixture
+    def aiida_code_installed(aiida_local_code_factory):
+        def _code(filepath_executable, default_calc_job_plugin):
+            return aiida_local_code_factory(
+                executable=filepath_executable, entry_point=default_calc_job_plugin
+            )
+
+        return _code
 
 
 @pytest.fixture
@@ -278,9 +287,11 @@ def folder_data_object():
 
 
 @pytest.fixture
-def aiida_local_code_bash(aiida_local_code_factory):
-    """Return a `Code` configured for the bash executable."""
-    return aiida_local_code_factory(executable="bash", entry_point="bash")
+def aiida_local_code_bash(aiida_code_installed):
+    """Return `InstalledCode` configured for bash executable."""
+    return aiida_code_installed(
+        filepath_executable="/bin/bash", default_calc_job_plugin="bash"
+    )
 
 
 @pytest.fixture
