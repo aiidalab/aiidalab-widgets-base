@@ -961,7 +961,7 @@ class _StructureDataBaseViewer(ipw.VBox):
         scene = vapory.Scene(camera, objects=objects)
         fname = bb.get_chemical_formula() + ".png"
 
-        with TemporaryDirectory(ignore_cleanup_errors=True) as tmpdir:
+        with TemporaryDirectory() as tmpdir:
             cwd = pathlib.Path.cwd()
             try:
                 os.chdir(tmpdir)
