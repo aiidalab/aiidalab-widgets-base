@@ -4,6 +4,8 @@ from __future__ import annotations
 
 import base64
 import copy
+import os
+import pathlib
 import re
 import warnings
 
@@ -868,6 +870,7 @@ class _StructureDataBaseViewer(ipw.VBox):
 
     def _render_structure(self, change=None):
         """Render the structure with POVRAY."""
+        from tempfile import TemporaryDirectory
 
         if not isinstance(self.displayed_structure, ase.Atoms):
             return
@@ -957,16 +960,24 @@ class _StructureDataBaseViewer(ipw.VBox):
 
         scene = vapory.Scene(camera, objects=objects)
         fname = bb.get_chemical_formula() + ".png"
-        scene.render(
-            fname,
-            width=2560,
-            height=1440,
-            antialiasing=0.000,
-            quality=11,
-            remove_temp=False,
-        )
-        with open(fname, "rb") as raw:
-            payload = base64.b64encode(raw.read()).decode()
+
+        with TemporaryDirectory(ignore_cleanup_errors=True) as tmpdir:
+            cwd = pathlib.Path.cwd()
+            try:
+                os.chdir(tmpdir)
+                scene.render(
+                    fname,
+                    width=2560,
+                    height=1440,
+                    antialiasing=0.000,
+                    quality=11,
+                    remove_temp=False,
+                )
+                with open(fname, "rb") as raw:
+                    payload = base64.b64encode(raw.read()).decode()
+            finally:
+                os.chdir(cwd)
+
         self._download(payload=payload, filename=fname)
         self.render_btn.disabled = False
 
