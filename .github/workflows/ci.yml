@@ -7,8 +7,11 @@ on:
     push:
         branches:
             - main
+            - support/*
     pull_request:
 
+env:
+    FORCE_COLOR: "1"
 
 # https://docs.github.com/en/actions/using-jobs/using-concurrency
 concurrency:
@@ -23,10 +26,11 @@ jobs:
         strategy:
             matrix:
                 browser: [Chrome, Firefox]
-                aiida-core-version: [2.1.2, 2.4.3]          # test on the latest and the oldest supported version
+                # test on the latest and the oldest supported version
+                aiida-core-version: [2.1.2, 2.6.3]
             fail-fast: false
 
-        runs-on: ubuntu-latest
+        runs-on: ubuntu-22.04
         timeout-minutes: 30
 
         steps:
@@ -82,12 +86,12 @@ jobs:
 
         strategy:
             matrix:
-                python-version: ['3.9', '3.10']
+                python-version: ['3.9', '3.11']
                 # Test on the latest and oldest supported version
-                aiida-core-version: [2.2.2, 2.4.3]
+                aiida-core-version: [2.2.2, 2.6.3]
             fail-fast: false
 
-        runs-on: ubuntu-latest
+        runs-on: ubuntu-24.04
         timeout-minutes: 30
         services:
             rabbitmq:
