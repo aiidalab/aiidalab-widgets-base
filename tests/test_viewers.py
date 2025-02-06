@@ -1,3 +1,5 @@
+from pathlib import Path
+
 import ase
 import pytest
 import traitlets as tl
@@ -108,6 +110,10 @@ def test_structure_data_viewer_storage(monkeypatch, tmp_path, structure_data_obj
     # Avoid producing temporary files from povray in the repo
     monkeypatch.chdir(tmp_path)
     v._render_structure()
+
+    # Make sure we don't polute current working dir with tempfiles
+    assert not Path("__temp__.pov").exists()
+    assert not Path("Si2.png").exists()
 
 
 @pytest.mark.usefixtures("aiida_profile_clean")
