@@ -8,9 +8,17 @@ from collections.abc import Mapping
 
 import numpy as np
 import pytest
+from aiida import __version__ as aiida_version
 from aiida import engine, orm, plugins
+from packaging.version import Version
 
-pytest_plugins = ["aiida.manage.tests.pytest_fixtures"]
+# Load aiida's pytest fixtures
+# For aiida-core>=2.6 we load new fixtures which use sqlite backend.
+if Version(aiida_version) >= Version("2.6.0"):
+    aiida_core_fixtures = "aiida.tools.pytest_fixtures"
+else:
+    aiida_core_fixtures = "aiida.manage.tests.pytest_fixtures"
+pytest_plugins = [aiida_core_fixtures]
 
 
 @pytest.fixture
