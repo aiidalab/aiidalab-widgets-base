@@ -213,7 +213,7 @@ def wrap_message(message, level=MessageLevel.INFO):
     # The message is wrapped into a div with the class "alert" and the icon of the given level
     return f"""
         <div class="alert alert-{level.value}" role="alert" style="margin-bottom: 0px; padding: 6px 12px;">
-            <i class="fa fa-{mapping[level]}"></i>{message}
+            <i class="fa fa-{mapping[level]}"></i> {message}
         </div>
     """
 

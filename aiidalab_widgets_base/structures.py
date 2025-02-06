@@ -113,29 +113,60 @@ class StructureManagerWidget(ipw.VBox):
             raise ValueError(
                 f"Unknown data format '{node_class}'. Options: {list(self.SUPPORTED_DATA_FORMATS.keys())}"
             )
-        self.output = ipw.HTML("")
 
-        children = [
-            self._structure_importers(importers),
-            self.viewer,
-            ipw.HBox(
-                [
-                    *store_and_description,
-                    self.structure_label,
-                    self.structure_description,
-                ]
-            ),
-        ]
+        viewer_panel = ipw.Accordion(
+            children=[
+                ipw.VBox(
+                    children=[
+                        self.viewer,
+                        ipw.HBox(
+                            children=[
+                                *store_and_description,
+                                self.structure_label,
+                                self.structure_description,
+                            ]
+                        ),
+                    ]
+                ),
+            ],
+            selected_index=0,
+        )
+        viewer_panel.set_title(0, "View structure")
 
         structure_editors = self._structure_editors(editors)
         if structure_editors:
-            structure_editors = ipw.VBox([btn_undo, structure_editors])
-            accordion = ipw.Accordion([structure_editors])
-            accordion.selected_index = None
-            accordion.set_title(0, "Edit Structure")
-            children += [accordion]
+            structure_editors = ipw.VBox(
+                children=[
+                    btn_undo,
+                    structure_editors,
+                ]
+            )
 
-        super().__init__(children=[*children, self.output], **kwargs)
+        editor_panel = ipw.Accordion(
+            children=[
+                ipw.VBox(
+                    children=[
+                        structure_editors,
+                    ]
+                ),
+            ],
+            selected_index=None,
+        )
+        editor_panel.set_title(0, "Edit structure")
+
+        self.output = ipw.HTML("")
+
+        super().__init__(
+            children=[
+                self._structure_importers(importers),
+                viewer_panel,
+                editor_panel,
+                self.output,
+            ],
+            **kwargs,
+        )
+
+        self.add_class("structure-manager")
 
     def _structure_importers(self, importers):
         """Preparing structure importers."""
@@ -720,11 +751,6 @@ class SmilesWidget(ipw.VBox):
 
     def _make_ase(self, species, positions, smiles):
         """Create ase Atoms object."""
-        from sklearn.decomposition import PCA
-
-        # Get the principal axes and realign the molecule along z-axis.
-        if len(species) > 2:
-            positions = PCA(n_components=3).fit_transform(positions)
         atoms = ase.Atoms(species, positions=positions, pbc=False)
         atoms.cell = np.ptp(atoms.positions, axis=0) + 10
         atoms.center()
@@ -976,7 +1002,7 @@ class BasicCellEditor(ipw.VBox):
                 ipw.VBox(
                     [
                         ipw.HTML(
-                            "<b>Cell Transformation:</b>",
+                            "<b>Cell transformation:</b>",
                             layout={"margin": "20px 0px 10px 0px"},
                         ),
                         self.cell_transformation,
@@ -1202,7 +1228,7 @@ class BasicStructureEditor(ipw.VBox):
         btn_add = ipw.Button(description="Add to selected", layout={"width": "initial"})
         btn_add.on_click(self.add)
         self.bond_length = ipw.FloatText(
-            description="Bond lenght.", value=1.0, layout={"width": "140px"}
+            description="Bond length", value=1.0, layout={"width": "140px"}
         )
         use_covalent_radius = ipw.Checkbox(
             value=True,

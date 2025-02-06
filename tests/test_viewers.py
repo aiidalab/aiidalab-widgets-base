@@ -1,3 +1,5 @@
+from pathlib import Path
+
 import ase
 import pytest
 import traitlets as tl
@@ -19,6 +21,7 @@ def test_pbc_structure_data_viewer(structure_data_object):
     viewer = viewers.StructureDataViewer()
     viewer.structure = ase_input
     assert viewer.periodicity.value == "Periodicity: xy"
+    assert viewer.cell_volume.value == "Cell area: 12.2500 (Å²)"
 
 
 @pytest.mark.usefixtures("aiida_profile_clean")
@@ -71,7 +74,7 @@ def test_folder_data_viewer(folder_data_object):
 
 
 @pytest.mark.usefixtures("aiida_profile_clean")
-def test_structure_data_viewer_storage(structure_data_object):
+def test_structure_data_viewer_storage(monkeypatch, tmp_path, structure_data_object):
     v = viewers.viewer(structure_data_object)
     assert isinstance(v, viewers.StructureDataViewer)
 
@@ -87,13 +90,13 @@ def test_structure_data_viewer_storage(structure_data_object):
         ),
         (
             "cif",
-            """ZGF0YV9pbWFnZTAKX2NoZW1pY2FsX2Zvcm11bGFfc3RydWN0dXJhbCAgICAgICBTaTIKX2NoZW1pY2FsX2Zvcm11bGFfc3VtICAgICAgICAgICAgICAiU2kyIgpfY2VsbF9sZW5ndGhfYSAgICAgICAzLjg0NzM3Cl9jZWxsX2xlbmd0aF9iICAgICAgIDMuODQ3MzcKX2NlbGxfbGVuZ3RoX2MgICAgICAgMy44NDczNwpfY2VsbF9hbmdsZV9hbHBoYSAgICA2MApfY2VsbF9hbmdsZV9iZXRhICAgICA2MApfY2VsbF9hbmdsZV9nYW1tYSAgICA2MAoKX3NwYWNlX2dyb3VwX25hbWVfSC1NX2FsdCAgICAiUCAxIgpfc3BhY2VfZ3JvdXBfSVRfbnVtYmVyICAgICAgIDEKCmxvb3BfCiAgX3NwYWNlX2dyb3VwX3N5bW9wX29wZXJhdGlvbl94eXoKICAneCwgeSwgeicKCmxvb3BfCiAgX2F0b21fc2l0ZV90eXBlX3N5bWJvbAogIF9hdG9tX3NpdGVfbGFiZWwKICBfYXRvbV9zaXRlX3N5bW1ldHJ5X211bHRpcGxpY2l0eQogIF9hdG9tX3NpdGVfZnJhY3RfeAogIF9hdG9tX3NpdGVfZnJhY3RfeQogIF9hdG9tX3NpdGVfZnJhY3RfegogIF9hdG9tX3NpdGVfb2NjdXBhbmN5CiAgU2kgIFNpMSAgICAgICAxLjAgIDAuMDAwMDAgIDAuMDAwMDAgIDAuMDAwMDAgIDEuMDAwMAogIFNpICBTaTIgICAgICAgMS4wICAwLjI1MDAwICAwLjI1MDAwICAwLjI1MDAwICAxLjAwMDAK""",
+            """ZGF0YV9pbWFnZTAKX2NoZW1pY2FsX2Zvcm11bGFfc3RydWN0dXJhbCAgICAgICBTaTIKX2NoZW1pY2FsX2Zvcm11bGFfc3VtICAgICAgICAgICAgICAiU2kyIgpfY2VsbF9sZW5ndGhfYSAgICAgICAzLjg0NzM3Cl9jZWxsX2xlbmd0aF9iICAgICAgIDMuODQ3MzY5ODYzMzc3NDQ4Cl9jZWxsX2xlbmd0aF9jICAgICAgIDMuODQ3MzY5NjE2OTM1ODM2Cl9jZWxsX2FuZ2xlX2FscGhhICAgIDU5Ljk5OTk5NzA5Nzk3MDEyCl9jZWxsX2FuZ2xlX2JldGEgICAgIDU5Ljk5OTk5NjcwNjQwOTMwNgpfY2VsbF9hbmdsZV9nYW1tYSAgICA1OS45OTk5OTg4MjUzMTc1OQoKX3NwYWNlX2dyb3VwX25hbWVfSC1NX2FsdCAgICAiUCAxIgpfc3BhY2VfZ3JvdXBfSVRfbnVtYmVyICAgICAgIDEKCmxvb3BfCiAgX3NwYWNlX2dyb3VwX3N5bW9wX29wZXJhdGlvbl94eXoKICAneCwgeSwgeicKCmxvb3BfCiAgX2F0b21fc2l0ZV90eXBlX3N5bWJvbAogIF9hdG9tX3NpdGVfbGFiZWwKICBfYXRvbV9zaXRlX3N5bW1ldHJ5X211bHRpcGxpY2l0eQogIF9hdG9tX3NpdGVfZnJhY3RfeAogIF9hdG9tX3NpdGVfZnJhY3RfeQogIF9hdG9tX3NpdGVfZnJhY3RfegogIF9hdG9tX3NpdGVfb2NjdXBhbmN5CiAgU2kgIFNpMSAgICAgICAxLjAgIDAuMCAgMC4wICAwLjAgIDEuMDAwMAogIFNpICBTaTIgICAgICAgMS4wICAwLjI1MDAwMDAwMDAwMDAwMDA2ICAwLjI1ICAwLjI1ICAxLjAwMDAK""",
         ),
     ]
 
     for fmt, out in format_cases:
         v.file_format.label = fmt
-        assert v._prepare_payload() == out
+        assert v._prepare_payload() == out, f"{fmt} structure payload does not match"
 
     # Monkey patch the viewer to avoid the need for a running X server.
     # fmt: off
@@ -104,7 +107,13 @@ def test_structure_data_viewer_storage(structure_data_object):
         -1.6859999895095825, -1.6859999895095825, -0.6669999957084656, 1,
     ]
     # fmt: on
+    # Avoid producing temporary files from povray in the repo
+    monkeypatch.chdir(tmp_path)
     v._render_structure()
+
+    # Make sure we don't polute current working dir with tempfiles
+    assert not Path("__temp__.pov").exists()
+    assert not Path("Si2.png").exists()
 
 
 @pytest.mark.usefixtures("aiida_profile_clean")
@@ -300,7 +309,7 @@ def test_loading_viewer_using_process_type(generate_calc_job_node):
     # Load the viewer widget for the generated process node.
     viewer = viewers.viewer(process)
     # Verify that the loaded viewer is the correct type and is associated with the intended node.
-    assert isinstance(
-        viewer, AbcViewer
-    ), "Viewer is not an instance of the expected viewer class."
+    assert isinstance(viewer, AbcViewer), (
+        "Viewer is not an instance of the expected viewer class."
+    )
     assert viewer.node == process, "Viewer's node does not match the test process node."

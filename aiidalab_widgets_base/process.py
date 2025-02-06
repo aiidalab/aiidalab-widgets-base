@@ -6,6 +6,7 @@ from __future__ import annotations
 
 import inspect
 import os
+import sys
 import threading
 import time
 import traceback
@@ -731,6 +732,8 @@ class ProcessMonitor(tl.HasTraits):
         self._monitor_thread_stop = threading.Event()
         self._monitor_thread_lock = threading.Lock()
 
+        self.log_widget: ipw.Output | None = kwargs.pop("log_widget", None)
+
         super().__init__(**kwargs)
 
     @tl.observe("value")
@@ -773,6 +776,9 @@ class ProcessMonitor(tl.HasTraits):
                     else:
                         func()
                 except Exception:
+                    if self.log_widget:
+                        with self.log_widget:
+                            traceback.print_exc(file=sys.stdout)
                     warnings.warn(
                         f"WARNING: The callback function {func.__name__!r} was disabled due to an error:\n{traceback.format_exc()}",
                         stacklevel=2,

@@ -336,3 +336,12 @@ def mock_eln_config():
                 return json.load(f)
 
     return _MockElnConfig()
+
+
+@pytest.fixture
+def pw_code(aiida_local_code_factory):
+    """Return a `Code` configured for the pw.x executable."""
+
+    return aiida_local_code_factory(
+        label="pw", executable="bash", entry_point="quantumespresso.pw"
+    )
