@@ -94,40 +94,40 @@ class DictViewer(ipw.VBox):
     :type downloadable: bool"""
 
     def __init__(self, parameter, downloadable=True, **kwargs):
-        import pandas as pd
-
-        # Here we are defining properties of 'df' class (specified while exporting pandas table into html).
-        # Since the exported object is nothing more than HTML table, all 'standard' HTML table settings
-        # can be applied to it as well.
-        # For more information on how to controle the table appearance please visit:
-        # https://css-tricks.com/complete-guide-table-element/
         self.widget = ipw.HTML()
         ipw.dlink((self, "value"), (self.widget, "value"))
 
-        self.value += """
+        self.value = """
         <style>
             .df { border: none; }
             .df tbody tr:nth-child(odd) { background-color: #e5e7e9; }
-            .df tbody tr:nth-child(odd):hover { background-color:   #f5b7b1; }
-            .df tbody tr:nth-child(even):hover { background-color:  #f5b7b1; }
+            .df tbody tr:nth-child(odd):hover { background-color: #f5b7b1; }
+            .df tbody tr:nth-child(even):hover { background-color: #f5b7b1; }
             .df tbody td { min-width: 300px; text-align: center; border: none }
-            .df th { text-align: center; border: none;  border-bottom: 1px solid black;}
+            .df th { text-align: center; border: none; border-bottom: 1px solid black; }
         </style>
         """
 
-        pd.set_option("max_colwidth", 40)
-        dataf = pd.DataFrame(
-            sorted(parameter.get_dict().items()),
-            columns=["Key", "Value"],
-        )
-        self.value += dataf.to_html(
-            classes="df", index=False
-        )  # specify that exported table belongs to 'df' class
-        # this is used to setup table's appearance using CSS
+        # Extract and sort the parameter dictionary
+        data = sorted(parameter.get_dict().items())
+
+        # Generate HTML table
+        table_html = "<table class='df'>"
+        table_html += "<thead><tr><th>Key</th><th>Value</th></tr></thead><tbody>"
+        for key, value in data:
+            table_html += f"<tr><td>{key}</td><td>{value}</td></tr>"
+        table_html += "</tbody></table>"
+
+        self.value += table_html
+
+        # Generate CSV download link if requested
         if downloadable:
-            payload = base64.b64encode(dataf.to_csv(index=False).encode()).decode()
+            csv_content = "Key,Value\n" + "\n".join(
+                f"{key},{value}" for key, value in data
+            )
+            payload = base64.b64encode(csv_content.encode()).decode()
             fname = f"{parameter.pk}.csv"
-            self.value += f"""Download table in csv format: <a download="{fname}"
+            self.value += f"""Download table in CSV format: <a download="{fname}"
             href="data:text/csv;base64,{payload}" target="_blank">{fname}</a>"""
 
         super().__init__([self.widget], **kwargs)

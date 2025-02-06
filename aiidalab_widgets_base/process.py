@@ -602,14 +602,6 @@ class ProcessListWidget(ipw.VBox):
 
     def update(self, _=None):
         """Perform the query."""
-        import pandas as pd
-
-        pd.set_option("max_colwidth", 40)
-        # Here we are defining properties of 'df' class (specified while exporting pandas table into html).
-        # Since the exported object is nothing more than HTML table, all 'standard' HTML table settings
-        # can be applied to it as well.
-        # For more information on how to controle the table appearance please visit:
-        # https://css-tricks.com/complete-guide-table-element/
         self.table.value = """
         <style>
             .df { border: none; }
@@ -620,6 +612,7 @@ class ProcessListWidget(ipw.VBox):
             .df th { text-align: center; border: none;  border-bottom: 1px solid black;}
         </style>
         """
+
         builder = CalculationQueryBuilder()
         filters = builder.get_filters(
             all_entries=False,
@@ -630,16 +623,9 @@ class ProcessListWidget(ipw.VBox):
         )
         relationships = {}
         if self.incoming_node:
-            relationships = {
-                **relationships,
-                **{"with_outgoing": orm.load_node(self.incoming_node)},
-            }
-
+            relationships["with_outgoing"] = orm.load_node(self.incoming_node)
         if self.outgoing_node:
-            relationships = {
-                **relationships,
-                **{"with_incoming": orm.load_node(self.outgoing_node)},
-            }
+            relationships["with_incoming"] = orm.load_node(self.outgoing_node)
 
         query_set = builder.get_query_set(
             filters=filters,
@@ -658,19 +644,36 @@ class ProcessListWidget(ipw.VBox):
                 "description",
             ],
         )
-        dataf = pd.DataFrame(projected[1:], columns=projected[0])
 
-        # Keep only process that contain the requested string in the description.
+        if not projected:
+            self.output.value = "0 processes shown"
+            return
+
+        headers = projected[0]
+        rows = projected[1:]
+
+        # Filter rows by description if necessary
         if self.description_contains:
-            dataf = dataf[dataf.Description.str.contains(self.description_contains)]
+            rows = [row for row in rows if self.description_contains in row[5]]
 
-        self.output.value = f"{len(dataf)} processes shown"
+        self.output.value = f"{len(rows)} processes shown"
 
-        # Add HTML links.
-        dataf["PK"] = dataf["PK"].apply(
-            lambda x: f"""<a href={self.path_to_root}aiidalab-widgets-base/notebooks/process.ipynb?id={x} target="_blank">{x}</a>"""
-        )
-        self.table.value += dataf.to_html(classes="df", escape=False, index=False)
+        # Generate HTML table
+        table_html = "<table class='df'><thead><tr>"
+        table_html += "".join(f"<th>{header}</th>" for header in headers)
+        table_html += "</tr></thead><tbody>"
+
+        for row in rows:
+            row_html = "<tr>"
+            for i, cell in enumerate(row):
+                if i == 0:  # PK column
+                    cell_row = f"<a href={self.path_to_root}aiidalab-widgets-base/notebooks/process.ipynb?id={cell} target='_blank'>{cell}</a>"
+                row_html += f"<td>{cell_row}</td>"
+            row_html += "</tr>"
+            table_html += row_html
+
+        table_html += "</tbody></table>"
+        self.table.value += table_html
 
     @tl.validate("incoming_node")
     def _validate_incoming_node(self, provided):
