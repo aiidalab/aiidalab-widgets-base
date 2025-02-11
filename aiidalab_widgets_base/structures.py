@@ -189,7 +189,13 @@ class StructureManagerWidget(ipw.VBox):
         """Preparing structure editors."""
 
         # Link selected traits of the editors with the those of the viewer.
-        for editor in editors:
+        if not len(editors):
+            return []
+
+        editors_tab = ipw.Tab()
+        editors_tab.children = tuple(editors)
+        for i, editor in enumerate(editors):
+            editors_tab.set_title(i, editor.title)
             tl.link((editor, "structure"), (self, "structure"))
             if editor.has_trait("input_selection"):
                 tl.dlink((editor, "input_selection"), (self.viewer, "input_selection"))
@@ -201,15 +207,7 @@ class StructureManagerWidget(ipw.VBox):
                     (editor, "camera_orientation"),
                 )
 
-        # If more than one editor was defined.
-        if len(editors):
-            editors_tab = ipw.Tab()
-            editors_tab.children = tuple(editors)
-            for i, editor in enumerate(editors):
-                editors_tab.set_title(i, editor.title)
-
-            return [editors_tab]
-        return editors
+        return [editors_tab]
 
     def store_structure(self, _=None):
         """Stores the structure in AiiDA database."""
