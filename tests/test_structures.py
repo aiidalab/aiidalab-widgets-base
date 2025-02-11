@@ -8,6 +8,63 @@ import aiidalab_widgets_base as awb
 
 
 @pytest.mark.usefixtures("aiida_profile_clean")
+def test_structure_manager_widget_different_number_of_importers_or_editors(
+    structure_data_object,
+):
+    """Test the `StructureManagerWidget` with different number of importers or editors."""
+
+    # No importers or editors
+    structure_manager_widget = awb.StructureManagerWidget(
+        importers=[],
+        editors=[],
+        input_structure=None,
+    )
+    assert structure_manager_widget.input_structure is None
+    structure_manager_widget.input_structure = structure_data_object
+    assert isinstance(structure_manager_widget.structure, ase.Atoms)
+
+    # One importer, no editors
+    upload_from_computer = awb.StructureUploadWidget(title="From computer")
+    structure_manager_widget = awb.StructureManagerWidget(
+        importers=[
+            upload_from_computer,
+        ],
+        editors=[],
+        input_structure=None,
+    )
+    upload_from_computer.structure = structure_data_object
+    assert structure_manager_widget.input_structure.uuid == structure_data_object.uuid
+
+    # No importers, one editor
+    structure_manager_widget = awb.StructureManagerWidget(
+        importers=[],
+        editors=[
+            awb.BasicStructureEditor(title="Basic Editor"),
+        ],
+        input_structure=structure_data_object,
+    )
+    assert structure_manager_widget.structure is not None
+
+    # Several importers and editors.
+    base_editor = awb.BasicStructureEditor(title="Basic Editor")
+    structure_manager_widget = awb.StructureManagerWidget(
+        importers=[
+            awb.StructureUploadWidget(title="From computer"),
+            awb.StructureBrowserWidget(title="AiiDA database"),
+        ],
+        editors=[
+            base_editor,
+            awb.BasicCellEditor(title="Cell Editor"),
+        ],
+        viewer=awb.viewers.StructureDataViewer(),
+        node_class="StructureData",
+    )
+
+    assert structure_manager_widget.structure is None
+    structure_manager_widget.input_structure = structure_data_object
+
+
+@pytest.mark.usefixtures("aiida_profile_clean")
 def test_structure_manager_widget(structure_data_object):
     """Test the `StructureManagerWidget`."""
     structure_manager_widget = awb.StructureManagerWidget(
@@ -56,30 +113,6 @@ def test_structure_manager_widget(structure_data_object):
     )
     structure_manager_widget.undo()  # Undo the structure creation.
     assert structure_manager_widget.structure is None
-
-
-@pytest.mark.usefixtures("aiida_profile_clean")
-def test_structure_manager_widget_multiple_importers_editors(structure_data_object):
-    # Test the widget with multiple importers, editors. Specify the viewer and the node class
-    base_editor = awb.BasicStructureEditor(title="Basic Editor")
-    structure_manager_widget = awb.StructureManagerWidget(
-        importers=[
-            awb.StructureUploadWidget(title="From computer"),
-            awb.StructureBrowserWidget(title="AiiDA database"),
-        ],
-        editors=[
-            base_editor,
-            awb.BasicCellEditor(title="Cell Editor"),
-        ],
-        viewer=awb.viewers.StructureDataViewer(),
-        node_class="StructureData",
-    )
-
-    assert structure_manager_widget.structure is None
-    structure_manager_widget.input_structure = structure_data_object
-
-    # Set action vector perpendicular to screen.
-    base_editor.def_perpendicular_to_screen()
 
 
 @pytest.mark.usefixtures("aiida_profile_clean")
