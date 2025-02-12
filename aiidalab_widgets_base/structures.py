@@ -114,7 +114,19 @@ class StructureManagerWidget(ipw.VBox):
                 f"Unknown data format '{node_class}'. Options: {list(self.SUPPORTED_DATA_FORMATS.keys())}"
             )
 
-        viewer_panel = ipw.Accordion(
+        structure_importers = self._structure_importers(importers)
+
+        select_panel = ipw.Accordion(
+            children=[
+                *structure_importers,
+            ]
+            if structure_importers
+            else [],
+            selected_index=0 if structure_importers else None,
+        )
+        select_panel.set_title(0, "Select structure")
+
+        view_panel = ipw.Accordion(
             children=[
                 ipw.VBox(
                     children=[
@@ -131,33 +143,32 @@ class StructureManagerWidget(ipw.VBox):
             ],
             selected_index=0,
         )
-        viewer_panel.set_title(0, "View structure")
+        view_panel.set_title(0, "View structure")
 
         structure_editors = self._structure_editors(editors)
 
-        if structure_editors:
-            structure_editors = (
+        edit_panel = ipw.Accordion(
+            children=[
                 ipw.VBox(
                     children=[
                         btn_undo,
                         *structure_editors,
                     ]
                 ),
-            )
-
-        editor_panel = ipw.Accordion(
-            children=structure_editors,
+            ]
+            if structure_editors
+            else [],
             selected_index=None,
         )
-        editor_panel.set_title(0, "Edit structure")
+        edit_panel.set_title(0, "Edit structure")
 
         self.output = ipw.HTML("")
 
         super().__init__(
             children=[
-                self._structure_importers(importers),
-                viewer_panel,
-                editor_panel,
+                select_panel,
+                view_panel,
+                edit_panel,
                 self.output,
             ],
             **kwargs,
@@ -170,11 +181,14 @@ class StructureManagerWidget(ipw.VBox):
         if not isinstance(importers, (list, tuple)):
             raise exceptions.ListOrTuppleError(importers)
 
+        if not importers:
+            return []
+
         # If there is only one importer - no need to make tabs.
         if len(importers) == 1:
             # Assigning a function which will be called when importer provides a structure.
             tl.dlink((importers[0], "structure"), (self, "input_structure"))
-            return importers[0]
+            return [importers[0]]
 
         # Otherwise making one tab per importer.
         importers_tab = ipw.Tab()
@@ -183,19 +197,18 @@ class StructureManagerWidget(ipw.VBox):
             # Labeling tabs.
             importers_tab.set_title(i, importer.title)
             tl.dlink((importer, "structure"), (self, "input_structure"))
-        return importers_tab
+        return [importers_tab]
 
     def _structure_editors(self, editors):
         """Preparing structure editors."""
-
-        # Link selected traits of the editors with the those of the viewer.
-        if not len(editors):
+        if not editors:
             return []
 
         editors_tab = ipw.Tab()
         editors_tab.children = tuple(editors)
         for i, editor in enumerate(editors):
             editors_tab.set_title(i, editor.title)
+            # Link selected traits of the editors with the those of the viewer.
             tl.link((editor, "structure"), (self, "structure"))
             if editor.has_trait("input_selection"):
                 tl.dlink((editor, "input_selection"), (self.viewer, "input_selection"))
