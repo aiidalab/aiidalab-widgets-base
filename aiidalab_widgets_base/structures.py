@@ -114,15 +114,9 @@ class StructureManagerWidget(ipw.VBox):
                 f"Unknown data format '{node_class}'. Options: {list(self.SUPPORTED_DATA_FORMATS.keys())}"
             )
 
-        structure_importers = self._structure_importers(importers)
-
         select_panel = ipw.Accordion(
-            children=[
-                *structure_importers,
-            ]
-            if structure_importers
-            else [],
-            selected_index=0 if structure_importers else None,
+            children=self._structure_importers(importers),
+            selected_index=0 if importers else None,
         )
         select_panel.set_title(0, "Select structure")
 
@@ -183,12 +177,6 @@ class StructureManagerWidget(ipw.VBox):
 
         if not importers:
             return []
-
-        # If there is only one importer - no need to make tabs.
-        if len(importers) == 1:
-            # Assigning a function which will be called when importer provides a structure.
-            tl.dlink((importers[0], "structure"), (self, "input_structure"))
-            return [importers[0]]
 
         # Otherwise making one tab per importer.
         importers_tab = ipw.Tab()
