@@ -63,6 +63,7 @@ from .computational_resources import (
 from .databases import CodQueryWidget, OptimadeQueryWidget
 from .elns import ElnConfigureWidget, ElnExportWidget, ElnImportWidget
 from .export import ExportButtonWidget
+from .loaders import LoadingWidget
 from .nodes import NodesTreeWidget, OpenAiidaNodeInAppWidget
 from .process import (
     ProcessCallStackWidget,
@@ -103,6 +104,7 @@ __all__ = [
     "ElnExportWidget",
     "ElnImportWidget",
     "ExportButtonWidget",
+    "LoadingWidget",
     "MultiStructureUploadWidget",
     "NodesTreeWidget",
     "OpenAiidaNodeInAppWidget",
