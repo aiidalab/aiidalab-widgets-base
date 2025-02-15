@@ -313,3 +313,31 @@ def test_loading_viewer_using_process_type(generate_calc_job_node):
         "Viewer is not an instance of the expected viewer class."
     )
     assert viewer.node == process, "Viewer's node does not match the test process node."
+
+
+def test_node_view_for_non_widget_viewer():
+    """Test that a node with no registered viewer is displayed in an output widget"""
+    import sys
+    from io import StringIO
+
+    # Intercepting stdout because `ipw.Output` does not
+    # store outputs in non-interactive environments.
+    captured = StringIO()
+    sys.stdout = captured
+
+    node_view = viewers.AiidaNodeViewWidget()
+    node = orm.Int(1)
+    node_view.node = node
+    assert node_view.children[0] is node_view._output
+    assert str(node) in sys.stdout.getvalue()
+
+
+def test_node_view_caching():
+    """Test that providing a given node a second time returns the cached viewer."""
+    node_view = viewers.AiidaNodeViewWidget()
+    node = orm.Int(1)
+    node_view.node = node
+    viewer = node_view.children[0]
+    node_view.node = None
+    node_view.node = node
+    assert node_view.children[0] is viewer

@@ -24,6 +24,7 @@ from IPython.display import clear_output, display
 from matplotlib.colors import to_rgb
 
 from .dicts import RGB_COLORS, Colors, Radius
+from .loaders import LoadingWidget
 from .misc import CopyToClipboardButton, ReversePolishNotation
 from .utils import ase2spglib, list_to_string_range, string_range_to_list
 
@@ -67,20 +68,29 @@ class AiidaNodeViewWidget(ipw.VBox):
 
     def __init__(self, **kwargs):
         self._output = ipw.Output()
-        super().__init__(
-            children=[
-                self._output,
-            ],
-            **kwargs,
-        )
+        self.node_views = {}
+        self.node_view_loading_message = LoadingWidget("Loading node view")
+        super().__init__(**kwargs)
+        self.add_class("aiida-node-view-widget")
 
     @tl.observe("node")
     def _observe_node(self, change):
-        if change["new"] != change["old"]:
+        if not ((node := change["new"]) and node != change["old"]):
+            return
+        if node.uuid in self.node_views:
+            self.children = [self.node_views[node.uuid]]
+            return
+        self.children = [self.node_view_loading_message]
+        node_view = viewer(node)
+        if isinstance(node_view, ipw.DOMWidget):
+            self.node_views[node.uuid] = node_view
+            self.children = [node_view]
+        else:
             with self._output:
                 clear_output()
                 if change["new"]:
-                    display(viewer(change["new"]))
+                    display(node_view)
+            self.children = [self._output]
 
 
 @register_viewer_widget("data.core.dict.Dict.")
