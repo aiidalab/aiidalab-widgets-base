@@ -534,7 +534,9 @@ class SshComputerSetup(ipw.VBox):
             # if the private key filename is exist, generate random string and append to filename subfix
             # then override current name.
             if filename in [str(p.name) for p in Path(self._ssh_folder).iterdir()]:
-                private_key_fpath = self._ssh_folder / f"{filename}-{shortuuid.uuid()}"
+                filename = f"{filename}-{shortuuid.uuid()}"
+
+            private_key_fpath = self._ssh_folder / filename
 
             self._add_private_key(private_key_fpath, private_key_content)
 
