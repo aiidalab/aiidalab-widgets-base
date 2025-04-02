@@ -24,6 +24,8 @@ def test_ssh_computer_setup_widget(monkeypatch, tmp_path):
     # mock home directory for ssh config file
     monkeypatch.setenv("HOME", str(tmp_path))
     widget = computational_resources.SshComputerSetup()
+    # password box show by default in the SshComputerSetup
+    assert widget.password_box.layout.display != "none"
 
     ssh_config = {
         "hostname": "daint.cscs.ch",
@@ -588,6 +590,9 @@ def test_resource_setup_widget_for_password_configure(monkeypatch, tmp_path):
     monkeypatch.setenv("HOME", str(tmp_path))
 
     w = ResourceSetupBaseWidget()
+
+    # password box hide by default in the ResourceSetupBaseWidget
+    assert w.ssh_computer_setup.password_box.layout.display == "none"
 
     # Test select a new resource setup will update the output interface (e.g. ssh_config, computer_setup, code_setup)
     # and the computer/code setup widget will be updated accordingly.

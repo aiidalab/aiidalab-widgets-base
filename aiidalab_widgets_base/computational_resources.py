@@ -364,6 +364,7 @@ class SshComputerSetup(ipw.VBox):
             self.proxy_jump,
             self.proxy_command,
             self._verification_mode,
+            self.password_box,
             self._verification_mode_output,
             btn_setup_ssh,
         ]
@@ -613,9 +614,13 @@ class SshComputerSetup(ipw.VBox):
         """which verification mode is chosen."""
         with self._verification_mode_output:
             clear_output()
-            if self._verification_mode.value == "private_key":
+            if self._verification_mode.value == "password":
+                self.password_box.layout.display = "block"
+            elif self._verification_mode.value == "private_key":
                 display(self._inp_private_key)
+                self.password_box.layout.display = "none"
             elif self._verification_mode.value == "public_key":
+                self.password_box.layout.display = "none"
                 public_key = self._ssh_folder / "id_rsa.pub"
                 if public_key.exists():
                     display(
@@ -1853,6 +1858,9 @@ class ResourceSetupBaseWidget(ipw.VBox):
         if change["new"]:
             self.detailed_setup_widget.layout.display = "block"
             self.quick_setup_button.disabled = True
+            #reset and trigger the verification mode to update the password box.
+            self.ssh_computer_setup._verification_mode.value = "private_key"
+            self.ssh_computer_setup._verification_mode.value = "password"
             # fill the template variables with the default values or the filled values.
             # If the template variables are not all filled raise a warning.
         else:
