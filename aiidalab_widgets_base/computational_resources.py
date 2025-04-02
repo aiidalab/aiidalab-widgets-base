@@ -1858,7 +1858,7 @@ class ResourceSetupBaseWidget(ipw.VBox):
         if change["new"]:
             self.detailed_setup_widget.layout.display = "block"
             self.quick_setup_button.disabled = True
-            #reset and trigger the verification mode to update the password box.
+            # reset and trigger the verification mode to update the password box.
             self.ssh_computer_setup._verification_mode.value = "private_key"
             self.ssh_computer_setup._verification_mode.value = "password"
             # fill the template variables with the default values or the filled values.
