@@ -1858,14 +1858,16 @@ class ResourceSetupBaseWidget(ipw.VBox):
         if change["new"]:
             self.detailed_setup_widget.layout.display = "block"
             self.quick_setup_button.disabled = True
-            # reset and trigger the verification mode to update the password box.
-            self.ssh_computer_setup._verification_mode.value = "private_key"
-            self.ssh_computer_setup._verification_mode.value = "password"
+            # update the password box.
+            if self.ssh_auth is None or self.ssh_auth == "password":
+                self.ssh_computer_setup._verification_mode.value = "password"
+                self.ssh_computer_setup.password_box.layout.display = "block"
             # fill the template variables with the default values or the filled values.
             # If the template variables are not all filled raise a warning.
         else:
             self.detailed_setup_widget.layout.display = "none"
             self.quick_setup_button.disabled = False
+            self._update_layout()
 
     def _on_template_computer_configure_metadata_change(self, change):
         """callback when the metadata of computer_configure template is changed."""
