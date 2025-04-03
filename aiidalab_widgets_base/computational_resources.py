@@ -1792,7 +1792,7 @@ class ResourceSetupBaseWidget(ipw.VBox):
                 detailed_setup,
             ]
         )
-        # hide this conatainer if the detailed setup is enabled.
+        # This container is used to control the appearance of the password box
         self.password_box_container = ipw.VBox(
             children=[
                 self.ssh_computer_setup.password_box,
