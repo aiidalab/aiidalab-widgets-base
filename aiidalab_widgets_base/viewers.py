@@ -1524,7 +1524,7 @@ class StructureDataViewer(_StructureDataBaseViewer):
             distv = self.displayed_structure.get_distance(
                 *self.displayed_selection, vector=True
             )
-            info += f"<p>Distance: {dist:.2f} ({print_pos(distv)})</p>"
+            info += f"<p><b>Distance</b>: {dist:.2f} Å ({print_pos(distv)})</p>"
 
         # Report angle geometric center and normal.
         elif len(self.displayed_selection) == 3:
@@ -1540,7 +1540,7 @@ class StructureDataViewer(_StructureDataBaseViewer):
                 )
             )
             normal = normal / np.linalg.norm(normal)
-            info += f"<p>Angle: {angle}, Normal: ({print_pos(normal)})</p>"
+            info += f"<p><b>Angle</b>: {angle}&deg;, Normal: ({print_pos(normal)})</p>"
 
         # Report dihedral angle and geometric center.
         elif len(self.displayed_selection) == 4:
@@ -1551,7 +1551,7 @@ class StructureDataViewer(_StructureDataBaseViewer):
                 dihedral_str = f"{dihedral:.3f}"
             except ZeroDivisionError:
                 dihedral_str = "nan"
-            info += f"<p>Dihedral angle: {dihedral_str}</p>"
+            info += f"<p><b>Dihedral angle</b>: {dihedral_str}&deg;</p>"
 
         return (
             info
