@@ -24,6 +24,8 @@ def test_ssh_computer_setup_widget(monkeypatch, tmp_path):
     # mock home directory for ssh config file
     monkeypatch.setenv("HOME", str(tmp_path))
     widget = computational_resources.SshComputerSetup()
+    # password box show by default in the SshComputerSetup
+    assert widget.password_box.layout.display != "none"
 
     ssh_config = {
         "hostname": "daint.cscs.ch",
@@ -555,7 +557,7 @@ def test_resource_setup_widget_default():
     w.ssh_computer_setup.username.value = "aiida"
 
     # Since cscs is 2FA, test the password box is not displayed.
-    assert w.ssh_computer_setup.password_box.layout.display == "none"
+    assert w.password_box_container.layout.display == "none"
 
     w._on_quick_setup()
 
@@ -607,7 +609,16 @@ def test_resource_setup_widget_for_password_configure(monkeypatch, tmp_path):
             assert sub_widget.value == "merlin-cpu"
 
     # Test the password box is displayed.
-    assert w.ssh_computer_setup.password_box.layout.display == "block"
+    assert w.password_box_container.layout.display == "block"
+
+    # click the toggle detail setup button to show the detail setup
+    # the password box container should be hidden
+    w.toggle_detail_setup.value = True
+    assert w.password_box_container.layout.display == "none"
+    # hide the detail setup
+    # the password box container should be shown
+    w.toggle_detail_setup.value = False
+    assert w.password_box_container.layout.display == "block"
 
     # Fill the computer configure template variables
     for (
@@ -648,7 +659,7 @@ def test_resource_setup_widget_for_password_configure(monkeypatch, tmp_path):
 
     # After reset the password box should be hidden again.
     w.reset()
-    assert w.ssh_computer_setup.password_box.layout.display == "none"
+    assert w.password_box_container.layout.display == "none"
 
 
 @pytest.mark.usefixtures("aiida_profile_clean")

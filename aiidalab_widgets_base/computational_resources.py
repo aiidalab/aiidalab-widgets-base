@@ -364,6 +364,7 @@ class SshComputerSetup(ipw.VBox):
             self.proxy_jump,
             self.proxy_command,
             self._verification_mode,
+            self.password_box,
             self._verification_mode_output,
             btn_setup_ssh,
         ]
@@ -613,9 +614,13 @@ class SshComputerSetup(ipw.VBox):
         """which verification mode is chosen."""
         with self._verification_mode_output:
             clear_output()
-            if self._verification_mode.value == "private_key":
+            if self._verification_mode.value == "password":
+                self.password_box.layout.display = "block"
+            elif self._verification_mode.value == "private_key":
                 display(self._inp_private_key)
+                self.password_box.layout.display = "none"
             elif self._verification_mode.value == "public_key":
+                self.password_box.layout.display = "none"
                 public_key = self._ssh_folder / "id_rsa.pub"
                 if public_key.exists():
                     display(
@@ -1787,6 +1792,12 @@ class ResourceSetupBaseWidget(ipw.VBox):
                 detailed_setup,
             ]
         )
+        # This container is used to control the appearance of the password box
+        self.password_box_container = ipw.VBox(
+            children=[
+                self.ssh_computer_setup.password_box,
+            ]
+        )
 
         super().__init__(
             children=[
@@ -1798,7 +1809,7 @@ class ResourceSetupBaseWidget(ipw.VBox):
                 self.template_computer_setup,
                 self.template_code,
                 self.template_computer_configure,
-                self.ssh_computer_setup.password_box,
+                self.password_box_container,
                 self.detailed_setup_switch_widgets,
                 ipw.HBox(
                     children=[
@@ -1818,9 +1829,9 @@ class ResourceSetupBaseWidget(ipw.VBox):
         """Update the layout to hide or show the bundled quick_setup/detailed_setup."""
         # check if the password is asked for ssh connection.
         if self.ssh_auth != "password":
-            self.ssh_computer_setup.password_box.layout.display = "none"
+            self.password_box_container.layout.display = "none"
         else:
-            self.ssh_computer_setup.password_box.layout.display = "block"
+            self.password_box_container.layout.display = "block"
 
         # If both quick and detailed setup are enabled
         # - show the switch widget
@@ -1853,11 +1864,16 @@ class ResourceSetupBaseWidget(ipw.VBox):
         if change["new"]:
             self.detailed_setup_widget.layout.display = "block"
             self.quick_setup_button.disabled = True
+            # hide the password box in the quick setup, because user will input
+            # the password in the detailed setup
+            self.password_box_container.layout.display = "none"
             # fill the template variables with the default values or the filled values.
             # If the template variables are not all filled raise a warning.
         else:
             self.detailed_setup_widget.layout.display = "none"
             self.quick_setup_button.disabled = False
+            # this will update the password box based on the template computer_configure.
+            self._update_layout()
 
     def _on_template_computer_configure_metadata_change(self, change):
         """callback when the metadata of computer_configure template is changed."""
