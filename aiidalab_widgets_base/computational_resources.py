@@ -1792,6 +1792,12 @@ class ResourceSetupBaseWidget(ipw.VBox):
                 detailed_setup,
             ]
         )
+        # hide this conatainer if the detailed setup is enabled.
+        self.password_box_container = ipw.VBox(
+            children=[
+                self.ssh_computer_setup.password_box,
+            ]
+        )
 
         super().__init__(
             children=[
@@ -1803,7 +1809,7 @@ class ResourceSetupBaseWidget(ipw.VBox):
                 self.template_computer_setup,
                 self.template_code,
                 self.template_computer_configure,
-                self.ssh_computer_setup.password_box,
+                self.password_box_container,
                 self.detailed_setup_switch_widgets,
                 ipw.HBox(
                     children=[
@@ -1823,9 +1829,9 @@ class ResourceSetupBaseWidget(ipw.VBox):
         """Update the layout to hide or show the bundled quick_setup/detailed_setup."""
         # check if the password is asked for ssh connection.
         if self.ssh_auth != "password":
-            self.ssh_computer_setup.password_box.layout.display = "none"
+            self.password_box_container.layout.display = "none"
         else:
-            self.ssh_computer_setup.password_box.layout.display = "block"
+            self.password_box_container.layout.display = "block"
 
         # If both quick and detailed setup are enabled
         # - show the switch widget
@@ -1858,15 +1864,15 @@ class ResourceSetupBaseWidget(ipw.VBox):
         if change["new"]:
             self.detailed_setup_widget.layout.display = "block"
             self.quick_setup_button.disabled = True
-            # update the password box.
-            if self.ssh_auth is None or self.ssh_auth == "password":
-                self.ssh_computer_setup._verification_mode.value = "password"
-                self.ssh_computer_setup.password_box.layout.display = "block"
+            # hide the password box in the quick setup, because user will input
+            # the password in the detailed setup
+            self.password_box_container.layout.display = "none"
             # fill the template variables with the default values or the filled values.
             # If the template variables are not all filled raise a warning.
         else:
             self.detailed_setup_widget.layout.display = "none"
             self.quick_setup_button.disabled = False
+            # this will update the password box based on the template computer_configure.
             self._update_layout()
 
     def _on_template_computer_configure_metadata_change(self, change):
