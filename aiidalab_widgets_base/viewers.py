@@ -1490,11 +1490,6 @@ class StructureDataViewer(_StructureDataBaseViewer):
         def add_info(indx, atom):
             return f"<p>Id: {indx + 1}; Symbol: {atom.symbol}; Coordinates: ({print_pos(atom.position)})</p>"
 
-        # Unit and displayed cell atoms' selection.
-        info = (
-            f"<p>Selected atoms: {list_to_string_range(self.displayed_selection, shift=1)}</p>"
-            + f"<p>Selected unit cell atoms: {list_to_string_range(self.selection, shift=1)}</p>"
-        )
         # Find geometric center.
         geom_center = print_pos(
             np.average(
@@ -1502,6 +1497,8 @@ class StructureDataViewer(_StructureDataBaseViewer):
                 axis=0,
             )
         )
+
+        info = ""
 
         # Report coordinates.
         if len(self.displayed_selection) == 1:
@@ -1512,6 +1509,11 @@ class StructureDataViewer(_StructureDataBaseViewer):
 
         # Report coordinates, distance and center.
         elif len(self.displayed_selection) == 2:
+            dist = self.displayed_structure.get_distance(*self.displayed_selection)
+            distv = self.displayed_structure.get_distance(
+                *self.displayed_selection, vector=True
+            )
+            info += f"<p>Distance: {dist:.2f} Å ({print_pos(distv)})</p>"
             info += add_info(
                 self.displayed_selection[0],
                 self.displayed_structure[self.displayed_selection[0]],
@@ -1520,11 +1522,6 @@ class StructureDataViewer(_StructureDataBaseViewer):
                 self.displayed_selection[1],
                 self.displayed_structure[self.displayed_selection[1]],
             )
-            dist = self.displayed_structure.get_distance(*self.displayed_selection)
-            distv = self.displayed_structure.get_distance(
-                *self.displayed_selection, vector=True
-            )
-            info += f"<p><b>Distance</b>: {dist:.2f} Å ({print_pos(distv)})</p>"
 
         # Report angle geometric center and normal.
         elif len(self.displayed_selection) == 3:
@@ -1540,7 +1537,7 @@ class StructureDataViewer(_StructureDataBaseViewer):
                 )
             )
             normal = normal / np.linalg.norm(normal)
-            info += f"<p><b>Angle</b>: {angle}&deg;, Normal: ({print_pos(normal)})</p>"
+            info += f"<p>Angle: {angle}&deg;, Normal: ({print_pos(normal)})</p>"
 
         # Report dihedral angle and geometric center.
         elif len(self.displayed_selection) == 4:
@@ -1551,12 +1548,19 @@ class StructureDataViewer(_StructureDataBaseViewer):
                 dihedral_str = f"{dihedral:.3f}"
             except ZeroDivisionError:
                 dihedral_str = "nan"
-            info += f"<p><b>Dihedral angle</b>: {dihedral_str}&deg;</p>"
+            info += f"<p>Dihedral angle: {dihedral_str}&deg;</p>"
+
+        # Unit and displayed cell atoms' selection.
+        info_unit_and_displayed = (
+            f"<p>Selected atoms: {list_to_string_range(self.displayed_selection, shift=1)}</p>"
+            + f"<p>Selected unit cell atoms: {list_to_string_range(self.selection, shift=1)}</p>"
+        )
 
         return (
             info
             + f"<p>Geometric center: ({geom_center})</p>"
-            + f"<p>{len(self.displayed_selection)} atoms selected</p>"
+            # + f"<p>{len(self.displayed_selection)} atoms selected</p>"
+            + info_unit_and_displayed
         )
 
     @tl.observe("displayed_selection")
