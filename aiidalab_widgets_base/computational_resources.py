@@ -20,6 +20,7 @@ from aiida.transports.plugins import ssh as aiida_ssh_plugin
 from humanfriendly import InvalidSize, parse_size
 from IPython.display import clear_output, display
 from jinja2 import meta as jinja2_meta
+from paramiko import SSHConfig
 
 from .databases import ComputationalResourcesDatabaseWidget
 from .utils import MessageLevel, StatusHTML, wrap_message
@@ -441,42 +442,70 @@ class SshComputerSetup(ipw.VBox):
         )
         return ret == 0
 
-    def _is_in_config(self):
-        """Check if the SSH config file contains host information."""
-        config_path = self._ssh_folder / "config"
-        if not config_path.exists():
-            return False
-        sshcfg = aiida_ssh_plugin.parse_sshconfig(self.hostname.value)
-        # NOTE: parse_sshconfig returns a dict with a hostname
-        # even if it is not in the config file.
-        # We require at least the user to be specified.
-        if "user" not in sshcfg:
-            return False
-        return True
+    def _write_ssh_config(self, private_key_name=None):
+        """Write the ssh config file."""
 
-    def _write_ssh_config(self, private_key_abs_fname=None):
-        """Put host information into the config file."""
-        config_path = self._ssh_folder / "config"
-
-        self.message = wrap_message(
-            f"Adding {self.hostname.value} section to {config_path}",
-            MessageLevel.SUCCESS,
-        )
-        with open(config_path, "a") as file:
-            file.write(f"Host {self.hostname.value}\n")
-            file.write(f"  User {self.username.value}\n")
-            file.write(f"  Port {self.port.value}\n")
-            if self.proxy_jump.value != "":
+        def write_entry_to_config_file(file, entry):
+            file.write(f"Host {entry['hostname']}\n")
+            file.write(f"  User {entry['user']}\n")
+            file.write(f"  Port {entry['port']}\n")
+            if entry.get("proxyjump", "") != "":
                 file.write(
-                    f"  ProxyJump {self.proxy_jump.value.format(username=self.username.value)}\n"
+                    f"  ProxyJump {entry['proxyjump'].format(username=entry['user'])}\n"
                 )
-            if self.proxy_command.value != "":
+            if entry.get("proxycommand", "") != "":
                 file.write(
-                    f"  ProxyCommand {self.proxy_command.value.format(username=self.username.value)}\n"
+                    f"  ProxyCommand {entry['proxycommand'].format(username=entry['user'])}\n"
                 )
-            if private_key_abs_fname:
-                file.write(f"  IdentityFile {private_key_abs_fname}\n")
+            if private_key_name:
+                file.write(f"  IdentityFile '{private_key_name}'\n")
             file.write("  ServerAliveInterval 5\n")
+
+        def add_host_to_ssh_config():
+            with open(config_path, "a") as file:
+                write_entry_to_config_file(file, entry)
+
+        def update_ssh_config():
+            with open(config_path, "w") as file:
+                for host in config.get_hostnames():
+                    if host == "*":
+                        continue
+                    write_entry_to_config_file(
+                        file,
+                        entry if host == self.hostname.value else config.lookup(host),
+                    )
+
+        config_path = self._ssh_folder / "config"
+        config = SSHConfig.from_path(config_path)
+
+        entry = {
+            "hostname": self.hostname.value,
+            "user": self.username.value,
+            "port": str(self.port.value),
+            "proxyjump": self.proxy_jump.value,
+            "proxycommand": self.proxy_command.value,
+            "identityfile": private_key_name,
+            "serveraliveinterval": "5",
+        }
+
+        # Check if the exact entry already exists
+        existing = config.lookup(self.hostname.value)
+
+        if all(existing.get(k) == v for k, v in entry.items() if v):
+            message = f"Identical {self.hostname.value} entry already exists"
+            self.message = wrap_message(message, MessageLevel.INFO)
+            return False
+
+        if self.hostname.value not in config.get_hostnames():
+            add_host_to_ssh_config()
+            message = f"Adding {self.hostname.value} section to {config_path}"
+        else:
+            update_ssh_config()
+            message = f"Updating {self.hostname.value} section in {config_path}"
+
+        self.message = wrap_message(message, MessageLevel.SUCCESS)
+
+        return True
 
     def key_pair_prepare(self):
         """Prepare key pair for the ssh connection."""
@@ -501,28 +530,8 @@ class SshComputerSetup(ipw.VBox):
 
     def _on_setup_ssh_button_pressed(self, _=None):
         """Setup ssh connection."""
-        if self._verification_mode.value == "password":
-            try:
-                self.key_pair_prepare()
-
-            except ValueError as exc:
-                self.message = wrap_message(str(exc), MessageLevel.ERROR)
-                return
-
-            self.thread_ssh_copy_id()
-
-        # For not password ssh auth (such as using private_key or 2FA), key pair is not needed (2FA)
-        # or the key pair is ready.
-        # There are other mechanism to set up the ssh connection.
-        # But we still need to write the ssh config to the ssh config file for such as
-        # proxy jump.
-
-        private_key_fname = None
+        private_key_fpath = None
         if self._verification_mode.value == "private_key":
-            # Write private key in ~/.ssh/ and use the name of upload file,
-            # if exist, generate random string and append to filename then override current name.
-
-            # unwrap private key file and setting temporary private_key content
             private_key_fname, private_key_content = self._private_key
             if private_key_fname is None:  # check private key file
                 message = "Please upload your private key file."
@@ -531,8 +540,7 @@ class SshComputerSetup(ipw.VBox):
 
             filename = Path(private_key_fname).name
 
-            # if the private key filename is exist, generate random string and append to filename subfix
-            # then override current name.
+            # If the private key exists, we append a random string to the filename
             if filename in [str(p.name) for p in Path(self._ssh_folder).iterdir()]:
                 filename = f"{filename}-{shortuuid.uuid()}"
 
@@ -540,12 +548,20 @@ class SshComputerSetup(ipw.VBox):
 
             self._add_private_key(private_key_fpath, private_key_content)
 
-        # TODO(danielhollas): I am not sure this is correct. What if the user wants
-        # to overwrite the private key? Or any other config? The configuration would never be written.
-        # And the user is not notified that we did not write anything.
-        # https://github.com/aiidalab/aiidalab-widgets-base/issues/516
-        if not self._is_in_config():
-            self._write_ssh_config(private_key_abs_fname=private_key_fname)
+        private_key_name = private_key_fpath.name if private_key_fpath else None
+        written = self._write_ssh_config(private_key_name)
+
+        # If using the password option and a new ssh config entry has been written,
+        # we prepare the ssh key pair and copy to remote computer.
+        if written and self._verification_mode.value == "password":
+            try:
+                self.key_pair_prepare()
+
+            except ValueError as exc:
+                self.message = wrap_message(str(exc), MessageLevel.ERROR)
+                return
+
+            self.thread_ssh_copy_id()
 
     def _ssh_copy_id(self):
         """Run the ssh-copy-id command and follow it until it is completed."""
@@ -1977,9 +1993,11 @@ class ResourceSetupBaseWidget(ipw.VBox):
         if self.aiida_computer_setup.on_setup_computer():
             self.aiida_code_setup.on_setup_code()
 
-        # Prepare the ssh key pair and copy to remote computer.
-        # This only happend when the ssh_auth is password.
-        if self.ssh_auth == "password":
+        written = self.ssh_computer_setup._write_ssh_config()
+
+        # If using the password option and a new ssh config entry has been written,
+        # we prepare the ssh key pair and copy to remote computer.
+        if written and self.ssh_auth == "password":
             try:
                 self.ssh_computer_setup.key_pair_prepare()
             except ValueError as exc:
@@ -1989,13 +2007,6 @@ class ResourceSetupBaseWidget(ipw.VBox):
                 )
 
             self.ssh_computer_setup.thread_ssh_copy_id()
-
-        # For not password ssh auth, key pair is not needed.
-        # There are other mechanism to set up the ssh connection.
-        # But we still need to write the ssh config to the ssh config file for such as
-        # proxy jump.
-        if not self.ssh_computer_setup._is_in_config():
-            self.ssh_computer_setup._write_ssh_config()
 
     def _on_setup_computer_success(self):
         """Callback that is called when the computer is successfully set up."""
