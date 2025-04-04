@@ -345,10 +345,10 @@ class SshComputerSetup(ipw.VBox):
         )
         self._verification_mode = ipw.Dropdown(
             options=[
-                ("Password", "password"),
-                ("Use custom private key", "private_key"),
-                ("Download public key", "public_key"),
-                ("Multiple factor authentication", "mfa"),
+                ("Provide password to remote machine", "password"),
+                ("Manually deploy a public key", "public_key"),
+                ("Upload a custom private key", "private_key"),
+                ("Use multiple factor authentication", "mfa"),
             ],
             layout=LAYOUT,
             style=STYLE,
@@ -373,6 +373,18 @@ class SshComputerSetup(ipw.VBox):
         self.btn_setup_ssh.on_click(self._on_setup_ssh_button_pressed)
 
         children = [
+            ipw.HTML(
+                value="""
+                    <p>To set up a passwordless connection to the remote machine, you can choose one of the following methods:</p>
+                    <ul>
+                        <li><b>Provide password to remote machine</b>: We use your password to deploy a generated public key to the remote machine (<b>recommended</b>)</li>
+                        <li><b>Manually deploy a public key</b>: Manually copy a generated public key over to the remote machine</li>
+                        <li><b>Upload a custom private key</b>: Upload a custom private key file</li>
+                        <li><b>Use multiple factor authentication</b>: To be used in tandem with the MFA app (beta)</li>
+                    </ul>
+                """,
+                layout={"width": "fit-content"},
+            ),
             self.hostname,
             self.port,
             self.username,
@@ -638,6 +650,17 @@ class SshComputerSetup(ipw.VBox):
             elif self._verification_mode.value == "private_key":
                 display(self._inp_private_key)
                 self.password_box.layout.display = "none"
+                display(
+                    ipw.HTML(
+                        value="""
+                        <div class="alert alert-warning">
+                            <strong>Warning!</strong> The use of private keys is generally <b>not recommended</b>.
+                            However, some HPC centers do use this method.
+                            Please make sure you know what you are doing.
+                        </div>
+                    """
+                    )
+                )
             elif self._verification_mode.value == "public_key":
                 self.password_box.layout.display = "none"
                 public_key = self._ssh_folder / "id_rsa.pub"
@@ -648,6 +671,8 @@ class SshComputerSetup(ipw.VBox):
                             layout={"width": "100%"},
                         )
                     )
+            else:
+                self.password_box.layout.display = "none"
 
     @property
     def _private_key(self) -> tuple[str | None, bytes | None]:
