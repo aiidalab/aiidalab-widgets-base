@@ -1559,7 +1559,6 @@ class StructureDataViewer(_StructureDataBaseViewer):
         return (
             info
             + f"<p>Geometric center: ({geom_center})</p>"
-            # + f"<p>{len(self.displayed_selection)} atoms selected</p>"
             + info_unit_and_displayed
         )
 
