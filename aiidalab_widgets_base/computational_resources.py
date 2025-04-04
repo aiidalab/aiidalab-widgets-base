@@ -295,7 +295,15 @@ class SshComputerSetup(ipw.VBox):
         )
 
         # Username.
-        self.username = ipw.Text(description="Username:", layout=LAYOUT, style=STYLE)
+        self.username = ipw.Text(
+            description="Username:",
+            layout=LAYOUT,
+            style=STYLE,
+        )
+        self.username.observe(
+            self._enable_setup_ssh_button,
+            "value",
+        )
 
         # Port.
         self.port = ipw.IntText(
@@ -310,6 +318,10 @@ class SshComputerSetup(ipw.VBox):
             description="Computer hostname:",
             layout=LAYOUT,
             style=STYLE,
+        )
+        self.hostname.observe(
+            self._enable_setup_ssh_button,
+            "value",
         )
 
         # ProxyJump.
@@ -354,8 +366,11 @@ class SshComputerSetup(ipw.VBox):
         )
 
         # Setup ssh button and output.
-        btn_setup_ssh = ipw.Button(description="Setup ssh")
-        btn_setup_ssh.on_click(self._on_setup_ssh_button_pressed)
+        self.btn_setup_ssh = ipw.Button(
+            description="Setup ssh",
+            disabled=not (self.hostname.value and self.username.value),
+        )
+        self.btn_setup_ssh.on_click(self._on_setup_ssh_button_pressed)
 
         children = [
             self.hostname,
@@ -366,9 +381,13 @@ class SshComputerSetup(ipw.VBox):
             self._verification_mode,
             self.password_box,
             self._verification_mode_output,
-            btn_setup_ssh,
+            self.btn_setup_ssh,
         ]
         super().__init__(children, **kwargs)
+
+    def _enable_setup_ssh_button(self, _):
+        """Enable the setup ssh button if hostname and username are provided."""
+        self.btn_setup_ssh.disabled = not (self.hostname.value and self.username.value)
 
     def _ssh_keygen(self):
         """Generate ssh key pair."""
