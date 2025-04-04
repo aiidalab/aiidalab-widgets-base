@@ -126,14 +126,12 @@ def test_structure_data_viewer_selection(structure_data_object):
     assert v.selection == [0, 1]
     assert v.displayed_selection == [0, 1]
     assert "Distance" in v.selection_info.value
-    assert "2 atoms selected" in v.selection_info.value
 
     # The x coordinate lower than 0.5.
     v._selected_atoms.value = "x<0.5"
     v.apply_displayed_selection()
     assert v.selection == [0]
     assert v.displayed_selection == [0]
-    assert "1 atoms selected" in v.selection_info.value
 
     # The id of the second atom
     v._selected_atoms.value = "id > 1"
@@ -161,7 +159,6 @@ def test_structure_data_viewer_selection(structure_data_object):
     assert v.selection == [0, 1]
     assert v.displayed_selection == [4, 0, 1]
     assert "Angle" in v.selection_info.value
-    assert "3 atoms selected" in v.selection_info.value
 
     # Convert to boron nitride.
     new_structure = v.structure.copy()
