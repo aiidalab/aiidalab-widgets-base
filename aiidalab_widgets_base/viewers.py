@@ -1557,9 +1557,7 @@ class StructureDataViewer(_StructureDataBaseViewer):
         )
 
         return (
-            info
-            + f"<p>Geometric center: ({geom_center})</p>"
-            + info_unit_and_displayed
+            info + f"<p>Geometric center: ({geom_center})</p>" + info_unit_and_displayed
         )
 
     @tl.observe("displayed_selection")
