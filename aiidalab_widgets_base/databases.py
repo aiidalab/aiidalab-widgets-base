@@ -189,10 +189,6 @@ class OptimadeQueryWidget(ipw.VBox):
             skip_providers=kwargs.pop(
                 "skip_providers", default_parameters.SKIP_DATABASE
             ),
-            provider_database_groupings=kwargs.pop(
-                "provider_database_groupings",
-                default_parameters.PROVIDER_DATABASE_GROUPINGS,
-            ),
         )
         filters = query_filter.OptimadeQueryFilterWidget(
             embedded=embedded,
