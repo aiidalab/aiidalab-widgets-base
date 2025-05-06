@@ -27,7 +27,7 @@ class ExportButtonWidget(ipw.Button):
         from IPython.display import Javascript, display
 
         fname = os.path.join(tempfile.mkdtemp(), "export.aiida")
-        subprocess.call(
+        subprocess.check_call(
             ["verdi", "archive", "create", fname, "-N", str(self.process.pk)]
         )
         with open(fname, "rb") as fobj:
