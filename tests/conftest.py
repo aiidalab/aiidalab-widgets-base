@@ -13,8 +13,8 @@ from aiida import engine, orm, plugins
 from packaging.version import Version
 
 # Load aiida's pytest fixtures
-# For aiida-core>=2.7 we load new fixtures which use sqlite backend.
-if Version(aiida_version) >= Version("2.7.0rc0"):
+# For aiida-core>=2.6 we load new fixtures which use sqlite backend.
+if Version(aiida_version) >= Version("2.6.0"):
     pytest_plugins = ["aiida.tools.pytest_fixtures"]
 
 else:
