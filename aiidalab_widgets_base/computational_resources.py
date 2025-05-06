@@ -295,7 +295,15 @@ class SshComputerSetup(ipw.VBox):
         )
 
         # Username.
-        self.username = ipw.Text(description="Username:", layout=LAYOUT, style=STYLE)
+        self.username = ipw.Text(
+            description="Username:",
+            layout=LAYOUT,
+            style=STYLE,
+        )
+        self.username.observe(
+            self._enable_setup_ssh_button,
+            "value",
+        )
 
         # Port.
         self.port = ipw.IntText(
@@ -310,6 +318,10 @@ class SshComputerSetup(ipw.VBox):
             description="Computer hostname:",
             layout=LAYOUT,
             style=STYLE,
+        )
+        self.hostname.observe(
+            self._enable_setup_ssh_button,
+            "value",
         )
 
         # ProxyJump.
@@ -333,10 +345,10 @@ class SshComputerSetup(ipw.VBox):
         )
         self._verification_mode = ipw.Dropdown(
             options=[
-                ("Password", "password"),
-                ("Use custom private key", "private_key"),
-                ("Download public key", "public_key"),
-                ("Multiple factor authentication", "mfa"),
+                ("Provide password to remote machine", "password"),
+                ("Manually deploy a public key", "public_key"),
+                ("Upload a custom private key", "private_key"),
+                ("Use multiple factor authentication", "mfa"),
             ],
             layout=LAYOUT,
             style=STYLE,
@@ -354,20 +366,40 @@ class SshComputerSetup(ipw.VBox):
         )
 
         # Setup ssh button and output.
-        btn_setup_ssh = ipw.Button(description="Setup ssh")
-        btn_setup_ssh.on_click(self._on_setup_ssh_button_pressed)
+        self.btn_setup_ssh = ipw.Button(
+            description="Setup ssh",
+            disabled=not (self.hostname.value and self.username.value),
+        )
+        self.btn_setup_ssh.on_click(self._on_setup_ssh_button_pressed)
 
         children = [
+            ipw.HTML(
+                value="""
+                    <p>To set up a passwordless connection to the remote machine, you can choose one of the following methods:</p>
+                    <ul>
+                        <li><b>Provide password to remote machine</b>: We use your password to deploy a generated public key to the remote machine (<b>recommended</b>)</li>
+                        <li><b>Manually deploy a public key</b>: Manually copy a generated public key over to the remote machine</li>
+                        <li><b>Upload a custom private key</b>: Upload a custom private key file</li>
+                        <li><b>Use multiple factor authentication</b>: To be used in tandem with the MFA app (beta)</li>
+                    </ul>
+                """,
+                layout={"width": "fit-content"},
+            ),
             self.hostname,
             self.port,
             self.username,
             self.proxy_jump,
             self.proxy_command,
             self._verification_mode,
+            self.password_box,
             self._verification_mode_output,
-            btn_setup_ssh,
+            self.btn_setup_ssh,
         ]
         super().__init__(children, **kwargs)
+
+    def _enable_setup_ssh_button(self, _):
+        """Enable the setup ssh button if hostname and username are provided."""
+        self.btn_setup_ssh.disabled = not (self.hostname.value and self.username.value)
 
     def _ssh_keygen(self):
         """Generate ssh key pair."""
@@ -613,9 +645,24 @@ class SshComputerSetup(ipw.VBox):
         """which verification mode is chosen."""
         with self._verification_mode_output:
             clear_output()
-            if self._verification_mode.value == "private_key":
+            if self._verification_mode.value == "password":
+                self.password_box.layout.display = "block"
+            elif self._verification_mode.value == "private_key":
                 display(self._inp_private_key)
+                self.password_box.layout.display = "none"
+                display(
+                    ipw.HTML(
+                        value="""
+                        <div class="alert alert-warning">
+                            <strong>Warning!</strong> The use of private keys is generally <b>not recommended</b>.
+                            However, some HPC centers do use this method.
+                            Please make sure you know what you are doing.
+                        </div>
+                    """
+                    )
+                )
             elif self._verification_mode.value == "public_key":
+                self.password_box.layout.display = "none"
                 public_key = self._ssh_folder / "id_rsa.pub"
                 if public_key.exists():
                     display(
@@ -624,6 +671,8 @@ class SshComputerSetup(ipw.VBox):
                             layout={"width": "100%"},
                         )
                     )
+            else:
+                self.password_box.layout.display = "none"
 
     @property
     def _private_key(self) -> tuple[str | None, bytes | None]:
@@ -1787,6 +1836,12 @@ class ResourceSetupBaseWidget(ipw.VBox):
                 detailed_setup,
             ]
         )
+        # This container is used to control the appearance of the password box
+        self.password_box_container = ipw.VBox(
+            children=[
+                self.ssh_computer_setup.password_box,
+            ]
+        )
 
         super().__init__(
             children=[
@@ -1798,7 +1853,7 @@ class ResourceSetupBaseWidget(ipw.VBox):
                 self.template_computer_setup,
                 self.template_code,
                 self.template_computer_configure,
-                self.ssh_computer_setup.password_box,
+                self.password_box_container,
                 self.detailed_setup_switch_widgets,
                 ipw.HBox(
                     children=[
@@ -1818,9 +1873,9 @@ class ResourceSetupBaseWidget(ipw.VBox):
         """Update the layout to hide or show the bundled quick_setup/detailed_setup."""
         # check if the password is asked for ssh connection.
         if self.ssh_auth != "password":
-            self.ssh_computer_setup.password_box.layout.display = "none"
+            self.password_box_container.layout.display = "none"
         else:
-            self.ssh_computer_setup.password_box.layout.display = "block"
+            self.password_box_container.layout.display = "block"
 
         # If both quick and detailed setup are enabled
         # - show the switch widget
@@ -1853,11 +1908,16 @@ class ResourceSetupBaseWidget(ipw.VBox):
         if change["new"]:
             self.detailed_setup_widget.layout.display = "block"
             self.quick_setup_button.disabled = True
+            # hide the password box in the quick setup, because user will input
+            # the password in the detailed setup
+            self.password_box_container.layout.display = "none"
             # fill the template variables with the default values or the filled values.
             # If the template variables are not all filled raise a warning.
         else:
             self.detailed_setup_widget.layout.display = "none"
             self.quick_setup_button.disabled = False
+            # this will update the password box based on the template computer_configure.
+            self._update_layout()
 
     def _on_template_computer_configure_metadata_change(self, change):
         """callback when the metadata of computer_configure template is changed."""

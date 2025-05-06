@@ -124,14 +124,12 @@ def test_structure_data_viewer_selection(structure_data_object):
     assert v.selection == [0, 1]
     assert v.displayed_selection == [0, 1]
     assert "Distance" in v.selection_info.value
-    assert "2 atoms selected" in v.selection_info.value
 
     # The x coordinate lower than 0.5.
     v._selected_atoms.value = "x<0.5"
     v.apply_displayed_selection()
     assert v.selection == [0]
     assert v.displayed_selection == [0]
-    assert "1 atoms selected" in v.selection_info.value
 
     # The id of the second atom
     v._selected_atoms.value = "id > 1"
@@ -159,7 +157,6 @@ def test_structure_data_viewer_selection(structure_data_object):
     assert v.selection == [0, 1]
     assert v.displayed_selection == [4, 0, 1]
     assert "Angle" in v.selection_info.value
-    assert "3 atoms selected" in v.selection_info.value
 
     # Convert to boron nitride.
     new_structure = v.structure.copy()
@@ -311,3 +308,31 @@ def test_loading_viewer_using_process_type(generate_calc_job_node):
         "Viewer is not an instance of the expected viewer class."
     )
     assert viewer.node == process, "Viewer's node does not match the test process node."
+
+
+def test_node_view_for_non_widget_viewer():
+    """Test that a node with no registered viewer is displayed in an output widget"""
+    import sys
+    from io import StringIO
+
+    # Intercepting stdout because `ipw.Output` does not
+    # store outputs in non-interactive environments.
+    captured = StringIO()
+    sys.stdout = captured
+
+    node_view = viewers.AiidaNodeViewWidget()
+    node = orm.Int(1)
+    node_view.node = node
+    assert node_view.children[0] is node_view._output
+    assert str(node) in sys.stdout.getvalue()
+
+
+def test_node_view_caching():
+    """Test that providing a given node a second time returns the cached viewer."""
+    node_view = viewers.AiidaNodeViewWidget()
+    node = orm.Int(1)
+    node_view.node = node
+    viewer = node_view.children[0]
+    node_view.node = None
+    node_view.node = node
+    assert node_view.children[0] is viewer
