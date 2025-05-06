@@ -358,9 +358,11 @@ def mock_eln_config():
 
 
 @pytest.fixture
-def pw_code(aiida_local_code_factory):
+def pw_code(aiida_code_installed):
     """Return a `Code` configured for the pw.x executable."""
 
-    return aiida_local_code_factory(
-        label="pw", executable="bash", entry_point="quantumespresso.pw"
+    return aiida_code_installed(
+        label="pw",
+        filepath_executable="/bin/bash",
+        default_calc_job_plugin="quantumespresso.pw",
     )
