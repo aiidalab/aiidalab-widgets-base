@@ -17,6 +17,27 @@ from packaging.version import Version
 if Version(aiida_version) >= Version("2.6.0"):
     pytest_plugins = ["aiida.tools.pytest_fixtures"]
 
+    @pytest.fixture(scope="session")
+    def aiida_profile(aiida_config, aiida_profile_factory, config_sqlite_dos):
+        """Create and load a profile with ``core.psql_dos`` as a storage backend and RabbitMQ as the broker.
+
+        This overrides the ``aiida_profile`` fixture provided by ``aiida-core`` which runs with ``core.sqlite_dos`` and
+        without broker. However, tests in this package make use of the daemon which requires a broker and the tests should
+        be run against the main storage backend, which is ``core.sqlite_dos``.
+        """
+        broker = "core.rabbitmq"
+
+        storage = "core.sqlite_dos"
+        config = config_sqlite_dos()
+
+        with aiida_profile_factory(
+            aiida_config,
+            storage_backend=storage,
+            storage_config=config,
+            broker_backend=broker,
+        ) as profile:
+            yield profile
+
 else:
     pytest_plugins = ["aiida.manage.tests.pytest_fixtures"]
 
