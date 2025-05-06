@@ -90,7 +90,7 @@ jobs:
             matrix:
                 python-version: ['3.9', '3.11']
                 # Test on the latest and oldest supported version
-                aiida-core-version: [2.2.2, 2.6.3]
+                aiida-core-version: [2.2.2, 2.7.0rc0]
             fail-fast: false
 
         runs-on: ubuntu-24.04
