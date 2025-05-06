@@ -22,9 +22,11 @@ else:
 
     @pytest.fixture
     def aiida_code_installed(aiida_local_code_factory):
-        def _code(filepath_executable, default_calc_job_plugin):
+        def _code(filepath_executable, default_calc_job_plugin, label=None):
             return aiida_local_code_factory(
-                executable=filepath_executable, entry_point=default_calc_job_plugin
+                executable=filepath_executable,
+                entry_point=default_calc_job_plugin,
+                label=label,
             )
 
         return _code
