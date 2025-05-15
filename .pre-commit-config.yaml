@@ -13,7 +13,7 @@ repos:
             exclude: miscellaneous/structures
 
     - repo: https://github.com/astral-sh/ruff-pre-commit
-      rev: v0.9.1
+      rev: v0.11.10
       hooks:
           - id: ruff-format
             exclude: ^docs/.*
@@ -27,7 +27,7 @@ repos:
             args: [--preserve-quotes]
 
     - repo: https://github.com/sirosen/check-jsonschema
-      rev: 0.31.0
+      rev: 0.33.0
       hooks:
           - id: check-github-workflows
 
