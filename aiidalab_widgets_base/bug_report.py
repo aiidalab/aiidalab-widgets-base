@@ -11,11 +11,11 @@ import base64
 import json
 import platform
 import re
+import subprocess
 import sys
+import textwrap
 import zlib
-from subprocess import run
-from textwrap import wrap
-from urllib.parse import urlencode, urlsplit, urlunsplit
+from urllib import parse
 
 import ipywidgets as ipw
 from ansi2html import Ansi2HTMLConverter
@@ -25,7 +25,7 @@ def find_installed_packages(python_bin: str | None = None) -> dict[str, str]:
     """Return all currently installed packages."""
     if python_bin is None:
         python_bin = sys.executable
-    output = run(
+    output = subprocess.run(
         [python_bin, "-m", "pip", "list", "--format=json"],
         encoding="utf-8",
         capture_output=True,
@@ -185,13 +185,15 @@ def install_create_github_issue_exception_handler(output, url, labels=None):
                     # Determine and format the environment fingerprint to be
                     # included with the bug report:
                     environment_fingerprint="\n".join(
-                        wrap(get_environment_fingerprint().decode("utf-8"), 100)
+                        textwrap.wrap(
+                            get_environment_fingerprint().decode("utf-8"), 100
+                        )
                     ),
                 ),
                 "labels": ",".join(labels),
             }
-            issue_url = urlunsplit(
-                urlsplit(url)._replace(query=urlencode(bug_report_query))
+            issue_url = parse.urlunsplit(
+                parse.urlsplit(url)._replace(query=parse.eurlencode(bug_report_query))
             )
 
             with output:
