@@ -458,7 +458,7 @@ class SshComputerSetup(ipw.VBox):
                     f"  ProxyCommand {entry['proxycommand'].format(username=entry['user'])}\n"
                 )
             if private_key_name:
-                file.write(f"  IdentityFile {private_key_name}\n")
+                file.write(f"  IdentityFile '{private_key_name}'\n")
             file.write("  ServerAliveInterval 5\n")
 
         def add_host_to_ssh_config():
