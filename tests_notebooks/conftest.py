@@ -1,4 +1,5 @@
 import os
+import time
 from pathlib import Path
 from urllib.parse import urljoin
 
@@ -109,13 +110,14 @@ def selenium_driver(selenium, notebook_service):
 
         selenium.find_element(By.ID, "ipython-main-app")
         selenium.find_element(By.ID, "notebook-container")
-        selenium.find_element(By.ID, "appmode-busy")
         # We wait until the appmode spinner disappears. However,
         # this does not seem to be fully robust, as the spinner might flash
         # while the page is still loading. So we add explicit sleep here as well.
+        time.sleep(2)
         WebDriverWait(selenium, 240).until(
             ec.invisibility_of_element((By.ID, "appmode-busy"))
         )
+        time.sleep(10)
 
         return selenium
 
