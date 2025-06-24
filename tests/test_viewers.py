@@ -107,8 +107,6 @@ def test_structure_data_viewer_storage(monkeypatch, tmp_path, structure_data_obj
         -1.6859999895095825, -1.6859999895095825, -0.6669999957084656, 1,
     ]
     # fmt: on
-    # Avoid producing temporary files from povray in the repo
-    monkeypatch.chdir(tmp_path)
     v._render_structure()
 
     # Make sure we don't polute current working dir with tempfiles
