@@ -53,28 +53,7 @@ def test_ssh_computer_setup_widget(monkeypatch, tmp_path):
     # Check that ssh-keygen operation is successful.
     widget._ssh_keygen()
 
-    # Create non-default private key file.
-    private_key_path = tmp_path / ".ssh" / "my_key_name"
-    widget._add_private_key(private_key_path, b"my_key_content")
-    assert private_key_path.exists()
-    with open(private_key_path) as f:
-        assert f.read() == "my_key_content"
-
-    # set private key with same name to trigger the rename operation
-    widget._verification_mode.value = "private_key"
-    # mock _private_key to mimic the upload of the private key
-    monkeypatch.setattr(
-        "aiidalab_widgets_base.computational_resources.SshComputerSetup._private_key",
-        property(lambda _: ("my_key_name", b"my_key_content_new")),
-    )
-    # check the private key is renamed, monkeypatch the shortuuid to make the test deterministic
-    monkeypatch.setattr("shortuuid.uuid", lambda: "00001111")
-
     widget._on_setup_ssh_button_pressed()
-
-    assert "my_key_name-00001111" in [
-        str(p.name) for p in Path(tmp_path / ".ssh").iterdir()
-    ]
 
     # Setting the ssh_config to an empty dictionary should reset the widget.
     widget.ssh_config = {}

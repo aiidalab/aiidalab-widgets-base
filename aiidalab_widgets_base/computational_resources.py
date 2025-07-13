@@ -12,7 +12,6 @@ from uuid import UUID
 import ipywidgets as ipw
 import jinja2
 import pexpect
-import shortuuid
 import traitlets as tl
 from aiida import common, orm, plugins
 from aiida.orm.utils.builders.computer import ComputerBuilder
@@ -337,17 +336,10 @@ class SshComputerSetup(ipw.VBox):
             style=STYLE,
         )
 
-        self._inp_private_key = ipw.FileUpload(
-            accept="",
-            layout=LAYOUT,
-            description="Private key",
-            multiple=False,
-        )
         self._verification_mode = ipw.Dropdown(
             options=[
                 ("Provide password to remote machine", "password"),
                 ("Manually deploy a public key", "public_key"),
-                ("Upload a custom private key", "private_key"),
                 ("Use multiple factor authentication", "mfa"),
             ],
             layout=LAYOUT,
@@ -379,7 +371,6 @@ class SshComputerSetup(ipw.VBox):
                     <ul>
                         <li><b>Provide password to remote machine</b>: We use your password to deploy a generated public key to the remote machine (<b>recommended</b>)</li>
                         <li><b>Manually deploy a public key</b>: Manually copy a generated public key over to the remote machine</li>
-                        <li><b>Upload a custom private key</b>: Upload a custom private key file</li>
                         <li><b>Use multiple factor authentication</b>: To be used in tandem with the MFA app (beta)</li>
                     </ul>
                 """,
@@ -454,7 +445,7 @@ class SshComputerSetup(ipw.VBox):
             return False
         return True
 
-    def _write_ssh_config(self, private_key_abs_fname=None):
+    def _write_ssh_config(self):
         """Put host information into the config file."""
         config_path = self._ssh_folder / "config"
 
@@ -474,8 +465,6 @@ class SshComputerSetup(ipw.VBox):
                 file.write(
                     f"  ProxyCommand {self.proxy_command.value.format(username=self.username.value)}\n"
                 )
-            if private_key_abs_fname:
-                file.write(f"  IdentityFile {private_key_abs_fname}\n")
             file.write("  ServerAliveInterval 5\n")
 
     def key_pair_prepare(self):
@@ -511,41 +500,18 @@ class SshComputerSetup(ipw.VBox):
 
             self.thread_ssh_copy_id()
 
-        # For not password ssh auth (such as using private_key or 2FA), key pair is not needed (2FA)
+        # For not password ssh auth (e.g., 2FA), key pair is not needed (2FA)
         # or the key pair is ready.
         # There are other mechanism to set up the ssh connection.
         # But we still need to write the ssh config to the ssh config file for such as
         # proxy jump.
 
-        private_key_fname = None
-        if self._verification_mode.value == "private_key":
-            # Write private key in ~/.ssh/ and use the name of upload file,
-            # if exist, generate random string and append to filename then override current name.
-
-            # unwrap private key file and setting temporary private_key content
-            private_key_fname, private_key_content = self._private_key
-            if private_key_fname is None:  # check private key file
-                message = "Please upload your private key file."
-                self.message = wrap_message(message, MessageLevel.ERROR)
-                return
-
-            filename = Path(private_key_fname).name
-
-            # if the private key filename is exist, generate random string and append to filename subfix
-            # then override current name.
-            if filename in [str(p.name) for p in Path(self._ssh_folder).iterdir()]:
-                filename = f"{filename}-{shortuuid.uuid()}"
-
-            private_key_fpath = self._ssh_folder / filename
-
-            self._add_private_key(private_key_fpath, private_key_content)
-
         # TODO(danielhollas): I am not sure this is correct. What if the user wants
-        # to overwrite the private key? Or any other config? The configuration would never be written.
+        # to overwrite a config entry? The configuration would never be written.
         # And the user is not notified that we did not write anything.
         # https://github.com/aiidalab/aiidalab-widgets-base/issues/516
         if not self._is_in_config():
-            self._write_ssh_config(private_key_abs_fname=private_key_fname)
+            self._write_ssh_config()
 
     def _ssh_copy_id(self):
         """Run the ssh-copy-id command and follow it until it is completed."""
@@ -649,20 +615,6 @@ class SshComputerSetup(ipw.VBox):
             clear_output()
             if self._verification_mode.value == "password":
                 self.password_box.layout.display = "block"
-            elif self._verification_mode.value == "private_key":
-                display(self._inp_private_key)
-                self.password_box.layout.display = "none"
-                display(
-                    ipw.HTML(
-                        value="""
-                        <div class="alert alert-warning">
-                            <strong>Warning!</strong> The use of private keys is generally <b>not recommended</b>.
-                            However, some HPC centers do use this method.
-                            Please make sure you know what you are doing.
-                        </div>
-                    """
-                    )
-                )
             elif self._verification_mode.value == "public_key":
                 self.password_box.layout.display = "none"
                 public_key = self._ssh_folder / "id_rsa.pub"
@@ -675,23 +627,6 @@ class SshComputerSetup(ipw.VBox):
                     )
             else:
                 self.password_box.layout.display = "none"
-
-    @property
-    def _private_key(self) -> tuple[str | None, bytes | None]:
-        """Unwrap private key file and setting filename and file content."""
-        if self._inp_private_key.value:
-            (fname, _value), *_ = self._inp_private_key.value.items()
-            content = copy.copy(_value["content"])
-            self._inp_private_key.value.clear()
-            self._inp_private_key._counter = 0  # pylint: disable=protected-access
-            return fname, content
-        return None, None
-
-    @staticmethod
-    def _add_private_key(private_key_fpath: Path, private_key_content: bytes):
-        """Write private key to the private key file in the ssh folder."""
-        private_key_fpath.write_bytes(private_key_content)
-        private_key_fpath.chmod(0o600)
 
     def _reset(self):
         self.hostname.value = ""
