@@ -26,7 +26,7 @@ jobs:
             matrix:
                 browser: [Chrome, Firefox]
                 # test on the latest and the oldest supported version
-                docker-tag: [aiida-2.1.2, pr-528]
+                docker-tag: [aiida-2.1.2, edge]
             fail-fast: false
 
         runs-on: ubuntu-22.04
@@ -89,7 +89,7 @@ jobs:
             matrix:
                 python-version: ['3.9', '3.11']
                 # Test on the latest and oldest supported version
-                aiida-core-version: [2.2.2, 2.7.0]
+                aiida-core-version: [2.2.2, 2.7.1]
             fail-fast: false
 
         runs-on: ubuntu-24.04
