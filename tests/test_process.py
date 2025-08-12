@@ -96,15 +96,14 @@ def test_process_follower_widget(multiply_add_process_builder_ready, daemon_clie
 
 @pytest.mark.usefixtures("aiida_profile_clean")
 def test_process_report_widget(
-    multiply_add_process_builder_ready, daemon_client, await_for_process_completeness
+    multiply_add_process_builder_ready,
+    stopped_daemon_client,
+    await_for_process_completeness,
 ):
     """Test ProcessReportWidget with a simple `WorkChainNode`"""
     # Test the widget can be instantiated with empty inputs
     awb.ProcessReportWidget()
 
-    # Stopping the daemon and submitting the process.
-    if daemon_client.is_daemon_running:
-        daemon_client.stop_daemon(wait=True)
     process = engine.submit(multiply_add_process_builder_ready)
 
     # Test the widget can be instantiated with a process
@@ -114,11 +113,11 @@ def test_process_report_widget(
     )  # No report produced yet.
 
     # Starting the daemon and waiting for the process to complete.
-    daemon_client.start_daemon()
+    stopped_daemon_client.start_daemon()
     await_for_process_completeness(process)
 
     widget.update()
-    daemon_client.stop_daemon(wait=True)
+    stopped_daemon_client.stop_daemon(wait=True)
 
 
 @pytest.mark.usefixtures("aiida_profile_clean")
