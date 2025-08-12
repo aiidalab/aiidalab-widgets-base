@@ -23,7 +23,7 @@ filterwarnings = [
     'ignore::DeprecationWarning:ase.atoms',
     # This popped up in spglib 2.5. Since we still try to support spglib v1,
     # it's not clear if we can get rid of it.
-    "ignore:dict interface.*is deprecated.Use attribute interface:DeprecationWarning:spglib",
+    "ignore:dict interface is deprecated. Use attribute interface instead:DeprecationWarning:spglib|aiidalab_widgets_base",
     # TODO: This comes from a transitive dependency of ipyoptimade
     # Remove this when this issue is addressed:
     # https://github.com/CasperWA/ipywidgets-extended/issues/85
@@ -46,7 +46,7 @@ target-version = "py39"
 
 
 [tool.ruff.lint]
-ignore = ["E501", "E402", "ARG002", "TRY003", "RUF001", "RUF012"]
+ignore = ["E501", "E402", "ARG002", "TRY003", "RUF001", "RUF012", "PLC0415"]
 select = [
   "A",    # flake8-builtins
   "ARG",  # flake8-unused-arguments
