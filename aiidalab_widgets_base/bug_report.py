@@ -193,7 +193,7 @@ def install_create_github_issue_exception_handler(output, url, labels=None):
                 "labels": ",".join(labels),
             }
             issue_url = parse.urlunsplit(
-                parse.urlsplit(url)._replace(query=parse.eurlencode(bug_report_query))
+                parse.urlsplit(url)._replace(query=parse.urlencode(bug_report_query))
             )
 
             with output:
