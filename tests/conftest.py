@@ -8,9 +8,49 @@ from collections.abc import Mapping
 
 import numpy as np
 import pytest
+from aiida import __version__ as aiida_version
 from aiida import engine, orm, plugins
+from packaging.version import Version
 
-pytest_plugins = ["aiida.manage.tests.pytest_fixtures"]
+# Load aiida's pytest fixtures
+# For aiida-core>=2.6 we load new fixtures which use sqlite backend.
+if Version(aiida_version) >= Version("2.6.0"):
+    pytest_plugins = ["aiida.tools.pytest_fixtures"]
+
+    @pytest.fixture(scope="session")
+    def aiida_profile(aiida_config, aiida_profile_factory, config_sqlite_dos):
+        """Create and load a profile with ``core.psql_dos`` as a storage backend and RabbitMQ as the broker.
+
+        This overrides the ``aiida_profile`` fixture provided by ``aiida-core`` which runs with ``core.sqlite_dos`` and
+        without broker. However, tests in this package make use of the daemon which requires a broker and the tests should
+        be run against the main storage backend, which is ``core.sqlite_dos``.
+        """
+        broker = "core.rabbitmq"
+
+        storage = "core.sqlite_dos"
+        config = config_sqlite_dos()
+
+        with aiida_profile_factory(
+            aiida_config,
+            storage_backend=storage,
+            storage_config=config,
+            broker_backend=broker,
+        ) as profile:
+            yield profile
+
+else:
+    pytest_plugins = ["aiida.manage.tests.pytest_fixtures"]
+
+    @pytest.fixture
+    def aiida_code_installed(aiida_local_code_factory):
+        def _code(filepath_executable, default_calc_job_plugin, label=None):
+            return aiida_local_code_factory(
+                executable=filepath_executable,
+                entry_point=default_calc_job_plugin,
+                label=label,
+            )
+
+        return _code
 
 
 @pytest.fixture
@@ -270,9 +310,11 @@ def folder_data_object():
 
 
 @pytest.fixture
-def aiida_local_code_bash(aiida_local_code_factory):
-    """Return a `Code` configured for the bash executable."""
-    return aiida_local_code_factory(executable="bash", entry_point="bash")
+def aiida_local_code_bash(aiida_code_installed):
+    """Return `InstalledCode` configured for bash executable."""
+    return aiida_code_installed(
+        filepath_executable="/bin/bash", default_calc_job_plugin="bash"
+    )
 
 
 @pytest.fixture
@@ -339,9 +381,11 @@ def mock_eln_config():
 
 
 @pytest.fixture
-def pw_code(aiida_local_code_factory):
+def pw_code(aiida_code_installed):
     """Return a `Code` configured for the pw.x executable."""
 
-    return aiida_local_code_factory(
-        label="pw", executable="bash", entry_point="quantumespresso.pw"
+    return aiida_code_installed(
+        label="pw",
+        filepath_executable="/bin/bash",
+        default_calc_job_plugin="quantumespresso.pw",
     )
