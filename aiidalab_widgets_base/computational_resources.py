@@ -96,7 +96,8 @@ class ComputationalResourcesWidget(ipw.VBox):
             self.refresh, names=["allow_disabled_computers", "allow_hidden_codes"]
         )
 
-        self._default_user_email = orm.User.collection.get_default().email
+        if fetch_codes:
+            self._default_user_email = orm.User.collection.get_default().email
 
         selection_row = ipw.HBox(
             children=[
@@ -138,7 +139,10 @@ class ComputationalResourcesWidget(ipw.VBox):
 
     def _get_codes(self):
         """Query the list of available codes."""
-        user = orm.User.collection.get(email=self._default_user_email)
+        if hasattr(self, "_default_user_email"):
+            user = orm.User.collection.get(email=self._default_user_email)
+        else:
+            user = orm.User.collection.get_default()
 
         filters = (
             {"attributes.input_plugin": self.default_calc_job_plugin}
