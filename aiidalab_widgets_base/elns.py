@@ -148,9 +148,38 @@ class ElnExportWidget(ipw.VBox):
                 )
                 info = q.all(flat=True)[0]
             except IndexError:
-                info = {}
+                structures, _ = self.get_all_structures_and_geoopts(self.node)
+                info = structures[-1].base.extras.all["eln"]
 
         self.eln.set_sample_config(**info)
+
+    def get_all_structures_and_geoopts(self, node):
+        """Get all atomistic models that led to the one used in the simulation"""
+        current_node = node
+        all_structures = []
+        all_geoopts = []
+
+        while current_node is not None:
+            if isinstance(current_node, orm.StructureData):
+                all_structures.append(current_node)
+                current_node = current_node.creator
+
+            elif isinstance(current_node, orm.CalcJobNode):
+                current_node = current_node.caller
+
+            elif isinstance(current_node, orm.CalcFunctionNode):
+                current_node = current_node.inputs.source_structure
+
+            elif isinstance(current_node, orm.WorkChainNode):
+                if "GeoOpt" in current_node.label:
+                    all_geoopts.append(current_node)
+                    current_node = current_node.inputs.structure
+                elif "ORBITALS" in current_node.label or "STM" in current_node.label:
+                    current_node = current_node.inputs.structure
+                else:
+                    current_node = current_node.caller
+
+        return all_structures, all_geoopts
 
     def send_to_eln(self, _=None):
         import requests_cache
