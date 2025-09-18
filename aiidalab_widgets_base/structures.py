@@ -287,7 +287,9 @@ class StructureManagerWidget(ipw.VBox):
             if "smiles" in structure.info:
                 structure_node.base.extras.set("smiles", structure.info["smiles"])
             if "fixed_atoms" in structure.arrays:
-                structure_node.base.attributes.all["fixed_atoms"] = structure.arrays["fixed_atoms"]
+                structure_node.base.attributes.all["fixed_atoms"] = structure.arrays[
+                    "fixed_atoms"
+                ]
             return structure_node
 
         # If the input_structure trait is set to AiiDA node, check what type
@@ -344,7 +346,9 @@ class StructureManagerWidget(ipw.VBox):
         elif isinstance(change["new"], StructureData):
             structure = change["new"].get_ase()
             if "fixed_atoms" in change["new"].base.attributes.all:
-                structure.arrays["fixed_atoms"] = np.array(change["new"].base.attributes.all["fixed_atoms"])
+                structure.arrays["fixed_atoms"] = np.array(
+                    change["new"].base.attributes.all["fixed_atoms"]
+                )
             self.structure = structure
 
         else:
