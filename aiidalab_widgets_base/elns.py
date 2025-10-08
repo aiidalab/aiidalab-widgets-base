@@ -65,29 +65,39 @@ def connect_to_eln(eln_instance=None, **kwargs):
 
 class ElnImportWidget(ipw.VBox):
     node = tl.Instance(orm.Node, allow_none=True)
+    ready = tl.Bool(False)
 
     def __init__(self, path_to_root="../", **kwargs):
         import requests_cache
 
-        # Used to output additional settings.
-        self._output = ipw.Output()
-
         # Communicate to the user if something isn't right.
-        error_message = ipw.HTML()
-        super().__init__(children=[error_message], **kwargs)
+        self.error_message = ipw.HTML()
+        object_ready_button = ipw.Button(
+            description="The object is ready", button_style="success"
+        )
+        object_ready_button.on_click(self.object_ready)
 
-        eln, msg = connect_to_eln(**kwargs)
+        self.eln, msg = connect_to_eln(**kwargs)
 
-        if eln is None:
+        if self.eln is None:
             url = f"{path_to_root}aiidalab-widgets-base/notebooks/eln_configure.ipynb"
-            error_message.value = f"""Warning! The access to ELN is not configured. Please follow <a href={url!r} target="_blank">the link</a> to configure it.</br> More details: {msg!r}"""
+            self.error_message.value = f"""Warning! The access to ELN is not configured. Please follow <a href={url!r} target="_blank">the link</a> to configure it.</br> More details: {msg!r}"""
             return
 
-        tl.dlink((eln, "node"), (self, "node"))
+        tl.dlink((self.eln, "node"), (self, "node"))
         # Since the requests cache is enabled globally in aiidalab package, we disable it here to get correct results.
         # This can be removed once https://github.com/aiidalab/aiidalab/issues/196 is fixed.
         with requests_cache.disabled():
-            eln.import_data()
+            self.eln.import_data()
+
+        super().__init__(
+            children=[self.eln.input_viewer, self.error_message, object_ready_button],
+            **kwargs,
+        )
+
+    def object_ready(self, _=None):
+        self.node.store()
+        self.ready = True
 
 
 class ElnExportWidget(ipw.VBox):
