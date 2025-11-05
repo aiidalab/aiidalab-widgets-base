@@ -290,6 +290,9 @@ class StructureManagerWidget(ipw.VBox):
                 structure_node.base.attributes.all["fixed_atoms"] = structure.arrays["fixed_atoms"]
             if "CONSTRAINTS" in structure.info:
                 structure_node.base.attributes.all["CONSTRAINTS"] = structure.info["CONSTRAINTS"]
+                structure_node.base.attributes.all["fixed_atoms"] = structure.arrays[
+                    "fixed_atoms"
+                ]
             return structure_node
 
         # If the input_structure trait is set to AiiDA node, check what type
