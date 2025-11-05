@@ -288,6 +288,8 @@ class StructureManagerWidget(ipw.VBox):
                 structure_node.base.extras.set("smiles", structure.info["smiles"])
             if "fixed_atoms" in structure.arrays:
                 structure_node.base.attributes.all["fixed_atoms"] = structure.arrays["fixed_atoms"]
+            if "CONSTRAINTS" in structure.info:
+                structure_node.base.attributes.all["CONSTRAINTS"] = structure.info["CONSTRAINTS"]
             return structure_node
 
         # If the input_structure trait is set to AiiDA node, check what type
@@ -345,6 +347,8 @@ class StructureManagerWidget(ipw.VBox):
             structure = change["new"].get_ase()
             if "fixed_atoms" in change["new"].base.attributes.all:
                 structure.arrays["fixed_atoms"] = np.array(change["new"].base.attributes.all["fixed_atoms"])
+            if "CONSTRAINTS" in change["new"].base.attributes.all:
+                structure.info["CONSTRAINTS"] = change["new"].base.attributes.all["CONSTRAINTS"]
             self.structure = structure
 
         else:
@@ -517,7 +521,6 @@ class StructureExamplesWidget(ipw.VBox):
     @tl.default("structure")
     def _default_structure(self):
         return None
-
 
 class StructureBrowserWidget(ipw.VBox):
     """Class to query for structures stored in the AiiDA database.
