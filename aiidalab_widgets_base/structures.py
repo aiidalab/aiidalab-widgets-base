@@ -11,7 +11,7 @@ import ipywidgets as ipw
 import numpy as np
 import spglib
 import traitlets as tl
-from aiida import engine, orm, plugins,common
+from aiida import common, engine, orm, plugins
 
 # Local imports
 from .data import FunctionalGroupSelectorWidget
@@ -692,6 +692,7 @@ class StructureBrowserWidget(ipw.VBox):
     def _on_select_structure(self, _=None):
         self.structure = self.results.value or None
 
+
 class PkSelectorWidget(ipw.VBox):
     """Class to select structure by its AiiDA PK."""
 
@@ -706,12 +707,10 @@ class PkSelectorWidget(ipw.VBox):
             description="Structure PK:",
             style={"description_width": "120px"},
         )
-        self.load_button = ipw.Button(
-            description="Load Structure", button_style="info"
-        )
+        self.load_button = ipw.Button(description="Load Structure", button_style="info")
         self.load_button.on_click(self._on_load_button_clicked)
         super().__init__(
-            children=[ipw.HBox([self.pk_input, self.load_button]),self.info]
+            children=[ipw.HBox([self.pk_input, self.load_button]), self.info]
         )
 
     def _on_load_button_clicked(self, _=None):
@@ -724,19 +723,23 @@ class PkSelectorWidget(ipw.VBox):
                 pk_value = None
         except (ValueError, TypeError):
             self.info.value = "Invalid PK: please enter a positive integer."
-            pk_value = None  
-            
+            pk_value = None
+
         if pk_value:
             try:
                 node = orm.load_node(pk_value)
                 if isinstance(node, StructureData):
-                    self.structure = node.get_ase()                   
+                    self.structure = node.get_ase()
                 else:
                     self.structure = None
-                    self.info.value = f"The PK does not correspond to a StructureData node."
+                    self.info.value = (
+                        "The PK does not correspond to a StructureData node."
+                    )
             except common.NotExistent:
                 self.structure = None
                 self.info.value = f"No AiiDA node found for PK={pk_value}."
+
+
 class SmilesWidget(ipw.VBox):
     """Convert SMILES into 3D structure."""
 
