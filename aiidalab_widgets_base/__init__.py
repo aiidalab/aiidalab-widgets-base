@@ -63,6 +63,7 @@ from .computational_resources import (
 from .databases import CodQueryWidget, OptimadeQueryWidget
 from .elns import ElnConfigureWidget, ElnExportWidget, ElnImportWidget
 from .export import ExportButtonWidget
+from .loaders import LoadingWidget
 from .nodes import NodesTreeWidget, OpenAiidaNodeInAppWidget
 from .process import (
     ProcessCallStackWidget,
@@ -103,6 +104,7 @@ __all__ = [
     "ElnExportWidget",
     "ElnImportWidget",
     "ExportButtonWidget",
+    "LoadingWidget",
     "MultiStructureUploadWidget",
     "NodesTreeWidget",
     "OpenAiidaNodeInAppWidget",
@@ -129,4 +131,4 @@ __all__ = [
     "viewer",
 ]
 
-__version__ = "2.3.0"
+__version__ = "2.4.0"

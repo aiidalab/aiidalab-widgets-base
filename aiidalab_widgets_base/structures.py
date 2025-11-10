@@ -114,7 +114,13 @@ class StructureManagerWidget(ipw.VBox):
                 f"Unknown data format '{node_class}'. Options: {list(self.SUPPORTED_DATA_FORMATS.keys())}"
             )
 
-        viewer_panel = ipw.Accordion(
+        select_panel = ipw.Accordion(
+            children=self._structure_importers(importers),
+            selected_index=0 if importers else None,
+        )
+        select_panel.set_title(0, "Select structure")
+
+        view_panel = ipw.Accordion(
             children=[
                 ipw.VBox(
                     children=[
@@ -131,36 +137,32 @@ class StructureManagerWidget(ipw.VBox):
             ],
             selected_index=0,
         )
-        viewer_panel.set_title(0, "View structure")
+        view_panel.set_title(0, "View structure")
 
         structure_editors = self._structure_editors(editors)
-        if structure_editors:
-            structure_editors = ipw.VBox(
-                children=[
-                    btn_undo,
-                    structure_editors,
-                ]
-            )
 
-        editor_panel = ipw.Accordion(
+        edit_panel = ipw.Accordion(
             children=[
                 ipw.VBox(
                     children=[
-                        structure_editors,
+                        btn_undo,
+                        *structure_editors,
                     ]
                 ),
-            ],
+            ]
+            if structure_editors
+            else [],
             selected_index=None,
         )
-        editor_panel.set_title(0, "Edit structure")
+        edit_panel.set_title(0, "Edit structure")
 
         self.output = ipw.HTML("")
 
         super().__init__(
             children=[
-                self._structure_importers(importers),
-                viewer_panel,
-                editor_panel,
+                select_panel,
+                view_panel,
+                edit_panel,
                 self.output,
             ],
             **kwargs,
@@ -173,11 +175,8 @@ class StructureManagerWidget(ipw.VBox):
         if not isinstance(importers, (list, tuple)):
             raise exceptions.ListOrTuppleError(importers)
 
-        # If there is only one importer - no need to make tabs.
-        if len(importers) == 1:
-            # Assigning a function which will be called when importer provides a structure.
-            tl.dlink((importers[0], "structure"), (self, "input_structure"))
-            return importers[0]
+        if not importers:
+            return []
 
         # Otherwise making one tab per importer.
         importers_tab = ipw.Tab()
@@ -186,49 +185,30 @@ class StructureManagerWidget(ipw.VBox):
             # Labeling tabs.
             importers_tab.set_title(i, importer.title)
             tl.dlink((importer, "structure"), (self, "input_structure"))
-        return importers_tab
+        return [importers_tab]
 
     def _structure_editors(self, editors):
         """Preparing structure editors."""
-        if editors and len(editors) == 1:
-            tl.link((editors[0], "structure"), (self, "structure"))
+        if not editors:
+            return []
 
-            if editors[0].has_trait("input_selection"):
-                tl.dlink(
-                    (editors[0], "input_selection"), (self.viewer, "input_selection")
-                )
-
-            if editors[0].has_trait("selection"):
-                tl.dlink((self.viewer, "selection"), (editors[0], "selection"))
-
-            if editors[0].has_trait("camera_orientation"):
+        editors_tab = ipw.Tab()
+        editors_tab.children = tuple(editors)
+        for i, editor in enumerate(editors):
+            editors_tab.set_title(i, editor.title)
+            # Link selected traits of the editors with the those of the viewer.
+            tl.link((editor, "structure"), (self, "structure"))
+            if editor.has_trait("input_selection"):
+                tl.dlink((editor, "input_selection"), (self.viewer, "input_selection"))
+            if editor.has_trait("selection"):
+                tl.link((editor, "selection"), (self.viewer, "selection"))
+            if editor.has_trait("camera_orientation"):
                 tl.dlink(
                     (self.viewer._viewer, "_camera_orientation"),
-                    (editors[0], "camera_orientation"),
+                    (editor, "camera_orientation"),
                 )
 
-            return editors[0]
-
-        # If more than one editor was defined.
-        if editors:
-            editors_tab = ipw.Tab()
-            editors_tab.children = tuple(editors)
-            for i, editor in enumerate(editors):
-                editors_tab.set_title(i, editor.title)
-                tl.link((editor, "structure"), (self, "structure"))
-                if editor.has_trait("input_selection"):
-                    tl.dlink(
-                        (editor, "input_selection"), (self.viewer, "input_selection")
-                    )
-                if editor.has_trait("selection"):
-                    tl.link((editor, "selection"), (self.viewer, "selection"))
-                if editor.has_trait("camera_orientation"):
-                    tl.dlink(
-                        (self.viewer._viewer, "_camera_orientation"),
-                        (editor, "camera_orientation"),
-                    )
-            return editors_tab
-        return None
+        return [editors_tab]
 
     def store_structure(self, _=None):
         """Stores the structure in AiiDA database."""

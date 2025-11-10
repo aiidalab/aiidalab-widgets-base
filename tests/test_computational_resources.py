@@ -24,6 +24,8 @@ def test_ssh_computer_setup_widget(monkeypatch, tmp_path):
     # mock home directory for ssh config file
     monkeypatch.setenv("HOME", str(tmp_path))
     widget = computational_resources.SshComputerSetup()
+    # password box show by default in the SshComputerSetup
+    assert widget.password_box.layout.display != "none"
 
     ssh_config = {
         "hostname": "daint.cscs.ch",
@@ -51,28 +53,7 @@ def test_ssh_computer_setup_widget(monkeypatch, tmp_path):
     # Check that ssh-keygen operation is successful.
     widget._ssh_keygen()
 
-    # Create non-default private key file.
-    private_key_path = tmp_path / ".ssh" / "my_key_name"
-    widget._add_private_key(private_key_path, b"my_key_content")
-    assert private_key_path.exists()
-    with open(private_key_path) as f:
-        assert f.read() == "my_key_content"
-
-    # set private key with same name to trigger the rename operation
-    widget._verification_mode.value = "private_key"
-    # mock _private_key to mimic the upload of the private key
-    monkeypatch.setattr(
-        "aiidalab_widgets_base.computational_resources.SshComputerSetup._private_key",
-        property(lambda _: ("my_key_name", b"my_key_content_new")),
-    )
-    # check the private key is renamed, monkeypatch the shortuuid to make the test deterministic
-    monkeypatch.setattr("shortuuid.uuid", lambda: "00001111")
-
     widget._on_setup_ssh_button_pressed()
-
-    assert "my_key_name-00001111" in [
-        str(p.name) for p in Path(tmp_path / ".ssh").iterdir()
-    ]
 
     # Setting the ssh_config to an empty dictionary should reset the widget.
     widget.ssh_config = {}
@@ -555,7 +536,7 @@ def test_resource_setup_widget_default():
     w.ssh_computer_setup.username.value = "aiida"
 
     # Since cscs is 2FA, test the password box is not displayed.
-    assert w.ssh_computer_setup.password_box.layout.display == "none"
+    assert w.password_box_container.layout.display == "none"
 
     w._on_quick_setup()
 
@@ -591,9 +572,9 @@ def test_resource_setup_widget_for_password_configure(monkeypatch, tmp_path):
 
     # Test select a new resource setup will update the output interface (e.g. ssh_config, computer_setup, code_setup)
     # and the computer/code setup widget will be updated accordingly.
-    w.comp_resources_database.domain_selector.value = "merlin.psi.ch"
+    w.comp_resources_database.domain_selector.value = "merlin7.psi.ch"
     w.comp_resources_database.computer_selector.value = "cpu"
-    w.comp_resources_database.code_selector.value = "QuantumESPRESSO-7.0"
+    w.comp_resources_database.code_selector.value = "QuantumESPRESSO-7.4"
 
     # Fill in the computer name and trigger the setup button again, the message should be updated.
     for (
@@ -604,10 +585,19 @@ def test_resource_setup_widget_for_password_configure(monkeypatch, tmp_path):
             sub_widget = mapping_variable.widget
 
             # Test the default value is filled in correctly.
-            assert sub_widget.value == "merlin-cpu"
+            assert sub_widget.value == "merlin7-cpu"
 
     # Test the password box is displayed.
-    assert w.ssh_computer_setup.password_box.layout.display == "block"
+    assert w.password_box_container.layout.display == "block"
+
+    # click the toggle detail setup button to show the detail setup
+    # the password box container should be hidden
+    w.toggle_detail_setup.value = True
+    assert w.password_box_container.layout.display == "none"
+    # hide the detail setup
+    # the password box container should be shown
+    w.toggle_detail_setup.value = False
+    assert w.password_box_container.layout.display == "block"
 
     # Fill the computer configure template variables
     for (
@@ -637,18 +627,18 @@ def test_resource_setup_widget_for_password_configure(monkeypatch, tmp_path):
 
     assert w.success
     # check the code is really created
-    assert orm.load_code("pw-7.0@merlin-cpu")
+    assert orm.load_code("pw-7.4@merlin7-cpu")
 
     # The key pair will be generated to the temporary directory
     # Check the content of the config is correct
     with open(tmp_path / ".ssh" / "config") as f:
         content = f.read()
         assert "User aiida" in content
-        assert "Host merlin-l-01.psi.ch" in content
+        assert "Host login001.merlin7.psi.ch" in content
 
     # After reset the password box should be hidden again.
     w.reset()
-    assert w.ssh_computer_setup.password_box.layout.display == "none"
+    assert w.password_box_container.layout.display == "none"
 
 
 @pytest.mark.usefixtures("aiida_profile_clean")
@@ -742,9 +732,9 @@ def test_computer_resource_setup_widget_default(monkeypatch, tmp_path):
 
     w_resource = w.resource_setup
 
-    w_resource.comp_resources_database.domain_selector.value = "merlin.psi.ch"
+    w_resource.comp_resources_database.domain_selector.value = "merlin7.psi.ch"
     w_resource.comp_resources_database.computer_selector.value = "cpu"
-    w_resource.comp_resources_database.code_selector.value = "QuantumESPRESSO-7.0"
+    w_resource.comp_resources_database.code_selector.value = "QuantumESPRESSO-7.4"
 
     # Fill in the computer name and trigger the setup button again, the message should be updated.
     for (
@@ -755,7 +745,7 @@ def test_computer_resource_setup_widget_default(monkeypatch, tmp_path):
             sub_widget = mapping_variable.widget
 
             # Test the default value is filled in correctly.
-            assert sub_widget.value == "merlin-cpu"
+            assert sub_widget.value == "merlin7-cpu"
 
     # Fill the computer configure template variables
     for (
@@ -791,17 +781,17 @@ def test_computer_resource_setup_widget_default(monkeypatch, tmp_path):
 
     assert w_resource.success
     # check the code is really created
-    assert orm.load_code("pw-7.0@merlin-cpu")
+    assert orm.load_code("pw-7.4@merlin7-cpu")
 
     # check the dropdown is updated
-    assert "pw-7.0@merlin-cpu" in [c[0] for c in w.code_select_dropdown.options]
+    assert "pw-7.4@merlin7-cpu" in [c[0] for c in w.code_select_dropdown.options]
 
     # The key pair will be generated to the temporary directory
     # Check the content of the config is correct
     with open(tmp_path / ".ssh" / "config") as f:
         content = f.read()
         assert "User aiida" in content
-        assert "Host merlin-l-01.psi.ch" in content
+        assert "Host login001.merlin7.psi.ch" in content
 
 
 @pytest.mark.usefixtures("aiida_profile_clean")

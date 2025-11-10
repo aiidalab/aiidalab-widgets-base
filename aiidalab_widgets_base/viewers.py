@@ -24,6 +24,7 @@ from IPython.display import clear_output, display
 from matplotlib.colors import to_rgb
 
 from .dicts import RGB_COLORS, Colors, Radius
+from .loaders import LoadingWidget
 from .misc import CopyToClipboardButton, ReversePolishNotation
 from .utils import ase2spglib, list_to_string_range, string_range_to_list
 
@@ -67,20 +68,29 @@ class AiidaNodeViewWidget(ipw.VBox):
 
     def __init__(self, **kwargs):
         self._output = ipw.Output()
-        super().__init__(
-            children=[
-                self._output,
-            ],
-            **kwargs,
-        )
+        self.node_views = {}
+        self.node_view_loading_message = LoadingWidget("Loading node view")
+        super().__init__(**kwargs)
+        self.add_class("aiida-node-view-widget")
 
     @tl.observe("node")
     def _observe_node(self, change):
-        if change["new"] != change["old"]:
+        if not ((node := change["new"]) and node != change["old"]):
+            return
+        if node.uuid in self.node_views:
+            self.children = [self.node_views[node.uuid]]
+            return
+        self.children = [self.node_view_loading_message]
+        node_view = viewer(node)
+        if isinstance(node_view, ipw.DOMWidget):
+            self.node_views[node.uuid] = node_view
+            self.children = [node_view]
+        else:
             with self._output:
                 clear_output()
                 if change["new"]:
-                    display(viewer(change["new"]))
+                    display(node_view)
+            self.children = [self._output]
 
 
 @register_viewer_widget("data.core.dict.Dict.")
@@ -1480,11 +1490,6 @@ class StructureDataViewer(_StructureDataBaseViewer):
         def add_info(indx, atom):
             return f"<p>Id: {indx + 1}; Symbol: {atom.symbol}; Coordinates: ({print_pos(atom.position)})</p>"
 
-        # Unit and displayed cell atoms' selection.
-        info = (
-            f"<p>Selected atoms: {list_to_string_range(self.displayed_selection, shift=1)}</p>"
-            + f"<p>Selected unit cell atoms: {list_to_string_range(self.selection, shift=1)}</p>"
-        )
         # Find geometric center.
         geom_center = print_pos(
             np.average(
@@ -1492,6 +1497,8 @@ class StructureDataViewer(_StructureDataBaseViewer):
                 axis=0,
             )
         )
+
+        info = ""
 
         # Report coordinates.
         if len(self.displayed_selection) == 1:
@@ -1502,6 +1509,11 @@ class StructureDataViewer(_StructureDataBaseViewer):
 
         # Report coordinates, distance and center.
         elif len(self.displayed_selection) == 2:
+            dist = self.displayed_structure.get_distance(*self.displayed_selection)
+            distv = self.displayed_structure.get_distance(
+                *self.displayed_selection, vector=True
+            )
+            info += f"<p>Distance: {dist:.2f} Å ({print_pos(distv)})</p>"
             info += add_info(
                 self.displayed_selection[0],
                 self.displayed_structure[self.displayed_selection[0]],
@@ -1510,11 +1522,6 @@ class StructureDataViewer(_StructureDataBaseViewer):
                 self.displayed_selection[1],
                 self.displayed_structure[self.displayed_selection[1]],
             )
-            dist = self.displayed_structure.get_distance(*self.displayed_selection)
-            distv = self.displayed_structure.get_distance(
-                *self.displayed_selection, vector=True
-            )
-            info += f"<p>Distance: {dist:.2f} ({print_pos(distv)})</p>"
 
         # Report angle geometric center and normal.
         elif len(self.displayed_selection) == 3:
@@ -1530,7 +1537,7 @@ class StructureDataViewer(_StructureDataBaseViewer):
                 )
             )
             normal = normal / np.linalg.norm(normal)
-            info += f"<p>Angle: {angle}, Normal: ({print_pos(normal)})</p>"
+            info += f"<p>Angle: {angle}&deg;, Normal: ({print_pos(normal)})</p>"
 
         # Report dihedral angle and geometric center.
         elif len(self.displayed_selection) == 4:
@@ -1541,12 +1548,16 @@ class StructureDataViewer(_StructureDataBaseViewer):
                 dihedral_str = f"{dihedral:.3f}"
             except ZeroDivisionError:
                 dihedral_str = "nan"
-            info += f"<p>Dihedral angle: {dihedral_str}</p>"
+            info += f"<p>Dihedral angle: {dihedral_str}&deg;</p>"
+
+        # Unit and displayed cell atoms' selection.
+        info_unit_and_displayed = (
+            f"<p>Selected atoms: {list_to_string_range(self.displayed_selection, shift=1)}</p>"
+            + f"<p>Selected unit cell atoms: {list_to_string_range(self.selection, shift=1)}</p>"
+        )
 
         return (
-            info
-            + f"<p>Geometric center: ({geom_center})</p>"
-            + f"<p>{len(self.displayed_selection)} atoms selected</p>"
+            info + f"<p>Geometric center: ({geom_center})</p>" + info_unit_and_displayed
         )
 
     @tl.observe("displayed_selection")
