@@ -118,7 +118,8 @@ class StructureManagerWidget(ipw.VBox):
             children=self._structure_importers(importers),
             selected_index=0 if importers else None,
         )
-        select_panel.set_title(0, "Select structure")
+        if importers:  # Otherwise ipywidgets 8.x throws an error when setting a title for non-existing tab.
+            select_panel.set_title(0, "Select structure")
 
         view_panel = ipw.Accordion(
             children=[
@@ -154,7 +155,8 @@ class StructureManagerWidget(ipw.VBox):
             else [],
             selected_index=None,
         )
-        edit_panel.set_title(0, "Edit structure")
+        if structure_editors:  # Otherwise ipywidgets 8.x throws an error when setting a title for non-existing tab.
+            edit_panel.set_title(0, "Edit structure")   
 
         self.output = ipw.HTML("")
 
