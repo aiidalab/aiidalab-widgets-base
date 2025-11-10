@@ -156,7 +156,7 @@ class StructureManagerWidget(ipw.VBox):
             selected_index=None,
         )
         if structure_editors:  # Otherwise ipywidgets 8.x throws an error when setting a title for non-existing tab.
-            edit_panel.set_title(0, "Edit structure")   
+            edit_panel.set_title(0, "Edit structure")
 
         self.output = ipw.HTML("")
 
