@@ -569,7 +569,7 @@ class StructureBrowserWidget(ipw.VBox):
             value="", description="From: ", style={"description_width": "120px"}
         )
         self.end_date_widget = ipw.Text(value="", description="To: ")
-        
+
         self.info = ipw.HTML("")
         self.pk_input = ipw.Text(
             value="",
@@ -579,7 +579,7 @@ class StructureBrowserWidget(ipw.VBox):
         )
         self.load_button = ipw.Button(description="Load Structure", button_style="info")
         self.load_button.on_click(self._on_load_button_clicked)
-        
+
         # Search button.
         btn_search = ipw.Button(
             description="Search",
@@ -597,7 +597,15 @@ class StructureBrowserWidget(ipw.VBox):
         )
 
         h_line = ipw.HTML("<hr>")
-        box = ipw.VBox([age_selection,ipw.HBox([self.pk_input,self.load_button]), self.info, h_line, ipw.HBox([self.mode, self.drop_label])])
+        box = ipw.VBox(
+            [
+                age_selection,
+                ipw.HBox([self.pk_input, self.load_button]),
+                self.info,
+                h_line,
+                ipw.HBox([self.mode, self.drop_label]),
+            ]
+        )
 
         self.results = ipw.Dropdown(layout={"width": "900px"})
         self.results.observe(self._on_select_structure, names="value")
@@ -701,42 +709,43 @@ class StructureBrowserWidget(ipw.VBox):
 
     def _on_select_structure(self, _=None):
         self.structure = self.results.value or None
-        self.pk_input.value = (str(self.structure.pk) if self.structure else "")
-        
+        self.pk_input.value = str(self.structure.pk) if self.structure else ""
+
     def _on_load_button_clicked(self, _=None):
-            """When load button is clicked."""
-            self.info.value = ""
-            try:
-                pk_value = int(self.pk_input.value)
-                if pk_value <= 0:
-                    self.info.value = "Invalid PK: please enter a positive integer."
-                    pk_value = None
-            except (ValueError, TypeError):
+        """When load button is clicked."""
+        self.info.value = ""
+        try:
+            pk_value = int(self.pk_input.value)
+            if pk_value <= 0:
                 self.info.value = "Invalid PK: please enter a positive integer."
                 pk_value = None
+        except (ValueError, TypeError):
+            self.info.value = "Invalid PK: please enter a positive integer."
+            pk_value = None
 
-            if pk_value:
-                try:
-                    node = orm.load_node(pk_value)
-                    if isinstance(node, StructureData):
-                        #self.structure = node.get_ase()
-                        # sync dropdown selection            
-                        label = f"PK: {pk_value}"
-                        label += " | " + node.ctime.strftime("%Y-%m-%d %H:%M")
-                        label += " | " + node.base.extras.get("formula", "")
-                        label += " | " + node.node_type.split(".")[-2]
-                        label += " | " + node.label
-                        label += " | " + node.description
-                        self.results.options=[(label, node)]
-                        
-                    else:
-                        self.structure = None
-                        self.info.value = (
-                            "The PK does not correspond to a StructureData node."
-                        )
-                except common.NotExistent:
+        if pk_value:
+            try:
+                node = orm.load_node(pk_value)
+                if isinstance(node, StructureData):
+                    # self.structure = node.get_ase()
+                    # sync dropdown selection
+                    label = f"PK: {pk_value}"
+                    label += " | " + node.ctime.strftime("%Y-%m-%d %H:%M")
+                    label += " | " + node.base.extras.get("formula", "")
+                    label += " | " + node.node_type.split(".")[-2]
+                    label += " | " + node.label
+                    label += " | " + node.description
+                    self.results.options = [(label, node)]
+
+                else:
                     self.structure = None
-                    self.info.value = f"No AiiDA node found for PK={pk_value}."
+                    self.info.value = (
+                        "The PK does not correspond to a StructureData node."
+                    )
+            except common.NotExistent:
+                self.structure = None
+                self.info.value = f"No AiiDA node found for PK={pk_value}."
+
 
 class SmilesWidget(ipw.VBox):
     """Convert SMILES into 3D structure."""
