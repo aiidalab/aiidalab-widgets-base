@@ -81,7 +81,6 @@ from .process import (
 from .structures import (
     BasicCellEditor,
     BasicStructureEditor,
-    PkSelectorWidget,
     SmilesWidget,
     StructureBrowserWidget,
     StructureExamplesWidget,
@@ -110,7 +109,6 @@ __all__ = [
     "NodesTreeWidget",
     "OpenAiidaNodeInAppWidget",
     "OptimadeQueryWidget",
-    "PkSelectorWidget",
     "ProcessCallStackWidget",
     "ProcessFollowerWidget",
     "ProcessInputsWidget",
