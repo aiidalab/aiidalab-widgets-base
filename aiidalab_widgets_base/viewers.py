@@ -734,8 +734,12 @@ class _StructureDataBaseViewer(ipw.VBox):
                 (False, True, True): "yz",
                 (False, False, False): "-",
             }
-            self.cell_spacegroup.value = f"Spacegroup: {symmetry_dataset['international']} (No.{symmetry_dataset['number']})"
-            self.cell_hall.value = f"Hall: {symmetry_dataset['hall']} (No.{symmetry_dataset['hall_number']})"
+            try:
+                self.cell_spacegroup.value = f"Spacegroup: {symmetry_dataset['international']} (No.{symmetry_dataset['number']})"
+                self.cell_hall.value = f"Hall: {symmetry_dataset['hall']} (No.{symmetry_dataset['hall_number']})"
+            except TypeError:
+                self.cell_spacegroup.value = "Spacegroup: -"
+                self.cell_hall.value = "Hall: -"
             self.periodicity.value = (
                 f"Periodicity: {periodicity_map[tuple(self.structure.pbc)]}"
             )
