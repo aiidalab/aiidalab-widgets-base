@@ -118,7 +118,8 @@ class StructureManagerWidget(ipw.VBox):
             children=self._structure_importers(importers),
             selected_index=0 if importers else None,
         )
-        select_panel.set_title(0, "Select structure")
+        if importers:  # Otherwise ipywidgets 8.x throws an error when setting a title for non-existing tab.
+            select_panel.set_title(0, "Select structure")
 
         view_panel = ipw.Accordion(
             children=[
@@ -154,7 +155,8 @@ class StructureManagerWidget(ipw.VBox):
             else [],
             selected_index=None,
         )
-        edit_panel.set_title(0, "Edit structure")
+        if structure_editors:  # Otherwise ipywidgets 8.x throws an error when setting a title for non-existing tab.
+            edit_panel.set_title(0, "Edit structure")
 
         self.output = ipw.HTML("")
 
@@ -423,10 +425,20 @@ class StructureUploadWidget(ipw.VBox):
 
     def _on_file_upload(self, change=None):
         """When file upload button is pressed."""
-        for fname, item in change["new"].items():
-            self.structure = self._read_structure(fname, item["content"])
-            self.file_upload.value.clear()
-            break
+
+        def get_unified_representation(value):
+            """This function ensures backwards compatibility w.r.t. ipywidgets 7.x"""
+            try:
+                return [
+                    (fname, item["content"]) for fname, item in value.items()
+                ]  # ipywidgets 7.x
+            except AttributeError:
+                return [
+                    (f["name"], f.content.tobytes()) for f in value
+                ]  # ipywidgets 8.x
+
+        fname, item = get_unified_representation(change["new"])[0]
+        self.structure = self._read_structure(fname, item)
 
     def _read_structure(self, fname, content):
         suffix = "".join(pathlib.Path(fname).suffixes)
