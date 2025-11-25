@@ -104,9 +104,6 @@ jobs:
             - name: Check out app
               uses: actions/checkout@v6
 
-            - name: Install povray
-              run: sudo apt-get update && sudo apt-get install povray
-
             - name: Set up Python
               uses: actions/setup-python@v6
               with:
@@ -125,6 +122,9 @@ jobs:
             # so here we simply keep the pip behaviour with the --compile flag.
             # See https://github.com/astral-sh/uv/issues/1928#issuecomment-1968857514
               run: uv pip install --compile --resolution ${{ matrix.uv-resolution }} -e .[dev,smiles,optimade,eln]
+
+            - name: Install povray
+              run: sudo apt-get update && sudo apt-get install povray
 
             - name: Run pytest
               run: pytest -v tests --cov=aiidalab_widgets_base
