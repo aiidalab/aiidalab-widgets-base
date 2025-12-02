@@ -428,7 +428,7 @@ class StructureUploadWidget(ipw.VBox):
 
         def get_fname_and_bytes(value):
             """This function ensures backwards compatibility w.r.t. ipywidgets 7.x
-            https://ipywidgets.readthedocs.io/en/latest/user_migration_guides.html#fileupload            
+            https://ipywidgets.readthedocs.io/en/latest/user_migration_guides.html#fileupload
             """
             assert len(value) == 1
             try:
