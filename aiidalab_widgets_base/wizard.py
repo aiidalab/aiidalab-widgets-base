@@ -101,7 +101,6 @@ class WizardAppWidget(ipw.VBox):
 
         # Initialize the accordion with the widgets ...
         self.accordion = ipw.Accordion(children=widgets)
-        print("After link")
         self._update_titles()
 
         # Watch for changes to each step's state
