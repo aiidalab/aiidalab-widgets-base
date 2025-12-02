@@ -426,16 +426,19 @@ class StructureUploadWidget(ipw.VBox):
     def _on_file_upload(self, change=None):
         """When file upload button is pressed."""
 
-        def get_unified_representation(value):
-            """This function ensures backwards compatibility w.r.t. ipywidgets 7.x"""
+        def get_fname_and_bytes(value):
+            """This function ensures backwards compatibility w.r.t. ipywidgets 7.x
+            https://ipywidgets.readthedocs.io/en/latest/user_migration_guides.html#fileupload            
+            """
+            assert len(value) == 1
             try:
-                return [
-                    (fname, item["content"]) for fname, item in value.items()
-                ]  # ipywidgets 7.x
+                # ipywidgets 7.x
+                for fname, item in value.items():
+                    return fname, item["content"]
             except AttributeError:
-                return [
-                    (f["name"], f.content.tobytes()) for f in value
-                ]  # ipywidgets 8.x
+                # ipywidgets 8.x
+                for f in value:
+                    return f["name"], f.content.tobytes())
 
         fname, item = get_unified_representation(change["new"])[0]
         self.structure = self._read_structure(fname, item)
