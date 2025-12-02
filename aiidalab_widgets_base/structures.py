@@ -440,8 +440,9 @@ class StructureUploadWidget(ipw.VBox):
                 for f in value:
                     return f["name"], f.content.tobytes())
 
-        fname, item = get_unified_representation(change["new"])[0]
+        fname, item = get_fname_and_bytes(change["new"])
         self.structure = self._read_structure(fname, item)
+        self.file_upload.value.clear()
 
     def _read_structure(self, fname, content):
         suffix = "".join(pathlib.Path(fname).suffixes)
