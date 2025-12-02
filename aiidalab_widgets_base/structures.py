@@ -438,7 +438,7 @@ class StructureUploadWidget(ipw.VBox):
             except AttributeError:
                 # ipywidgets 8.x
                 for f in value:
-                    return f["name"], f.content.tobytes())
+                    return f["name"], f.content.tobytes()
 
         fname, item = get_fname_and_bytes(change["new"])
         self.structure = self._read_structure(fname, item)
