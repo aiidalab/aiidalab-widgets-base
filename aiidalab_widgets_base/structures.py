@@ -423,7 +423,6 @@ class StructureUploadWidget(ipw.VBox):
 
     def _on_file_upload(self, change=None):
         """When file upload button is pressed."""
-
         assert len(change["new"]) == 1, "Only single file upload is supported."
         file = change["new"][0]
         self.structure = self._read_structure(file["name"], file["content"])
