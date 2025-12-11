@@ -40,12 +40,12 @@ def test_eln_configure(selenium_driver, final_screenshot):
 
 def test_process(selenium_driver, final_screenshot):
     driver = selenium_driver("notebooks/process.ipynb")
-    driver.find_element(By.XPATH, '//label[text()="Select calculation:"]')
+    driver.find_element(By.XPATH, '//label[@title="Select calculation:"]')
 
 
 def test_wizard_apps(selenium_driver, final_screenshot):
     driver = selenium_driver("notebooks/wizard_apps.ipynb")
-    driver.find_element(By.XPATH, '//label[text()="Delivery progress:"]')
+    driver.find_element(By.XPATH, '//label[@title="Delivery progress:"]')
 
 
 def test_structures(selenium_driver, final_screenshot):

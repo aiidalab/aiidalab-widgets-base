@@ -65,12 +65,12 @@ def test_wizard_app_widget():
     # Check initial state.
     assert s1.state == s1.State.INIT
     assert s2.state == s2.State.INIT
+    assert widget.accordion.selected_index == 0
     assert widget.next_button.disabled is True
     assert widget.back_button.disabled is True
     assert widget.accordion.get_title(0) == "○ Step 1: Setup"
     assert widget.accordion.get_title(1) == "○ Step 2: View results"
     assert not widget.can_reset()
-    widget.accordion.selected_index = 0  # Ensure first step is selected.
 
     # Check state after finishing the first step.
     s1.order_button.click()
