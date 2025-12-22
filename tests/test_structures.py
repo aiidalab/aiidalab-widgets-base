@@ -146,15 +146,16 @@ def test_structure_upload_widget():
     # Simulate the structure upload.
     widget._on_file_upload(
         change={
-            "new": {
-                "test.xyz": {
+            "new": (
+                {
+                    "name": "test.xyz",
                     "content": b"""2
 
                 Si 0.0 0.0 0.0
                 Si 0.5 0.5 0.5
                 """,
-                }
-            }
+                },
+            )
         }
     )
     assert isinstance(widget.structure, ase.Atoms)
