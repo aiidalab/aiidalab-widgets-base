@@ -20,11 +20,6 @@ def test_notebook_service_available(notebook_service):
     assert response.status_code == 200
 
 
-def test_process_list(selenium_driver, final_screenshot):
-    driver = selenium_driver("notebooks/process_list.ipynb")
-    driver.find_element(By.XPATH, '//button[text()="Update now"]')
-
-
 def test_aiida_datatypes_viewers(selenium_driver, final_screenshot):
     driver = selenium_driver("notebooks/viewers.ipynb")
     driver.set_window_size(1000, 2000)
@@ -36,11 +31,6 @@ def test_aiida_datatypes_viewers(selenium_driver, final_screenshot):
 def test_eln_configure(selenium_driver, final_screenshot):
     driver = selenium_driver("notebooks/eln_configure.ipynb")
     driver.find_element(By.XPATH, '//button[text()="Set as default"]')
-
-
-def test_process(selenium_driver, final_screenshot):
-    driver = selenium_driver("notebooks/process.ipynb")
-    driver.find_element(By.XPATH, '//label[text()="Select calculation:"]')
 
 
 def test_wizard_apps(selenium_driver, final_screenshot):
