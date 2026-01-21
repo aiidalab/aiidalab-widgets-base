@@ -286,6 +286,17 @@ class StructureManagerWidget(ipw.VBox):
             structure_node = structure_node_type(ase=structure)
             if "smiles" in structure.info:
                 structure_node.base.extras.set("smiles", structure.info["smiles"])
+            if "fixed_atoms" in structure.arrays:
+                structure_node.base.attributes.all["fixed_atoms"] = structure.arrays[
+                    "fixed_atoms"
+                ]
+            if "CONSTRAINTS" in structure.info:
+                structure_node.base.attributes.all["CONSTRAINTS"] = structure.info[
+                    "CONSTRAINTS"
+                ]
+                structure_node.base.attributes.all["fixed_atoms"] = structure.arrays[
+                    "fixed_atoms"
+                ]
             return structure_node
 
         # If the input_structure trait is set to AiiDA node, check what type
@@ -340,7 +351,16 @@ class StructureManagerWidget(ipw.VBox):
                 str_io, format="cif", reader="ase", store_tags=True
             )
         elif isinstance(change["new"], StructureData):
-            self.structure = change["new"].get_ase()
+            structure = change["new"].get_ase()
+            if "fixed_atoms" in change["new"].base.attributes.all:
+                structure.arrays["fixed_atoms"] = np.array(
+                    change["new"].base.attributes.all["fixed_atoms"]
+                )
+            if "CONSTRAINTS" in change["new"].base.attributes.all:
+                structure.info["CONSTRAINTS"] = change["new"].base.attributes.all[
+                    "CONSTRAINTS"
+                ]
+            self.structure = structure
 
         else:
             self.structure = None
