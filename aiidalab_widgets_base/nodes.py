@@ -56,6 +56,13 @@ SELECTED_APPS = [
         "parameter_name": "structure_uuid",
         "description": "Compute adsorption isotherm of the selected material using the RASPA code. Typically, one needs to optimize geometry and compute the charges of material before computing the isotherm. However, if this is already done, you can go for it.",
     },
+    {
+        "name": "surfaces",
+        "calculation_type": "geo_opt",
+        "notebook": "submit_geometry_optimization.ipynb",
+        "parameter_name": "structure_uuid",
+        "description": "Optimize atomic positions and/or unit cell employing CP2K.",
+    },
 ]
 
 
@@ -344,6 +351,7 @@ class _AppIcon:
 
 class OpenAiidaNodeInAppWidget(ipw.VBox):
     node = tl.Instance(orm.Node, allow_none=True)
+    ready = tl.Bool(False)
 
     def __init__(self, path_to_root="../", **kwargs):
         self.path_to_root = path_to_root
@@ -358,7 +366,7 @@ class OpenAiidaNodeInAppWidget(ipw.VBox):
         spacer = ipw.HTML("""<p style="margin-bottom:1cm;"></p>""")
         super().__init__(children=[self.tab_selection, spacer, self.tab], **kwargs)
 
-    @tl.observe("node")
+    @tl.observe("ready")
     def _observe_node(self, change):
         if change["new"]:
             self.tab.children = [
@@ -378,7 +386,6 @@ class OpenAiidaNodeInAppWidget(ipw.VBox):
 
     def get_tab_content(self, apps_type):
         tab_content = ipw.HTML("")
-
         for app in SELECTED_APPS:
             if app["calculation_type"] != apps_type:
                 continue
