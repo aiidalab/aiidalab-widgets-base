@@ -13,7 +13,7 @@ repos:
             exclude: miscellaneous/structures
 
     - repo: https://github.com/astral-sh/ruff-pre-commit
-      rev: v0.13.3
+      rev: v0.14.10
       hooks:
           - id: ruff-format
             exclude: ^docs/.*
@@ -27,11 +27,11 @@ repos:
             args: [--preserve-quotes]
 
     - repo: https://github.com/sirosen/check-jsonschema
-      rev: 0.34.0
+      rev: 0.36.0
       hooks:
           - id: check-github-workflows
 
     - repo: https://github.com/kynan/nbstripout
-      rev: 0.8.1
+      rev: 0.8.2
       hooks:
           - id: nbstripout
