@@ -71,7 +71,7 @@ jobs:
               if: matrix.browser == 'Firefox'
 
             - name: Run pytest
-              run: pytest -v --driver ${{ matrix.browser }} tests_notebooks
+              run: pytest --tb=line -v --driver ${{ matrix.browser }} tests_notebooks
               env:
                   TAG: ${{ matrix.docker-tag }}
 
@@ -127,7 +127,7 @@ jobs:
               run: sudo apt-get update && sudo apt-get install povray
 
             - name: Run pytest
-              run: pytest -v tests --cov=aiidalab_widgets_base
+              run: pytest -v --tb=short tests/ --cov=aiidalab_widgets_base
 
             - name: Upload coverage reports to Codecov
               uses: codecov/codecov-action@v5
