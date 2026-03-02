@@ -36,9 +36,11 @@ def test_open_aiida_node_in_app_widget(multiply_add_completed_workchain):
 
     open_node_in_app.node = process
 
-    assert len(open_node_in_app.tab.children) > 0
-    assert open_node_in_app.tab._titles == {
-        "0": "Geometry Optimization",
-        "1": "Geometry analysis",
-        "2": "Isotherm",
-    }
+    assert len(open_node_in_app.tab.children) == 3
+    expected_tab_titles = [
+        "Geometry Optimization",
+        "Geometry analysis",
+        "Isotherm",
+    ]
+    for i, title in enumerate(expected_tab_titles):
+        assert open_node_in_app.tab.get_title(i) == title

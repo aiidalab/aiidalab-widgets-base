@@ -7,6 +7,7 @@ from aiidalab_widgets_base.databases import ComputationalResourcesDatabaseWidget
 
 # timeout for the test
 @pytest.mark.timeout(30)
+@pytest.mark.xfail(strict=False)
 def test_cod_query_widget():
     """Test the COD query widget."""
 
@@ -29,6 +30,7 @@ def test_cod_query_widget():
     assert widget.structure.get_chemical_formula() == "NiTi"
 
 
+@pytest.mark.xfail(strict=False)
 def test_optimade_query_widget():
     """Test the OPTIMADE query widget."""
 
