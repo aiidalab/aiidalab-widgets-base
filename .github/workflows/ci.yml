@@ -121,7 +121,7 @@ jobs:
             # Ideally, these would be fixed, but vapory is largely unmaintained,
             # so here we simply keep the pip behaviour with the --compile flag.
             # See https://github.com/astral-sh/uv/issues/1928#issuecomment-1968857514
-              run: uv pip install --compile --resolution ${{ matrix.uv-resolution }} -e .[dev,smiles,optimade,eln]
+              run: uv pip install --prerelease=allow --compile --resolution ${{ matrix.uv-resolution }} -e .[dev,smiles,optimade,eln]
 
             - name: Install povray
               run: sudo apt-get update && sudo apt-get install povray
