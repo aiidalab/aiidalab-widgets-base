@@ -22,8 +22,7 @@ def aiida_profile(aiida_config, aiida_profile_factory, config_sqlite_dos):
     without broker. However, tests in this package make use of the daemon which requires a broker and the tests should
     be run against the main storage backend, which is ``core.sqlite_dos``.
     """
-    broker = "core.rabbitmq"
-
+    broker = None
     storage = "core.sqlite_dos"
     config = config_sqlite_dos()
 

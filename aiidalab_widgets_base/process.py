@@ -15,7 +15,7 @@ import warnings
 
 import ipywidgets as ipw
 import traitlets as tl
-from aiida import engine, orm
+from aiida import orm
 from aiida.cmdline.utils.ascii_vis import format_call_graph
 from aiida.cmdline.utils.common import (
     get_calcjob_report,
@@ -75,6 +75,7 @@ class SubmitButtonWidget(ipw.VBox):
 
         append_output (bool): Whether to clear widget output for each subsequent submission.
         """
+        from aiida import engine
 
         self.path_to_root = kwargs.get("path_to_root", "../")
         if inspect.isclass(process_class) and issubclass(process_class, engine.Process):
@@ -108,6 +109,8 @@ class SubmitButtonWidget(ipw.VBox):
 
     def on_btn_submit_press(self, _=None):
         """When submit button is pressed."""
+
+        from aiida import engine
 
         if not self.append_output:
             self.submit_out.value = ""
