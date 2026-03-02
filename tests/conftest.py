@@ -8,49 +8,32 @@ from collections.abc import Mapping
 
 import numpy as np
 import pytest
-from aiida import __version__ as aiida_version
 from aiida import engine, orm, plugins
-from packaging.version import Version
 
 # Load aiida's pytest fixtures
-# For aiida-core>=2.6 we load new fixtures which use sqlite backend.
-if Version(aiida_version) >= Version("2.6.0"):
-    pytest_plugins = ["aiida.tools.pytest_fixtures"]
+pytest_plugins = ["aiida.tools.pytest_fixtures"]
 
-    @pytest.fixture(scope="session")
-    def aiida_profile(aiida_config, aiida_profile_factory, config_sqlite_dos):
-        """Create and load a profile with ``core.psql_dos`` as a storage backend and RabbitMQ as the broker.
 
-        This overrides the ``aiida_profile`` fixture provided by ``aiida-core`` which runs with ``core.sqlite_dos`` and
-        without broker. However, tests in this package make use of the daemon which requires a broker and the tests should
-        be run against the main storage backend, which is ``core.sqlite_dos``.
-        """
-        broker = "core.rabbitmq"
+@pytest.fixture(scope="session")
+def aiida_profile(aiida_config, aiida_profile_factory, config_sqlite_dos):
+    """Create and load a profile with ``core.psql_dos`` as a storage backend and RabbitMQ as the broker.
 
-        storage = "core.sqlite_dos"
-        config = config_sqlite_dos()
+    This overrides the ``aiida_profile`` fixture provided by ``aiida-core`` which runs with ``core.sqlite_dos`` and
+    without broker. However, tests in this package make use of the daemon which requires a broker and the tests should
+    be run against the main storage backend, which is ``core.sqlite_dos``.
+    """
+    broker = "core.rabbitmq"
 
-        with aiida_profile_factory(
-            aiida_config,
-            storage_backend=storage,
-            storage_config=config,
-            broker_backend=broker,
-        ) as profile:
-            yield profile
+    storage = "core.sqlite_dos"
+    config = config_sqlite_dos()
 
-else:
-    pytest_plugins = ["aiida.manage.tests.pytest_fixtures"]
-
-    @pytest.fixture
-    def aiida_code_installed(aiida_local_code_factory):
-        def _code(filepath_executable, default_calc_job_plugin, label=None):
-            return aiida_local_code_factory(
-                executable=filepath_executable,
-                entry_point=default_calc_job_plugin,
-                label=label,
-            )
-
-        return _code
+    with aiida_profile_factory(
+        aiida_config,
+        storage_backend=storage,
+        storage_config=config,
+        broker_backend=broker,
+    ) as profile:
+        yield profile
 
 
 @pytest.fixture
