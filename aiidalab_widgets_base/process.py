@@ -7,19 +7,15 @@ from __future__ import annotations
 import inspect
 import sys
 import threading
-import uuid
 import warnings
 
 import ipywidgets as ipw
 import traitlets as tl
 from aiida import engine, orm
-from IPython.display import HTML, clear_output, display
 
 # Local imports.
 from .nodes import NodesTreeWidget
 from .utils import exceptions
-from .viewers import viewer
-
 
 
 class SubmitButtonWidget(ipw.VBox):
