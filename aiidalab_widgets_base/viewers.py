@@ -17,8 +17,9 @@ import shortuuid
 import spglib
 import traitlets as tl
 import vapory
-from aiida import cmdline, orm, tools
+from aiida import cmdline, orm
 from aiida.orm.nodes.data.structure import _get_dimensionality
+from aiida.tools.query.formatting import format_process_state, format_relative_time
 from ase.data import colors
 from IPython.display import clear_output, display
 from matplotlib.colors import to_rgb
@@ -1689,10 +1690,10 @@ class ProcessNodeViewerWidget(ipw.HTML):
         )
         header = f"""
             Process {process.process_label},
-            State: {tools.query.formatting.format_process_state(process.process_state.value)},
+            State: {format_process_state(process.process_state.value)},
             UUID: {process.uuid} (pk: {process.pk})<br>
-            Started {tools.query.formatting.format_relative_time(process.ctime)},
-            Last modified {tools.query.formatting.format_relative_time(process.mtime)}<br>
+            Started {format_relative_time(process.ctime)},
+            Last modified {format_relative_time(process.mtime)}<br>
         """
         self.value = f"{header}<pre>{filtered_report}</pre>"
 

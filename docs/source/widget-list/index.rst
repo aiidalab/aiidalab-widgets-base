@@ -13,8 +13,6 @@ See also the `corresponding git repository <https://github.com/aiidalab/aiidalab
 
     notebooks/viewers
     notebooks/computational_resources
-    notebooks/process
-    notebooks/process_list
     notebooks/structures
     notebooks/wizard_apps
     notebooks/eln_configure
