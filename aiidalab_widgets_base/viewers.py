@@ -4,10 +4,13 @@ from __future__ import annotations
 
 import base64
 import copy
+import csv
+import io
 import os
 import pathlib
 import re
 import warnings
+from html import escape
 
 import ase
 import ipywidgets as ipw
@@ -30,6 +33,57 @@ from .misc import CopyToClipboardButton, ReversePolishNotation
 from .utils import ase2spglib, list_to_string_range, string_range_to_list
 
 AIIDA_VIEWER_MAPPING = {}
+DICT_VIEWER_HEADERS = ("Key", "Value")
+DICT_VIEWER_MAX_COL_WIDTH = 40
+DICT_VIEWER_TABLE_STYLE = """
+<style>
+    .df { border: none; }
+    .df tbody tr:nth-child(odd) { background-color: #e5e7e9; }
+    .df tbody tr:nth-child(odd):hover { background-color: #f5b7b1; }
+    .df tbody tr:nth-child(even):hover { background-color: #f5b7b1; }
+    .df tbody td { min-width: 300px; text-align: center; border: none }
+    .df th { text-align: center; border: none; border-bottom: 1px solid black; }
+</style>
+"""
+
+
+def _normalize_dict_viewer_rows(data):
+    return [(str(key), str(value)) for key, value in sorted(data.items())]
+
+
+def _truncate_dict_viewer_text(text, max_length=DICT_VIEWER_MAX_COL_WIDTH):
+    if len(text) <= max_length:
+        return text
+    return f"{text[: max_length - 3]}..."
+
+
+def _render_dict_viewer_table(rows):
+    headers = "".join(f"<th>{escape(header)}</th>" for header in DICT_VIEWER_HEADERS)
+    body = "".join(
+        (
+            "<tr>"
+            f"<td>{escape(_truncate_dict_viewer_text(key))}</td>"
+            f"<td>{escape(_truncate_dict_viewer_text(value))}</td>"
+            "</tr>"
+        )
+        for key, value in rows
+    )
+    return (
+        DICT_VIEWER_TABLE_STYLE
+        + '<table class="df"><thead><tr>'
+        + headers
+        + "</tr></thead><tbody>"
+        + body
+        + "</tbody></table>"
+    )
+
+
+def _prepare_dict_viewer_csv_payload(rows):
+    handle = io.StringIO(newline="")
+    writer = csv.writer(handle, lineterminator="\n")
+    writer.writerow(DICT_VIEWER_HEADERS)
+    writer.writerows(rows)
+    return base64.b64encode(handle.getvalue().encode()).decode()
 
 
 def register_viewer_widget(key):
@@ -105,38 +159,12 @@ class DictViewer(ipw.VBox):
     :type downloadable: bool"""
 
     def __init__(self, parameter, downloadable=True, **kwargs):
-        import pandas as pd
-
-        # Here we are defining properties of 'df' class (specified while exporting pandas table into html).
-        # Since the exported object is nothing more than HTML table, all 'standard' HTML table settings
-        # can be applied to it as well.
-        # For more information on how to controle the table appearance please visit:
-        # https://css-tricks.com/complete-guide-table-element/
         self.widget = ipw.HTML()
         ipw.dlink((self, "value"), (self.widget, "value"))
-
-        self.value += """
-        <style>
-            .df { border: none; }
-            .df tbody tr:nth-child(odd) { background-color: #e5e7e9; }
-            .df tbody tr:nth-child(odd):hover { background-color:   #f5b7b1; }
-            .df tbody tr:nth-child(even):hover { background-color:  #f5b7b1; }
-            .df tbody td { min-width: 300px; text-align: center; border: none }
-            .df th { text-align: center; border: none;  border-bottom: 1px solid black;}
-        </style>
-        """
-
-        pd.set_option("max_colwidth", 40)
-        dataf = pd.DataFrame(
-            sorted(parameter.get_dict().items()),
-            columns=["Key", "Value"],
-        )
-        self.value += dataf.to_html(
-            classes="df", index=False
-        )  # specify that exported table belongs to 'df' class
-        # this is used to setup table's appearance using CSS
+        rows = _normalize_dict_viewer_rows(parameter.get_dict())
+        self.value = _render_dict_viewer_table(rows)
         if downloadable:
-            payload = base64.b64encode(dataf.to_csv(index=False).encode()).decode()
+            payload = _prepare_dict_viewer_csv_payload(rows)
             fname = f"{parameter.pk}.csv"
             self.value += f"""Download table in csv format: <a download="{fname}"
             href="data:text/csv;base64,{payload}" target="_blank">{fname}</a>"""
