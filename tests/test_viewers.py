@@ -1,3 +1,5 @@
+import base64
+import re
 from pathlib import Path
 
 import ase
@@ -50,6 +52,48 @@ def test_several_data_viewers(bands_data_object, generate_calc_job_node):
     )
     v = viewers.viewer(process)
     assert isinstance(v, viewers.ProcessNodeViewerWidget)
+
+
+@pytest.mark.usefixtures("aiida_profile_clean")
+def test_dict_viewer_renders_table_and_csv_payload():
+    long_value = "0123456789" * 5
+    escaped_value = "<tag> & value"
+    parameter = orm.Dict(
+        dict={
+            "z-key": escaped_value,
+            "a-key": long_value,
+        }
+    ).store()
+
+    viewer = viewers.DictViewer(parameter, downloadable=True)
+
+    assert "<table" in viewer.value
+    assert "<th>Key</th>" in viewer.value
+    assert "<th>Value</th>" in viewer.value
+    assert viewer.value.index("a-key") < viewer.value.index("z-key")
+    assert "0123456789012345678901234567890123456..." in viewer.value
+    assert long_value not in viewer.value
+    assert "&lt;tag&gt; &amp; value" in viewer.value
+    assert escaped_value not in viewer.value
+    assert f'download="{parameter.pk}.csv"' in viewer.value
+
+    match = re.search(r'data:text/csv;base64,([^"]+)', viewer.value)
+    assert match is not None
+
+    decoded_payload = base64.b64decode(match.group(1)).decode()
+    assert decoded_payload == (
+        f"Key,Value\na-key,{long_value}\nz-key,{escaped_value}\n"
+    )
+
+
+@pytest.mark.usefixtures("aiida_profile_clean")
+def test_dict_viewer_skips_download_link_when_disabled():
+    parameter = orm.Dict(dict={"a": 1}).store()
+
+    viewer = viewers.DictViewer(parameter, downloadable=False)
+
+    assert "Download table in csv format" not in viewer.value
+    assert "data:text/csv;base64," not in viewer.value
 
 
 @pytest.mark.usefixtures("aiida_profile_clean")
