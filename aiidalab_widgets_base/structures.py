@@ -748,8 +748,8 @@ class SmilesWidget(ipw.VBox):
         if mol is None:
             # Something is seriously wrong with the SMILES code,
             # just return None and don't attempt anything else.
-            self.output.value = "RDKit ERROR: Invalid SMILES string"
-            return None
+            msg = "Invalid SMILES"
+            raise ValueError(msg)
         mol = Chem.AddHs(mol)
 
         conf_id = AllChem.EmbedMolecule(mol, maxAttempts=20, randomSeed=42)
@@ -762,12 +762,16 @@ class SmilesWidget(ipw.VBox):
                 mol, maxAttempts=20, useRandomCoords=True, randomSeed=422
             )
         if conf_id < 0:
-            self.output.value = "RDKit ERROR: Could not generate conformer"
-            return None
-        if AllChem.UFFHasAllMoleculeParams(mol):
+            msg = "RDKit could not generate conformer"
+            raise ValueError(msg)
+
+        if AllChem.MMFFHasAllMoleculeParams(mol):
+            # TODO: Check the return value!
+            AllChem.MMFFOptimizeMolecule(mol, maxIters=steps)
+        elif AllChem.UFFHasAllMoleculeParams(mol):
             AllChem.UFFOptimizeMolecule(mol, maxIters=steps)
         else:
-            self.output.value = "RDKit WARNING: Missing UFF parameters"
+            self.output.value = "RDKit WARNING: Missing MMFF/UFF parameters"
 
         positions = mol.GetConformer().GetPositions()
         natoms = mol.GetNumAtoms()
