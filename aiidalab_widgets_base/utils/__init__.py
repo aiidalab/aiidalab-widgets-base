@@ -2,6 +2,7 @@
 
 import itertools
 import operator
+import re
 import threading
 from enum import Enum
 from typing import Any
@@ -84,9 +85,11 @@ def list_to_string_range(lst, shift=1):
     Shift used when e.g. for a user interface numbering starts from 1 not from 0"""
     return " ".join(
         [
-            f"{t[0] + shift}..{t[1] + shift}"
-            if isinstance(t, tuple)
-            else str(t + shift)
+            (
+                f"{t[0] + shift}..{t[1] + shift}"
+                if isinstance(t, tuple)
+                else str(t + shift)
+            )
             for t in find_ranges(sorted(lst))
         ]
     )
@@ -95,18 +98,32 @@ def list_to_string_range(lst, shift=1):
 def string_range_to_list(strng, shift=-1):
     """Converts a string like '1 3..5' into a list like [0, 2, 3, 4].
 
-    Shift used when e.g. for a user interface numbering starts from 1 not from 0"""
-    singles = [int(s) + shift for s in strng.split() if s.isdigit()]
-    ranges = [r for r in strng.split() if ".." in r]
-    if len(singles) + len(ranges) != len(strng.split()):
+    Accepts commas, semicolons, and whitespace around range separators, e.g.
+    ``"1,2 4; 7 .. 10"``.
+    Shift used when e.g. for a user interface numbering starts from 1 not from 0.
+    """
+    if strng is None:
         return [], False
-    for rng in ranges:
-        try:
-            start, end = rng.split("..")
-            singles += [i + shift for i in range(int(start), int(end) + 1)]
-        except ValueError:
+
+    normalized = re.sub(r"\s*\.\.\s*", "..", str(strng).strip())
+    normalized = re.sub(r"[,;]+", " ", normalized)
+    if not normalized:
+        return [], True
+
+    indexes = []
+    for item in normalized.split():
+        if not re.fullmatch(r"[+-]?\d+(?:\.\.[+-]?\d+)?", item):
             return [], False
-    return singles, True
+
+        if ".." in item:
+            start, end = [int(value) for value in item.split("..")]
+            if start > end:
+                return [], False
+            indexes.extend(i + shift for i in range(start, end + 1))
+        else:
+            indexes.append(int(item) + shift)
+
+    return indexes, True
 
 
 def get_formula(data_node):
