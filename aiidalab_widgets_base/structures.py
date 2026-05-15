@@ -117,8 +117,8 @@ class StructureManagerWidget(ipw.VBox):
         select_panel = ipw.Accordion(
             children=self._structure_importers(importers),
             selected_index=0 if importers else None,
+            titles=["Import structure"] if importers else [],
         )
-        select_panel.set_title(0, "Select structure")
 
         view_panel = ipw.Accordion(
             children=[
@@ -153,8 +153,8 @@ class StructureManagerWidget(ipw.VBox):
             if structure_editors
             else [],
             selected_index=None,
+            titles=["Edit structure"] if structure_editors else [],
         )
-        edit_panel.set_title(0, "Edit structure")
 
         self.output = ipw.HTML("")
 
@@ -423,10 +423,9 @@ class StructureUploadWidget(ipw.VBox):
 
     def _on_file_upload(self, change=None):
         """When file upload button is pressed."""
-        for fname, item in change["new"].items():
-            self.structure = self._read_structure(fname, item["content"])
-            self.file_upload.value.clear()
-            break
+        assert len(change["new"]) == 1, "Only single file upload is supported."
+        file = change["new"][0]
+        self.structure = self._read_structure(file["name"], file["content"])
 
     def _read_structure(self, fname, content):
         suffix = "".join(pathlib.Path(fname).suffixes)

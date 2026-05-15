@@ -102,7 +102,6 @@ class WizardAppWidget(ipw.VBox):
         # Initialize the accordion with the widgets ...
         self.accordion = ipw.Accordion(children=widgets)
         self._update_titles()
-        ipw.link((self.accordion, "selected_index"), (self, "selected_index"))
 
         # Watch for changes to each step's state
         for widget in widgets:
@@ -142,11 +141,14 @@ class WizardAppWidget(ipw.VBox):
         )
         self.next_button.on_click(self._on_click_next_button)
 
+        # Link the selected_index of the accordion to this app's selected_index.
+        # This needs to happen after all affected widgets have been created.
+        ipw.link((self.accordion, "selected_index"), (self, "selected_index"))
+
         self.header = ipw.HBox(
             children=[self.back_button, self.reset_button, self.next_button]
         )
         self.show_header = show_header
-
         super().__init__(children=[self.header, self.accordion], **kwargs)
 
     @property
