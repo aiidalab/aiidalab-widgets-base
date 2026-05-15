@@ -96,7 +96,7 @@ jobs:
         timeout-minutes: 30
         services:
             rabbitmq:
-                image: rabbitmq:latest
+                image: rabbitmq:4.2
                 ports:
                     - 5672:5672
         steps:
