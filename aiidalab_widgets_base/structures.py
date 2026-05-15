@@ -697,13 +697,7 @@ class StructureBrowserWidget(ipw.VBox):
 
         options = [(f"Select a Structure ({len(matches)} found)", False)]
         for mch in matches:
-            label = f"PK: {mch.pk}"
-            label += " | " + mch.ctime.strftime("%Y-%m-%d %H:%M")
-            label += " | " + mch.base.extras.get("formula", "")
-            label += " | " + mch.node_type.split(".")[-2]
-            label += " | " + mch.label
-            label += " | " + mch.description
-            options.append((label, mch))
+            options.append((self._format_node_label(mch), mch))
 
         self.results.options = options
 
@@ -711,39 +705,55 @@ class StructureBrowserWidget(ipw.VBox):
         self.structure = self.results.value or None
         self.pk_input.value = str(self.structure.pk) if self.structure else ""
 
+    @staticmethod
+    def _format_node_label(node):
+        label = f"PK: {node.pk}"
+        label += " | " + node.ctime.strftime("%Y-%m-%d %H:%M")
+        label += " | " + node.base.extras.get("formula", "")
+        label += " | " + node.node_type.split(".")[-2]
+        label += " | " + node.label
+        label += " | " + node.description
+        return label
+
+    def _query_type_names(self):
+        return ", ".join(
+            node_class.__name__ for node_class in self.query_structure_type
+        )
+
+    def _clear_structure_selection(self):
+        self.results.options = [("Select a Structure", False)]
+        self.results.value = False
+        self.structure = None
+
     def _on_load_button_clicked(self, _=None):
         """When load button is clicked."""
         self.info.value = ""
         try:
             pk_value = int(self.pk_input.value)
             if pk_value <= 0:
+                self._clear_structure_selection()
                 self.info.value = "Invalid PK: please enter a positive integer."
                 pk_value = None
         except (ValueError, TypeError):
+            self._clear_structure_selection()
             self.info.value = "Invalid PK: please enter a positive integer."
             pk_value = None
 
         if pk_value:
             try:
                 node = orm.load_node(pk_value)
-                if isinstance(node, StructureData):
-                    # self.structure = node.get_ase()
-                    # sync dropdown selection
-                    label = f"PK: {pk_value}"
-                    label += " | " + node.ctime.strftime("%Y-%m-%d %H:%M")
-                    label += " | " + node.base.extras.get("formula", "")
-                    label += " | " + node.node_type.split(".")[-2]
-                    label += " | " + node.label
-                    label += " | " + node.description
-                    self.results.options = [(label, node)]
+                if isinstance(node, self.query_structure_type):
+                    self.results.options = [(self._format_node_label(node), node)]
+                    self.results.value = node
+                    self.structure = node
 
                 else:
-                    self.structure = None
+                    self._clear_structure_selection()
                     self.info.value = (
-                        "The PK does not correspond to a StructureData node."
+                        f"The PK does not correspond to {self._query_type_names()}."
                     )
             except common.NotExistent:
-                self.structure = None
+                self._clear_structure_selection()
                 self.info.value = f"No AiiDA node found for PK={pk_value}."
 
 
