@@ -66,16 +66,9 @@ from .export import ExportButtonWidget
 from .loaders import LoadingWidget
 from .nodes import NodesTreeWidget, OpenAiidaNodeInAppWidget
 from .process import (
-    ProcessCallStackWidget,
     ProcessFollowerWidget,
-    ProcessInputsWidget,
-    ProcessListWidget,
     ProcessMonitor,
     ProcessNodesTreeWidget,
-    ProcessOutputsWidget,
-    ProcessReportWidget,
-    ProgressBarWidget,
-    RunningCalcJobOutputWidget,
     SubmitButtonWidget,
 )
 from .structures import (
@@ -109,16 +102,9 @@ __all__ = [
     "NodesTreeWidget",
     "OpenAiidaNodeInAppWidget",
     "OptimadeQueryWidget",
-    "ProcessCallStackWidget",
     "ProcessFollowerWidget",
-    "ProcessInputsWidget",
-    "ProcessListWidget",
     "ProcessMonitor",
     "ProcessNodesTreeWidget",
-    "ProcessOutputsWidget",
-    "ProcessReportWidget",
-    "ProgressBarWidget",
-    "RunningCalcJobOutputWidget",
     "SmilesWidget",
     "StructureBrowserWidget",
     "StructureExamplesWidget",
@@ -131,4 +117,4 @@ __all__ = [
     "viewer",
 ]
 
-__version__ = "2.5.0"
+__version__ = "3.0.0a0"
