@@ -26,8 +26,17 @@ def test_nodes_tree_widget(multiply_add_completed_workchain):
 
 
 @pytest.mark.usefixtures("aiida_profile_clean")
-def test_open_aiida_node_in_app_widget(multiply_add_completed_workchain):
+def test_open_aiida_node_in_app_widget(multiply_add_completed_workchain, monkeypatch):
     """ "Test OpenAiidaNodeInAppWidget with a simple `WorkChainNode`"""
+
+    class MockAppIcon:
+        def __init__(self, **_kwargs):
+            pass
+
+        def to_html_string(self):
+            return "<p>app link</p>"
+
+    monkeypatch.setattr(nodes, "_AppIcon", MockAppIcon)
 
     process = multiply_add_completed_workchain
     open_node_in_app = nodes.OpenAiidaNodeInAppWidget()
