@@ -295,6 +295,164 @@ def test_compute_bonds_in_structure_data_viewer():
     assert len(bonds) == 4
 
 
+def test_structure_data_viewer_default_view_and_axes():
+    viewer = viewers.StructureDataViewer()
+    viewer.structure = ase.Atoms(
+        symbols="H2",
+        positions=[(0.0, 0.0, 0.0), (0.0, 0.0, 0.7)],
+        cell=[3.0, 3.0, 3.0],
+        pbc=True,
+    )
+
+    execute_code_messages = [
+        message
+        for message in viewer._viewer._ngl_msg_archive
+        if message.get("methodName") == "executeCode"
+    ]
+    assert execute_code_messages
+    assert "viewerControls.rotate([0, 1, 0, 0])" in execute_code_messages[-1]["args"][0]
+
+    axes_messages = [
+        message
+        for message in viewer._viewer._ngl_msg_archive
+        if message.get("methodName") == "addShape" and message["args"][0] == "axes"
+    ]
+    assert axes_messages
+    axes_shapes = axes_messages[-1]["args"][1]
+    assert [shape[-1] for shape in axes_shapes if shape[0] == "text"] == [
+        "x",
+        "y",
+        "z",
+    ]
+
+    appearance_tab = viewer.configuration_box.children[1]
+    assert any(
+        getattr(child, "description", None) == "Center atoms"
+        for child in appearance_tab.children
+    )
+    assert any(
+        getattr(child, "description", None) == "Default view"
+        for child in appearance_tab.children
+    )
+    assert appearance_tab.children[6].description == "View scale (%):"
+    assert appearance_tab.children[6].value == 100.0
+    pan_controls = appearance_tab.children[7].children
+    assert [control.description for control in pan_controls] == [
+        "Pan X (screens):",
+        "Pan Y (screens):",
+    ]
+    assert appearance_tab.children[8].description == "Show view help"
+    assert appearance_tab.children[9].layout.display == "none"
+    appearance_tab.children[8].value = True
+    assert appearance_tab.children[9].layout.display == ""
+    axes_controls = appearance_tab.children[10].children
+    assert [control.description for control in axes_controls] == [
+        "Show axes",
+        "Center axes",
+    ]
+
+
+def test_structure_data_viewer_axes_can_be_disabled():
+    viewer = viewers.StructureDataViewer(show_axes=False)
+    viewer.structure = ase.Atoms("H", positions=[(0.0, 0.0, 0.0)])
+    execute_code_count = len(
+        [
+            message
+            for message in viewer._viewer._ngl_msg_archive
+            if message.get("methodName") == "executeCode"
+        ]
+    )
+
+    assert not any(
+        message.get("methodName") == "addShape" and message["args"][0] == "axes"
+        for message in viewer._viewer._ngl_msg_archive
+    )
+
+    viewer.show_axes = True
+    assert any(
+        message.get("methodName") == "addShape" and message["args"][0] == "axes"
+        for message in viewer._viewer._ngl_msg_archive
+    )
+
+    viewer.show_axes = False
+    assert viewer._viewer._ngl_component_names == ["Structure"]
+    assert (
+        len(
+            [
+                message
+                for message in viewer._viewer._ngl_msg_archive
+                if message.get("methodName") == "executeCode"
+            ]
+        )
+        == execute_code_count
+    )
+
+
+def test_structure_data_viewer_view_transform():
+    viewer = viewers.StructureDataViewer()
+    viewer.structure = ase.Atoms("H", positions=[(0.0, 0.0, 0.0)])
+    viewer.view_scale = 200.0
+    viewer.view_pan_x = 1.5
+    viewer.view_pan_y = -2.5
+
+    execute_code_messages = [
+        message
+        for message in viewer._viewer._ngl_msg_archive
+        if message.get("methodName") == "executeCode"
+    ]
+    assert "const scale = 200.0 / 100.0" in execute_code_messages[-1]["args"][0]
+    assert (
+        "const panX = -(1.5) * this.stage.viewer.width"
+        in execute_code_messages[-1]["args"][0]
+    )
+    assert (
+        "const panY = -2.5 * this.stage.viewer.height"
+        in execute_code_messages[-1]["args"][0]
+    )
+    assert "panZ" not in execute_code_messages[-1]["args"][0]
+    assert "depthRange" not in execute_code_messages[-1]["args"][0]
+    assert (
+        "new NGL.Vector3(panX * scaleFactor, panY * scaleFactor, 0)"
+        in execute_code_messages[-1]["args"][0]
+    )
+    assert "viewerControls.translate(panVector)" in execute_code_messages[-1]["args"][0]
+    assert "viewerControls.rotate" not in execute_code_messages[-1]["args"][0]
+    viewer.reset_view()
+    assert viewer.view_scale == 100.0
+    assert viewer.view_pan_x == 0.0
+    assert viewer.view_pan_y == 0.0
+    reset_code_messages = [
+        message
+        for message in viewer._viewer._ngl_msg_archive
+        if message.get("methodName") == "executeCode"
+    ]
+    assert "const scale = 100.0 / 100.0" in reset_code_messages[-1]["args"][0]
+    assert (
+        "const panX = -(0.0) * this.stage.viewer.width"
+        in reset_code_messages[-1]["args"][0]
+    )
+    assert (
+        "const panY = 0.0 * this.stage.viewer.height"
+        in reset_code_messages[-1]["args"][0]
+    )
+    assert "viewerControls.rotate([0, 1, 0, 0])" in reset_code_messages[-1]["args"][0]
+
+
+def test_structure_data_viewer_centered_axes():
+    viewer = viewers.StructureDataViewer(center_axes=True)
+    viewer.structure = ase.Atoms(
+        "H2", positions=[(10.0, 10.0, 10.0), (12.0, 10.0, 10.0)]
+    )
+
+    axes_messages = [
+        message
+        for message in viewer._viewer._ngl_msg_archive
+        if message.get("methodName") == "addShape" and message["args"][0] == "axes"
+    ]
+    assert axes_messages
+    assert axes_messages[-1]["args"][1][0][1] == [11.0, 10.0, 10.0]
+
+
 @pytest.mark.usefixtures("aiida_profile_clean")
 def test_loading_viewer_using_process_type(generate_calc_job_node):
     """Test loading a viewer widget based on the process type of the process node."""
