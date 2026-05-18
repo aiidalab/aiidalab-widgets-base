@@ -572,7 +572,7 @@ class StructureBrowserWidget(ipw.VBox):
         self.info = ipw.HTML("")
         self.pk_input = ipw.Text(
             value="",
-            placeholder="1617",
+            placeholder="",
             description="Structure PK:",
             style={"description_width": "120px"},
         )
