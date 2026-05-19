@@ -729,9 +729,12 @@ class StructureBrowserWidget(ipw.VBox):
         self.info.value = ""
         try:
             pk_value = int(self.pk_input.value)
-            if pk_value <= 0:
-                raise ValueError
-        except ValueError:
+        except (ValueError, TypeError):
+            self._clear_structure_selection()
+            self.info.value = "Invalid PK: please enter a positive integer."
+            return
+
+        if pk_value <= 0:
             self._clear_structure_selection()
             self.info.value = "Invalid PK: please enter a positive integer."
             return
