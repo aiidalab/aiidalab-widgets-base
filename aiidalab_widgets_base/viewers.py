@@ -285,6 +285,11 @@ class _StructureDataBaseViewer(ipw.VBox):
         cell: ase.cell.Cell object.
     """
 
+    show_axes = tl.Bool(True)
+    center_axes = tl.Bool(False)
+    view_scale = tl.Float(100.0)
+    view_pan_x = tl.Float(0.0)
+    view_pan_y = tl.Float(0.0)
     _all_representations = tl.List()
     input_selection = tl.List(tl.Int(), allow_none=True)
     selection = tl.List(tl.Int())
@@ -322,6 +327,7 @@ class _StructureDataBaseViewer(ipw.VBox):
         self._viewer.camera = default_camera
         self._viewer.observe(self._on_atom_click, names="picked")
         self._viewer.stage.set_parameters(mouse_preset="pymol")
+        self._axes_component = None
 
         view_box = ipw.VBox([self._viewer])
         view_box.add_class("view-box")
@@ -467,10 +473,73 @@ class _StructureDataBaseViewer(ipw.VBox):
         camera_type.observe(change_camera, names="value")
 
         # 4. Center button.
-        center_button = ipw.Button(description="Center molecule")
+        center_button = ipw.Button(description="Center atoms")
         center_button.on_click(lambda _: self._viewer.center())
 
-        # 5. representations buttons
+        # 5. Reset view button.
+        reset_view_button = ipw.Button(description="Default view", icon="refresh")
+        reset_view_button.on_click(self.reset_view)
+
+        # 6. View scale.
+        view_scale = ipw.BoundedFloatText(
+            description="View scale (%):",
+            value=self.view_scale,
+            min=1.0,
+            max=1000.0,
+            step=10.0,
+            layout={"width": "220px"},
+            style={"description_width": "initial"},
+        )
+        tl.link((view_scale, "value"), (self, "view_scale"))
+
+        # 7. View pan.
+        pan_x = ipw.FloatText(
+            description="Pan X (screens):",
+            value=self.view_pan_x,
+            layout={"width": "180px"},
+            style={"description_width": "initial"},
+        )
+        pan_y = ipw.FloatText(
+            description="Pan Y (screens):",
+            value=self.view_pan_y,
+            layout={"width": "180px"},
+            style={"description_width": "initial"},
+        )
+        tl.link((pan_x, "value"), (self, "view_pan_x"))
+        tl.link((pan_y, "value"), (self, "view_pan_y"))
+
+        # 8. View help.
+        show_view_help = ipw.Checkbox(
+            description="Show view help", value=False, indent=False
+        )
+        view_help = ipw.HTML(
+            """
+            <div style="line-height: 1.5; max-width: 460px; margin: 4px 2px;">
+                <b>View controls:</b> Scale 100 is the default fit. Pan X/Y are
+                measured in screen lengths: +1 moves one full screen right/up,
+                -1 moves one full screen left/down. The default view button
+                resets scale and pan, then reapplies the default orientation.
+            </div>
+            """,
+            layout=ipw.Layout(display="none"),
+        )
+
+        def toggle_view_help(change):
+            view_help.layout.display = "" if change["new"] else "none"
+
+        show_view_help.observe(toggle_view_help, names="value")
+
+        # 9. Axis controls.
+        show_axes = ipw.Checkbox(
+            description="Show axes", value=self.show_axes, indent=False
+        )
+        center_axes = ipw.Checkbox(
+            description="Center axes", value=self.center_axes, indent=False
+        )
+        tl.link((show_axes, "value"), (self, "show_axes"))
+        tl.link((center_axes, "value"), (self, "center_axes"))
+
+        # 10. representations buttons
         self.representations_header = ipw.HBox(
             [
                 ipw.HTML(
@@ -551,6 +620,12 @@ class _StructureDataBaseViewer(ipw.VBox):
                 background_color,
                 camera_type,
                 center_button,
+                reset_view_button,
+                view_scale,
+                ipw.HBox([pan_x, pan_y]),
+                show_view_help,
+                view_help,
+                ipw.HBox([show_axes, center_axes]),
                 representation_accordion,
             ]
         )
@@ -1050,10 +1125,131 @@ class _StructureDataBaseViewer(ipw.VBox):
 
     def remove_viewer_components(self, c=None):
         """Remove all components from the viewer except the one specified."""
-        if hasattr(self._viewer, "component_0"):
-            self._viewer.component_0.clear_representations()
-            cid = self._viewer.component_0.id
-            self._viewer.remove_component(cid)
+        keep_id = getattr(c, "id", c)
+        for component_id in list(self._viewer._ngl_component_ids):
+            if component_id != keep_id:
+                self._viewer.remove_component(component_id)
+        if (
+            getattr(self._axes_component, "id", None)
+            not in self._viewer._ngl_component_ids
+        ):
+            self._axes_component = None
+
+    @tl.validate("view_scale")
+    def _valid_view_scale(self, change):
+        if change["value"] <= 0:
+            raise tl.TraitError("View scale must be positive.")
+        return change["value"]
+
+    @tl.validate("view_pan_x", "view_pan_y")
+    def _valid_view_pan(self, change):
+        if not np.isfinite(change["value"]):
+            raise tl.TraitError("View pan must be finite.")
+        return change["value"]
+
+    def reset_view(self, _=None):
+        """Reset the camera, scale, and pan to the default x/y view."""
+        with self.hold_trait_notifications():
+            self.view_scale = 100.0
+            self.view_pan_x = 0.0
+            self.view_pan_y = 0.0
+        if not self._viewer._ngl_component_ids:
+            return
+        self._viewer._execute_js_code(f"""
+            (() => {{
+                const center = this.stage.getCenter();
+                const scale = {self.view_scale} / 100.0;
+                const distance = this.stage.getZoom() / scale;
+                const panX = -({self.view_pan_x}) * this.stage.viewer.width;
+                const panY = {self.view_pan_y} * this.stage.viewer.height;
+                this.stage.viewerControls.rotate([0, 1, 0, 0]);
+                this.stage.viewerControls.center(center);
+                this.stage.viewerControls.distance(distance);
+                const scaleFactor = this.stage.viewerControls.getCanvasScaleFactor();
+                const panVector = new NGL.Vector3(panX * scaleFactor, panY * scaleFactor, 0);
+                const panMatrix = new NGL.Matrix4();
+                panMatrix.getInverse(this.stage.viewer.rotationGroup.matrix);
+                panMatrix.multiply(this.stage.trackballControls._getCameraRotation(new NGL.Matrix4()));
+                panVector.applyMatrix4(panMatrix);
+                this.stage.viewerControls.translate(panVector);
+                this.serialize_camera_orientation();
+            }})();
+        """)
+
+    @tl.observe("view_scale", "view_pan_x", "view_pan_y")
+    def apply_view_transform(self, _=None):
+        """Scale and pan the current view relative to the default fit."""
+        if not self._viewer._ngl_component_ids:
+            return
+        self._viewer._execute_js_code(f"""
+            (() => {{
+                const center = this.stage.getCenter();
+                const scale = {self.view_scale} / 100.0;
+                const distance = this.stage.getZoom() / scale;
+                const panX = -({self.view_pan_x}) * this.stage.viewer.width;
+                const panY = {self.view_pan_y} * this.stage.viewer.height;
+                this.stage.viewerControls.center(center);
+                this.stage.viewerControls.distance(distance);
+                const scaleFactor = this.stage.viewerControls.getCanvasScaleFactor();
+                const panVector = new NGL.Vector3(panX * scaleFactor, panY * scaleFactor, 0);
+                const panMatrix = new NGL.Matrix4();
+                panMatrix.getInverse(this.stage.viewer.rotationGroup.matrix);
+                panMatrix.multiply(this.stage.trackballControls._getCameraRotation(new NGL.Matrix4()));
+                panVector.applyMatrix4(panMatrix);
+                this.stage.viewerControls.translate(panVector);
+                this.serialize_camera_orientation();
+            }})();
+        """)
+
+    @tl.observe("show_axes", "center_axes")
+    def _observe_axes_settings(self, _=None):
+        if isinstance(self.displayed_structure, ase.Atoms):
+            self._remove_axes()
+            self._add_axes()
+
+    def _remove_axes(self):
+        if getattr(self._axes_component, "id", None) in self._viewer._ngl_component_ids:
+            self._viewer.remove_component(self._axes_component)
+        self._axes_component = None
+
+    def _add_axes(self):
+        """Add a small coordinate-axis triad to the viewer."""
+        self._remove_axes()
+        if not self.show_axes or not isinstance(self.displayed_structure, ase.Atoms):
+            return
+
+        positions = self.displayed_structure.get_positions()
+        cell_lengths = self.displayed_structure.cell.lengths()
+        structure_extent = np.ptp(positions, axis=0) if len(positions) else [0, 0, 0]
+        cell_extent = np.max(cell_lengths)
+        extent = max(cell_extent, np.max(structure_extent), 5.0)
+        length = 0.2 * extent
+        radius = 0.03 * length
+        label_size = 0.25 * length
+        label_offset = 0.12 * length
+        if self.center_axes and len(positions):
+            origin = np.mean(positions, axis=0)
+        elif cell_extent > 0:
+            origin = np.zeros(3)
+        else:
+            origin = (
+                np.min(positions, axis=0) - 0.08 * extent
+                if len(positions)
+                else np.zeros(3)
+            )
+
+        axes = [
+            ("x", np.array([length, 0.0, 0.0]), [1.0, 0.0, 0.0]),
+            ("y", np.array([0.0, length, 0.0]), [0.0, 0.6, 0.0]),
+            ("z", np.array([0.0, 0.0, length]), [0.0, 0.2, 1.0]),
+        ]
+        shapes = []
+        for label, vector, color in axes:
+            end = origin + vector
+            label_position = end + label_offset * vector / np.linalg.norm(vector)
+            shapes.append(("arrow", origin.tolist(), end.tolist(), color, radius))
+            shapes.append(("text", label_position.tolist(), color, label_size, label))
+        self._axes_component = self._viewer._add_shape(shapes, name="axes")
 
     @tl.default("supercell")
     def _default_supercell(self):
@@ -1297,8 +1493,10 @@ class StructureDataViewer(_StructureDataBaseViewer):
                             )
                 self._viewer.set_representations(nglview_params, component=0)
                 self._viewer.add_unitcell()
-                self._viewer._add_shape(set(bonds), name="bonds")
-                self._viewer.center()
+                if bonds:
+                    self._viewer._add_shape(set(bonds), name="bonds")
+                self._add_axes()
+                self.reset_view()
                 # In case of a structure with only one atom, the `center()` method will show a black sphere.
                 if len(self.displayed_structure) == 1:
                     # get center of mass of the displayed structure
