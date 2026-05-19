@@ -730,30 +730,27 @@ class StructureBrowserWidget(ipw.VBox):
         try:
             pk_value = int(self.pk_input.value)
             if pk_value <= 0:
-                self._clear_structure_selection()
-                self.info.value = "Invalid PK: please enter a positive integer."
-                pk_value = None
-        except (ValueError, TypeError):
+                raise ValueError
+        except ValueError:
             self._clear_structure_selection()
             self.info.value = "Invalid PK: please enter a positive integer."
-            pk_value = None
+            return
 
-        if pk_value:
-            try:
-                node = orm.load_node(pk_value)
-                if isinstance(node, self.query_structure_type):
-                    self.results.options = [(self._format_node_label(node), node)]
-                    self.results.value = node
-                    self.structure = node
-
-                else:
-                    self._clear_structure_selection()
-                    self.info.value = (
-                        f"The PK does not correspond to {self._query_type_names()}."
-                    )
-            except common.NotExistent:
+        try:
+            node = orm.load_node(pk_value)
+        except common.NotExistent:
+            self._clear_structure_selection()
+            self.info.value = f"No AiiDA node found for PK={pk_value}."
+        else:
+            if isinstance(node, self.query_structure_type):
+                self.results.options = [(self._format_node_label(node), node)]
+                self.results.value = node
+                self.structure = node
+            else:
                 self._clear_structure_selection()
-                self.info.value = f"No AiiDA node found for PK={pk_value}."
+                self.info.value = (
+                    f"The PK does not correspond to {self._query_type_names()}."
+                )
 
 
 class SmilesWidget(ipw.VBox):
