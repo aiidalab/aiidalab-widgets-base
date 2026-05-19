@@ -1288,7 +1288,8 @@ class _StructureDataBaseViewer(ipw.VBox):
             return
         self._viewer._execute_js_code(f"""
             (() => {{
-                const center = this.stage.getCenter();
+                const component = this.stage.compList[0];
+                const center = component ? component.getCenter() : this.stage.getCenter();
                 const scale = {self.view_scale} / 100.0;
                 const distance = this.stage.getZoom() / scale;
                 const panX = -({self.view_pan_x}) * this.stage.viewer.width;
@@ -1301,6 +1302,9 @@ class _StructureDataBaseViewer(ipw.VBox):
                 const panMatrix = new NGL.Matrix4();
                 panMatrix.getInverse(this.stage.viewer.rotationGroup.matrix);
                 panMatrix.multiply(this.stage.trackballControls._getCameraRotation(new NGL.Matrix4()));
+                panMatrix.elements[12] = 0;
+                panMatrix.elements[13] = 0;
+                panMatrix.elements[14] = 0;
                 panVector.applyMatrix4(panMatrix);
                 this.stage.viewerControls.translate(panVector);
                 this.serialize_camera_orientation();
@@ -1314,7 +1318,8 @@ class _StructureDataBaseViewer(ipw.VBox):
             return
         self._viewer._execute_js_code(f"""
             (() => {{
-                const center = this.stage.getCenter();
+                const component = this.stage.compList[0];
+                const center = component ? component.getCenter() : this.stage.getCenter();
                 const scale = {self.view_scale} / 100.0;
                 const distance = this.stage.getZoom() / scale;
                 const panX = -({self.view_pan_x}) * this.stage.viewer.width;
@@ -1326,6 +1331,9 @@ class _StructureDataBaseViewer(ipw.VBox):
                 const panMatrix = new NGL.Matrix4();
                 panMatrix.getInverse(this.stage.viewer.rotationGroup.matrix);
                 panMatrix.multiply(this.stage.trackballControls._getCameraRotation(new NGL.Matrix4()));
+                panMatrix.elements[12] = 0;
+                panMatrix.elements[13] = 0;
+                panMatrix.elements[14] = 0;
                 panVector.applyMatrix4(panMatrix);
                 this.stage.viewerControls.translate(panVector);
                 this.serialize_camera_orientation();

@@ -415,6 +415,14 @@ def test_structure_data_viewer_view_transform():
         "new NGL.Vector3(panX * scaleFactor, panY * scaleFactor, 0)"
         in execute_code_messages[-1]["args"][0]
     )
+    assert (
+        "const component = this.stage.compList[0];"
+        in execute_code_messages[-1]["args"][0]
+    )
+    assert "component ? component.getCenter()" in execute_code_messages[-1]["args"][0]
+    assert "panMatrix.elements[12] = 0;" in execute_code_messages[-1]["args"][0]
+    assert "panMatrix.elements[13] = 0;" in execute_code_messages[-1]["args"][0]
+    assert "panMatrix.elements[14] = 0;" in execute_code_messages[-1]["args"][0]
     assert "viewerControls.translate(panVector)" in execute_code_messages[-1]["args"][0]
     assert "viewerControls.rotate" not in execute_code_messages[-1]["args"][0]
     viewer.reset_view()
@@ -435,6 +443,8 @@ def test_structure_data_viewer_view_transform():
         "const panY = 0.0 * this.stage.viewer.height"
         in reset_code_messages[-1]["args"][0]
     )
+    assert "component ? component.getCenter()" in reset_code_messages[-1]["args"][0]
+    assert "panMatrix.elements[12] = 0;" in reset_code_messages[-1]["args"][0]
     assert "viewerControls.rotate([0, 1, 0, 0])" in reset_code_messages[-1]["args"][0]
 
 
