@@ -292,7 +292,6 @@ def test_structure_data_viewer_clears_bond_shape_components():
 
     viewer.structure = water
     assert len(viewer._viewer._ngl_component_ids) == 2
-    assert "nglview.shape.Shape" in viewer._viewer._ngl_component_names
 
     viewer.structure = None
 

@@ -1048,12 +1048,9 @@ class _StructureDataBaseViewer(ipw.VBox):
                     kwargs=params["params"],
                 )
 
-    def remove_viewer_components(self, c=None):
-        """Remove all components from the viewer except the one specified."""
-        keep_id = getattr(c, "id", c)
+    def remove_viewer_components(self):
+        """Remove all components from the viewer."""
         for cid in list(self._viewer._ngl_component_ids):
-            if cid == keep_id:
-                continue
             self._viewer.remove_component(cid)
 
     @tl.default("supercell")
