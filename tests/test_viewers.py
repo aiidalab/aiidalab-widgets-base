@@ -334,18 +334,18 @@ def test_structure_data_viewer_default_view_and_axes():
         getattr(child, "description", None) == "Default view"
         for child in appearance_tab.children
     )
-    assert appearance_tab.children[6].description == "View scale (%):"
-    assert appearance_tab.children[6].value == 100.0
-    pan_controls = appearance_tab.children[7].children
+    assert appearance_tab.children[7].description == "View scale (%):"
+    assert appearance_tab.children[7].value == 100.0
+    pan_controls = appearance_tab.children[8].children
     assert [control.description for control in pan_controls] == [
         "Pan X (screens):",
         "Pan Y (screens):",
     ]
-    assert appearance_tab.children[8].description == "Show view help"
-    assert appearance_tab.children[9].layout.display == "none"
-    appearance_tab.children[8].value = True
-    assert appearance_tab.children[9].layout.display == ""
-    axes_controls = appearance_tab.children[10].children
+    assert appearance_tab.children[9].description == "Show view help"
+    assert appearance_tab.children[10].layout.display == "none"
+    appearance_tab.children[9].value = True
+    assert appearance_tab.children[10].layout.display == ""
+    axes_controls = appearance_tab.children[11].children
     assert [control.description for control in axes_controls] == [
         "Show axes",
         "Center axes",
@@ -415,6 +415,14 @@ def test_structure_data_viewer_view_transform():
         "new NGL.Vector3(panX * scaleFactor, panY * scaleFactor, 0)"
         in execute_code_messages[-1]["args"][0]
     )
+    assert (
+        "const component = this.stage.compList[0];"
+        in execute_code_messages[-1]["args"][0]
+    )
+    assert "component ? component.getCenter()" in execute_code_messages[-1]["args"][0]
+    assert "panMatrix.elements[12] = 0;" in execute_code_messages[-1]["args"][0]
+    assert "panMatrix.elements[13] = 0;" in execute_code_messages[-1]["args"][0]
+    assert "panMatrix.elements[14] = 0;" in execute_code_messages[-1]["args"][0]
     assert "viewerControls.translate(panVector)" in execute_code_messages[-1]["args"][0]
     assert "viewerControls.rotate" not in execute_code_messages[-1]["args"][0]
     viewer.reset_view()
@@ -435,6 +443,8 @@ def test_structure_data_viewer_view_transform():
         "const panY = 0.0 * this.stage.viewer.height"
         in reset_code_messages[-1]["args"][0]
     )
+    assert "component ? component.getCenter()" in reset_code_messages[-1]["args"][0]
+    assert "panMatrix.elements[12] = 0;" in reset_code_messages[-1]["args"][0]
     assert "viewerControls.rotate([0, 1, 0, 0])" in reset_code_messages[-1]["args"][0]
 
 
@@ -451,6 +461,82 @@ def test_structure_data_viewer_centered_axes():
     ]
     assert axes_messages
     assert axes_messages[-1]["args"][1][0][1] == [11.0, 10.0, 10.0]
+
+
+def test_structure_data_viewer_below_controls_layout():
+    viewer = viewers.StructureDataViewer(
+        configuration_layout="below", controls_panel_open=False
+    )
+
+    assert len(viewer.children) == 2
+    view_box, controls_box = viewer.children
+    assert view_box.layout.width == "100%"
+    assert viewer._viewer.layout.height == "560px"
+    assert controls_box.selected_index is None
+    assert controls_box.get_title(0) == "Viewer controls"
+    assert controls_box.children[0] is viewer.configuration_box
+
+    toolbar = view_box.children[0]
+    assert toolbar.children[0].description == ""
+    assert toolbar.children[0].icon == "crosshairs"
+    assert toolbar.children[0].tooltip == "Center atoms"
+    assert toolbar.children[1].description == ""
+    assert toolbar.children[1].icon == "refresh"
+    assert toolbar.children[1].tooltip == "Reset view, scale, and pan"
+    scale_controls = toolbar.children[2].children
+    assert scale_controls[0].icon == "search-plus"
+    assert scale_controls[0].tooltip == "View scale (%)"
+    assert scale_controls[1].description == ""
+    assert scale_controls[1].max == 999.0
+    assert [child.description for child in toolbar.children[3].children] == [
+        "Show axes",
+        "Center axes",
+    ]
+    assert view_box.children[1] is viewer._viewer
+
+    viewer.set_configuration_layout("side")
+    assert viewer.layout_toggle.value == "side"
+    assert len(viewer.children) == 1
+    side_box = viewer.children[0]
+    assert side_box.children[0] is view_box
+    assert side_box.children[1] is viewer.configuration_box
+    assert controls_box.children == ()
+    assert view_box.layout.width == "60%"
+
+    viewer.set_configuration_layout("below")
+    assert viewer.layout_toggle.value == "below"
+    assert viewer.children == (view_box, controls_box)
+    assert controls_box.children[0] is viewer.configuration_box
+    assert view_box.layout.width == "100%"
+
+    appearance_tab = viewer.configuration_box.children[1]
+    assert not any(
+        getattr(child, "description", None) == "Center atoms"
+        for child in appearance_tab.children
+    )
+    assert not any(
+        getattr(child, "description", None) == "Default view"
+        for child in appearance_tab.children
+    )
+    assert not any(
+        getattr(child, "description", None) == "View scale (%):"
+        for child in appearance_tab.children
+    )
+    assert not any(
+        getattr(child, "description", None) == "Show axes"
+        for child in appearance_tab.children
+    )
+    assert not any(
+        getattr(child, "description", None) == "Center axes"
+        for child in appearance_tab.children
+    )
+    layout_controls = [
+        child
+        for child in appearance_tab.children
+        if getattr(child, "description", None) == "Controls:"
+    ]
+    assert len(layout_controls) == 1
+    assert layout_controls[0].value == "below"
 
 
 @pytest.mark.usefixtures("aiida_profile_clean")
