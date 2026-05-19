@@ -312,6 +312,9 @@ class _StructureDataBaseViewer(ipw.VBox):
         configure_view=True,
         configuration_tabs=None,
         default_camera="orthographic",
+        configuration_layout="side",
+        controls_panel_open=True,
+        viewer_height=None,
         **kwargs,
     ):
         """Initialize the viewer.
@@ -319,6 +322,9 @@ class _StructureDataBaseViewer(ipw.VBox):
         :param configure_view: If True, add configuration tabs (deprecated).
         :param configuration_tabs: List of configuration tabs (default: ["Selection", "Appearance", "Cell", "Download"]).
         :param default_camera: default camera (orthographic|perspective), can be changed in the Appearance tab.
+        :param configuration_layout: Layout for configuration controls ("side"|"below").
+        :param controls_panel_open: If True, open the controls panel for the "below" layout.
+        :param viewer_height: Optional CSS height for the NGL viewer.
         """
         # Defining viewer box.
 
@@ -329,7 +335,16 @@ class _StructureDataBaseViewer(ipw.VBox):
         self._viewer.stage.set_parameters(mouse_preset="pymol")
         self._axes_component = None
 
-        view_box = ipw.VBox([self._viewer])
+        if configuration_layout not in {"side", "below"}:
+            raise ValueError("configuration_layout must be 'side' or 'below'.")
+        self.configuration_layout = configuration_layout
+        if viewer_height is None and configuration_layout == "below":
+            viewer_height = "560px"
+        self._viewer.layout.width = "100%"
+        if viewer_height is not None:
+            self._viewer.layout.height = viewer_height
+
+        view_box = ipw.VBox([self._viewer], layout=ipw.Layout(width="100%"))
         view_box.add_class("view-box")
 
         configuration_tabs_map = {
@@ -346,7 +361,7 @@ class _StructureDataBaseViewer(ipw.VBox):
                 stacklevel=2,
             )
             if not configure_view:
-                configuration_tabs.clear()
+                configuration_tabs = []
 
         # Constructing configuration box
         if configuration_tabs is None:
@@ -361,8 +376,20 @@ class _StructureDataBaseViewer(ipw.VBox):
 
             for i, title in enumerate(configuration_tabs):
                 self.configuration_box.set_title(i, title)
-            children = [ipw.HBox([view_box, self.configuration_box])]
-            view_box.layout = {"width": "60%"}
+
+            self.view_box = view_box
+            self.controls_box = ipw.Accordion(
+                children=[self.configuration_box],
+                selected_index=0 if controls_panel_open else None,
+                layout=ipw.Layout(width="100%"),
+            )
+            self.controls_box.set_title(0, "Viewer controls")
+            if configuration_layout == "side":
+                children = self._configuration_layout_children("side")
+            else:
+                self.viewer_toolbar = self._viewer_toolbar()
+                view_box.children = [self.viewer_toolbar, self._viewer]
+                children = self._configuration_layout_children("below")
         else:
             children = [view_box]
 
@@ -370,6 +397,85 @@ class _StructureDataBaseViewer(ipw.VBox):
             children += kwargs.pop("children")
 
         super().__init__(children, **kwargs)
+
+    def _viewer_toolbar(self):
+        """Create compact high-frequency controls for the full-width viewer."""
+        center_button = ipw.Button(
+            description="",
+            icon="crosshairs",
+            tooltip="Center atoms",
+            layout=ipw.Layout(width="38px"),
+        )
+        center_button.on_click(lambda _: self._viewer.center())
+
+        reset_view_button = ipw.Button(
+            description="",
+            icon="refresh",
+            tooltip="Reset view, scale, and pan",
+            layout=ipw.Layout(width="38px"),
+        )
+        reset_view_button.on_click(self.reset_view)
+
+        self.view_scale_control.description = ""
+        self.view_scale_control.layout = ipw.Layout(width="72px")
+        self.view_scale_control.style = {"description_width": "0px"}
+        scale_controls = ipw.HBox(
+            [
+                ipw.Button(
+                    description="",
+                    icon="search-plus",
+                    tooltip="View scale (%)",
+                    disabled=True,
+                    layout=ipw.Layout(width="38px"),
+                ),
+                self.view_scale_control,
+            ],
+            layout=ipw.Layout(align_items="center", gap="2px"),
+        )
+
+        axes_controls = ipw.VBox(
+            [self.show_axes_control, self.center_axes_control],
+            layout=ipw.Layout(width="130px"),
+        )
+
+        toolbar = ipw.HBox(
+            [center_button, reset_view_button, scale_controls, axes_controls],
+            layout=ipw.Layout(
+                width="100%",
+                gap="8px",
+                align_items="center",
+                margin="0 0 6px 0",
+            ),
+        )
+        toolbar.add_class("structure-viewer-toolbar")
+        return toolbar
+
+    def _configuration_layout_children(self, configuration_layout):
+        if configuration_layout == "side":
+            self.view_box.layout = ipw.Layout(width="60%")
+            self.configuration_box.layout = ipw.Layout(flex="1 1 auto", width="auto")
+            self.controls_box.children = []
+            return [ipw.HBox([self.view_box, self.configuration_box])]
+
+        self.view_box.layout = ipw.Layout(width="100%")
+        self.configuration_box.layout = ipw.Layout(width="100%")
+        self.controls_box.children = [self.configuration_box]
+        return [self.view_box, self.controls_box]
+
+    def set_configuration_layout(self, configuration_layout):
+        """Move configuration controls between side and below layouts."""
+        if configuration_layout not in {"side", "below"}:
+            raise ValueError("configuration_layout must be 'side' or 'below'.")
+        self.configuration_layout = configuration_layout
+        if (
+            hasattr(self, "layout_toggle")
+            and self.layout_toggle.value != configuration_layout
+        ):
+            self.layout_toggle.value = configuration_layout
+            return
+        if hasattr(self, "configuration_box"):
+            self.children = self._configuration_layout_children(configuration_layout)
+            self._viewer.handle_resize()
 
     def _selection_tab(self):
         """Defining the selection tab."""
@@ -481,16 +587,16 @@ class _StructureDataBaseViewer(ipw.VBox):
         reset_view_button.on_click(self.reset_view)
 
         # 6. View scale.
-        view_scale = ipw.BoundedFloatText(
+        self.view_scale_control = ipw.BoundedIntText(
             description="View scale (%):",
             value=self.view_scale,
-            min=1.0,
-            max=1000.0,
-            step=10.0,
+            min=1,
+            max=999,
+            step=10,
             layout={"width": "220px"},
             style={"description_width": "initial"},
         )
-        tl.link((view_scale, "value"), (self, "view_scale"))
+        tl.link((self.view_scale_control, "value"), (self, "view_scale"))
 
         # 7. View pan.
         pan_x = ipw.FloatText(
@@ -515,10 +621,12 @@ class _StructureDataBaseViewer(ipw.VBox):
         view_help = ipw.HTML(
             """
             <div style="line-height: 1.5; max-width: 460px; margin: 4px 2px;">
-                <b>View controls:</b> Scale 100 is the default fit. Pan X/Y are
-                measured in screen lengths: +1 moves one full screen right/up,
-                -1 moves one full screen left/down. The default view button
-                resets scale and pan, then reapplies the default orientation.
+                <b>View controls:</b> The crosshairs button centers atoms. The
+                refresh button resets scale and pan, then reapplies the default
+                orientation. The magnifier field is the view scale in percent:
+                100 is the default fit. Pan X/Y are measured in screen lengths:
+                +1 moves one full screen right/up, -1 moves one full screen
+                left/down.
             </div>
             """,
             layout=ipw.Layout(display="none"),
@@ -530,16 +638,30 @@ class _StructureDataBaseViewer(ipw.VBox):
         show_view_help.observe(toggle_view_help, names="value")
 
         # 9. Axis controls.
-        show_axes = ipw.Checkbox(
+        self.show_axes_control = ipw.Checkbox(
             description="Show axes", value=self.show_axes, indent=False
         )
-        center_axes = ipw.Checkbox(
+        self.center_axes_control = ipw.Checkbox(
             description="Center axes", value=self.center_axes, indent=False
         )
-        tl.link((show_axes, "value"), (self, "show_axes"))
-        tl.link((center_axes, "value"), (self, "center_axes"))
+        tl.link((self.show_axes_control, "value"), (self, "show_axes"))
+        tl.link((self.center_axes_control, "value"), (self, "center_axes"))
 
-        # 10. representations buttons
+        # 10. Controls layout.
+        self.layout_toggle = ipw.ToggleButtons(
+            options=[("Below", "below"), ("Side", "side")],
+            value=self.configuration_layout,
+            description="Controls:",
+            tooltip="Move viewer controls below or beside the structure",
+            layout=ipw.Layout(width="230px"),
+            style={"description_width": "initial", "button_width": "64px"},
+        )
+        self.layout_toggle.observe(
+            lambda change: self.set_configuration_layout(change["new"]),
+            names="value",
+        )
+
+        # 11. representations buttons
         self.representations_header = ipw.HBox(
             [
                 ipw.HTML(
@@ -613,22 +735,31 @@ class _StructureDataBaseViewer(ipw.VBox):
             </div>
         """)
 
-        return ipw.VBox(
-            [
-                supercell_selector,
-                info,
-                background_color,
-                camera_type,
+        children = [
+            supercell_selector,
+            info,
+            background_color,
+            camera_type,
+            self.layout_toggle,
+        ]
+        if self.configuration_layout == "side":
+            children += [
                 center_button,
                 reset_view_button,
-                view_scale,
-                ipw.HBox([pan_x, pan_y]),
-                show_view_help,
-                view_help,
-                ipw.HBox([show_axes, center_axes]),
-                representation_accordion,
+                self.view_scale_control,
             ]
-        )
+        children += [
+            ipw.HBox([pan_x, pan_y]),
+            show_view_help,
+            view_help,
+        ]
+        if self.configuration_layout == "side":
+            children.append(
+                ipw.HBox([self.show_axes_control, self.center_axes_control])
+            )
+        children.append(representation_accordion)
+
+        return ipw.VBox(children)
 
     def _add_representation(self, _=None, style_id=None, indices=None):
         """Add a representation to the list of representations."""

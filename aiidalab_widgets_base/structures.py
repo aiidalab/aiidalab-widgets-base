@@ -82,7 +82,9 @@ class StructureManagerWidget(ipw.VBox):
         if viewer:
             self.viewer = viewer
         else:
-            self.viewer = StructureDataViewer()
+            self.viewer = StructureDataViewer(
+                configuration_layout="below", controls_panel_open=False
+            )
         tl.dlink((self, "structure"), (self.viewer, "structure"))
 
         # Store button.
