@@ -67,8 +67,6 @@ class ElnImportWidget(ipw.VBox):
     node = tl.Instance(orm.Node, allow_none=True)
 
     def __init__(self, path_to_root="../", **kwargs):
-        import requests_cache
-
         # Used to output additional settings.
         self._output = ipw.Output()
 
@@ -84,10 +82,6 @@ class ElnImportWidget(ipw.VBox):
             return
 
         tl.dlink((eln, "node"), (self, "node"))
-        # Since the requests cache is enabled globally in aiidalab package, we disable it here to get correct results.
-        # This can be removed once https://github.com/aiidalab/aiidalab/issues/196 is fixed.
-        with requests_cache.disabled():
-            eln.import_data()
 
 
 class ElnExportWidget(ipw.VBox):
@@ -153,14 +147,8 @@ class ElnExportWidget(ipw.VBox):
         self.eln.set_sample_config(**info)
 
     def send_to_eln(self, _=None):
-        import requests_cache
-
         if self.eln and self.eln.is_connected:
             self.message.value = f"\u29d7 Sending data to {self.eln.eln_instance}..."
-            # Since the requests cache is enabled globally in aiidalab package, we disable it here to get correct results.
-            # This can be removed once https://github.com/aiidalab/aiidalab/issues/196 is fixed.
-            with requests_cache.disabled():
-                self.eln.export_data()
             self.message.value = (
                 f"\u2705 The data were successfully sent to {self.eln.eln_instance}."
             )
