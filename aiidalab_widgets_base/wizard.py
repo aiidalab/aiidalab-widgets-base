@@ -4,6 +4,7 @@ Authors:
 
     * Carl Simon Adorf <simon.adorf@epfl.ch>
 """
+
 import enum
 
 import ipywidgets as ipw
@@ -87,7 +88,7 @@ class WizardAppWidget(ipw.VBox):
 
     selected_index = tl.Int(allow_none=True)
 
-    def __init__(self, steps, **kwargs):
+    def __init__(self, steps, show_header=True, **kwargs):
         # The number of steps must be greater than one
         # for this app's logic to make sense.
         if len(steps) < 2:
@@ -101,7 +102,6 @@ class WizardAppWidget(ipw.VBox):
         # Initialize the accordion with the widgets ...
         self.accordion = ipw.Accordion(children=widgets)
         self._update_titles()
-        ipw.link((self.accordion, "selected_index"), (self, "selected_index"))
 
         # Watch for changes to each step's state
         for widget in widgets:
@@ -141,16 +141,28 @@ class WizardAppWidget(ipw.VBox):
         )
         self.next_button.on_click(self._on_click_next_button)
 
-        header = ipw.HBox(
+        # Link the selected_index of the accordion to this app's selected_index.
+        # This needs to happen after all affected widgets have been created.
+        ipw.link((self.accordion, "selected_index"), (self, "selected_index"))
+
+        self.header = ipw.HBox(
             children=[self.back_button, self.reset_button, self.next_button]
         )
+        self.show_header = show_header
+        super().__init__(children=[self.header, self.accordion], **kwargs)
 
-        super().__init__(children=[header, self.accordion], **kwargs)
+    @property
+    def show_header(self):
+        return self.header.layout.display != "none"
+
+    @show_header.setter
+    def show_header(self, value):
+        self.header.layout.display = "flex" if value else "none"
 
     def _update_titles(self):
         for i, (title, widget) in enumerate(zip(self.titles, self.accordion.children)):
             icon = self.ICONS.get(widget.state, str(widget.state).upper())
-            self.accordion.set_title(i, f"{icon} Step {i+1}: {title}")
+            self.accordion.set_title(i, f"{icon} Step {i + 1}: {title}")
 
     def _consider_auto_advance(self, _=None):
         """Determine whether the app should automatically advance to the next step.

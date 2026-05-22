@@ -1,4 +1,5 @@
 """Module to provide functionality to import structures."""
+
 import datetime
 import functools
 import io
@@ -10,7 +11,7 @@ import ipywidgets as ipw
 import numpy as np
 import spglib
 import traitlets as tl
-from aiida import engine, orm, plugins
+from aiida import common, engine, orm, plugins
 
 # Local imports
 from .data import FunctionalGroupSelectorWidget
@@ -112,37 +113,70 @@ class StructureManagerWidget(ipw.VBox):
             raise ValueError(
                 f"Unknown data format '{node_class}'. Options: {list(self.SUPPORTED_DATA_FORMATS.keys())}"
             )
-        self.output = ipw.HTML("")
 
-        children = [
-            self._structure_importers(importers),
-            self.viewer,
-            ipw.HBox(
-                store_and_description
-                + [self.structure_label, self.structure_description]
-            ),
-        ]
+        select_panel = ipw.Accordion(
+            children=self._structure_importers(importers),
+            selected_index=0 if importers else None,
+            titles=["Import structure"] if importers else [],
+        )
+
+        view_panel = ipw.Accordion(
+            children=[
+                ipw.VBox(
+                    children=[
+                        self.viewer,
+                        ipw.HBox(
+                            children=[
+                                *store_and_description,
+                                self.structure_label,
+                                self.structure_description,
+                            ]
+                        ),
+                    ]
+                ),
+            ],
+            selected_index=0,
+        )
+        view_panel.set_title(0, "View structure")
 
         structure_editors = self._structure_editors(editors)
-        if structure_editors:
-            structure_editors = ipw.VBox([btn_undo, structure_editors])
-            accordion = ipw.Accordion([structure_editors])
-            accordion.selected_index = None
-            accordion.set_title(0, "Edit Structure")
-            children += [accordion]
 
-        super().__init__(children=children + [self.output], **kwargs)
+        edit_panel = ipw.Accordion(
+            children=[
+                ipw.VBox(
+                    children=[
+                        btn_undo,
+                        *structure_editors,
+                    ]
+                ),
+            ]
+            if structure_editors
+            else [],
+            selected_index=None,
+            titles=["Edit structure"] if structure_editors else [],
+        )
+
+        self.output = ipw.HTML("")
+
+        super().__init__(
+            children=[
+                select_panel,
+                view_panel,
+                edit_panel,
+                self.output,
+            ],
+            **kwargs,
+        )
+
+        self.add_class("structure-manager")
 
     def _structure_importers(self, importers):
         """Preparing structure importers."""
         if not isinstance(importers, (list, tuple)):
             raise exceptions.ListOrTuppleError(importers)
 
-        # If there is only one importer - no need to make tabs.
-        if len(importers) == 1:
-            # Assigning a function which will be called when importer provides a structure.
-            tl.dlink((importers[0], "structure"), (self, "input_structure"))
-            return importers[0]
+        if not importers:
+            return []
 
         # Otherwise making one tab per importer.
         importers_tab = ipw.Tab()
@@ -151,49 +185,30 @@ class StructureManagerWidget(ipw.VBox):
             # Labeling tabs.
             importers_tab.set_title(i, importer.title)
             tl.dlink((importer, "structure"), (self, "input_structure"))
-        return importers_tab
+        return [importers_tab]
 
     def _structure_editors(self, editors):
         """Preparing structure editors."""
-        if editors and len(editors) == 1:
-            tl.link((editors[0], "structure"), (self, "structure"))
+        if not editors:
+            return []
 
-            if editors[0].has_trait("input_selection"):
-                tl.dlink(
-                    (editors[0], "input_selection"), (self.viewer, "input_selection")
-                )
-
-            if editors[0].has_trait("selection"):
-                tl.dlink((self.viewer, "selection"), (editors[0], "selection"))
-
-            if editors[0].has_trait("camera_orientation"):
+        editors_tab = ipw.Tab()
+        editors_tab.children = tuple(editors)
+        for i, editor in enumerate(editors):
+            editors_tab.set_title(i, editor.title)
+            # Link selected traits of the editors with the those of the viewer.
+            tl.link((editor, "structure"), (self, "structure"))
+            if editor.has_trait("input_selection"):
+                tl.dlink((editor, "input_selection"), (self.viewer, "input_selection"))
+            if editor.has_trait("selection"):
+                tl.link((editor, "selection"), (self.viewer, "selection"))
+            if editor.has_trait("camera_orientation"):
                 tl.dlink(
                     (self.viewer._viewer, "_camera_orientation"),
-                    (editors[0], "camera_orientation"),
+                    (editor, "camera_orientation"),
                 )
 
-            return editors[0]
-
-        # If more than one editor was defined.
-        if editors:
-            editors_tab = ipw.Tab()
-            editors_tab.children = tuple(editors)
-            for i, editor in enumerate(editors):
-                editors_tab.set_title(i, editor.title)
-                tl.link((editor, "structure"), (self, "structure"))
-                if editor.has_trait("input_selection"):
-                    tl.dlink(
-                        (editor, "input_selection"), (self.viewer, "input_selection")
-                    )
-                if editor.has_trait("selection"):
-                    tl.link((editor, "selection"), (self.viewer, "selection"))
-                if editor.has_trait("camera_orientation"):
-                    tl.dlink(
-                        (self.viewer._viewer, "_camera_orientation"),
-                        (editor, "camera_orientation"),
-                    )
-            return editors_tab
-        return None
+        return [editors_tab]
 
     def store_structure(self, _=None):
         """Stores the structure in AiiDA database."""
@@ -217,7 +232,7 @@ class StructureManagerWidget(ipw.VBox):
         ):
             # Make a link between self.input_structure and self.structure_node
             @engine.calcfunction
-            def user_modifications(source_structure):
+            def user_modifications(source_structure):  # noqa F841
                 return self.structure_node
 
             structure_node = user_modifications(self.input_structure)
@@ -406,11 +421,10 @@ class StructureUploadWidget(ipw.VBox):
 
     def _on_file_upload(self, change=None):
         """When file upload button is pressed."""
+        assert len(change["new"]) == 1, "Only single file upload is supported."
+        file = change["new"][0]
         self.structure = None
-        for fname, item in change["new"].items():
-            self.structure = self._read_structure(fname, item["content"])
-            self.file_upload.value.clear()
-            break
+        self.structure = self._read_structure(file["name"], file["content"])
 
     def _read_structure(self, fname, content):
         suffix = "".join(pathlib.Path(fname).suffixes)
@@ -468,7 +482,7 @@ class StructureExamplesWidget(ipw.VBox):
 
     def __init__(self, examples, title="", **kwargs):
         self.title = title
-        self.on_structure_selection = lambda structure_ase, name: None
+        self.on_structure_selection = lambda _structure_ase, _name: None
         self._select_structure = ipw.Dropdown(
             options=self.get_example_structures(examples)
         )
@@ -482,7 +496,7 @@ class StructureExamplesWidget(ipw.VBox):
             raise TypeError(
                 f"parameter examples should be of type list, {type(examples)} given"
             )
-        return [("Select structure", False)] + examples
+        return [("Select structure", False), *examples]
 
     def _on_select_structure(self, change=None):
         """When structure is selected."""
@@ -554,6 +568,16 @@ class StructureBrowserWidget(ipw.VBox):
         )
         self.end_date_widget = ipw.Text(value="", description="To: ")
 
+        self.info = ipw.HTML("")
+        self.pk_input = ipw.Text(
+            value="",
+            placeholder="",
+            description="Structure PK:",
+            style={"description_width": "120px"},
+        )
+        self.load_button = ipw.Button(description="Load Structure", button_style="info")
+        self.load_button.on_click(self._on_load_button_clicked)
+
         # Search button.
         btn_search = ipw.Button(
             description="Search",
@@ -571,7 +595,15 @@ class StructureBrowserWidget(ipw.VBox):
         )
 
         h_line = ipw.HTML("<hr>")
-        box = ipw.VBox([age_selection, h_line, ipw.HBox([self.mode, self.drop_label])])
+        box = ipw.VBox(
+            [
+                age_selection,
+                ipw.HBox([self.pk_input, self.load_button]),
+                self.info,
+                h_line,
+                ipw.HBox([self.mode, self.drop_label]),
+            ]
+        )
 
         self.results = ipw.Dropdown(layout={"width": "900px"})
         self.results.observe(self._on_select_structure, names="value")
@@ -663,18 +695,64 @@ class StructureBrowserWidget(ipw.VBox):
 
         options = [(f"Select a Structure ({len(matches)} found)", False)]
         for mch in matches:
-            label = f"PK: {mch.pk}"
-            label += " | " + mch.ctime.strftime("%Y-%m-%d %H:%M")
-            label += " | " + mch.base.extras.get("formula", "")
-            label += " | " + mch.node_type.split(".")[-2]
-            label += " | " + mch.label
-            label += " | " + mch.description
-            options.append((label, mch))
+            options.append((self._format_node_label(mch), mch))
 
         self.results.options = options
 
     def _on_select_structure(self, _=None):
         self.structure = self.results.value or None
+        self.pk_input.value = str(self.structure.pk) if self.structure else ""
+
+    @staticmethod
+    def _format_node_label(node):
+        label = f"PK: {node.pk}"
+        label += " | " + node.ctime.strftime("%Y-%m-%d %H:%M")
+        label += " | " + node.base.extras.get("formula", "")
+        label += " | " + node.node_type.split(".")[-2]
+        label += " | " + node.label
+        label += " | " + node.description
+        return label
+
+    def _query_type_names(self):
+        return ", ".join(
+            node_class.__name__ for node_class in self.query_structure_type
+        )
+
+    def _clear_structure_selection(self):
+        self.results.options = [("Select a Structure", False)]
+        self.results.value = False
+        self.structure = None
+
+    def _on_load_button_clicked(self, _=None):
+        """When load button is clicked."""
+        self.info.value = ""
+        try:
+            pk_value = int(self.pk_input.value)
+        except (ValueError, TypeError):
+            self._clear_structure_selection()
+            self.info.value = "Invalid PK: please enter a positive integer."
+            return
+
+        if pk_value <= 0:
+            self._clear_structure_selection()
+            self.info.value = "Invalid PK: please enter a positive integer."
+            return
+
+        try:
+            node = orm.load_node(pk_value)
+        except common.NotExistent:
+            self._clear_structure_selection()
+            self.info.value = f"No AiiDA node found for PK={pk_value}."
+        else:
+            if isinstance(node, self.query_structure_type):
+                self.results.options = [(self._format_node_label(node), node)]
+                self.results.value = node
+                self.structure = node
+            else:
+                self._clear_structure_selection()
+                self.info.value = (
+                    f"The PK does not correspond to {self._query_type_names()}."
+                )
 
 
 class SmilesWidget(ipw.VBox):
@@ -686,7 +764,7 @@ class SmilesWidget(ipw.VBox):
 
     def __init__(self, title=""):
         self.title = title
-        try:  # noqa: TC101
+        try:
             from rdkit import Chem  # noqa: F401
             from rdkit.Chem import AllChem  # noqa: F401
         except ImportError:
@@ -715,11 +793,6 @@ class SmilesWidget(ipw.VBox):
 
     def _make_ase(self, species, positions, smiles):
         """Create ase Atoms object."""
-        from sklearn.decomposition import PCA
-
-        # Get the principal axes and realign the molecule along z-axis.
-        if len(species) > 2:
-            positions = PCA(n_components=3).fit_transform(positions)
         atoms = ase.Atoms(species, positions=positions, pbc=False)
         atoms.cell = np.ptp(atoms.positions, axis=0) + 10
         atoms.center()
@@ -972,7 +1045,7 @@ class BasicCellEditor(ipw.VBox):
                 ipw.VBox(
                     [
                         ipw.HTML(
-                            "<b>Cell Transformation:</b>",
+                            "<b>Cell transformation:</b>",
                             layout={"margin": "20px 0px 10px 0px"},
                         ),
                         self.cell_transformation,
@@ -1065,13 +1138,11 @@ class BasicCellEditor(ipw.VBox):
             try:
                 atoms = make_supercell(atoms, mat)
             except Exception as e:
-                self._status_message.message = """
+                self._status_message.message = f"""
             <div class="alert alert-info">
-            <strong>The transformation matrix is wrong! {}</strong>
+            <strong>The transformation matrix is wrong! {e}</strong>
             </div>
-            """.format(
-                    e
-                )
+            """
                 return
             # translate
             atoms.translate(-atoms.cell.array.dot(translate))
@@ -1200,7 +1271,7 @@ class BasicStructureEditor(ipw.VBox):
         btn_add = ipw.Button(description="Add to selected", layout={"width": "initial"})
         btn_add.on_click(self.add)
         self.bond_length = ipw.FloatText(
-            description="Bond lenght.", value=1.0, layout={"width": "140px"}
+            description="Bond length", value=1.0, layout={"width": "140px"}
         )
         use_covalent_radius = ipw.Checkbox(
             value=True,
@@ -1546,8 +1617,9 @@ class BasicStructureEditor(ipw.VBox):
         add_atoms.translate([1.0, 0, 0])
         atoms += add_atoms
 
-        self.structure, self.input_selection = atoms, list(
-            range(last_atom, last_atom + len(selection))
+        self.structure, self.input_selection = (
+            atoms,
+            list(range(last_atom, last_atom + len(selection))),
         )
 
     @_register_structure

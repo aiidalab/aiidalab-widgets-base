@@ -1,20 +1,14 @@
-# pylint: disable=invalid-name
-
-# -*- coding: utf-8 -*-
 """Sphinx configuration for aiidalab-widgets-base."""
-import os
-import subprocess
-import sys
+
 import time
+import warnings
 from pathlib import Path
 
-# Load the dummy profile to make sure the docs build succeed even if the current
-# default profile of the AiiDA installation is not configured.
-from aiida.manage.configuration import load_documentation_profile
+warnings.filterwarnings(
+    "ignore", category=UserWarning, message="Creating AiiDA configuration folder .*"
+)
 
-load_documentation_profile()
-
-from aiidalab_widgets_base import __version__  # pylint: disable=wrong-import-position
+from aiidalab_widgets_base import __version__
 
 # Add any Sphinx extension module names here, as strings. They can be
 # extensions coming with Sphinx (named 'sphinx.ext.*') or your custom
@@ -50,9 +44,7 @@ copyright_year_string = (
     if current_year == copyright_first_year
     else f"{copyright_first_year}-{current_year}"
 )
-copyright = "{}, {}. All rights reserved".format(
-    copyright_year_string, copyright_owners
-)  # pylint: disable=redefined-builtin
+copyright = f"{copyright_year_string}, {copyright_owners}. All rights reserved"  # noqa
 
 # The version info for the project you're documenting, acts as replacement for
 # |version| and |release|, also used in various other places throughout the
@@ -105,7 +97,7 @@ html_theme_options = {
 def symlink_example_notebooks(source_dir: Path):
     """Symlink example Jupyter notebooks.
 
-    Symlinks example jupyter notebooks so that they can be
+    Symlinks example Jupyter notebooks so that they can be
     included into the documentation.
     """
     notebooks_dir = source_dir.parent.parent / "notebooks"
@@ -120,37 +112,23 @@ def run_apidoc(_):
     build on readthedocs.
     See also https://github.com/rtfd/readthedocs.org/issues/1139
     """
+    # https://github.com/readthedocs/readthedocs.org/issues/1139#issuecomment-715284488
+    from sphinx.ext.apidoc import main
+
     source_dir = Path(__file__).resolve().parent
     apidoc_dir = source_dir / "apidoc"
     package_dir = source_dir.parent.parent / "aiidalab_widgets_base"
 
     symlink_example_notebooks(source_dir)
 
-    # In #1139, they suggest the route below, but this ended up
-    # calling sphinx-build, not sphinx-apidoc
-    # from sphinx.apidoc import main
-    # main([None, '-e', '-o', apidoc_dir, package_dir, '--force'])
-
-    cmd_path = "sphinx-apidoc"
-    if hasattr(sys, "real_prefix"):  # Check to see if we are in a virtualenv
-        # If we are, assemble the path manually
-        cmd_path = os.path.abspath(os.path.join(sys.prefix, "bin", "sphinx-apidoc"))
-
     options = [
-        "-o",
-        apidoc_dir,
-        package_dir,
-        "--private",
         "--force",
         "--no-toc",
+        "-o",
+        str(apidoc_dir),
+        str(package_dir),
     ]
-
-    # See https://stackoverflow.com/a/30144019
-    env = os.environ.copy()
-    env[
-        "SPHINX_APIDOC_OPTIONS"
-    ] = "members,special-members,private-members,undoc-members,show-inheritance"
-    subprocess.check_call([cmd_path] + options, env=env)
+    main(options)
 
 
 def setup(app):

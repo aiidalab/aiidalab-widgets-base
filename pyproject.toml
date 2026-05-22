@@ -7,26 +7,63 @@ build-backend = "setuptools.build_meta"
 
 [tool.pytest.ini_options]
 filterwarnings = [
-    'error',
-    'ignore::DeprecationWarning:bokeh.core.property.primitive',
+    # The following deprecation warnings come from Python 3.12 stdlib modules
+    "ignore:datetime.datetime.:DeprecationWarning:",
+    # This one is coming from plumpy
+    "ignore:There is no current event loop:DeprecationWarning:",
+    # This deprecation warning coming from sqlite3 module might go away if we update bokeh
+    "ignore:The default datetime adapter is deprecated as of Python 3.12; see the sqlite3 documentation for suggested replacement recipes:DeprecationWarning:",
+    # This is needed since SQLAlchemy 2.0, see
+    # https://github.com/aiidalab/aiidalab-widgets-base/issues/605
+    'ignore:Object of type.*not in session,.*operation along.*will not proceed:sqlalchemy.exc.SAWarning',
+    'ignore::DeprecationWarning:bokeh',
     'ignore:Creating AiiDA configuration:UserWarning:aiida',
+    'ignore:The `Code` class:aiida.common.warnings.AiidaDeprecationWarning:',
     'ignore:crystal system:UserWarning:ase.io.cif',
     'ignore::DeprecationWarning:ase.atoms',
-    # TODO: This comes from a transitive dependency of optimade_client
+    # This popped up in spglib 2.5. Since we still try to support spglib v1,
+    # it's not clear if we can get rid of it.
+    "ignore:dict interface is deprecated. Use attribute interface instead:DeprecationWarning:spglib|aiidalab_widgets_base",
+    # TODO: This comes from a transitive dependency of ipyoptimade
     # Remove this when this issue is addressed:
     # https://github.com/CasperWA/ipywidgets-extended/issues/85
     'ignore::DeprecationWarning:ipywidgets_extended',
     'ignore:metadata.*traitlets.traitlets.Unicode object:DeprecationWarning:traitlets',
-    # For some reason we get this error, perhaps because we do
-    # not unload the AiiDA profile? Let's ignore this for now.
-    # E pytest.PytestUnraisableExceptionWarning: Exception ignored in: <function Popen.__del__>
-    # E Traceback (most recent call last):
-    # E   File "/opt/conda/lib/python3.9/subprocess.py", line 1052, in __del__
-    # E     _warn("subprocess %s is still running" % self.pid,
-    # E ResourceWarning: subprocess 382685 is still running
+    # For some reason we get this error, see
+    # https://github.com/aiidalab/aiidalab-widgets-base/issues/551
     'ignore:Exception ignored in:pytest.PytestUnraisableExceptionWarning:_pytest',
-    'ignore::DeprecationWarning:pytest_html',
     'ignore::DeprecationWarning:jupyter_client',
-    'ignore::DeprecationWarning:selenium',
-    'ignore::DeprecationWarning:pytest_selenium',
+    # This warning is coming from circus (aiida-core dependency):
+    # https://github.com/circus-tent/circus/issues/1215
+    "ignore:'pipes' is deprecated and slated for removal in Python 3.13:DeprecationWarning:",
+    "ignore::cryptography.utils.CryptographyDeprecationWarning:",
 ]
+
+[tool.ruff]
+line-length = 88
+show-fixes = true
+target-version = "py39"
+
+
+[tool.ruff.lint]
+ignore = ["E501", "E402", "ARG002", "TRY003", "RUF001", "RUF012", "PLC0415"]
+select = [
+  "A",    # flake8-builtins
+  "ARG",  # flake8-unused-arguments
+  "B",    # flake8-bugbear
+  "C4",   # flake8-comprehensions
+  "E",    # pycodestyle
+  "F",    # pyflakes
+  "I",    # isort
+  "N",    # pep8-naming
+  "PLE",  # pylint error rules
+  "PLW",  # pylint warning rules
+  "PLC",  # pylint convention rules
+  "RUF",  # ruff-specific rules
+  "TRY",  # Tryceratops
+  "UP"    # pyupgrade
+]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/*" = ["ARG001"]
+"tests_notebooks/*" = ["ARG001"]

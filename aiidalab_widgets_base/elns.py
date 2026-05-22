@@ -2,10 +2,8 @@ import json
 from pathlib import Path
 
 import ipywidgets as ipw
-import requests_cache
 import traitlets as tl
 from aiida import orm
-from aiidalab_eln import get_eln_connector
 from IPython.display import clear_output, display
 
 ELN_CONFIG = Path.home() / ".aiidalab" / "aiidalab-eln-config.json"
@@ -15,6 +13,13 @@ ELN_CONFIG.parent.mkdir(
 
 
 def connect_to_eln(eln_instance=None, **kwargs):
+    try:
+        from aiidalab_eln import get_eln_connector
+    except ImportError:
+        return (
+            None,
+            "AiiDAlab-ELN connector not installed. Install with `pip install aiidalab-eln`",
+        )
     # assuming that the connection can only be established to the ELNs
     # with the stored configuration.
     try:
@@ -77,9 +82,6 @@ class ElnImportWidget(ipw.VBox):
             return
 
         tl.dlink((eln, "node"), (self, "node"))
-        with requests_cache.disabled():
-            # Since the cache is enabled in AiiDAlab, we disable it here to get correct results.
-            eln.import_data()
 
 
 class ElnExportWidget(ipw.VBox):
@@ -124,9 +126,8 @@ class ElnExportWidget(ipw.VBox):
         if self.node is None or self.eln is None:
             return
 
-        if "eln" in self.node.extras:
-            info = self.node.extras["eln"]
-        else:
+        info = self.node.base.extras.get("eln", {})
+        if not info:
             try:
                 q = orm.QueryBuilder().append(
                     orm.Node,
@@ -147,15 +148,12 @@ class ElnExportWidget(ipw.VBox):
 
     def send_to_eln(self, _=None):
         if self.eln and self.eln.is_connected:
-            self.message.value = f"\u29D7 Sending data to {self.eln.eln_instance}..."
-            with requests_cache.disabled():
-                # Since the cache is enabled in AiiDAlab, we disable it here to get correct results.
-                self.eln.export_data()
+            self.message.value = f"\u29d7 Sending data to {self.eln.eln_instance}..."
             self.message.value = (
                 f"\u2705 The data were successfully sent to {self.eln.eln_instance}."
             )
         else:
-            self.message.value = f"""\u274C Something isn't right! We were not able to send the data to the "<strong>{self.eln.eln_instance}</strong>" ELN instance. Please follow <a href="{self.path_to_root}/aiidalab-widgets-base/notebooks/eln_configure.ipynb" target="_blank">the link</a> to update the ELN's configuration."""
+            self.message.value = f"""\u274c Something isn't right! We were not able to send the data to the "<strong>{self.eln.eln_instance}</strong>" ELN instance. Please follow <a href="{self.path_to_root}/aiidalab-widgets-base/notebooks/eln_configure.ipynb" target="_blank">the link</a> to update the ELN's configuration."""
 
     def handle_output(self, _=None):
         with self._output:
@@ -249,9 +247,7 @@ class ElnConfigureWidget(ipw.VBox):
             self.write_to_config(config)
             default_eln = None
 
-        self.eln_instance.options = [("Setup new ELN", {})] + [
-            (k, v) for k, v in config.items()
-        ]
+        self.eln_instance.options = [("Setup new ELN", {}), *list(config.items())]
         if default_eln:
             self.eln_instance.label = default_eln
 
@@ -275,10 +271,19 @@ class ElnConfigureWidget(ipw.VBox):
             if self.eln.is_connected:
                 self.my_output.value = "\u2705 Connected."
                 return
-        self.my_output.value = f"\u274C Not connected. {err_message}"
+        self.my_output.value = f"\u274c Not connected. {err_message}"
 
     def display_eln_config(self, value=None):
         """Display ELN configuration specific to the selected type of ELN."""
+        try:
+            from aiidalab_eln import get_eln_connector
+        except ImportError:
+            with self._output:
+                clear_output()
+                msg = "AiiDAlab-ELN connector not installed. Install with `pip install aiidalab-eln`"
+                display(ipw.HTML(f"&#10060; {msg}"))
+            return
+
         try:
             eln_class = get_eln_connector(self.eln_types.value)
         except NotImplementedError as err:

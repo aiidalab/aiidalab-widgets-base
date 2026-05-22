@@ -1,0 +1,7 @@
+.aiida-node-view-widget {
+  border: var(--jp-widgets-border-width) solid var(--jp-border-color1);
+  padding: 12px;
+  margin: 2px;
+  height: auto;
+  width: auto;
+}

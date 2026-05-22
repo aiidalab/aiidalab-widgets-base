@@ -1,13 +1,12 @@
 """Widgets to work with AiiDA nodes."""
+
 import functools
-import typing
 
 import ipytree
 import ipywidgets as ipw
 import traitlets as tl
 from aiida import common, engine, orm
 from aiida.cmdline.utils.ascii_vis import calc_info
-from aiidalab.app import _AiidaLabApp
 from IPython.display import clear_output, display
 
 CALCULATION_TYPES = [
@@ -67,8 +66,8 @@ class AiidaNodeTreeNode(ipytree.Node):
         super().__init__(name=name, **kwargs)
 
     @tl.default("opened")
-    def _default_openend(self):
-        return False
+    def _default_opened(self):
+        return True
 
 
 class AiidaProcessNodeTreeNode(AiidaNodeTreeNode):
@@ -91,11 +90,9 @@ class CalcFunctionTreeNode(AiidaProcessNodeTreeNode):
 
 class AiidaOutputsTreeNode(ipytree.Node):
     icon = tl.Unicode("folder").tag(sync=True)
-    disabled = tl.Bool(True).tag(sync=True)
+    disabled = tl.Bool(False).tag(sync=True)
 
-    def __init__(
-        self, name, parent_pk, namespaces: typing.Tuple[str, ...] = (), **kwargs
-    ):
+    def __init__(self, name, parent_pk, namespaces: tuple[str, ...] = (), **kwargs):
         self.parent_pk = parent_pk
         self.nodes_registry = {}
         self.namespaces = namespaces
@@ -143,6 +140,15 @@ class NodesTreeWidget(ipw.Output):
             display(self._tree)
 
     def _observe_tree_selected_nodes(self, change):
+        for node in change["new"]:
+            # find the selected node and build the tree from it, so that users can expand and explore the tree
+            node_pk = (
+                node.parent_pk
+                if isinstance(node, AiidaOutputsTreeNode)
+                else getattr(node, "pk", None)
+            )
+
+            self._build_tree(self.find_node(node_pk, getattr(node, "namespaces", None)))
         return self.set_trait(
             "selected_nodes",
             tuple(
@@ -182,9 +188,19 @@ class NodesTreeWidget(ipw.Output):
                 name = calc_info(node)
             else:
                 name = str(node)
-        return cls.NODE_TYPE.get(type(node), UnknownTypeTreeNode)(
+        tree_node = cls.NODE_TYPE.get(type(node), UnknownTypeTreeNode)(
             pk=node.pk, name=name, **kwargs
         )
+        # Set the style based on the process state of the node
+        if isinstance(node, orm.ProcessNode):
+            process_state = (
+                engine.ProcessState.EXCEPTED if node.is_failed else node.process_state
+            )
+            tree_node.icon_style = cls.PROCESS_STATE_STYLE.get(
+                process_state, cls.PROCESS_STATE_STYLE_DEFAULT
+            )
+
+        return tree_node
 
     @classmethod
     def _find_called(cls, root):
@@ -253,8 +269,8 @@ class NodesTreeWidget(ipw.Output):
 
     @classmethod
     def _build_tree(cls, root):
-        """Recursively build a tree nodes graph for a given tree node."""
-        root.nodes = [cls._build_tree(child) for child in cls._find_children(root)]
+        """Build a tree nodes graph for a given tree node."""
+        root.nodes = list(cls._find_children(root))
         return root
 
     @classmethod
@@ -267,6 +283,8 @@ class NodesTreeWidget(ipw.Output):
     def _update_tree_node(self, tree_node):
         if isinstance(tree_node, AiidaProcessNodeTreeNode):
             process_node = orm.load_node(tree_node.pk)
+            if process_node.process_state is None:
+                return
             tree_node.name = calc_info(process_node)
             # Override the process state in case that the process node has failed:
             # (This could be refactored with structural pattern matching with py>=3.10.)
@@ -286,15 +304,24 @@ class NodesTreeWidget(ipw.Output):
             for tree_node in self._walk_tree(root_node):
                 self._update_tree_node(tree_node)
 
-    def find_node(self, pk):
+    def find_node(self, pk, namespaces=None):
+        """Find a node by its pk and namespaces.
+        If node is an output node, it is identified by the parent pk and namespaces, otherwise by the pk."""
         for node in self._walk_tree(self._tree):
-            if getattr(node, "pk", None) == pk:
+            node_pk = (
+                node.parent_pk
+                if isinstance(node, AiidaOutputsTreeNode)
+                else getattr(node, "pk", None)
+            )
+            if node_pk == pk and getattr(node, "namespaces", None) == namespaces:
                 return node
         raise KeyError(pk)
 
 
 class _AppIcon:
     def __init__(self, app, path_to_root, node):
+        from aiidalab.app import _AiidaLabApp
+
         name = app["name"]
         app_object = _AiidaLabApp.from_id(name)
         self.logo = app_object.metadata["logo"]

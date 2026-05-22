@@ -3,8 +3,67 @@ from pathlib import Path
 import ase
 import numpy as np
 import pytest
+from aiida import common, orm
 
 import aiidalab_widgets_base as awb
+import aiidalab_widgets_base.structures as structures
+
+
+@pytest.mark.usefixtures("aiida_profile_clean")
+def test_structure_manager_widget_different_number_of_importers_or_editors(
+    structure_data_object,
+):
+    """Test the `StructureManagerWidget` with different number of importers or editors."""
+
+    # No importers or editors
+    structure_manager_widget = awb.StructureManagerWidget(
+        importers=[],
+        editors=[],
+        input_structure=None,
+    )
+    assert structure_manager_widget.input_structure is None
+    structure_manager_widget.input_structure = structure_data_object
+    assert isinstance(structure_manager_widget.structure, ase.Atoms)
+
+    # One importer, no editors
+    upload_from_computer = awb.StructureUploadWidget(title="From computer")
+    structure_manager_widget = awb.StructureManagerWidget(
+        importers=[
+            upload_from_computer,
+        ],
+        editors=[],
+        input_structure=None,
+    )
+    upload_from_computer.structure = structure_data_object
+    assert structure_manager_widget.input_structure.uuid == structure_data_object.uuid
+
+    # No importers, one editor
+    structure_manager_widget = awb.StructureManagerWidget(
+        importers=[],
+        editors=[
+            awb.BasicStructureEditor(title="Basic Editor"),
+        ],
+        input_structure=structure_data_object,
+    )
+    assert structure_manager_widget.structure is not None
+
+    # Several importers and editors.
+    base_editor = awb.BasicStructureEditor(title="Basic Editor")
+    structure_manager_widget = awb.StructureManagerWidget(
+        importers=[
+            awb.StructureUploadWidget(title="From computer"),
+            awb.StructureBrowserWidget(title="AiiDA database"),
+        ],
+        editors=[
+            base_editor,
+            awb.BasicCellEditor(title="Cell Editor"),
+        ],
+        viewer=awb.viewers.StructureDataViewer(),
+        node_class="StructureData",
+    )
+
+    assert structure_manager_widget.structure is None
+    structure_manager_widget.input_structure = structure_data_object
 
 
 @pytest.mark.usefixtures("aiida_profile_clean")
@@ -59,31 +118,7 @@ def test_structure_manager_widget(structure_data_object):
 
 
 @pytest.mark.usefixtures("aiida_profile_clean")
-def test_structure_manager_widget_multiple_importers_editors(structure_data_object):
-    # Test the widget with multiple importers, editors. Specify the viewer and the node class
-    base_editor = awb.BasicStructureEditor(title="Basic Editor")
-    structure_manager_widget = awb.StructureManagerWidget(
-        importers=[
-            awb.StructureUploadWidget(title="From computer"),
-            awb.StructureBrowserWidget(title="AiiDA database"),
-        ],
-        editors=[
-            base_editor,
-            awb.BasicCellEditor(title="Cell Editor"),
-        ],
-        viewer=awb.viewers.StructureDataViewer(),
-        node_class="StructureData",
-    )
-
-    assert structure_manager_widget.structure is None
-    structure_manager_widget.input_structure = structure_data_object
-
-    # Set action vector perpendicular to screen.
-    base_editor.def_perpendicular_to_screen()
-
-
-@pytest.mark.usefixtures("aiida_profile_clean")
-def test_structure_browser_widget(structure_data_object):
+def test_structure_browser_widget(structure_data_object, monkeypatch):
     """Test the `StructureBrowserWidget`."""
     structure_browser_widget = awb.StructureBrowserWidget()
     assert structure_browser_widget.structure is None
@@ -102,6 +137,48 @@ def test_structure_browser_widget(structure_data_object):
     structure_browser_widget.results.value = structure_data_object
 
     assert structure_browser_widget.structure.uuid == structure_data_object.uuid
+    assert structure_browser_widget.pk_input.value == str(structure_data_object.pk)
+
+    # Invalid PK inputs should clear the current selection.
+    structure_browser_widget.pk_input.value = "not-a-pk"
+    structure_browser_widget._on_load_button_clicked()
+    assert structure_browser_widget.structure is None
+    assert structure_browser_widget.results.value is False
+    assert "Invalid PK" in structure_browser_widget.info.value
+
+    structure_browser_widget.pk_input.value = "0"
+    structure_browser_widget._on_load_button_clicked()
+    assert structure_browser_widget.structure is None
+    assert structure_browser_widget.results.value is False
+    assert "Invalid PK" in structure_browser_widget.info.value
+
+    # Simulate loading a structure directly by PK.
+    structure_browser_widget.pk_input.value = str(structure_data_object.pk)
+    structure_browser_widget._on_load_button_clicked()
+
+    assert structure_browser_widget.structure.uuid == structure_data_object.uuid
+    assert structure_browser_widget.results.value.uuid == structure_data_object.uuid
+    assert structure_browser_widget.info.value == ""
+
+    # Loading by PK should respect the configured query types.
+    int_node = orm.Int(1).store()
+    structure_browser_widget.pk_input.value = str(int_node.pk)
+    structure_browser_widget._on_load_button_clicked()
+
+    assert structure_browser_widget.structure is None
+    assert "StructureData, CifData" in structure_browser_widget.info.value
+
+    def raise_not_existent(pk):
+        raise common.NotExistent(f"No node with PK={pk}.")
+
+    monkeypatch.setattr(structures.orm, "load_node", raise_not_existent)
+    structure_browser_widget.pk_input.value = str(int_node.pk + 1)
+    structure_browser_widget._on_load_button_clicked()
+
+    assert structure_browser_widget.structure is None
+    assert f"No AiiDA node found for PK={int_node.pk + 1}." in (
+        structure_browser_widget.info.value
+    )
 
 
 @pytest.mark.usefixtures("aiida_profile_clean")
@@ -113,15 +190,16 @@ def test_structure_upload_widget():
     # Simulate the structure upload.
     widget._on_file_upload(
         change={
-            "new": {
-                "test.xyz": {
+            "new": (
+                {
+                    "name": "test.xyz",
                     "content": b"""2
 
                 Si 0.0 0.0 0.0
                 Si 0.5 0.5 0.5
                 """,
-                }
-            }
+                },
+            )
         }
     )
     assert isinstance(widget.structure, ase.Atoms)

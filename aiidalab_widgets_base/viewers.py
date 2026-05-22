@@ -1,10 +1,11 @@
 from __future__ import annotations
 
 """Jupyter viewers for AiiDA data objects."""
-# pylint: disable=no-self-use
 
 import base64
 import copy
+import os
+import pathlib
 import re
 import warnings
 
@@ -16,12 +17,15 @@ import shortuuid
 import spglib
 import traitlets as tl
 import vapory
-from aiida import cmdline, orm, tools
+from aiida import cmdline, orm
+from aiida.orm.nodes.data.structure import _get_dimensionality
+from aiida.tools.query.formatting import format_process_state, format_relative_time
 from ase.data import colors
 from IPython.display import clear_output, display
 from matplotlib.colors import to_rgb
 
 from .dicts import RGB_COLORS, Colors, Radius
+from .loaders import LoadingWidget
 from .misc import CopyToClipboardButton, ReversePolishNotation
 from .utils import ase2spglib, list_to_string_range, string_range_to_list
 
@@ -48,8 +52,12 @@ def viewer(obj, **kwargs):
         )
         return obj
 
-    if obj.node_type in AIIDA_VIEWER_MAPPING:
-        _viewer = AIIDA_VIEWER_MAPPING[obj.node_type]
+    _viewer = AIIDA_VIEWER_MAPPING.get(obj.node_type)
+    if isinstance(obj, orm.ProcessNode):
+        # Allow to register specific viewers based on obj.process_type
+        _viewer = AIIDA_VIEWER_MAPPING.get(obj.process_type, _viewer)
+
+    if _viewer:
         return _viewer(obj, **kwargs)
     else:
         # No viewer registered for this type, return object itself
@@ -61,20 +69,29 @@ class AiidaNodeViewWidget(ipw.VBox):
 
     def __init__(self, **kwargs):
         self._output = ipw.Output()
-        super().__init__(
-            children=[
-                self._output,
-            ],
-            **kwargs,
-        )
+        self.node_views = {}
+        self.node_view_loading_message = LoadingWidget("Loading node view")
+        super().__init__(**kwargs)
+        self.add_class("aiida-node-view-widget")
 
     @tl.observe("node")
     def _observe_node(self, change):
-        if change["new"] != change["old"]:
+        if not ((node := change["new"]) and node != change["old"]):
+            return
+        if node.uuid in self.node_views:
+            self.children = [self.node_views[node.uuid]]
+            return
+        self.children = [self.node_view_loading_message]
+        node_view = viewer(node)
+        if isinstance(node_view, ipw.DOMWidget):
+            self.node_views[node.uuid] = node_view
+            self.children = [node_view]
+        else:
             with self._output:
                 clear_output()
                 if change["new"]:
-                    display(viewer(change["new"]))
+                    display(node_view)
+            self.children = [self._output]
 
 
 @register_viewer_widget("data.core.dict.Dict.")
@@ -111,7 +128,7 @@ class DictViewer(ipw.VBox):
 
         pd.set_option("max_colwidth", 40)
         dataf = pd.DataFrame(
-            [(key, value) for key, value in sorted(parameter.get_dict().items())],
+            sorted(parameter.get_dict().items()),
             columns=["Key", "Value"],
         )
         self.value += dataf.to_html(
@@ -279,6 +296,11 @@ class _StructureDataBaseViewer(ipw.VBox):
     DEFAULT_SELECTION_COLOR = "green"
     REPRESENTATION_PREFIX = "_aiidalab_viewer_representation_"
     DEFAULT_REPRESENTATION = "_aiidalab_viewer_representation_default"
+    _CELL_LABELS = {
+        1: ["length", "Å"],
+        2: ["area", "Å²"],
+        3: ["volume", "Å³"],
+    }
 
     def __init__(
         self,
@@ -302,6 +324,7 @@ class _StructureDataBaseViewer(ipw.VBox):
         self._viewer.stage.set_parameters(mouse_preset="pymol")
 
         view_box = ipw.VBox([self._viewer])
+        view_box.add_class("view-box")
 
         configuration_tabs_map = {
             "Cell": self._cell_tab(),
@@ -414,10 +437,10 @@ class _StructureDataBaseViewer(ipw.VBox):
         supercell_selector = ipw.HBox(
             [
                 ipw.HTML(
-                    description="Super cell:", style={"description_width": "initial"}
-                )
+                    description="Supercell:", style={"description_width": "initial"}
+                ),
+                *_supercell,
             ]
-            + _supercell
         )
 
         # 2. Choose background color.
@@ -445,7 +468,7 @@ class _StructureDataBaseViewer(ipw.VBox):
 
         # 4. Center button.
         center_button = ipw.Button(description="Center molecule")
-        center_button.on_click(lambda c: self._viewer.center())
+        center_button.on_click(lambda _: self._viewer.center())
 
         # 5. representations buttons
         self.representations_header = ipw.HBox(
@@ -512,9 +535,19 @@ class _StructureDataBaseViewer(ipw.VBox):
         representation_accordion.set_title(0, "Representations")
         representation_accordion.selected_index = None
 
+        info = ipw.HTML("""
+            <div style="line-height: 1.5; max-width: 460px; margin: 6px 2px;">
+                <b>Note:</b> The supercell settings here are <b>for visualization
+                purposes only</b>. To simulate a supercell, open the <b>Edit
+                structure</b> panel below, navigate to the <b>Edit cell</b> tab, and
+                use the <b>Cell transformation</b> controls.
+            </div>
+        """)
+
         return ipw.VBox(
             [
                 supercell_selector,
+                info,
                 background_color,
                 camera_type,
                 center_button,
@@ -524,11 +557,12 @@ class _StructureDataBaseViewer(ipw.VBox):
 
     def _add_representation(self, _=None, style_id=None, indices=None):
         """Add a representation to the list of representations."""
-        self._all_representations = self._all_representations + [
+        self._all_representations = [
+            *self._all_representations,
             NglViewerRepresentation(
                 style_id=style_id or f"{self.REPRESENTATION_PREFIX}{shortuuid.uuid()}",
                 indices=indices,
-            )
+            ),
         ]
         self._apply_representations()
 
@@ -672,14 +706,14 @@ class _StructureDataBaseViewer(ipw.VBox):
                 *self.cell.array[2]
             )
 
-            self.cell_a_length.value = "|<i><b>a</b></i>|: {:.4f}".format(
-                self.cell.lengths()[0]
+            self.cell_a_length.value = (
+                f"|<i><b>a</b></i>|: {self.cell.lengths()[0]:.4f}"
             )
-            self.cell_b_length.value = "|<i><b>b</b></i>|: {:.4f}".format(
-                self.cell.lengths()[1]
+            self.cell_b_length.value = (
+                f"|<i><b>b</b></i>|: {self.cell.lengths()[1]:.4f}"
             )
-            self.cell_c_length.value = "|<i><b>c</b></i>|: {:.4f}".format(
-                self.cell.lengths()[2]
+            self.cell_c_length.value = (
+                f"|<i><b>c</b></i>|: {self.cell.lengths()[2]:.4f}"
             )
 
             self.cell_alpha.value = f"&alpha;: {self.cell.angles()[0]:.4f}"
@@ -706,6 +740,15 @@ class _StructureDataBaseViewer(ipw.VBox):
             self.periodicity.value = (
                 f"Periodicity: {periodicity_map[tuple(self.structure.pbc)]}"
             )
+            # Calculate the volume of the cell using the function from orm.StructureData
+            dimension_data = _get_dimensionality(self.structure.pbc, self.cell)
+            # Determine the label and unit based on dimensionality
+            cell_label = self._CELL_LABELS.get(dimension_data["dim"])
+            if cell_label:
+                self.cell_volume.value = f"Cell {cell_label[0]}: {dimension_data['value']:.4f} ({cell_label[1]})"
+            else:
+                self.cell_volume.value = "Cell volume: -"
+
         else:
             self.cell_a.value = "<i><b>a</b></i>:"
             self.cell_b.value = "<i><b>b</b></i>:"
@@ -739,6 +782,8 @@ class _StructureDataBaseViewer(ipw.VBox):
         self.cell_spacegroup = ipw.HTML()
         self.cell_hall = ipw.HTML()
         self.periodicity = ipw.HTML()
+
+        self.cell_volume = ipw.HTML()
 
         self._observe_cell()
 
@@ -787,6 +832,7 @@ class _StructureDataBaseViewer(ipw.VBox):
                         ),
                     ]
                 ),
+                self.cell_volume,
             ]
         )
 
@@ -835,6 +881,7 @@ class _StructureDataBaseViewer(ipw.VBox):
 
     def _render_structure(self, change=None):
         """Render the structure with POVRAY."""
+        from tempfile import TemporaryDirectory
 
         if not isinstance(self.displayed_structure, ase.Atoms):
             return
@@ -914,26 +961,34 @@ class _StructureDataBaseViewer(ipw.VBox):
             for i in bb
         ]
 
-        objects = (
-            [light]
-            + spheres
-            + edges
-            + bonds
-            + [vapory.Background("color", np.array(to_rgb(self._viewer.background)))]
-        )
+        objects = [
+            light,
+            *spheres,
+            *edges,
+            *bonds,
+            vapory.Background("color", np.array(to_rgb(self._viewer.background))),
+        ]
 
         scene = vapory.Scene(camera, objects=objects)
         fname = bb.get_chemical_formula() + ".png"
-        scene.render(
-            fname,
-            width=2560,
-            height=1440,
-            antialiasing=0.000,
-            quality=11,
-            remove_temp=False,
-        )
-        with open(fname, "rb") as raw:
-            payload = base64.b64encode(raw.read()).decode()
+
+        with TemporaryDirectory() as tmpdir:
+            cwd = pathlib.Path.cwd()
+            try:
+                os.chdir(tmpdir)
+                scene.render(
+                    fname,
+                    width=2560,
+                    height=1440,
+                    antialiasing=0.000,
+                    quality=11,
+                    remove_temp=False,
+                )
+                with open(fname, "rb") as raw:
+                    payload = base64.b64encode(raw.read()).decode()
+            finally:
+                os.chdir(cwd)
+
         self._download(payload=payload, filename=fname)
         self.render_btn.disabled = False
 
@@ -993,11 +1048,9 @@ class _StructureDataBaseViewer(ipw.VBox):
                     kwargs=params["params"],
                 )
 
-    def remove_viewer_components(self, c=None):
-        """Remove all components from the viewer except the one specified."""
-        if hasattr(self._viewer, "component_0"):
-            self._viewer.component_0.clear_representations()
-            cid = self._viewer.component_0.id
+    def remove_viewer_components(self):
+        """Remove all components from the viewer."""
+        for cid in list(self._viewer._ngl_component_ids):
             self._viewer.remove_component(cid)
 
     @tl.default("supercell")
@@ -1012,7 +1065,7 @@ class _StructureDataBaseViewer(ipw.VBox):
         # Exclude everything that is beyond the total number of atoms.
         selection_list = [x for x in value["new"] if x < self.natoms]
 
-        # In the case of a super cell, we need to multiply the selection as well
+        # In the case of a supercell, we need to multiply the selection as well
         multiplier = sum(self.supercell) - 2
         selection_list = [
             x + self.natoms * i for x in selection_list for i in range(multiplier)
@@ -1049,7 +1102,7 @@ class _StructureDataBaseViewer(ipw.VBox):
         else:
             self.wrong_syntax.layout.visibility = "visible"
 
-    def download(self, change=None):  # pylint: disable=unused-argument
+    def download(self, _=None):
         """Prepare a structure for downloading."""
         payload = self._prepare_payload(self.file_format.value["format"])
         if payload is None:
@@ -1086,7 +1139,7 @@ class _StructureDataBaseViewer(ipw.VBox):
 
         file_format = file_format if file_format else self.file_format.value["format"]
         tmp = NamedTemporaryFile()
-        self.structure.write(tmp.name, format=file_format)  # pylint: disable=no-member
+        self.structure.write(tmp.name, format=file_format)
         with open(tmp.name, "rb") as raw:
             return base64.b64encode(raw.read()).decode()
 
@@ -1111,7 +1164,7 @@ class StructureDataViewer(_StructureDataBaseViewer):
         ASE Atoms object or to AiiDA structure object containing `get_ase()` method.
 
         displayed_structure (Atoms): Trait that contains a structure object that is
-        currently displayed (super cell, for example). The trait is generated automatically
+        currently displayed (supercell, for example). The trait is generated automatically
         and can't be set outside of the class.
     """
 
@@ -1128,6 +1181,7 @@ class StructureDataViewer(_StructureDataBaseViewer):
 
     def __init__(self, structure=None, **kwargs):
         super().__init__(**kwargs)
+        self.add_class("structure-viewer")
         self.structure = structure
 
     @tl.observe("supercell")
@@ -1136,7 +1190,18 @@ class StructureDataViewer(_StructureDataBaseViewer):
             self.set_trait(
                 "displayed_structure", None
             )  # To make sure the structure is always updated.
-            self.set_trait("displayed_structure", self.structure.repeat(self.supercell))
+            # nglview displays structures by first saving them to a temporary "pdb" file, which necessitates
+            # converting the unit cell and atomic positions into a standard form where the a-axis aligns along the x-axis.
+            # This transformation can cause discrepancies between the atom positions and custom bonds calculated from the original structure.
+            # To mitigate this, we transform the "displayed_structure" into the standard form prior to rendering in nglview.
+            # This ensures that nglview's internal handling does not further modify the structure unexpectedly.
+            standard_structure = self.structure.copy()
+            standard_structure.set_cell(
+                self.structure.cell.standard_form()[0], scale_atoms=True
+            )
+            self.set_trait(
+                "displayed_structure", standard_structure.repeat(self.supercell)
+            )
 
     @tl.validate("structure")
     def _valid_structure(self, change):
@@ -1232,6 +1297,14 @@ class StructureDataViewer(_StructureDataBaseViewer):
                 self._viewer.add_unitcell()
                 self._viewer._add_shape(set(bonds), name="bonds")
                 self._viewer.center()
+                # In case of a structure with only one atom, the `center()` method will show a black sphere.
+                if len(self.displayed_structure) == 1:
+                    # get center of mass of the displayed structure
+                    com = self.displayed_structure.get_center_of_mass()
+                    # The default camera should be in the z direction, so we
+                    # shift the center of the control in z direction by 1
+                    com[2] -= 1
+                    self._viewer.control.center(com)
 
         self.displayed_selection = []
 
@@ -1416,11 +1489,6 @@ class StructureDataViewer(_StructureDataBaseViewer):
         def add_info(indx, atom):
             return f"<p>Id: {indx + 1}; Symbol: {atom.symbol}; Coordinates: ({print_pos(atom.position)})</p>"
 
-        # Unit and displayed cell atoms' selection.
-        info = (
-            f"<p>Selected atoms: {list_to_string_range(self.displayed_selection, shift=1)}</p>"
-            + f"<p>Selected unit cell atoms: {list_to_string_range(self.selection, shift=1)}</p>"
-        )
         # Find geometric center.
         geom_center = print_pos(
             np.average(
@@ -1428,6 +1496,8 @@ class StructureDataViewer(_StructureDataBaseViewer):
                 axis=0,
             )
         )
+
+        info = ""
 
         # Report coordinates.
         if len(self.displayed_selection) == 1:
@@ -1438,6 +1508,11 @@ class StructureDataViewer(_StructureDataBaseViewer):
 
         # Report coordinates, distance and center.
         elif len(self.displayed_selection) == 2:
+            dist = self.displayed_structure.get_distance(*self.displayed_selection)
+            distv = self.displayed_structure.get_distance(
+                *self.displayed_selection, vector=True
+            )
+            info += f"<p>Distance: {dist:.2f} Å ({print_pos(distv)})</p>"
             info += add_info(
                 self.displayed_selection[0],
                 self.displayed_structure[self.displayed_selection[0]],
@@ -1446,11 +1521,6 @@ class StructureDataViewer(_StructureDataBaseViewer):
                 self.displayed_selection[1],
                 self.displayed_structure[self.displayed_selection[1]],
             )
-            dist = self.displayed_structure.get_distance(*self.displayed_selection)
-            distv = self.displayed_structure.get_distance(
-                *self.displayed_selection, vector=True
-            )
-            info += f"<p>Distance: {dist:.2f} ({print_pos(distv)})</p>"
 
         # Report angle geometric center and normal.
         elif len(self.displayed_selection) == 3:
@@ -1466,7 +1536,7 @@ class StructureDataViewer(_StructureDataBaseViewer):
                 )
             )
             normal = normal / np.linalg.norm(normal)
-            info += f"<p>Angle: {angle}, Normal: ({print_pos(normal)})</p>"
+            info += f"<p>Angle: {angle}&deg;, Normal: ({print_pos(normal)})</p>"
 
         # Report dihedral angle and geometric center.
         elif len(self.displayed_selection) == 4:
@@ -1477,12 +1547,16 @@ class StructureDataViewer(_StructureDataBaseViewer):
                 dihedral_str = f"{dihedral:.3f}"
             except ZeroDivisionError:
                 dihedral_str = "nan"
-            info += f"<p>Dihedral angle: {dihedral_str}</p>"
+            info += f"<p>Dihedral angle: {dihedral_str}&deg;</p>"
+
+        # Unit and displayed cell atoms' selection.
+        info_unit_and_displayed = (
+            f"<p>Selected atoms: {list_to_string_range(self.displayed_selection, shift=1)}</p>"
+            + f"<p>Selected unit cell atoms: {list_to_string_range(self.selection, shift=1)}</p>"
+        )
 
         return (
-            info
-            + f"<p>Geometric center: ({geom_center})</p>"
-            + f"<p>{len(self.displayed_selection)} atoms selected</p>"
+            info + f"<p>Geometric center: ({geom_center})</p>" + info_unit_and_displayed
         )
 
     @tl.observe("displayed_selection")
@@ -1520,21 +1594,26 @@ class FolderDataViewer(ipw.VBox):
             children.append(self.download_btn)
         super().__init__(children, **kwargs)
 
-    def change_file_view(self, change=None):  # pylint: disable=unused-argument
-        with self._folder.base.repository.open(self.files.value) as fobj:
-            self.text.value = fobj.read()
+    def change_file_view(self, _=None):
+        try:
+            with self._folder.base.repository.open(self.files.value) as fobj:
+                self.text.value = fobj.read()
+        except UnicodeDecodeError:
+            self.text.value = "[Binary file, preview not available]"
 
-    def download(self, change=None):  # pylint: disable=unused-argument
-        """Prepare for downloading."""
+    def download(self, _=None):
+        """Download selected file."""
         from IPython.display import Javascript
 
-        payload = base64.b64encode(
-            self._folder.get_object_content(self.files.value).encode()
-        ).decode()
+        # TODO: Preparing large files for download might take a while.
+        # Can we do a streaming solution?
+        raw_bytes = self._folder.get_object_content(self.files.value, "rb")
+        base64_payload = base64.b64encode(raw_bytes).decode()
+
         javas = Javascript(
             f"""
             var link = document.createElement('a');
-            link.href = "data:;base64,{payload}"
+            link.href = "data:;base64,{base64_payload}"
             link.download = "{self.files.value}"
             document.body.appendChild(link);
             link.click();
@@ -1559,18 +1638,14 @@ class BandsDataViewer(ipw.VBox):
         output_notebook(hide_banner=True)
         out = ipw.Output()
         with out:
-            plot_info = bands._get_bandplot_data(
-                cartesian=True, join_symbol="|"
-            )  # pylint: disable=protected-access
+            plot_info = bands._get_bandplot_data(cartesian=True, join_symbol="|")
             # Extract relevant data
             y_data = plot_info["y"].transpose().tolist()
             x_data = [plot_info["x"] for i in range(len(y_data))]
             labels = plot_info["labels"]
             # Create the figure
             plot = figure(y_axis_label=f"Dispersion ({bands.units})")
-            plot.multi_line(
-                x_data, y_data, line_width=2, line_color="red"
-            )  # pylint: disable=too-many-function-args
+            plot.multi_line(x_data, y_data, line_width=2, line_color="red")
             plot.xaxis.ticker = [label[0] for label in labels]
             # This trick was suggested here: https://github.com/bokeh/bokeh/issues/8166#issuecomment-426124290
             plot.xaxis.major_label_overrides = {
@@ -1613,10 +1688,10 @@ class ProcessNodeViewerWidget(ipw.HTML):
         )
         header = f"""
             Process {process.process_label},
-            State: {tools.query.formatting.format_process_state(process.process_state.value)},
+            State: {format_process_state(process.process_state.value)},
             UUID: {process.uuid} (pk: {process.pk})<br>
-            Started {tools.query.formatting.format_relative_time(process.ctime)},
-            Last modified {tools.query.formatting.format_relative_time(process.mtime)}<br>
+            Started {format_relative_time(process.ctime)},
+            Last modified {format_relative_time(process.mtime)}<br>
         """
         self.value = f"{header}<pre>{filtered_report}</pre>"
 

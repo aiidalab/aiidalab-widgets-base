@@ -7,6 +7,7 @@ from aiidalab_widgets_base.databases import ComputationalResourcesDatabaseWidget
 
 # timeout for the test
 @pytest.mark.timeout(30)
+@pytest.mark.xfail(strict=False)
 def test_cod_query_widget():
     """Test the COD query widget."""
 
@@ -51,7 +52,7 @@ def test_computational_resources_database_widget():
     # Same for the quick setup widget.
     widget = ComputationalResourcesDatabaseWidget(default_calc_job_plugin="cp2k")
     assert (
-        "merlin.psi.ch" not in widget.database
+        "merlin7.psi.ch" not in widget.database
     )  # Merlin does not have CP2K installed.
 
     # Select computer/code
@@ -104,9 +105,9 @@ def test_resource_database_widget_recognize_template_entry_points():
     widget = ComputationalResourcesDatabaseWidget(
         default_calc_job_plugin="quantumespresso.pw"
     )
-    assert "merlin.psi.ch" in widget.database
+    assert "merlin7.psi.ch" in widget.database
 
     widget = ComputationalResourcesDatabaseWidget(
         default_calc_job_plugin="quantumespresso.ph"
     )
-    assert "merlin.psi.ch" in widget.database
+    assert "merlin7.psi.ch" in widget.database

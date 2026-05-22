@@ -1,4 +1,5 @@
 """Widgets that allow to query online databases."""
+
 import re
 
 import ase
@@ -152,11 +153,26 @@ class OptimadeQueryWidget(ipw.VBox):
 
     def __init__(
         self,
-        embedded: bool = True,
-        title: str = None,
+        embedded=True,
+        title=None,
         **kwargs,
     ) -> None:
-        from optimade_client import default_parameters, query_filter, query_provider
+        try:
+            from ipyoptimade import default_parameters, query_filter, query_provider
+        except ImportError:
+            super().__init__(
+                [
+                    ipw.HTML(
+                        """
+                        <div style="margin: 10px 0; padding: 10px; background-color: #ffcc00; color: black; border-left: 6px solid #ffeb3b;">
+                            <i class="fa fa-exclamation-triangle" aria-hidden="true"></i>
+                            &nbsp;This widget requires the <code>optimade-client</code> package to be installed.
+                            Please run <code>pip install optimade-client</code> to install the missing package.
+                        </div>"""
+                    )
+                ]
+            )
+            return
 
         providers_header = ipw.HTML("<h4>Select a provider</h4>")
         providers = query_provider.OptimadeQueryProviderWidget(
@@ -172,10 +188,6 @@ class OptimadeQueryWidget(ipw.VBox):
             ),
             skip_providers=kwargs.pop(
                 "skip_providers", default_parameters.SKIP_DATABASE
-            ),
-            provider_database_groupings=kwargs.pop(
-                "provider_database_groupings",
-                default_parameters.PROVIDER_DATABASE_GROUPINGS,
             ),
         )
         filters = query_filter.OptimadeQueryFilterWidget(
@@ -217,6 +229,8 @@ class ComputationalResourcesDatabaseWidget(ipw.VBox):
     computer_setup = tl.Dict()
     computer_configure = tl.Dict()
     code_setup = tl.Dict()
+
+    configured = tl.Bool(False)
 
     STYLE = {"description_width": "180px"}
     LAYOUT = {"width": "400px"}
@@ -337,9 +351,7 @@ class ComputationalResourcesDatabaseWidget(ipw.VBox):
             if len(domain_value) == 0:
                 # remove domain since no computers with required codes defined in this domain source
                 del database[domain]
-                continue
-
-            if domain_value["default"] not in domain_value:
+            elif domain_value.get("default") not in domain_value:
                 # make sure default computer is still points to existing computer
                 domain_value["default"] = sorted(domain_value.keys() - {"default"})[0]
 
@@ -399,6 +411,8 @@ class ComputationalResourcesDatabaseWidget(ipw.VBox):
             self.computer_setup = computer_setup
             self.computer_configure = computer_configure
 
+        self._set_configured()
+
     def _code_changed(self, change=None):
         """Update code settings."""
         if change["new"] is None:
@@ -416,3 +430,9 @@ class ComputationalResourcesDatabaseWidget(ipw.VBox):
             .get("codes", {})
             .get(selected_code, {})
         )
+
+        self._set_configured()
+
+    def _set_configured(self):
+        """Update state of the widget."""
+        self.configured = all((self.computer_setup, self.code_setup))

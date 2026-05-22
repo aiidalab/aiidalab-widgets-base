@@ -12,7 +12,6 @@ from uuid import UUID
 import ipywidgets as ipw
 import jinja2
 import pexpect
-import shortuuid
 import traitlets as tl
 from aiida import common, orm, plugins
 from aiida.orm.utils.builders.computer import ComputerBuilder
@@ -61,6 +60,8 @@ class ComputationalResourcesWidget(ipw.VBox):
         enable_detailed_setup=True,
         clear_after=None,
         default_calc_job_plugin=None,
+        include_setup_widget=True,
+        fetch_codes=True,
         **kwargs,
     ):
         """Dropdown for Codes for one input plugin.
@@ -73,7 +74,7 @@ class ComputationalResourcesWidget(ipw.VBox):
         self.setup_message = StatusHTML(clear_after=clear_after)
         self.code_select_dropdown = ipw.Dropdown(
             description=description,
-            disabled=True,
+            disabled=fetch_codes,  # disable if handled internally, enable otherwise
             value=None,
             style={"description_width": "initial"},
         )
@@ -95,33 +96,45 @@ class ComputationalResourcesWidget(ipw.VBox):
             self.refresh, names=["allow_disabled_computers", "allow_hidden_codes"]
         )
 
-        self.btn_setup_new_code = ipw.ToggleButton(description="Setup new code")
-        self.btn_setup_new_code.observe(self._setup_new_code, "value")
-
-        self._setup_new_code_output = ipw.Output(layout={"width": self._output_width})
-
         self._default_user_email = orm.User.collection.get_default().email
 
-        children = [
-            ipw.HBox([self.code_select_dropdown, self.btn_setup_new_code]),
-            self._setup_new_code_output,
-            self.output,
-        ]
+        selection_row = ipw.HBox(
+            children=[
+                self.code_select_dropdown,
+            ]
+        )
+
+        children = [selection_row]
+
+        if include_setup_widget:
+            self.btn_setup_new_code = ipw.ToggleButton(description="Setup new code")
+            self.btn_setup_new_code.observe(self._setup_new_code, "value")
+
+            selection_row.children += (self.btn_setup_new_code,)
+
+            self._setup_new_code_output = ipw.Output(
+                layout={"width": self._output_width}
+            )
+            children.append(self._setup_new_code_output)
+
+            # Computer/code setup
+            self.resource_setup = ResourceSetupBaseWidget(
+                default_calc_job_plugin=self.default_calc_job_plugin,
+                enable_quick_setup=enable_quick_setup,
+                enable_detailed_setup=enable_detailed_setup,
+            )
+            self.resource_setup.observe(self.refresh, "success")
+            tl.dlink(
+                (self.resource_setup, "message"),
+                (self.setup_message, "message"),
+            )
+
+        children.append(self.output)
+
         super().__init__(children=children, **kwargs)
 
-        # Computer/code setup
-        self.resource_setup = _ResourceSetupBaseWidget(
-            default_calc_job_plugin=self.default_calc_job_plugin,
-            enable_quick_setup=enable_quick_setup,
-            enable_detailed_setup=enable_detailed_setup,
-        )
-        self.resource_setup.observe(self.refresh, "success")
-        tl.dlink(
-            (self.resource_setup, "message"),
-            (self.setup_message, "message"),
-        )
-
-        self.refresh()
+        if fetch_codes:
+            self.refresh()
 
     def _get_codes(self):
         """Query the list of available codes."""
@@ -281,7 +294,15 @@ class SshComputerSetup(ipw.VBox):
         )
 
         # Username.
-        self.username = ipw.Text(description="Username:", layout=LAYOUT, style=STYLE)
+        self.username = ipw.Text(
+            description="Username:",
+            layout=LAYOUT,
+            style=STYLE,
+        )
+        self.username.observe(
+            self._enable_setup_ssh_button,
+            "value",
+        )
 
         # Port.
         self.port = ipw.IntText(
@@ -297,6 +318,10 @@ class SshComputerSetup(ipw.VBox):
             layout=LAYOUT,
             style=STYLE,
         )
+        self.hostname.observe(
+            self._enable_setup_ssh_button,
+            "value",
+        )
 
         # ProxyJump.
         self.proxy_jump = ipw.Text(
@@ -311,18 +336,11 @@ class SshComputerSetup(ipw.VBox):
             style=STYLE,
         )
 
-        self._inp_private_key = ipw.FileUpload(
-            accept="",
-            layout=LAYOUT,
-            description="Private key",
-            multiple=False,
-        )
         self._verification_mode = ipw.Dropdown(
             options=[
-                ("Password", "password"),
-                ("Use custom private key", "private_key"),
-                ("Download public key", "public_key"),
-                ("Multiple factor authentication", "mfa"),
+                ("Provide password to remote machine", "password"),
+                ("Manually deploy a public key", "public_key"),
+                ("Use multiple factor authentication", "mfa"),
             ],
             layout=LAYOUT,
             style=STYLE,
@@ -340,20 +358,39 @@ class SshComputerSetup(ipw.VBox):
         )
 
         # Setup ssh button and output.
-        btn_setup_ssh = ipw.Button(description="Setup ssh")
-        btn_setup_ssh.on_click(self._on_setup_ssh_button_pressed)
+        self.btn_setup_ssh = ipw.Button(
+            description="Setup ssh",
+            disabled=not (self.hostname.value and self.username.value),
+        )
+        self.btn_setup_ssh.on_click(self._on_setup_ssh_button_pressed)
 
         children = [
+            ipw.HTML(
+                value="""
+                    <p>To set up a passwordless connection to the remote machine, you can choose one of the following methods:</p>
+                    <ul>
+                        <li><b>Provide password to remote machine</b>: We use your password to deploy a generated public key to the remote machine (<b>recommended</b>)</li>
+                        <li><b>Manually deploy a public key</b>: Manually copy a generated public key over to the remote machine</li>
+                        <li><b>Use multiple factor authentication</b>: To be used in tandem with the MFA app (beta)</li>
+                    </ul>
+                """,
+                layout={"width": "fit-content"},
+            ),
             self.hostname,
             self.port,
             self.username,
             self.proxy_jump,
             self.proxy_command,
             self._verification_mode,
+            self.password_box,
             self._verification_mode_output,
-            btn_setup_ssh,
+            self.btn_setup_ssh,
         ]
         super().__init__(children, **kwargs)
+
+    def _enable_setup_ssh_button(self, _):
+        """Enable the setup ssh button if hostname and username are provided."""
+        self.btn_setup_ssh.disabled = not (self.hostname.value and self.username.value)
 
     def _ssh_keygen(self):
         """Generate ssh key pair."""
@@ -376,7 +413,7 @@ class SshComputerSetup(ipw.VBox):
             "",
         ]
         if not fpath.exists():
-            subprocess.run(keygen_cmd, capture_output=True)
+            subprocess.run(keygen_cmd, capture_output=True, check=True)
 
     def _can_login(self):
         """Check if it is possible to login into the remote host."""
@@ -408,7 +445,7 @@ class SshComputerSetup(ipw.VBox):
             return False
         return True
 
-    def _write_ssh_config(self, private_key_abs_fname=None):
+    def _write_ssh_config(self):
         """Put host information into the config file."""
         config_path = self._ssh_folder / "config"
 
@@ -428,8 +465,6 @@ class SshComputerSetup(ipw.VBox):
                 file.write(
                     f"  ProxyCommand {self.proxy_command.value.format(username=self.username.value)}\n"
                 )
-            if private_key_abs_fname:
-                file.write(f"  IdentityFile {private_key_abs_fname}\n")
             file.write("  ServerAliveInterval 5\n")
 
     def key_pair_prepare(self):
@@ -465,39 +500,18 @@ class SshComputerSetup(ipw.VBox):
 
             self.thread_ssh_copy_id()
 
-        # For not password ssh auth (such as using private_key or 2FA), key pair is not needed (2FA)
+        # For not password ssh auth (e.g., 2FA), key pair is not needed (2FA)
         # or the key pair is ready.
         # There are other mechanism to set up the ssh connection.
         # But we still need to write the ssh config to the ssh config file for such as
         # proxy jump.
 
-        private_key_fname = None
-        if self._verification_mode.value == "private_key":
-            # Write private key in ~/.ssh/ and use the name of upload file,
-            # if exist, generate random string and append to filename then override current name.
-
-            # unwrap private key file and setting temporary private_key content
-            private_key_fname, private_key_content = self._private_key
-            if private_key_fname is None:  # check private key file
-                message = "Please upload your private key file."
-                self.message = wrap_message(message, MessageLevel.ERROR)
-                return
-
-            filename = Path(private_key_fname).name
-
-            # if the private key filename is exist, generate random string and append to filename subfix
-            # then override current name.
-            if filename in [str(p.name) for p in Path(self._ssh_folder).iterdir()]:
-                private_key_fpath = self._ssh_folder / f"{filename}-{shortuuid.uuid()}"
-
-            self._add_private_key(private_key_fpath, private_key_content)
-
         # TODO(danielhollas): I am not sure this is correct. What if the user wants
-        # to overwrite the private key? Or any other config? The configuration would never be written.
+        # to overwrite a config entry? The configuration would never be written.
         # And the user is not notified that we did not write anything.
         # https://github.com/aiidalab/aiidalab-widgets-base/issues/516
         if not self._is_in_config():
-            self._write_ssh_config(private_key_abs_fname=private_key_fname)
+            self._write_ssh_config()
 
     def _ssh_copy_id(self):
         """Run the ssh-copy-id command and follow it until it is completed."""
@@ -599,9 +613,10 @@ class SshComputerSetup(ipw.VBox):
         """which verification mode is chosen."""
         with self._verification_mode_output:
             clear_output()
-            if self._verification_mode.value == "private_key":
-                display(self._inp_private_key)
+            if self._verification_mode.value == "password":
+                self.password_box.layout.display = "block"
             elif self._verification_mode.value == "public_key":
+                self.password_box.layout.display = "none"
                 public_key = self._ssh_folder / "id_rsa.pub"
                 if public_key.exists():
                     display(
@@ -610,23 +625,8 @@ class SshComputerSetup(ipw.VBox):
                             layout={"width": "100%"},
                         )
                     )
-
-    @property
-    def _private_key(self) -> tuple[str | None, bytes | None]:
-        """Unwrap private key file and setting filename and file content."""
-        if self._inp_private_key.value:
-            (fname, _value), *_ = self._inp_private_key.value.items()
-            content = copy.copy(_value["content"])
-            self._inp_private_key.value.clear()
-            self._inp_private_key._counter = 0  # pylint: disable=protected-access
-            return fname, content
-        return None, None
-
-    @staticmethod
-    def _add_private_key(private_key_fpath: Path, private_key_content: bytes):
-        """Write private key to the private key file in the ssh folder."""
-        private_key_fpath.write_bytes(private_key_content)
-        private_key_fpath.chmod(0o600)
+            else:
+                self.password_box.layout.display = "none"
 
     def _reset(self):
         self.hostname.value = ""
@@ -1028,6 +1028,7 @@ class AiidaComputerSetup(ipw.VBox):
         process_result = subprocess.run(
             ["verdi", "computer", "test", "--print-traceback", self.label.value],
             capture_output=True,
+            check=False,
         )
 
         if process_result.returncode == 0:
@@ -1178,6 +1179,13 @@ class AiidaCodeSetup(ipw.VBox):
         with self.setup_code_out:
             clear_output()
 
+            if not self.label.value:
+                self.message = wrap_message(
+                    "Please provide a code label.",
+                    MessageLevel.WARNING,
+                )
+                return False
+
             if not self.computer.value:
                 self.message = wrap_message(
                     "Please select an existing computer.",
@@ -1195,7 +1203,17 @@ class AiidaCodeSetup(ipw.VBox):
                 "append_text",
             ]
 
+            containerized_code_additional_items = [
+                "image_name",
+                "engine_command",
+            ]
+
             kwargs = {key: getattr(self, key).value for key in items_to_configure}
+
+            # Check for additional keys needed for orm.ContainerizedCode
+            for container_key in containerized_code_additional_items:
+                if container_key in self.code_setup.keys():
+                    kwargs[container_key] = self.code_setup[container_key]
 
             # set computer from its widget value the UUID of the computer.
             computer = orm.load_computer(self.computer.value)
@@ -1204,7 +1222,7 @@ class AiidaCodeSetup(ipw.VBox):
             qb = orm.QueryBuilder()
             qb.append(orm.Computer, filters={"uuid": computer.uuid}, tag="computer")
             qb.append(
-                orm.InstalledCode,
+                orm.Code,
                 with_computer="computer",
                 filters={"label": kwargs["label"]},
             )
@@ -1222,7 +1240,10 @@ class AiidaCodeSetup(ipw.VBox):
                 return False
 
             try:
-                code = orm.InstalledCode(computer=computer, **kwargs)
+                if "image_name" in kwargs.keys():
+                    code = orm.ContainerizedCode(computer=computer, **kwargs)
+                else:
+                    code = orm.InstalledCode(computer=computer, **kwargs)
             except (common.exceptions.InputValidationError, KeyError) as exception:
                 self.message = wrap_message(
                     f"Invalid input for code creation: <code>{exception}</code>",
@@ -1562,7 +1583,7 @@ class TemplateVariablesWidget(ipw.VBox):
                 # if the widget is not filled, use the original template var string e.g. {{ var }}
                 inp_dict = {}
                 for _var in line.vars:
-                    if self._template_variables[_var].widget.value == "":
+                    if self._template_variables[_var].widget.value in ("", None):
                         variable_key = self._template_variables[_var].widget.description
                         self.unfilled_variables.append(variable_key.strip(":"))
                         inp_dict[_var] = "{{ " + _var + " }}"
@@ -1584,7 +1605,7 @@ class TemplateVariablesWidget(ipw.VBox):
         self.fill()
 
 
-class _ResourceSetupBaseWidget(ipw.VBox):
+class ResourceSetupBaseWidget(ipw.VBox):
     """The widget that allows to setup a computer and code.
     This is the building block of the `ComputationalResourcesDatabaseWidget` which
     will be directly used by the user.
@@ -1602,7 +1623,7 @@ class _ResourceSetupBaseWidget(ipw.VBox):
         enable_detailed_setup=True,
     ):
         if not any((enable_detailed_setup, enable_quick_setup)):
-            raise ValueError(  # noqa
+            raise ValueError(
                 "At least one of `enable_quick_setup` and `enable_detailed_setup` should be True."
             )
 
@@ -1630,6 +1651,11 @@ class _ResourceSetupBaseWidget(ipw.VBox):
         self.comp_resources_database = ComputationalResourcesDatabaseWidget(
             default_calc_job_plugin=default_calc_job_plugin,
             show_reset_button=False,
+        )
+        ipw.dlink(
+            (self.comp_resources_database, "configured"),
+            (self.quick_setup_button, "disabled"),
+            lambda configured: not configured,
         )
 
         # All templates
@@ -1747,6 +1773,12 @@ class _ResourceSetupBaseWidget(ipw.VBox):
                 detailed_setup,
             ]
         )
+        # This container is used to control the appearance of the password box
+        self.password_box_container = ipw.VBox(
+            children=[
+                self.ssh_computer_setup.password_box,
+            ]
+        )
 
         super().__init__(
             children=[
@@ -1758,7 +1790,7 @@ class _ResourceSetupBaseWidget(ipw.VBox):
                 self.template_computer_setup,
                 self.template_code,
                 self.template_computer_configure,
-                self.ssh_computer_setup.password_box,
+                self.password_box_container,
                 self.detailed_setup_switch_widgets,
                 ipw.HBox(
                     children=[
@@ -1778,9 +1810,9 @@ class _ResourceSetupBaseWidget(ipw.VBox):
         """Update the layout to hide or show the bundled quick_setup/detailed_setup."""
         # check if the password is asked for ssh connection.
         if self.ssh_auth != "password":
-            self.ssh_computer_setup.password_box.layout.display = "none"
+            self.password_box_container.layout.display = "none"
         else:
-            self.ssh_computer_setup.password_box.layout.display = "block"
+            self.password_box_container.layout.display = "block"
 
         # If both quick and detailed setup are enabled
         # - show the switch widget
@@ -1813,11 +1845,16 @@ class _ResourceSetupBaseWidget(ipw.VBox):
         if change["new"]:
             self.detailed_setup_widget.layout.display = "block"
             self.quick_setup_button.disabled = True
+            # hide the password box in the quick setup, because user will input
+            # the password in the detailed setup
+            self.password_box_container.layout.display = "none"
             # fill the template variables with the default values or the filled values.
             # If the template variables are not all filled raise a warning.
         else:
             self.detailed_setup_widget.layout.display = "none"
             self.quick_setup_button.disabled = False
+            # this will update the password box based on the template computer_configure.
+            self._update_layout()
 
     def _on_template_computer_configure_metadata_change(self, change):
         """callback when the metadata of computer_configure template is changed."""
@@ -1849,6 +1886,14 @@ class _ResourceSetupBaseWidget(ipw.VBox):
             )
             return
 
+        # Raise error if the code is not selected.
+        if not self.comp_resources_database.code_selector.value:
+            self.message = wrap_message(
+                "Please select a code from the database.",
+                MessageLevel.ERROR,
+            )
+            return
+
         # Check if all the template variables are filled.
         # If not raise a warning and return (skip the setup).
         if (
@@ -1856,7 +1901,7 @@ class _ResourceSetupBaseWidget(ipw.VBox):
             + self.template_computer_configure.unfilled_variables
             + self.template_code.unfilled_variables
         ):
-            var_warn_message = ", ".join([f"<b>{v}</b>" for v in unfilled_variables])
+            var_warn_message = ", ".join({f"<b>{v}</b>" for v in unfilled_variables})
             self.message = wrap_message(
                 f"Please fill the template variables: {var_warn_message}",
                 MessageLevel.WARNING,
