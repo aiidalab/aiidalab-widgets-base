@@ -3,8 +3,10 @@ from pathlib import Path
 import ase
 import numpy as np
 import pytest
+from aiida import common, orm
 
 import aiidalab_widgets_base as awb
+import aiidalab_widgets_base.structures as structures
 
 
 @pytest.mark.usefixtures("aiida_profile_clean")
@@ -116,7 +118,7 @@ def test_structure_manager_widget(structure_data_object):
 
 
 @pytest.mark.usefixtures("aiida_profile_clean")
-def test_structure_browser_widget(structure_data_object):
+def test_structure_browser_widget(structure_data_object, monkeypatch):
     """Test the `StructureBrowserWidget`."""
     structure_browser_widget = awb.StructureBrowserWidget()
     assert structure_browser_widget.structure is None
@@ -135,6 +137,48 @@ def test_structure_browser_widget(structure_data_object):
     structure_browser_widget.results.value = structure_data_object
 
     assert structure_browser_widget.structure.uuid == structure_data_object.uuid
+    assert structure_browser_widget.pk_input.value == str(structure_data_object.pk)
+
+    # Invalid PK inputs should clear the current selection.
+    structure_browser_widget.pk_input.value = "not-a-pk"
+    structure_browser_widget._on_load_button_clicked()
+    assert structure_browser_widget.structure is None
+    assert structure_browser_widget.results.value is False
+    assert "Invalid PK" in structure_browser_widget.info.value
+
+    structure_browser_widget.pk_input.value = "0"
+    structure_browser_widget._on_load_button_clicked()
+    assert structure_browser_widget.structure is None
+    assert structure_browser_widget.results.value is False
+    assert "Invalid PK" in structure_browser_widget.info.value
+
+    # Simulate loading a structure directly by PK.
+    structure_browser_widget.pk_input.value = str(structure_data_object.pk)
+    structure_browser_widget._on_load_button_clicked()
+
+    assert structure_browser_widget.structure.uuid == structure_data_object.uuid
+    assert structure_browser_widget.results.value.uuid == structure_data_object.uuid
+    assert structure_browser_widget.info.value == ""
+
+    # Loading by PK should respect the configured query types.
+    int_node = orm.Int(1).store()
+    structure_browser_widget.pk_input.value = str(int_node.pk)
+    structure_browser_widget._on_load_button_clicked()
+
+    assert structure_browser_widget.structure is None
+    assert "StructureData, CifData" in structure_browser_widget.info.value
+
+    def raise_not_existent(pk):
+        raise common.NotExistent(f"No node with PK={pk}.")
+
+    monkeypatch.setattr(structures.orm, "load_node", raise_not_existent)
+    structure_browser_widget.pk_input.value = str(int_node.pk + 1)
+    structure_browser_widget._on_load_button_clicked()
+
+    assert structure_browser_widget.structure is None
+    assert f"No AiiDA node found for PK={int_node.pk + 1}." in (
+        structure_browser_widget.info.value
+    )
 
 
 @pytest.mark.usefixtures("aiida_profile_clean")

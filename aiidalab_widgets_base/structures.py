@@ -11,7 +11,7 @@ import ipywidgets as ipw
 import numpy as np
 import spglib
 import traitlets as tl
-from aiida import engine, orm, plugins
+from aiida import common, engine, orm, plugins
 
 # Local imports
 from .data import FunctionalGroupSelectorWidget
@@ -569,6 +569,16 @@ class StructureBrowserWidget(ipw.VBox):
         )
         self.end_date_widget = ipw.Text(value="", description="To: ")
 
+        self.info = ipw.HTML("")
+        self.pk_input = ipw.Text(
+            value="",
+            placeholder="",
+            description="Structure PK:",
+            style={"description_width": "120px"},
+        )
+        self.load_button = ipw.Button(description="Load Structure", button_style="info")
+        self.load_button.on_click(self._on_load_button_clicked)
+
         # Search button.
         btn_search = ipw.Button(
             description="Search",
@@ -586,7 +596,15 @@ class StructureBrowserWidget(ipw.VBox):
         )
 
         h_line = ipw.HTML("<hr>")
-        box = ipw.VBox([age_selection, h_line, ipw.HBox([self.mode, self.drop_label])])
+        box = ipw.VBox(
+            [
+                age_selection,
+                ipw.HBox([self.pk_input, self.load_button]),
+                self.info,
+                h_line,
+                ipw.HBox([self.mode, self.drop_label]),
+            ]
+        )
 
         self.results = ipw.Dropdown(layout={"width": "900px"})
         self.results.observe(self._on_select_structure, names="value")
@@ -678,18 +696,64 @@ class StructureBrowserWidget(ipw.VBox):
 
         options = [(f"Select a Structure ({len(matches)} found)", False)]
         for mch in matches:
-            label = f"PK: {mch.pk}"
-            label += " | " + mch.ctime.strftime("%Y-%m-%d %H:%M")
-            label += " | " + mch.base.extras.get("formula", "")
-            label += " | " + mch.node_type.split(".")[-2]
-            label += " | " + mch.label
-            label += " | " + mch.description
-            options.append((label, mch))
+            options.append((self._format_node_label(mch), mch))
 
         self.results.options = options
 
     def _on_select_structure(self, _=None):
         self.structure = self.results.value or None
+        self.pk_input.value = str(self.structure.pk) if self.structure else ""
+
+    @staticmethod
+    def _format_node_label(node):
+        label = f"PK: {node.pk}"
+        label += " | " + node.ctime.strftime("%Y-%m-%d %H:%M")
+        label += " | " + node.base.extras.get("formula", "")
+        label += " | " + node.node_type.split(".")[-2]
+        label += " | " + node.label
+        label += " | " + node.description
+        return label
+
+    def _query_type_names(self):
+        return ", ".join(
+            node_class.__name__ for node_class in self.query_structure_type
+        )
+
+    def _clear_structure_selection(self):
+        self.results.options = [("Select a Structure", False)]
+        self.results.value = False
+        self.structure = None
+
+    def _on_load_button_clicked(self, _=None):
+        """When load button is clicked."""
+        self.info.value = ""
+        try:
+            pk_value = int(self.pk_input.value)
+        except (ValueError, TypeError):
+            self._clear_structure_selection()
+            self.info.value = "Invalid PK: please enter a positive integer."
+            return
+
+        if pk_value <= 0:
+            self._clear_structure_selection()
+            self.info.value = "Invalid PK: please enter a positive integer."
+            return
+
+        try:
+            node = orm.load_node(pk_value)
+        except common.NotExistent:
+            self._clear_structure_selection()
+            self.info.value = f"No AiiDA node found for PK={pk_value}."
+        else:
+            if isinstance(node, self.query_structure_type):
+                self.results.options = [(self._format_node_label(node), node)]
+                self.results.value = node
+                self.structure = node
+            else:
+                self._clear_structure_selection()
+                self.info.value = (
+                    f"The PK does not correspond to {self._query_type_names()}."
+                )
 
 
 class SmilesWidget(ipw.VBox):
