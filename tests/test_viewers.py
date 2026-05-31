@@ -1,3 +1,5 @@
+import sys
+from io import StringIO
 from pathlib import Path
 
 import ase
@@ -340,8 +342,6 @@ def test_loading_viewer_using_process_type(generate_calc_job_node):
 
 def test_node_view_for_non_widget_viewer():
     """Test that a node with no registered viewer is displayed in an output widget"""
-    import sys
-    from io import StringIO
 
     # Intercepting stdout because `ipw.Output` does not
     # store outputs in non-interactive environments.
@@ -358,9 +358,24 @@ def test_node_view_for_non_widget_viewer():
 def test_node_view_caching():
     """Test that providing a given node a second time returns the cached viewer."""
     node_view = viewers.AiidaNodeViewWidget()
-    node = orm.Int(1)
+    node = orm.Dict()
     node_view.node = node
     viewer = node_view.children[0]
+    assert len(node_view.node_views) == 1
+
+    # orm.Int doesn't have a dedicated viewer
+    # so it will not be cached.
+    stdout = sys.stdout
+    with StringIO() as captured:
+        sys.stdout = captured
+        node_view.node = orm.Int(2)
+    sys.stdout = stdout
+
+    assert len(node_view.node_views) == 1
+
     node_view.node = None
+    assert not node_view.children
+
     node_view.node = node
     assert node_view.children[0] is viewer
+    assert len(node_view.node_views) == 1
