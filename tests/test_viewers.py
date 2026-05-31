@@ -361,6 +361,9 @@ def test_node_view_caching():
     node = orm.Int(1)
     node_view.node = node
     viewer = node_view.children[0]
+
     node_view.node = None
+    assert not node_view.children
+
     node_view.node = node
     assert node_view.children[0] is viewer
