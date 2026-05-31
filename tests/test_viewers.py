@@ -358,12 +358,19 @@ def test_node_view_for_non_widget_viewer():
 def test_node_view_caching():
     """Test that providing a given node a second time returns the cached viewer."""
     node_view = viewers.AiidaNodeViewWidget()
-    node = orm.Int(1)
+    node = orm.Dict()
     node_view.node = node
     viewer = node_view.children[0]
+    assert len(node_view.node_views) == 1
+
+    # orm.Int doesn't have a dedicated viewer
+    # so it will not be cached.
+    node_view.node = orm.Int(2)
+    assert len(node_view.node_views) == 1
 
     node_view.node = None
     assert not node_view.children
 
     node_view.node = node
     assert node_view.children[0] is viewer
+    assert len(node_view.node_views) == 1
