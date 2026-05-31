@@ -1,3 +1,5 @@
+import sys
+from io import StringIO
 from pathlib import Path
 
 import ase
@@ -340,8 +342,6 @@ def test_loading_viewer_using_process_type(generate_calc_job_node):
 
 def test_node_view_for_non_widget_viewer():
     """Test that a node with no registered viewer is displayed in an output widget"""
-    import sys
-    from io import StringIO
 
     # Intercepting stdout because `ipw.Output` does not
     # store outputs in non-interactive environments.
@@ -365,7 +365,12 @@ def test_node_view_caching():
 
     # orm.Int doesn't have a dedicated viewer
     # so it will not be cached.
-    node_view.node = orm.Int(2)
+    stdout = sys.stdout
+    with StringIO() as captured:
+        sys.stdout = captured
+        node_view.node = orm.Int(2)
+    sys.stdout = stdout
+
     assert len(node_view.node_views) == 1
 
     node_view.node = None
