@@ -14,12 +14,12 @@ import aiidalab_widgets_base.structures as structures
 def file_upload_change():
     """Simulate a payload when uploading a file"""
 
-    def _file_upload(fname, fcontent):
+    def _file_upload(fname: str, content_string: str) -> dict:
         return {
             "new": (
                 {
                     "name": fname,
-                    "content": fcontent,
+                    "content": content_string.encode("utf-8"),
                 },
             )
         }
@@ -211,7 +211,7 @@ def test_structure_upload_widget(file_upload_change):
         2
 
         Si 0.0 0.0 0.0
-        Si 0.5 0.5 0.5""").encode("utf-8")
+        Si 0.5 0.5 0.5""")
 
     change = file_upload_change(fname, fcontent)
     widget._on_file_upload(change)
@@ -224,15 +224,11 @@ def test_structure_upload_widget(file_upload_change):
 @pytest.mark.parametrize(
     ("fname", "fcontent", "errmsg"),
     (
-        (
-            "test.xyz",
-            b"2\n\nSi 0.0 0.0 0.0",
-            "ase.io.extxyz: Frame has 1 atoms, expected 2",
-        ),
-        ("data.txt", b"WTH?", "txt"),
-        ("datafile", b"WTH?", "Could not guess file type"),
+        ("test.xyz", "2\n\nC 0.0 0.0 0.0", "Frame has 1 atoms, expected 2"),
+        ("data.txt", "WTH?", "txt"),
+        ("datafile", "WTH?", "Could not guess file type"),
     ),
-    ids=["invalid_XYZ", "random_txt", "no_extension"],
+    ids=["invalid_xyz", "random_txt", "no_extension"],
 )
 @pytest.mark.usefixtures("aiida_profile_clean")
 def test_structure_upload_invalid_file(file_upload_change, fname, fcontent, errmsg):
