@@ -1,4 +1,5 @@
 from pathlib import Path
+from textwrap import dedent
 
 import ase
 import numpy as np
@@ -7,6 +8,23 @@ from aiida import common, orm
 
 import aiidalab_widgets_base as awb
 import aiidalab_widgets_base.structures as structures
+
+
+@pytest.fixture
+def file_upload_change():
+    """Simulate a payload when uploading a file"""
+
+    def _file_upload(fname, fcontent):
+        return {
+            "new": (
+                {
+                    "name": fname,
+                    "content": fcontent,
+                },
+            )
+        }
+
+    return _file_upload
 
 
 @pytest.mark.usefixtures("aiida_profile_clean")
@@ -182,29 +200,51 @@ def test_structure_browser_widget(structure_data_object, monkeypatch):
 
 
 @pytest.mark.usefixtures("aiida_profile_clean")
-def test_structure_upload_widget():
+def test_structure_upload_widget(file_upload_change):
     """Test the `StructureUploadWidget`."""
     widget = awb.StructureUploadWidget()
     assert widget.structure is None
 
     # Simulate the structure upload.
-    widget._on_file_upload(
-        change={
-            "new": (
-                {
-                    "name": "test.xyz",
-                    "content": b"""2
+    fname = "test.xyz"
+    fcontent = dedent("""\
+        2
 
-                Si 0.0 0.0 0.0
-                Si 0.5 0.5 0.5
-                """,
-                },
-            )
-        }
-    )
+        Si 0.0 0.0 0.0
+        Si 0.5 0.5 0.5""").encode("utf-8")
+
+    change = file_upload_change(fname, fcontent)
+    widget._on_file_upload(change)
+
     assert isinstance(widget.structure, ase.Atoms)
     assert widget.structure.get_chemical_formula() == "Si2"
     assert np.all(widget.structure[0].position == [0, 0, 0])
+
+
+@pytest.mark.parametrize(
+    ("fname", "fcontent", "errmsg"),
+    (
+        (
+            "test.xyz",
+            b"2\n\nSi 0.0 0.0 0.0",
+            "ase.io.extxyz: Frame has 1 atoms, expected 2",
+        ),
+        ("data.txt", b"WTH?", "txt"),
+        ("datafile", b"WTH?", "Could not guess file type"),
+    ),
+    ids=["invalid_XYZ", "random_txt", "no_extension"],
+)
+@pytest.mark.usefixtures("aiida_profile_clean")
+def test_structure_upload_invalid_file(file_upload_change, fname, fcontent, errmsg):
+    """Test that `StructureUploadWidget` does not crash
+    when invalid files are uploaded.
+    """
+    widget = awb.StructureUploadWidget()
+    change = file_upload_change(fname, fcontent)
+    widget._on_file_upload(change=change)
+    assert widget.structure is None
+    assert f"ERROR: Could not parse file '{fname}'" in widget._status_message.value
+    assert errmsg in widget._status_message.value
 
 
 @pytest.mark.usefixtures("aiida_profile_clean")
