@@ -763,8 +763,12 @@ class _StructureDataBaseViewer(ipw.VBox):
                 (False, True, True): "yz",
                 (False, False, False): "-",
             }
-            self.cell_spacegroup.value = f"Spacegroup: {symmetry_dataset['international']} (No.{symmetry_dataset['number']})"
-            self.cell_hall.value = f"Hall: {symmetry_dataset['hall']} (No.{symmetry_dataset['hall_number']})"
+            if symmetry_dataset is not None:
+                self.cell_spacegroup.value = f"Spacegroup: {symmetry_dataset['international']} (No.{symmetry_dataset['number']})"
+                self.cell_hall.value = f"Hall: {symmetry_dataset['hall']} (No.{symmetry_dataset['hall_number']})"
+            else:
+                self.cell_spacegroup.value = "Spacegroup: -"
+                self.cell_hall.value = "Hall: -"
             self.periodicity.value = (
                 f"Periodicity: {periodicity_map[tuple(self.structure.pbc)]}"
             )
@@ -1076,11 +1080,9 @@ class _StructureDataBaseViewer(ipw.VBox):
                     kwargs=params["params"],
                 )
 
-    def remove_viewer_components(self, c=None):
-        """Remove all components from the viewer except the one specified."""
-        if hasattr(self._viewer, "component_0"):
-            self._viewer.component_0.clear_representations()
-            cid = self._viewer.component_0.id
+    def remove_viewer_components(self):
+        """Remove all components from the viewer."""
+        for cid in list(self._viewer._ngl_component_ids):
             self._viewer.remove_component(cid)
 
     @tl.default("supercell")

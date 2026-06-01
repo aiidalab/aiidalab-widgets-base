@@ -323,6 +323,27 @@ def test_structure_data_viewer_representation(structure_data_object):
         v.structure = orm.Int(1)
 
 
+def test_structure_data_viewer_clears_bond_shape_components():
+    water = ase.Atoms(
+        symbols=["O", "H", "H"],
+        positions=[
+            (0.0, 0.0, 0.119262),
+            (0.0, 0.763239, -0.477047),
+            (0.0, -0.763239, -0.477047),
+        ],
+    )
+    viewer = viewers.StructureDataViewer()
+
+    viewer.structure = water
+    assert len(viewer._viewer._ngl_component_ids) == 2
+
+    viewer.structure = None
+
+    assert viewer.displayed_structure is None
+    assert viewer._viewer._ngl_component_ids == []
+    assert viewer._viewer._ngl_component_names == []
+
+
 @pytest.mark.usefixtures("aiida_profile_clean")
 def test_compute_bonds_in_structure_data_viewer():
     # Check the function to compute bonds.

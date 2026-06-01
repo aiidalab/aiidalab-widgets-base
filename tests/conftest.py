@@ -1,7 +1,5 @@
 import io
 import json
-import os
-import shutil
 import time
 import uuid
 from collections.abc import Mapping
@@ -10,7 +8,28 @@ import numpy as np
 import pytest
 from aiida import engine, orm, plugins
 
-pytest_plugins = ["aiida.manage.tests.pytest_fixtures"]
+# Load aiida-core's sqlite-based pytest fixtures
+pytest_plugins = ["aiida.tools.pytest_fixtures"]
+
+
+@pytest.fixture(scope="session")
+def aiida_profile(aiida_config, aiida_profile_factory, config_sqlite_dos):
+    """Create and load a profile with ``core.sqlite_dos`` as a storage backend and RabbitMQ as the broker.
+
+    This overrides the ``aiida_profile`` fixture provided by ``aiida-core`` which runs with ``core.sqlite_dos`` and
+    without broker. However, tests in this package make use of the daemon which requires a broker.
+    """
+    broker = "core.rabbitmq"
+    storage = "core.sqlite_dos"
+    config = config_sqlite_dos()
+
+    with aiida_profile_factory(
+        aiida_config,
+        storage_backend=storage,
+        storage_config=config,
+        broker_backend=broker,
+    ) as profile:
+        yield profile
 
 
 @pytest.fixture
@@ -30,21 +49,16 @@ def generate_calc_job_node(aiida_localhost):
     def _generate_calc_job_node(
         entry_point_name="base",
         computer=None,
-        test_name=None,
         inputs=None,
         attributes=None,
-        retrieve_temporary=None,
     ):
         """Fixture to generate a mock `CalcJobNode` for testing parsers.
+
         :param entry_point_name: entry point name of the calculation class
         :param computer: a `Computer` instance
-        :param test_name: relative path of directory with test output files in the `fixtures/{entry_point_name}` folder.
         :param inputs: any optional nodes to add as input links to the corrent CalcJobNode
         :param attributes: any optional attributes to set on the node
-        :param retrieve_temporary: optional tuple of an absolute filepath of a temporary directory and a list of
-            filenames that should be written to this directory, which will serve as the `retrieved_temporary_folder`.
-            For now this only works with top-level files and does not support files nested in directories.
-        :return: `CalcJobNode` instance with an attached `FolderData` as the `retrieved` node.
+        :return: `CalcJobNode` instance
         """
         from aiida import orm
         from aiida.common import LinkType
@@ -53,16 +67,6 @@ def generate_calc_job_node(aiida_localhost):
 
         if computer is None:
             computer = aiida_localhost
-
-        filepath_folder = None
-
-        if test_name is not None:
-            basepath = os.path.dirname(os.path.abspath(__file__))
-            filename = os.path.join(
-                entry_point_name[len("quantumespresso.") :], test_name
-            )
-            filepath_folder = os.path.join(basepath, "parsers", "fixtures", filename)
-            filepath_input = os.path.join(filepath_folder, "aiida.in")
 
         entry_point = format_entry_point_string("aiida.calculations", entry_point_name)
 
@@ -76,22 +80,8 @@ def generate_calc_job_node(aiida_localhost):
         if attributes:
             node.base.attributes.set_many(attributes)
 
-        if filepath_folder:
-            from aiida_quantumespresso.tools.pwinputparser import PwInputFile
-            from qe_tools.exceptions import ParsingError
-
-            try:
-                with open(filepath_input, encoding="utf-8") as input_file:
-                    parsed_input = PwInputFile(input_file.read())
-            except (ParsingError, FileNotFoundError):
-                pass
-            else:
-                inputs["structure"] = parsed_input.get_structuredata()
-                inputs["parameters"] = orm.Dict(parsed_input.namelists)
-
         if inputs:
-            metadata = inputs.pop("metadata", {})
-            options = metadata.get("options", {})
+            options = inputs.pop("metadata", {}).get("options", {})
 
             for name, option in options.items():
                 node.set_option(name, option)
@@ -103,41 +93,6 @@ def generate_calc_job_node(aiida_localhost):
                 )
 
         node.store()
-
-        if retrieve_temporary:
-            dirpath, filenames = retrieve_temporary
-            for filename in filenames:
-                try:
-                    shutil.copy(
-                        os.path.join(filepath_folder, filename),
-                        os.path.join(dirpath, filename),
-                    )
-                except FileNotFoundError:
-                    pass  # To test the absence of files in the retrieve_temporary folder
-
-        if filepath_folder:
-            retrieved = orm.FolderData()
-            retrieved.base.repository.put_object_from_tree(filepath_folder)
-
-            # Remove files that are supposed to be only present in the retrieved temporary folder
-            if retrieve_temporary:
-                for filename in filenames:
-                    try:
-                        retrieved.base.repository.delete_object(filename)
-                    except OSError:
-                        pass  # To test the absence of files in the retrieve_temporary folder
-
-            retrieved.base.links.add_incoming(
-                node, link_type=LinkType.CREATE, link_label="retrieved"
-            )
-            retrieved.store()
-
-            remote_folder = orm.RemoteData(computer=computer, remote_path="/tmp")
-            remote_folder.base.links.add_incoming(
-                node, link_type=LinkType.CREATE, link_label="remote_folder"
-            )
-
-            remote_folder.store()
 
         # Set process state and exit status
         node.set_process_state(ProcessState.FINISHED)
@@ -270,9 +225,11 @@ def folder_data_object():
 
 
 @pytest.fixture
-def aiida_local_code_bash(aiida_local_code_factory):
-    """Return a `Code` configured for the bash executable."""
-    return aiida_local_code_factory(executable="bash", entry_point="bash")
+def aiida_local_code_bash(aiida_code_installed):
+    """Return `InstalledCode` configured for bash executable."""
+    return aiida_code_installed(
+        filepath_executable="/bin/bash", default_calc_job_plugin="bash"
+    )
 
 
 @pytest.fixture
@@ -339,9 +296,11 @@ def mock_eln_config():
 
 
 @pytest.fixture
-def pw_code(aiida_local_code_factory):
+def pw_code(aiida_code_installed):
     """Return a `Code` configured for the pw.x executable."""
 
-    return aiida_local_code_factory(
-        label="pw", executable="bash", entry_point="quantumespresso.pw"
+    return aiida_code_installed(
+        label="pw",
+        filepath_executable="/bin/bash",
+        default_calc_job_plugin="quantumespresso.pw",
     )
