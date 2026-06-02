@@ -239,6 +239,12 @@ def test_smiles_widget():
     widget._on_button_pressed()
     assert isinstance(widget.structure, ase.Atoms)
     assert widget.structure.get_chemical_formula() == "CH4"
+    # By default, a rectangular cell is added (10 angstroms in each direction)
+    # but PBC is False
+    assert not any(widget.structure.pbc)
+    cell = widget.structure.cell
+    assert all(np.greater(np.diag(cell), [10, 10, 10]))
+    assert np.array_equal(cell.angles(), [90.0, 90.0, 90.0])
 
     # Regression test that we can generate 1-atom and 2-atom molecules
     widget.smiles.value = "[O]"
@@ -255,6 +261,23 @@ def test_smiles_widget():
     widget.smiles.value = "invalid"
     widget._on_button_pressed()
     assert widget.structure is None
+
+
+@pytest.mark.usefixtures("aiida_profile_clean")
+def test_smiles_widget_without_cell():
+    """Test the `SmilesWidget`."""
+    widget = awb.SmilesWidget(add_auxiliary_cell=False)
+    assert widget.structure is None
+
+    # Simulate the structure generation.
+    widget.smiles.value = "C"
+    widget._on_button_pressed()
+    assert isinstance(widget.structure, ase.Atoms)
+    assert widget.structure.get_chemical_formula() == "CH4"
+    # There should be no cell, which ASE represents with a zero cell
+    assert not any(widget.structure.pbc)
+    assert not np.any(widget.structure.cell)
+    assert not widget.structure.cell.volume
 
 
 @pytest.mark.usefixtures("aiida_profile_clean")
