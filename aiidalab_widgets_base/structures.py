@@ -375,9 +375,14 @@ class StructureUploadWidget(ipw.VBox):
     )
 
     def __init__(
-        self, title="", description="Upload Structure", allow_trajectories=False
+        self,
+        title="",
+        description="Upload Structure",
+        allow_trajectories=False,
+        add_auxiliary_cell=True,
     ):
         self.title = title
+        self.add_auxiliary_cell = add_auxiliary_cell
         self.file_upload = ipw.FileUpload(
             description=description, multiple=False, layout={"width": "initial"}
         )
@@ -400,14 +405,11 @@ class StructureUploadWidget(ipw.VBox):
         Checks if the ase Atoms object has a cell set,
         otherwise sets it to bounding box plus specified "vacuum" space
         """
-        if not ase_structure:
+        if not ase_structure or not self.add_auxiliary_cell:
             return None
 
         cell = ase_structure.cell
 
-        # TODO: Since AiiDA 2.0, zero cell is possible if PBC=false
-        # so we should honor that here and do not put artificial cell
-        # around gas phase molecules.
         if (
             np.linalg.norm(cell[0]) < 0.1
             or np.linalg.norm(cell[1]) < 0.1
@@ -763,8 +765,9 @@ class SmilesWidget(ipw.VBox):
 
     SPINNER = """<i class="fa fa-spinner fa-pulse" style="color:red;" ></i>"""
 
-    def __init__(self, title=""):
+    def __init__(self, title="", add_auxiliary_cell=True):
         self.title = title
+        self.add_auxiliary_cell = add_auxiliary_cell
         try:
             from rdkit import Chem  # noqa: F401
             from rdkit.Chem import AllChem  # noqa: F401
@@ -795,12 +798,10 @@ class SmilesWidget(ipw.VBox):
     def _make_ase(self, species, positions, smiles):
         """Create ase Atoms object."""
         atoms = ase.Atoms(species, positions=positions, pbc=False)
-        atoms.cell = np.ptp(atoms.positions, axis=0) + 10
         atoms.center()
         # We're attaching this info so that it
         # can be later stored as an extra on AiiDA Structure node.
         atoms.info["smiles"] = smiles
-
         return atoms
 
     def _rdkit_opt(self, smiles, steps):
@@ -836,7 +837,10 @@ class SmilesWidget(ipw.VBox):
         positions = mol.GetConformer().GetPositions()
         natoms = mol.GetNumAtoms()
         species = [mol.GetAtomWithIdx(j).GetSymbol() for j in range(natoms)]
-        return self._make_ase(species, positions, smiles)
+        ase_mol = self._make_ase(species, positions, smiles)
+        if self.add_auxiliary_cell:
+            ase_mol.cell = np.ptp(ase_mol.positions, axis=0) + 10
+        return ase_mol
 
     def _mol_from_smiles(self, smiles, steps=1000):
         """Convert SMILES to ASE structure using RDKit"""
