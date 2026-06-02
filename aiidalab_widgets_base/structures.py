@@ -405,8 +405,11 @@ class StructureUploadWidget(ipw.VBox):
         Checks if the ase Atoms object has a cell set,
         otherwise sets it to bounding box plus specified "vacuum" space
         """
-        if not ase_structure or not self.add_auxiliary_cell:
+        if not ase_structure:
             return None
+
+        if not self.add_auxiliary_cell:
+            return ase_structure
 
         cell = ase_structure.cell
 

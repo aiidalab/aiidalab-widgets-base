@@ -181,10 +181,11 @@ def test_structure_browser_widget(structure_data_object, monkeypatch):
     )
 
 
+@pytest.mark.parametrize("add_auxiliary_cell", (False, True))
 @pytest.mark.usefixtures("aiida_profile_clean")
-def test_structure_upload_widget():
+def test_structure_upload_widget(add_auxiliary_cell):
     """Test the `StructureUploadWidget`."""
-    widget = awb.StructureUploadWidget()
+    widget = awb.StructureUploadWidget(add_auxiliary_cell=add_auxiliary_cell)
     assert widget.structure is None
 
     # Simulate the structure upload.
@@ -205,6 +206,16 @@ def test_structure_upload_widget():
     assert isinstance(widget.structure, ase.Atoms)
     assert widget.structure.get_chemical_formula() == "Si2"
     assert np.all(widget.structure[0].position == [0, 0, 0])
+
+    if add_auxiliary_cell:
+        cell = widget.structure.cell
+        assert all(np.greater(np.diag(cell), [10, 10, 10]))
+        assert np.array_equal(cell.angles(), [90.0, 90.0, 90.0])
+    else:
+        # There should be no cell, which ASE represents with a zero cell
+        assert not any(widget.structure.pbc)
+        assert not np.any(widget.structure.cell)
+        assert not widget.structure.cell.volume
 
 
 @pytest.mark.usefixtures("aiida_profile_clean")
