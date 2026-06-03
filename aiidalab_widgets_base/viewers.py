@@ -1650,52 +1650,6 @@ class FolderDataViewer(ipw.VBox):
         display(javas)
 
 
-@register_viewer_widget("data.core.array.bands.BandsData.")
-class BandsDataViewer(ipw.VBox):
-    """Viewer class for BandsData object.
-
-    :param bands: BandsData object to be viewed
-    :type bands: BandsData"""
-
-    def __init__(self, bands, **kwargs):
-        from bokeh.io import output_notebook, show
-        from bokeh.models import Span
-        from bokeh.plotting import figure
-
-        output_notebook(hide_banner=True)
-        out = ipw.Output()
-        with out:
-            plot_info = bands._get_bandplot_data(cartesian=True, join_symbol="|")
-            # Extract relevant data
-            y_data = plot_info["y"].transpose().tolist()
-            x_data = [plot_info["x"] for i in range(len(y_data))]
-            labels = plot_info["labels"]
-            # Create the figure
-            plot = figure(y_axis_label=f"Dispersion ({bands.units})")
-            plot.multi_line(x_data, y_data, line_width=2, line_color="red")
-            plot.xaxis.ticker = [label[0] for label in labels]
-            # This trick was suggested here: https://github.com/bokeh/bokeh/issues/8166#issuecomment-426124290
-            plot.xaxis.major_label_overrides = {
-                int(label[0]) if label[0].is_integer() else label[0]: label[1]
-                for label in labels
-            }
-            # Add vertical lines
-            plot.renderers.extend(
-                [
-                    Span(
-                        location=label[0],
-                        dimension="height",
-                        line_color="black",
-                        line_width=3,
-                    )
-                    for label in labels
-                ]
-            )
-            show(plot)
-        children = [out]
-        super().__init__(children, **kwargs)
-
-
 @register_viewer_widget("process.calculation.calcfunction.CalcFunctionNode.")
 @register_viewer_widget("process.calculation.calcjob.CalcJobNode.")
 @register_viewer_widget("process.workflow.workfunction.WorkFunctionNode.")
