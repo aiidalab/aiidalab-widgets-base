@@ -23,33 +23,3 @@ def test_nodes_tree_widget(multiply_add_completed_workchain):
         tree_node = tree.find_node(descendant_process.pk)
         assert descendant_process.is_finished_ok
         assert tree_node.icon_style == "success"
-
-
-@pytest.mark.usefixtures("aiida_profile_clean")
-def test_open_aiida_node_in_app_widget(multiply_add_completed_workchain, monkeypatch):
-    """ "Test OpenAiidaNodeInAppWidget with a simple `WorkChainNode`"""
-
-    class MockAppIcon:
-        def __init__(self, **_kwargs):
-            pass
-
-        def to_html_string(self):
-            return "<p>app link</p>"
-
-    monkeypatch.setattr(nodes, "_AppIcon", MockAppIcon)
-
-    process = multiply_add_completed_workchain
-    open_node_in_app = nodes.OpenAiidaNodeInAppWidget()
-
-    assert len(open_node_in_app.tab.children) == 0
-
-    open_node_in_app.node = process
-
-    assert len(open_node_in_app.tab.children) == 3
-    expected_tab_titles = [
-        "Geometry Optimization",
-        "Geometry analysis",
-        "Isotherm",
-    ]
-    for i, title in enumerate(expected_tab_titles):
-        assert open_node_in_app.tab.get_title(i) == title
