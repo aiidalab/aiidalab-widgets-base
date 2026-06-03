@@ -130,8 +130,15 @@ class AiidaNodeViewWidget(ipw.VBox):
 
     @tl.observe("node")
     def _observe_node(self, change):
-        if not ((node := change["new"]) and node != change["old"]):
+        node = change["new"]
+        if node == change["old"]:
             return
+        if not node:
+            with self._output:
+                clear_output()
+            self.children = []
+            return
+
         if node.uuid in self.node_views:
             self.children = [self.node_views[node.uuid]]
             return
