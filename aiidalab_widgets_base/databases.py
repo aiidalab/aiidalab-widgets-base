@@ -18,7 +18,9 @@ class CodQueryWidget(ipw.VBox):
 
     structure = tl.Instance(ase.Atoms, allow_none=True)
 
-    def __init__(self, title="", **kwargs):
+    def __init__(self, title="COD", **kwargs):
+        self.title = title
+
         description = ipw.HTML(
             """<h3>Get crystal structures from
     <a href="http://www.crystallography.net">Crystallography Open Database</a></h3>
@@ -39,7 +41,7 @@ class CodQueryWidget(ipw.VBox):
     For the queries by structure id, plese provide the database id number. Example: <i>1008786</i>
     """
         )
-        self.title = title
+
         layout = ipw.Layout(width="400px")
         style = {"description_width": "initial"}
         self.inp_elements = ipw.Text(
@@ -49,6 +51,7 @@ class CodQueryWidget(ipw.VBox):
             layout=layout,
             style=style,
         )
+
         self.btn_query = ipw.Button(description="Query")
         self.query_message = ipw.HTML("Waiting for input...")
         self.drop_structure = ipw.Dropdown(
@@ -154,9 +157,10 @@ class OptimadeQueryWidget(ipw.VBox):
     def __init__(
         self,
         embedded=True,
-        title=None,
+        title="OPTIMADE",
         **kwargs,
     ) -> None:
+        self.title = title
         try:
             from ipyoptimade import default_parameters, query_filter, query_provider
         except ImportError:
@@ -201,7 +205,6 @@ class OptimadeQueryWidget(ipw.VBox):
 
         filters.observe(self._update_structure, names="structure")
 
-        self.title = title or "OPTIMADE"
         layout = kwargs.pop("layout", {"width": "auto", "height": "auto"})
 
         super().__init__(
