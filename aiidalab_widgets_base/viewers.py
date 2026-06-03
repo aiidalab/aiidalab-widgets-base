@@ -41,7 +41,7 @@ DICT_VIEWER_TABLE_STYLE = """
     .df tbody tr:nth-child(odd) { background-color: #e5e7e9; }
     .df tbody tr:nth-child(odd):hover { background-color: #f5b7b1; }
     .df tbody tr:nth-child(even):hover { background-color: #f5b7b1; }
-    .df tbody td { min-width: 300px; text-align: center; border: none }
+    .df tbody td { min-width: 300px; text-align: center; border: none; white-space: pre-wrap; word-break: break-word; }
     .df th { text-align: center; border: none; border-bottom: 1px solid black; }
 </style>
 """
@@ -63,7 +63,7 @@ def _render_dict_viewer_table(rows):
         (
             "<tr>"
             f"<td>{escape(_truncate_dict_viewer_text(key))}</td>"
-            f"<td>{escape(_truncate_dict_viewer_text(value))}</td>"
+            f"<td>{escape(value)}</td>"
             "</tr>"
         )
         for key, value in rows
