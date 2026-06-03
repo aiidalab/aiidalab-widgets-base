@@ -63,7 +63,7 @@ def _render_dict_viewer_table(rows):
         (
             "<tr>"
             f"<td>{escape(_truncate_dict_viewer_text(key))}</td>"
-            f"<td>{escape(value)}</td>"
+            f"<td>{escape(_truncate_dict_viewer_text(value))}</td>"
             "</tr>"
         )
         for key, value in rows
