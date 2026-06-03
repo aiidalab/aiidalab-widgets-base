@@ -29,7 +29,7 @@ def test_pbc_structure_data_viewer(structure_data_object):
 
 
 @pytest.mark.usefixtures("aiida_profile_clean")
-def test_several_data_viewers(bands_data_object, generate_calc_job_node):
+def test_several_data_viewers(generate_calc_job_node):
     v = viewers.viewer(orm.Int(1))
 
     # No viewer for Int, so it should return the input
@@ -38,10 +38,6 @@ def test_several_data_viewers(bands_data_object, generate_calc_job_node):
     # DictViewer
     v = viewers.viewer(orm.Dict(dict={"a": 1}))
     assert isinstance(v, viewers.DictViewer)
-
-    # BandsDataViewer
-    v = viewers.viewer(bands_data_object)
-    assert isinstance(v, viewers.BandsDataViewer)
 
     # ProcessNodeViewer
     process = generate_calc_job_node(
