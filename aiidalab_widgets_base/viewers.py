@@ -53,12 +53,7 @@ def _normalize_dict_viewer_rows(data):
 def _render_dict_viewer_table(rows):
     headers = "".join(f"<th>{escape(header)}</th>" for header in DICT_VIEWER_HEADERS)
     body = "".join(
-        (
-            "<tr>"
-            f"<td>{escape(key)}</td>"
-            f"<td>{escape(value)}</td>"
-            "</tr>"
-        )
+        (f"<tr><td>{escape(key)}</td><td>{escape(value)}</td></tr>")
         for key, value in rows
     )
     return (
