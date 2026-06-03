@@ -73,8 +73,7 @@ def test_dict_viewer_renders_table_and_csv_payload():
     assert "<th>Key</th>" in viewer.value
     assert "<th>Value</th>" in viewer.value
     assert viewer.value.index("a-key") < viewer.value.index("z-key")
-    assert "0123456789012345678901234567890123456..." in viewer.value
-    assert long_value not in viewer.value
+    assert long_value in viewer.value
     assert "&lt;tag&gt; &amp; value" in viewer.value
     assert escaped_value not in viewer.value
     assert f'download="{parameter.pk}.csv"' in viewer.value

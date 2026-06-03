@@ -34,7 +34,6 @@ from .utils import ase2spglib, list_to_string_range, string_range_to_list
 
 AIIDA_VIEWER_MAPPING = {}
 DICT_VIEWER_HEADERS = ("Key", "Value")
-DICT_VIEWER_MAX_COL_WIDTH = 40
 DICT_VIEWER_TABLE_STYLE = """
 <style>
     .df { border: none; }
@@ -51,19 +50,13 @@ def _normalize_dict_viewer_rows(data):
     return [(str(key), str(value)) for key, value in sorted(data.items())]
 
 
-def _truncate_dict_viewer_text(text, max_length=DICT_VIEWER_MAX_COL_WIDTH):
-    if len(text) <= max_length:
-        return text
-    return f"{text[: max_length - 3]}..."
-
-
 def _render_dict_viewer_table(rows):
     headers = "".join(f"<th>{escape(header)}</th>" for header in DICT_VIEWER_HEADERS)
     body = "".join(
         (
             "<tr>"
-            f"<td>{escape(_truncate_dict_viewer_text(key))}</td>"
-            f"<td>{escape(_truncate_dict_viewer_text(value))}</td>"
+            f"<td>{escape(key)}</td>"
+            f"<td>{escape(value)}</td>"
             "</tr>"
         )
         for key, value in rows
