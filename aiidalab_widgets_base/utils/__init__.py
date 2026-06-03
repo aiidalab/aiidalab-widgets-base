@@ -39,17 +39,26 @@ def predefine_settings(obj, **kwargs):
             raise AttributeError(f"{obj!r} object has no attribute {key!r}")
 
 
-def get_ase_from_file(fname, file_format=None):  # pylint: disable=redefined-builtin
-    """Get ASE structure object."""
-    # store_tags parameter is useful for CIF files
-    # https://wiki.fysik.dtu.dk/ase/ase/io/formatoptions.html#cif
-    if file_format == "cif":
-        traj = ase.io.read(fname, format=file_format, index=":", store_tags=True)
+def get_ase_from_file(fname, file_format=None):
+    """Get ASE structure object from file or file object.
+
+    raises: ValueError if a structure cannot be read
+    """
+    try:
+        if file_format == "cif":
+            # store_tags parameter is useful for CIF files
+            # https://wiki.fysik.dtu.dk/ase/ase/io/formatoptions.html#cif
+            traj = ase.io.read(fname, format=file_format, index=":", store_tags=True)
+        else:
+            traj = ase.io.read(fname, format=file_format, index=":")
+    # We're catching broadly because the number of different exception types that
+    # ase.io.read can raise is simply too large for this margin to contain.
+    except Exception as e:
+        raise ValueError(f"{e}") from e
     else:
-        traj = ase.io.read(fname, format=file_format, index=":")
-    if not traj:
-        raise ValueError(f"Could not read any information from the file {fname}")
-    return traj
+        if not traj:
+            raise ValueError("No structure found")
+        return traj
 
 
 def find_ranges(iterable):
