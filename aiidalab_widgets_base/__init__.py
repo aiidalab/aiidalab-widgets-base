@@ -64,7 +64,7 @@ from .databases import CodQueryWidget, OptimadeQueryWidget
 from .elns import ElnConfigureWidget, ElnExportWidget, ElnImportWidget
 from .export import ExportButtonWidget
 from .loaders import LoadingWidget
-from .nodes import NodesTreeWidget, OpenAiidaNodeInAppWidget
+from .nodes import NodesTreeWidget
 from .process import (
     ProcessFollowerWidget,
     ProcessMonitor,
@@ -100,7 +100,6 @@ __all__ = [
     "LoadingWidget",
     "MultiStructureUploadWidget",
     "NodesTreeWidget",
-    "OpenAiidaNodeInAppWidget",
     "OptimadeQueryWidget",
     "ProcessFollowerWidget",
     "ProcessMonitor",
