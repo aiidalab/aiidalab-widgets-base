@@ -684,7 +684,7 @@ class _StructureDataBaseViewer(ipw.VBox):
             ]
         )
 
-    def _add_representation(self, _=None, style_id=None, indices=None):
+    def _add_representation(self, _=None, style_id=None, indices=None, apply=True):
         """Add a representation to the list of representations."""
         self._all_representations = [
             *self._all_representations,
@@ -694,7 +694,8 @@ class _StructureDataBaseViewer(ipw.VBox):
                 indices=indices,
             ),
         ]
-        self._apply_representations()
+        if apply:
+            self._apply_representations()
 
     def delete_representation(self, representation: NglViewerRepresentation):
         try:
@@ -1386,6 +1387,7 @@ class StructureDataViewer(_StructureDataBaseViewer):
                 self._add_representation(
                     style_id=style_id,
                     indices=np.where(structure.arrays[self.style_id] >= 1)[0],
+                    apply=False,
                 )
         # Empty atoms selection for the representations that are not present in the structure.
         # Typically this happens when a new structure is imported.
