@@ -5,6 +5,7 @@ from io import StringIO
 from pathlib import Path
 
 import ase
+import numpy as np
 import pytest
 import traitlets as tl
 from aiida import orm
@@ -318,6 +319,23 @@ def test_structure_data_viewer_representation(structure_data_object):
 
     with pytest.raises(tl.TraitError):
         v.structure = orm.Int(1)
+
+
+def test_structure_data_viewer_imports_unknown_representation_array():
+    structure = ase.Atoms(
+        symbols=["C", "H"],
+        positions=[(0.0, 0.0, 0.0), (0.0, 0.0, 1.1)],
+    )
+    style_id = f"{viewers.StructureDataViewer.REPRESENTATION_PREFIX}custom"
+    structure.set_array(style_id, np.array([1, -1], dtype=int))
+
+    viewer = viewers.StructureDataViewer()
+    viewer.structure = structure
+
+    representation_ids = [rep.style_id for rep in viewer._all_representations]
+    assert style_id in representation_ids
+    representation = viewer._all_representations[representation_ids.index(style_id)]
+    assert representation.selection.value == "1"
 
 
 def test_structure_data_viewer_clears_bond_shape_components():
