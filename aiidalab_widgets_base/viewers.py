@@ -243,6 +243,26 @@ def parse_representation_style_id(style_id):
     }
 
 
+def viewer_representation_arrays_to_dict(structure):
+    """Return viewer representation arrays as JSON-serializable masks."""
+    if structure is None:
+        return {}
+    return {
+        key: np.asarray(value, dtype=int).tolist()
+        for key, value in structure.arrays.items()
+        if key.startswith(REPRESENTATION_PREFIX)
+    }
+
+
+def store_viewer_representations_in_extras(node, structure):
+    """Store viewer representation masks in mutable AiiDA node extras."""
+    if node is None or structure is None:
+        return
+    representations = viewer_representation_arrays_to_dict(structure)
+    if representations:
+        node.base.extras.set(VIEWER_REPRESENTATIONS_EXTRA, representations)
+
+
 def restore_viewer_representations_from_extras(node, structure):
     """Restore viewer representation masks from AiiDA node extras into ASE arrays."""
     if node is None or structure is None:
@@ -825,6 +845,7 @@ class _StructureDataBaseViewer(ipw.VBox):
                 and array not in representation_ids
             ):
                 del self.structure.arrays[array]
+        store_viewer_representations_in_extras(self._structure_node, self.structure)
         self._observe_structure({"new": self.structure})
         self._check_missing_atoms_in_representations()
 
@@ -1334,6 +1355,7 @@ class StructureDataViewer(_StructureDataBaseViewer):
 
     def __init__(self, structure=None, **kwargs):
         super().__init__(**kwargs)
+        self._structure_node = None
         self.add_class("structure-viewer")
         self.structure = structure
 
@@ -1362,8 +1384,10 @@ class StructureDataViewer(_StructureDataBaseViewer):
         structure = change["value"]
         if isinstance(structure, ase.Atoms):
             self.pk = None
+            self._structure_node = None
         elif isinstance(structure, (orm.StructureData, orm.CifData)):
             self.pk = structure.pk
+            self._structure_node = structure
             structure = restore_viewer_representations_from_extras(
                 structure, structure.get_ase()
             )

@@ -137,6 +137,72 @@ def test_structure_manager_widget(structure_data_object):
 
 
 @pytest.mark.usefixtures("aiida_profile_clean")
+def test_structure_manager_widget_stores_viewer_representations_in_extras():
+    style_id = viewers.encode_representation_style_id(
+        viewers.REPRESENTATION_PREFIX,
+        representation_type="spacefill",
+        size=2,
+        color="red",
+        token="stored",
+    )
+    structure = ase.Atoms(
+        symbols=["C", "H"],
+        positions=[(0.0, 0.0, 0.0), (0.0, 0.0, 1.1)],
+        cell=[5.0, 5.0, 5.0],
+        pbc=True,
+    )
+    structure.set_array(style_id, np.array([1, -1], dtype=int))
+    structure_manager_widget = awb.StructureManagerWidget(
+        importers=[], input_structure=structure
+    )
+
+    structure_manager_widget.btn_store.click()
+    stored = structure_manager_widget.structure_node
+
+    assert stored.base.extras.get(viewers.VIEWER_REPRESENTATIONS_EXTRA) == {
+        viewers.DEFAULT_REPRESENTATION: [0, 0],
+        style_id: [1, -1],
+    }
+
+    reloaded_widget = awb.StructureManagerWidget(importers=[], input_structure=stored)
+    representation_ids = [
+        rep.style_id for rep in reloaded_widget.viewer._all_representations
+    ]
+    assert style_id in representation_ids
+    representation = reloaded_widget.viewer._all_representations[
+        representation_ids.index(style_id)
+    ]
+    assert representation.selection.value == "1"
+    assert representation.type.value == "spacefill"
+    assert representation.size.value == 2
+    assert representation.color.value == "red"
+
+
+@pytest.mark.usefixtures("aiida_profile_clean")
+def test_structure_manager_widget_updates_stored_representations_extra():
+    structure = ase.Atoms(
+        symbols=["C", "H"],
+        positions=[(0.0, 0.0, 0.0), (0.0, 0.0, 1.1)],
+        cell=[5.0, 5.0, 5.0],
+        pbc=True,
+    )
+    node = orm.StructureData(ase=structure).store()
+    structure_manager_widget = awb.StructureManagerWidget(
+        importers=[], input_structure=node
+    )
+
+    assert structure_manager_widget.btn_store.disabled is True
+    assert structure_manager_widget.btn_store_representations.disabled is False
+
+    structure_manager_widget.viewer._all_representations[0].selection.value = "1"
+    structure_manager_widget.btn_store_representations.click()
+
+    assert node.base.extras.get(viewers.VIEWER_REPRESENTATIONS_EXTRA) == {
+        viewers.DEFAULT_REPRESENTATION: [1, -1]
+    }
+
+
+@pytest.mark.usefixtures("aiida_profile_clean")
 def test_structure_manager_widget_restores_viewer_representations_from_extras():
     style_id = viewers.encode_representation_style_id(
         viewers.REPRESENTATION_PREFIX,
