@@ -169,6 +169,7 @@ class DictViewer(ipw.VBox):
 
 REPRESENTATION_PREFIX = "_aiidalab_viewer_representation_"
 DEFAULT_REPRESENTATION = f"{REPRESENTATION_PREFIX}default"
+VIEWER_REPRESENTATIONS_EXTRA = "aiidalab_viewer_representations"
 _REPRESENTATION_TYPE_TO_TOKEN = {
     "ball+stick": "ballstick",
     "spacefill": "spacefill",
@@ -240,6 +241,23 @@ def parse_representation_style_id(style_id):
         "color": match.group("color"),
         "token": match.group("token"),
     }
+
+
+def restore_viewer_representations_from_extras(node, structure):
+    """Restore viewer representation masks from AiiDA node extras into ASE arrays."""
+    if node is None or structure is None:
+        return structure
+    representations = node.base.extras.get(VIEWER_REPRESENTATIONS_EXTRA, {})
+    if not isinstance(representations, dict):
+        return structure
+    for key, values in representations.items():
+        if not str(key).startswith(REPRESENTATION_PREFIX):
+            continue
+        values = np.asarray(values, dtype=int)
+        if len(values) != len(structure):
+            continue
+        structure.set_array(key, values)
+    return structure
 
 
 class NglViewerRepresentation(ipw.HBox):
@@ -1346,7 +1364,9 @@ class StructureDataViewer(_StructureDataBaseViewer):
             self.pk = None
         elif isinstance(structure, (orm.StructureData, orm.CifData)):
             self.pk = structure.pk
-            structure = structure.get_ase()
+            structure = restore_viewer_representations_from_extras(
+                structure, structure.get_ase()
+            )
 
         # Add default representation array if it is not present.
         # This will make sure that the new structure is displayed at the beginning.
@@ -1389,11 +1409,13 @@ class StructureDataViewer(_StructureDataBaseViewer):
                     indices=np.where(structure.arrays[style_id] >= 1)[0],
                     apply=False,
                 )
-        # Empty atoms selection for the representations that are not present in the structure.
-        # Typically this happens when a new structure is imported.
-        for i, style_id in enumerate(representation_ids):
-            if style_id not in structure_ids:
-                self._all_representations[i].selection.value = ""
+        # Drop representations that are not present in the new structure.
+        # Typically this happens when a different structure is imported/selected.
+        self._all_representations = [
+            representation
+            for representation in self._all_representations
+            if representation.style_id in structure_ids
+        ]
 
         self._observe_supercell()  # To trigger an update of the displayed structure
         self.set_trait("cell", structure.cell)

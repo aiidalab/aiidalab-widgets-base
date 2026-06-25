@@ -367,6 +367,33 @@ def test_structure_data_viewer_imports_encoded_representation_array():
     assert representation.color.value == "red"
 
 
+@pytest.mark.usefixtures("aiida_profile_clean")
+def test_structure_data_viewer_restores_representation_arrays_from_extras():
+    structure = ase.Atoms(
+        symbols=["C", "H"],
+        positions=[(0.0, 0.0, 0.0), (0.0, 0.0, 1.1)],
+    )
+    style_id = viewers.encode_representation_style_id(
+        viewers.StructureDataViewer.REPRESENTATION_PREFIX,
+        representation_type="spacefill",
+        size=2,
+        color="red",
+        token="stored",
+    )
+    node = orm.StructureData(ase=structure)
+    node.base.extras.set(viewers.VIEWER_REPRESENTATIONS_EXTRA, {style_id: [1, -1]})
+
+    viewer = viewers.StructureDataViewer(node)
+
+    representation_ids = [rep.style_id for rep in viewer._all_representations]
+    assert style_id in representation_ids
+    representation = viewer._all_representations[representation_ids.index(style_id)]
+    assert representation.selection.value == "1"
+    assert representation.type.value == "spacefill"
+    assert representation.size.value == 2
+    assert representation.color.value == "red"
+
+
 def test_structure_data_viewer_imports_multiple_encoded_representation_arrays():
     structure = ase.Atoms(
         symbols=["C", "H", "H"],
@@ -404,6 +431,34 @@ def test_structure_data_viewer_imports_multiple_encoded_representation_arrays():
     assert representation_2.type.value == "ball+stick"
     assert representation_2.size.value == 4
     assert representation_2.color.value == "red"
+
+
+def test_structure_data_viewer_drops_stale_representations_on_structure_change():
+    structure = ase.Atoms(
+        symbols=["C", "H"],
+        positions=[(0.0, 0.0, 0.0), (0.0, 0.0, 1.1)],
+    )
+    style_id = viewers.encode_representation_style_id(
+        viewers.StructureDataViewer.REPRESENTATION_PREFIX,
+        representation_type="spacefill",
+        size=2,
+        color="red",
+        token="old",
+    )
+    structure.set_array(style_id, np.array([1, -1], dtype=int))
+    viewer = viewers.StructureDataViewer()
+    viewer.structure = structure
+    assert style_id in [rep.style_id for rep in viewer._all_representations]
+
+    viewer.structure = ase.Atoms(
+        symbols=["C", "H", "H"],
+        positions=[(0.0, 0.0, 0.0), (0.0, 0.0, 1.1), (0.0, 1.0, 0.0)],
+    )
+
+    assert [rep.style_id for rep in viewer._all_representations] == [
+        viewers.DEFAULT_REPRESENTATION
+    ]
+    assert viewer._all_representations[0].selection.value == "1..3"
 
 
 def test_structure_data_viewer_updates_encoded_representation_array_name():

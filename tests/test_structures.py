@@ -8,6 +8,7 @@ from aiida import common, orm
 
 import aiidalab_widgets_base as awb
 import aiidalab_widgets_base.structures as structures
+from aiidalab_widgets_base import viewers
 
 
 @pytest.fixture
@@ -133,6 +134,34 @@ def test_structure_manager_widget(structure_data_object):
     )
     structure_manager_widget.undo()  # Undo the structure creation.
     assert structure_manager_widget.structure is None
+
+
+@pytest.mark.usefixtures("aiida_profile_clean")
+def test_structure_manager_widget_restores_viewer_representations_from_extras():
+    style_id = viewers.encode_representation_style_id(
+        viewers.REPRESENTATION_PREFIX,
+        representation_type="spacefill",
+        size=2,
+        color="red",
+        token="stored",
+    )
+    structure = ase.Atoms(
+        symbols=["C", "H"],
+        positions=[(0.0, 0.0, 0.0), (0.0, 0.0, 1.1)],
+        cell=[5.0, 5.0, 5.0],
+        pbc=True,
+    )
+    node = orm.StructureData(ase=structure).store()
+    node.base.extras.set(viewers.VIEWER_REPRESENTATIONS_EXTRA, {style_id: [1, -1]})
+
+    structure_manager_widget = awb.StructureManagerWidget(
+        importers=[], input_structure=node
+    )
+
+    representation_ids = [
+        rep.style_id for rep in structure_manager_widget.viewer._all_representations
+    ]
+    assert style_id in representation_ids
 
 
 @pytest.mark.usefixtures("aiida_profile_clean")
