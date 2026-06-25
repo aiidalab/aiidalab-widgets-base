@@ -16,7 +16,10 @@ from aiida import common, engine, orm, plugins
 # Local imports
 from .data import FunctionalGroupSelectorWidget
 from .utils import StatusHTML, exceptions, get_ase_from_file, get_formula
-from .viewers import StructureDataViewer
+from .viewers import (
+    StructureDataViewer,
+    restore_viewer_representations_from_extras,
+)
 
 CifData = plugins.DataFactory("core.cif")
 StructureData = plugins.DataFactory("core.structure")
@@ -336,11 +339,14 @@ class StructureManagerWidget(ipw.VBox):
             change["new"], CifData
         ):  # Special treatement of the CifData object
             str_io = io.StringIO(change["new"].get_content())
-            self.structure = ase.io.read(
-                str_io, format="cif", reader="ase", store_tags=True
+            structure = ase.io.read(str_io, format="cif", reader="ase", store_tags=True)
+            self.structure = restore_viewer_representations_from_extras(
+                change["new"], structure
             )
         elif isinstance(change["new"], StructureData):
-            self.structure = change["new"].get_ase()
+            self.structure = restore_viewer_representations_from_extras(
+                change["new"], change["new"].get_ase()
+            )
 
         else:
             self.structure = None
