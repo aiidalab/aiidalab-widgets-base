@@ -339,9 +339,7 @@ class StructureManagerWidget(ipw.VBox):
             change["new"], CifData
         ):  # Special treatement of the CifData object
             str_io = io.StringIO(change["new"].get_content())
-            structure = ase.io.read(
-                str_io, format="cif", reader="ase", store_tags=True
-            )
+            structure = ase.io.read(str_io, format="cif", reader="ase", store_tags=True)
             self.structure = restore_viewer_representations_from_extras(
                 change["new"], structure
             )
