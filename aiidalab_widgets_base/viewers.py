@@ -319,11 +319,31 @@ class _StructureDataBaseViewer(ipw.VBox):
     DEFAULT_SELECTION_COLOR = "green"
     REPRESENTATION_PREFIX = "_aiidalab_viewer_representation_"
     DEFAULT_REPRESENTATION = "_aiidalab_viewer_representation_default"
+    DEFAULT_VIEW_ORIENTATION = [
+        -1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        -1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0,
+    ]
     _CELL_LABELS = {
         1: ["length", "Å"],
         2: ["area", "Å²"],
         3: ["volume", "Å³"],
     }
+
+    show_axes = tl.Bool(False)
 
     def __init__(
         self,
@@ -339,6 +359,8 @@ class _StructureDataBaseViewer(ipw.VBox):
         :param default_camera: default camera (orthographic|perspective), can be changed in the Appearance tab.
         """
         # Defining viewer box.
+        self.show_axes = kwargs.pop("show_axes", self.show_axes)
+        self._axes_component = None
 
         # Nglviwer
         self._viewer = nglview.NGLWidget()
@@ -493,7 +515,20 @@ class _StructureDataBaseViewer(ipw.VBox):
         center_button = ipw.Button(description="Center molecule")
         center_button.on_click(lambda _: self._viewer.center())
 
-        # 5. representations buttons
+        # 5. Default orientation button.
+        default_view_button = ipw.Button(description="Default view", icon="refresh")
+        default_view_button.on_click(self.set_default_view)
+
+        # 6. Axes control.
+        show_axes = ipw.Checkbox(
+            description="Show axes",
+            value=self.show_axes,
+            indent=False,
+            style={"description_width": "initial"},
+        )
+        tl.link((show_axes, "value"), (self, "show_axes"))
+
+        # 7. representations buttons
         self.representations_header = ipw.HBox(
             [
                 ipw.HTML(
@@ -574,6 +609,8 @@ class _StructureDataBaseViewer(ipw.VBox):
                 background_color,
                 camera_type,
                 center_button,
+                default_view_button,
+                show_axes,
                 representation_accordion,
             ]
         )
@@ -1079,6 +1116,78 @@ class _StructureDataBaseViewer(ipw.VBox):
         """Remove all components from the viewer."""
         for cid in list(self._viewer._ngl_component_ids):
             self._viewer.remove_component(cid)
+        self._axes_component = None
+
+    def _default_view_orientation(self):
+        """Return a default rotation while preserving the current camera scale."""
+        if len(self._viewer._camera_orientation) != 16:
+            return None
+
+        orientation = np.array(self._viewer._camera_orientation).reshape(4, 4)
+        scale = np.linalg.norm(orientation[0, :3])
+        if scale == 0:
+            return None
+
+        default_orientation = np.array(self.DEFAULT_VIEW_ORIENTATION).reshape(4, 4)
+        default_orientation[:3, :3] *= scale
+        return default_orientation.ravel().tolist()
+
+    def set_default_view(self, _=None):
+        """Orient the viewer with x horizontal, y vertical, and z out of screen.
+
+        If the live camera matrix is not yet available (e.g. nothing rendered),
+        ``_default_view_orientation`` returns None; we then only re-center.
+        """
+        orientation = self._default_view_orientation()
+        if orientation is not None:
+            self._viewer.control.orient(orientation)
+        self._viewer.center()
+
+    @tl.observe("show_axes")
+    def _observe_show_axes(self, _=None):
+        if isinstance(self.displayed_structure, ase.Atoms):
+            self._update_axes()
+
+    def _remove_axes(self):
+        if getattr(self._axes_component, "id", None) in self._viewer._ngl_component_ids:
+            self._viewer.remove_component(self._axes_component)
+        self._axes_component = None
+
+    def _update_axes(self):
+        self._remove_axes()
+        if not self.show_axes or not isinstance(self.displayed_structure, ase.Atoms):
+            return
+
+        positions = self.displayed_structure.get_positions()
+        cell_lengths = self.displayed_structure.cell.lengths()
+        structure_extent = np.ptp(positions, axis=0) if len(positions) else [0, 0, 0]
+        # Axis arrows are sized relative to the structure/cell, with a floor
+        # so axes stay visible for very small molecules.
+        min_extent = 5.0  # Å
+        extent = max(np.max(cell_lengths), np.max(structure_extent), min_extent)
+        length = 0.2 * extent  # arrow length as a fraction of the extent
+        radius = 0.06 * length  # arrow shaft radius
+        label_size = 0.35 * length  # axis-label text height
+        label_offset = 0.12 * length  # gap between arrow tip and its label
+        origin = np.zeros(3)
+
+        # RGB ~ XYZ convention; green/blue darkened for contrast on a light background.
+        axes = [
+            ("x", np.array([length, 0.0, 0.0]), [1.0, 0.0, 0.0]),  # red (R, G, B)
+            (
+                "y",
+                np.array([0.0, length, 0.0]),
+                [0.0, 0.6, 0.0],
+            ),  # dark green (R, G, B)
+            ("z", np.array([0.0, 0.0, length]), [0.0, 0.2, 1.0]),  # blue-cyan (R, G, B)
+        ]
+        shapes = []
+        for label, vector, color in axes:
+            end = origin + vector
+            label_position = end + label_offset * vector / np.linalg.norm(vector)
+            shapes.append(("arrow", origin.tolist(), end.tolist(), color, radius))
+            shapes.append(("text", label_position.tolist(), color, label_size, label))
+        self._axes_component = self._viewer._add_shape(shapes, name="axes")
 
     @tl.default("supercell")
     def _default_supercell(self):
@@ -1323,6 +1432,7 @@ class StructureDataViewer(_StructureDataBaseViewer):
                 self._viewer.set_representations(nglview_params, component=0)
                 self._viewer.add_unitcell()
                 self._viewer._add_shape(set(bonds), name="bonds")
+                self._update_axes()
                 self._viewer.center()
                 # In case of a structure with only one atom, the `center()` method will show a black sphere.
                 if len(self.displayed_structure) == 1:
