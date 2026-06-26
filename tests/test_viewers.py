@@ -414,6 +414,34 @@ def test_structure_data_viewer_default_view_button():
     )
 
 
+def test_default_view_without_camera_orientation():
+    """With no valid 16-element camera matrix, set_default_view must not emit `orient`."""
+    viewer = viewers.StructureDataViewer()
+    viewer.structure = ase.Atoms("H", positions=[(0.0, 0.0, 0.0)])
+    viewer._viewer._camera_orientation = []  # malformed / unset
+
+    before = len(viewer._viewer._ngl_msg_archive)
+    viewer.set_default_view()
+    messages = viewer._viewer._ngl_msg_archive[before:]
+
+    # With no valid camera matrix, the viewer should not be reoriented at all.
+    assert not any(message.get("methodName") == "orient" for message in messages)
+
+
+def test_show_axes_via_constructor_kwarg():
+    """Axes can be enabled at construction time via the show_axes kwarg."""
+    viewer = viewers.StructureDataViewer(show_axes=True)
+    assert viewer.show_axes is True
+    viewer.structure = ase.Atoms(
+        symbols="H2", positions=[(0.0, 0.0, 0.0), (0.0, 0.0, 0.7)]
+    )
+    assert any(
+        message.get("methodName") == "addShape"
+        and message.get("args", [None])[0] == "axes"
+        for message in viewer._viewer._ngl_msg_archive
+    )
+
+
 def test_structure_data_viewer_axes_are_optional():
     viewer = viewers.StructureDataViewer()
     viewer.structure = ase.Atoms(
