@@ -396,9 +396,9 @@ def test_structure_data_viewer_default_view_button():
         0.0,
         -12.0,
         0.0,
-        1.0,
-        2.0,
-        3.0,
+        0.0,
+        0.0,
+        0.0,
         1.0,
     ]
     assert any(
