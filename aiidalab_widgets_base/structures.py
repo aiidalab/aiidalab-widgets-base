@@ -796,7 +796,6 @@ class SmilesWidget(ipw.VBox):
     def _make_ase(self, species, positions, smiles):
         """Create ase Atoms object."""
         atoms = ase.Atoms(species, positions=positions, pbc=False)
-        atoms.center()
         # We're attaching this info so that it
         # can be later stored as an extra on AiiDA Structure node.
         atoms.info["smiles"] = smiles
@@ -838,6 +837,7 @@ class SmilesWidget(ipw.VBox):
         ase_mol = self._make_ase(species, positions, smiles)
         if self.add_auxiliary_cell:
             ase_mol.cell = np.ptp(ase_mol.positions, axis=0) + 10
+            ase_mol.center()
         return ase_mol
 
     def _mol_from_smiles(self, smiles, steps=1000):

@@ -292,6 +292,10 @@ def test_smiles_widget():
     cell = widget.structure.cell
     assert all(np.greater(np.diag(cell), [10, 10, 10]))
     assert np.array_equal(cell.angles(), [90.0, 90.0, 90.0])
+    molecule_center = (
+        widget.structure.positions.min(axis=0) + widget.structure.positions.max(axis=0)
+    ) / 2
+    assert np.allclose(molecule_center, np.diag(cell) / 2)
 
     # Regression test that we can generate 1-atom and 2-atom molecules
     widget.smiles.value = "[O]"
@@ -325,6 +329,18 @@ def test_smiles_widget_without_cell():
     assert not any(widget.structure.pbc)
     assert not np.any(widget.structure.cell)
     assert not widget.structure.cell.volume
+
+
+@pytest.mark.usefixtures("aiida_profile_clean")
+def test_smiles_widget_make_ase_preserves_positions():
+    """Test that raw SMILES coordinates are not centered before adding a cell."""
+    widget = awb.SmilesWidget(add_auxiliary_cell=False)
+    positions = np.array([[10.0, 0.0, 0.0], [11.0, 0.0, 0.0]])
+
+    atoms = widget._make_ase(["H", "H"], positions, "[H][H]")
+
+    assert np.allclose(atoms.positions, positions)
+    assert not np.any(atoms.cell)
 
 
 @pytest.mark.usefixtures("aiida_profile_clean")
