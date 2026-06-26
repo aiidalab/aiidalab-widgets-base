@@ -1134,7 +1134,11 @@ class _StructureDataBaseViewer(ipw.VBox):
         return default_orientation.ravel().tolist()
 
     def set_default_view(self, _=None):
-        """Orient the viewer with x horizontal, y vertical, and z out of screen."""
+        """Orient the viewer with x horizontal, y vertical, and z out of screen.
+
+        If the live camera matrix is not yet available (e.g. nothing rendered),
+        ``_default_view_orientation`` returns None; we then only re-center.
+        """
         orientation = self._default_view_orientation()
         if orientation is not None:
             self._viewer.control.orient(orientation)
@@ -1158,17 +1162,21 @@ class _StructureDataBaseViewer(ipw.VBox):
         positions = self.displayed_structure.get_positions()
         cell_lengths = self.displayed_structure.cell.lengths()
         structure_extent = np.ptp(positions, axis=0) if len(positions) else [0, 0, 0]
-        extent = max(np.max(cell_lengths), np.max(structure_extent), 5.0)
-        length = 0.2 * extent
-        radius = 0.06 * length
-        label_size = 0.35 * length
-        label_offset = 0.12 * length
+        # Axis arrows are sized relative to the structure/cell, with a floor
+        # so axes stay visible for very small molecules.
+        MIN_EXTENT = 5.0  # Å
+        extent = max(np.max(cell_lengths), np.max(structure_extent), MIN_EXTENT)
+        length = 0.2 * extent  # arrow length as a fraction of the extent
+        radius = 0.06 * length  # arrow shaft radius
+        label_size = 0.35 * length  # axis-label text height
+        label_offset = 0.12 * length  # gap between arrow tip and its label
         origin = np.zeros(3)
 
+        # RGB ~ XYZ convention; green/blue darkened for contrast on a light background.
         axes = [
-            ("x", np.array([length, 0.0, 0.0]), [1.0, 0.0, 0.0]),
-            ("y", np.array([0.0, length, 0.0]), [0.0, 0.6, 0.0]),
-            ("z", np.array([0.0, 0.0, length]), [0.0, 0.2, 1.0]),
+            ("x", np.array([length, 0.0, 0.0]), [1.0, 0.0, 0.0]),  # red (R, G, B)
+            ("y", np.array([0.0, length, 0.0]), [0.0, 0.6, 0.0]),  # dark green (R, G, B)
+            ("z", np.array([0.0, 0.0, length]), [0.0, 0.2, 1.0]),  # blue-cyan (R, G, B)
         ]
         shapes = []
         for label, vector, color in axes:
