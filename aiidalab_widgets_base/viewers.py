@@ -1130,7 +1130,6 @@ class _StructureDataBaseViewer(ipw.VBox):
 
         default_orientation = np.array(self.DEFAULT_VIEW_ORIENTATION).reshape(4, 4)
         default_orientation[:3, :3] *= scale
-        default_orientation[3, :3] = orientation[3, :3]
         return default_orientation.ravel().tolist()
 
     def set_default_view(self, _=None):
@@ -1164,8 +1163,8 @@ class _StructureDataBaseViewer(ipw.VBox):
         structure_extent = np.ptp(positions, axis=0) if len(positions) else [0, 0, 0]
         # Axis arrows are sized relative to the structure/cell, with a floor
         # so axes stay visible for very small molecules.
-        MIN_EXTENT = 5.0  # Å
-        extent = max(np.max(cell_lengths), np.max(structure_extent), MIN_EXTENT)
+        min_extent = 5.0  # Å
+        extent = max(np.max(cell_lengths), np.max(structure_extent), min_extent)
         length = 0.2 * extent  # arrow length as a fraction of the extent
         radius = 0.06 * length  # arrow shaft radius
         label_size = 0.35 * length  # axis-label text height
