@@ -1175,7 +1175,11 @@ class _StructureDataBaseViewer(ipw.VBox):
         # RGB ~ XYZ convention; green/blue darkened for contrast on a light background.
         axes = [
             ("x", np.array([length, 0.0, 0.0]), [1.0, 0.0, 0.0]),  # red (R, G, B)
-            ("y", np.array([0.0, length, 0.0]), [0.0, 0.6, 0.0]),  # dark green (R, G, B)
+            (
+                "y",
+                np.array([0.0, length, 0.0]),
+                [0.0, 0.6, 0.0],
+            ),  # dark green (R, G, B)
             ("z", np.array([0.0, 0.0, length]), [0.0, 0.2, 1.0]),  # blue-cyan (R, G, B)
         ]
         shapes = []
