@@ -88,9 +88,12 @@ jobs:
         strategy:
             matrix:
                 python-version: ['3.9', '3.12']
-                # Test latest and oldest supported package versions
-                uv-resolution: ['lowest-direct', 'highest']
-            fail-fast: false
+                uv-resolution: ['highest']
+                include:
+                  # Make sure lowest-support package versions work
+                  # https://docs.astral.sh/uv/concepts/resolution/#resolution-strategy
+                    - python-version: '3.12'
+                      uv-resolution: 'lowest-direct'
 
         runs-on: ubuntu-24.04
         timeout-minutes: 30
