@@ -246,10 +246,12 @@ def test_aiida_code_setup(aiida_localhost):
     # At the beginning, the code_name should be an empty string.
     assert widget.label.value == ""
 
+    computer_label = aiida_localhost.label
+    code_label = "bash-test"
     # Preparing the code setup.
     code_setup = {
-        "label": "bash",
-        "computer": "localhost",
+        "label": code_label,
+        "computer": computer_label,
         "description": "Bash interpreter",
         "filepath_executable": "/bin/bash",
         "prepend_text": "",
@@ -261,11 +263,11 @@ def test_aiida_code_setup(aiida_localhost):
     # Make sure no warning message is displayed.
     assert widget.message == ""
 
-    assert widget.on_setup_code()
+    assert widget.on_setup_code(), f"ERROR: Code setup failed! {widget.message}"
 
     # Check that the code is created.
-    code = orm.load_code("bash@localhost")
-    assert code.label == "bash"
+    code = orm.load_code(f"{code_label}@{computer_label}")
+    assert code.label == code_label
     assert code.description == "Bash interpreter"
     assert str(code.filepath_executable) == "/bin/bash"
     assert code.default_calc_job_plugin == "core.arithmetic.add"
@@ -285,10 +287,12 @@ def test_computer_dropdown_widget(aiida_localhost):
     """Test the ComputerDropdownWidget."""
     widget = computational_resources.ComputerDropdownWidget()
 
-    assert "localhost" in widget.computers
+    computer_label = aiida_localhost.label
+
+    assert computer_label in widget.computers
 
     # Simulate selecting "localhost" in the dropdown menu.
-    widget._dropdown.label = "localhost"
+    widget._dropdown.label = computer_label
     assert widget.value == aiida_localhost.uuid
 
     # Trying to set the dropdown value to None
