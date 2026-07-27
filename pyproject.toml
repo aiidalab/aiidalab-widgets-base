@@ -39,7 +39,7 @@ filterwarnings = [
 [tool.ruff]
 line-length = 88
 show-fixes = true
-target-version = "py39"
+target-version = "py310"
 
 
 [tool.ruff.lint]

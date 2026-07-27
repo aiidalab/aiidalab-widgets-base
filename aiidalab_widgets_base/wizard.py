@@ -97,7 +97,7 @@ class WizardAppWidget(ipw.VBox):
         self.steps = steps
 
         # Unzip the steps to titles and widgets.
-        self.titles, widgets = zip(*steps)
+        self.titles, widgets = zip(*steps, strict=True)
 
         # Initialize the accordion with the widgets ...
         self.accordion = ipw.Accordion(children=widgets)
@@ -160,7 +160,9 @@ class WizardAppWidget(ipw.VBox):
         self.header.layout.display = "flex" if value else "none"
 
     def _update_titles(self):
-        for i, (title, widget) in enumerate(zip(self.titles, self.accordion.children)):
+        for i, (title, widget) in enumerate(
+            zip(self.titles, self.accordion.children, strict=True)
+        ):
             icon = self.ICONS.get(widget.state, str(widget.state).upper())
             self.accordion.set_title(i, f"{icon} Step {i + 1}: {title}")
 
