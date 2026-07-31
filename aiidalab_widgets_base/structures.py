@@ -551,7 +551,7 @@ class StructureBrowserWidget(ipw.VBox):
 
         # Disable process labels selection if we are not looking for the calculated structures.
         def disable_drop_label(change):
-            self.drop_label.disabled = not change["new"] == "calculated"
+            self.drop_label.disabled = change["new"] != "calculated"
 
         # Select structures kind.
         self.mode = ipw.RadioButtons(

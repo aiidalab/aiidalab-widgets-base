@@ -356,7 +356,7 @@ class ComputationalResourcesDatabaseWidget(ipw.VBox):
                 del database[domain]
             elif domain_value.get("default") not in domain_value:
                 # make sure default computer is still points to existing computer
-                domain_value["default"] = sorted(domain_value.keys() - {"default"})[0]
+                domain_value["default"] = min(domain_value.keys() - {"default"})
 
         return database
 
@@ -375,7 +375,7 @@ class ComputationalResourcesDatabaseWidget(ipw.VBox):
             with self.hold_trait_notifications():
                 self.computer_selector.options = tuple(
                     key
-                    for key in self.database.get(selected_domain, {}).keys()
+                    for key in self.database.get(selected_domain, {})
                     if key != "default"
                 )
                 self.computer_selector.value = self.database.get(

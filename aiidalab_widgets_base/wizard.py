@@ -203,10 +203,9 @@ class WizardAppWidget(ipw.VBox):
         if not all(step.can_reset() for step in steps):
             return False
 
-        if any(step.state is not WizardAppWidgetStep.State.INIT for step in steps):
-            return True
-
-        return False
+        return bool(
+            any(step.state is not WizardAppWidgetStep.State.INIT for step in steps)
+        )
 
     def _update_buttons(self):
         with self.hold_trait_notifications():
