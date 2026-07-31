@@ -1240,7 +1240,7 @@ class AiidaCodeSetup(ipw.VBox):
                 return False
 
             try:
-                if "image_name" in kwargs.keys():
+                if "image_name" in kwargs:
                     code = orm.ContainerizedCode(computer=computer, **kwargs)
                 else:
                     code = orm.InstalledCode(computer=computer, **kwargs)
@@ -1418,7 +1418,7 @@ class ComputerDropdownWidget(ipw.VBox):
         """Select computer by computer label."""
         self.output.value = ""
         if not label:
-            return None
+            return
 
         try:
             computer_uuid = self.computers[label]

@@ -162,7 +162,7 @@ def install_create_github_issue_exception_handler(output, url, labels=None):
             display(welcome_message, app_with_work_chain_selector, footer)
 
     """
-    global _ORIGINAL_EXCEPTION_HANDLER  # noqa
+    global _ORIGINAL_EXCEPTION_HANDLER
 
     if labels is None:
         labels = []
