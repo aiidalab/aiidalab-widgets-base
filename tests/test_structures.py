@@ -7,7 +7,7 @@ import pytest
 from aiida import common, orm
 
 import aiidalab_widgets_base as awb
-import aiidalab_widgets_base.structures as structures
+from aiidalab_widgets_base import structures
 
 
 @pytest.fixture

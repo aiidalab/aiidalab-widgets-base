@@ -252,11 +252,10 @@ class NglViewerRepresentation(ipw.HBox):
 
     def sync_myself_to_array_from_atoms_object(self, structure: ase.Atoms | None):
         """Update representation from the structure object."""
-        if structure:
-            if self.style_id in structure.arrays:
-                self.selection.value = list_to_string_range(
-                    np.where(self.atoms_in_representation(structure))[0], shift=1
-                )
+        if structure and self.style_id in structure.arrays:
+            self.selection.value = list_to_string_range(
+                np.where(self.atoms_in_representation(structure))[0], shift=1
+            )
 
     def add_myself_to_atoms_object(self, structure: ase.Atoms | None):
         """Add representation array to the structure object. If the array already exists, update it."""
@@ -1060,7 +1059,7 @@ class _StructureDataBaseViewer(ipw.VBox):
         """Update selection when clicked on atom."""
         if hasattr(self._viewer, "component_0"):
             # Did not click on atom:
-            if "atom1" not in self._viewer.picked.keys():
+            if "atom1" not in self._viewer.picked:
                 return
 
             index = self._viewer.picked["atom1"]["index"]
@@ -1274,10 +1273,10 @@ class _StructureDataBaseViewer(ipw.VBox):
             return None
 
         file_format = file_format if file_format else self.file_format.value["format"]
-        tmp = NamedTemporaryFile()
-        self.structure.write(tmp.name, format=file_format)
-        with open(tmp.name, "rb") as raw:
-            return base64.b64encode(raw.read()).decode()
+        with NamedTemporaryFile() as tmp:
+            self.structure.write(tmp.name, format=file_format)
+            with open(tmp.name, "rb") as raw:
+                return base64.b64encode(raw.read()).decode()
 
     @property
     def thumbnail(self):

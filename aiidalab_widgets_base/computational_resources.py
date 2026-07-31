@@ -441,9 +441,7 @@ class SshComputerSetup(ipw.VBox):
         # NOTE: parse_sshconfig returns a dict with a hostname
         # even if it is not in the config file.
         # We require at least the user to be specified.
-        if "user" not in sshcfg:
-            return False
-        return True
+        return "user" in sshcfg
 
     def _write_ssh_config(self):
         """Put host information into the config file."""
@@ -1212,7 +1210,7 @@ class AiidaCodeSetup(ipw.VBox):
 
             # Check for additional keys needed for orm.ContainerizedCode
             for container_key in containerized_code_additional_items:
-                if container_key in self.code_setup.keys():
+                if container_key in self.code_setup:
                     kwargs[container_key] = self.code_setup[container_key]
 
             # set computer from its widget value the UUID of the computer.
@@ -1240,7 +1238,7 @@ class AiidaCodeSetup(ipw.VBox):
                 return False
 
             try:
-                if "image_name" in kwargs.keys():
+                if "image_name" in kwargs:
                     code = orm.ContainerizedCode(computer=computer, **kwargs)
                 else:
                     code = orm.InstalledCode(computer=computer, **kwargs)
@@ -1418,7 +1416,7 @@ class ComputerDropdownWidget(ipw.VBox):
         """Select computer by computer label."""
         self.output.value = ""
         if not label:
-            return None
+            return
 
         try:
             computer_uuid = self.computers[label]

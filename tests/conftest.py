@@ -131,7 +131,7 @@ def multiply_add_process_builder_ready(aiida_local_code_bash):
 @pytest.fixture
 def structure_data_object():
     """Return a `StructureData` object."""
-    StructureData = plugins.DataFactory("core.structure")  # noqa: N806
+    StructureData = plugins.DataFactory("core.structure")
     structure = StructureData(
         cell=[
             [3.84737, 0.0, 0.0],
@@ -147,7 +147,7 @@ def structure_data_object():
 @pytest.fixture
 def folder_data_object():
     """Return a `FolderData` object."""
-    FolderData = plugins.DataFactory("core.folder")  # noqa: N806
+    FolderData = plugins.DataFactory("core.folder")
     folder_data = FolderData()
     with io.StringIO("content of test1.txt") as fobj:
         folder_data.put_object_from_filelike(fobj, path="test1.txt")
