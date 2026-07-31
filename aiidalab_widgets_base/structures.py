@@ -289,7 +289,7 @@ class StructureManagerWidget(ipw.VBox):
             return structure_node
 
         # If the input_structure trait is set to AiiDA node, check what type
-        if isinstance(structure, orm.Data):
+        if isinstance(structure, orm.Data):  # noqa: SIM102
             # Transform the structure to the structure_node_type if needed.
             if isinstance(structure, structure_node_type):
                 return structure
@@ -437,7 +437,7 @@ class StructureUploadWidget(ipw.VBox):
         if suffix == ".cif":
             try:
                 return CifData(file=io.BytesIO(content))
-            except Exception as e:
+            except Exception as e:  # noqa: BLE001
                 self._status_message.message = f"""
                     <div class="alert alert-warning">Could not parse CIF file {fname}: {e}
                     Trying ASE reader...</div>
@@ -633,17 +633,17 @@ class StructureBrowserWidget(ipw.VBox):
 
         # If the date range is valid, use it for the search
         try:
-            start_date = datetime.datetime.strptime(
+            start_date = datetime.datetime.strptime(  # noqa: DTZ007
                 self.start_date_widget.value, "%Y-%m-%d"
             )
-            end_date = datetime.datetime.strptime(
+            end_date = datetime.datetime.strptime(  # noqa: DTZ007
                 self.end_date_widget.value, "%Y-%m-%d"
             ) + datetime.timedelta(hours=24)
 
         # Otherwise revert to the standard (i.e. last 7 days)
         except ValueError:
-            start_date = datetime.datetime.now() - datetime.timedelta(days=7)
-            end_date = datetime.datetime.now() + datetime.timedelta(hours=24)
+            start_date = datetime.datetime.now() - datetime.timedelta(days=7)  # noqa: DTZ005
+            end_date = datetime.datetime.now() + datetime.timedelta(hours=24)  # noqa: DTZ005
 
             self.start_date_widget.value = start_date.strftime("%Y-%m-%d")
             self.end_date_widget.value = end_date.strftime("%Y-%m-%d")
@@ -1139,7 +1139,7 @@ class BasicCellEditor(ipw.VBox):
             # the number of generated atoms is not correct
             try:
                 atoms = make_supercell(atoms, mat)
-            except Exception as e:
+            except Exception as e:  # noqa: BLE001
                 self._status_message.message = f"""
             <div class="alert alert-info">
             <strong>The transformation matrix is wrong! {e}</strong>

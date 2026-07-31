@@ -99,7 +99,7 @@ class CodQueryWidget(ipw.VBox):
             try:
                 entry_cif = entry.get_cif_node()
                 formula = entry_cif.get_ase().get_chemical_formula()
-            except Exception:
+            except Exception:  # noqa: BLE001, S112
                 continue
             entry_add = (
                 f"{formula} (id: {entry.source['id']})",
@@ -322,7 +322,7 @@ class ComputationalResourcesDatabaseWidget(ipw.VBox):
         """From database source JSON and default calc job plugin, generate resource database"""
         try:
             database = requests.get(database_source).json()
-        except Exception:
+        except Exception:  # ruff: ignore[BLE001]
             database = {}
 
         if default_calc_job_plugin is None:

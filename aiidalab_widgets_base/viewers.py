@@ -1273,10 +1273,10 @@ class _StructureDataBaseViewer(ipw.VBox):
             return None
 
         file_format = file_format if file_format else self.file_format.value["format"]
-        tmp = NamedTemporaryFile()
-        self.structure.write(tmp.name, format=file_format)
-        with open(tmp.name, "rb") as raw:
-            return base64.b64encode(raw.read()).decode()
+        with NamedTemporaryFile() as tmp:
+            self.structure.write(tmp.name, format=file_format)
+            with open(tmp.name, "rb") as raw:
+                return base64.b64encode(raw.read()).decode()
 
     @property
     def thumbnail(self):

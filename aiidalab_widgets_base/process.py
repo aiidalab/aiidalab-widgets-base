@@ -242,7 +242,7 @@ class ProcessMonitor(tl.HasTraits):
                         func(process_uuid)
                     else:
                         func()
-                except Exception:
+                except Exception:  # ruff: ignore[BLE001]
                     if self.log_widget:
                         with self.log_widget:
                             traceback.print_exc(file=sys.stdout)

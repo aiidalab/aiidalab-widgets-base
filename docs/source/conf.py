@@ -138,9 +138,10 @@ def setup(app):
 # Warnings to ignore when using the -n (nitpicky) option
 # We should ignore any python built-in exception, for instance
 nitpick_ignore = []
-for line in open("nitpick-exceptions"):
-    if line.strip() == "" or line.startswith("#"):
-        continue
-    dtype, target = line.split(None, 1)
-    target = target.strip()
-    nitpick_ignore.append((dtype, target))
+with open("nitpick-exceptions") as f:
+    for line in f:
+        if line.strip() == "" or line.startswith("#"):
+            continue
+        dtype, target = line.split(None, 1)
+        target = target.strip()
+        nitpick_ignore.append((dtype, target))

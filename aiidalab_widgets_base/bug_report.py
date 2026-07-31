@@ -205,7 +205,7 @@ def install_create_github_issue_exception_handler(output, url, labels=None):
                     )
                 )
                 display(msg)  # noqa
-        except Exception as error:
+        except Exception as error:  # ruff: ignore[BLE001]
             print(f"Error while generating bug report: {error}", file=sys.stderr)
             _ORIGINAL_EXCEPTION_HANDLER(exception_type, exception, traceback)
 
