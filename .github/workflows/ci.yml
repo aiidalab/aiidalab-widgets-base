@@ -26,7 +26,7 @@ jobs:
             matrix:
                 browser: [Chrome, Firefox]
                 # test on the latest and the oldest supported version
-                docker-tag: [edge]
+                docker-tag: [pr-580]
             fail-fast: false
 
         runs-on: ubuntu-22.04
