@@ -127,7 +127,7 @@ class NodesTreeWidget(ipw.Output):
                 old_nodes=self._tree.nodes, new_nodes=change["new"]
             ),
             key=lambda node: node.pk,
-        )
+        )  # ty: ignore[invalid-assignment]
         self.update()
         self._refresh_output()
 
@@ -234,6 +234,7 @@ class NodesTreeWidget(ipw.Output):
     def _update_tree_node(self, tree_node):
         if isinstance(tree_node, AiidaProcessNodeTreeNode):
             process_node = orm.load_node(tree_node.pk)
+            assert isinstance(process_node, orm.ProcessNode)
             if process_node.process_state is None:
                 return
             tree_node.name = calc_info(process_node)
