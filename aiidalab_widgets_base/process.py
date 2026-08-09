@@ -16,7 +16,6 @@ from aiida import engine, orm
 
 # Local imports.
 from .nodes import NodesTreeWidget
-from .utils import exceptions
 
 
 class SubmitButtonWidget(ipw.VBox):
@@ -181,7 +180,8 @@ class ProcessFollowerWidget(ipw.VBox):
     def on_completed(self, function):
         """Run functions after a process has been completed."""
         if self._monitor is not None:
-            raise exceptions.CantRegisterCallbackError(function)
+            msg = "Can't register new on_completed callback functions, process following has already been initiated."
+            raise RuntimeError(msg)
         self._run_after_completed.append(function)
 
 
