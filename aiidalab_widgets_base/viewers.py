@@ -13,6 +13,7 @@ import warnings
 from html import escape
 
 import ase
+import ase.cell
 import ipywidgets as ipw
 import nglview
 import numpy as np
@@ -1517,6 +1518,8 @@ class StructureDataViewer(_StructureDataBaseViewer):
 
         def union(opa, opb):
             return np.union1d(opa, opb)
+
+        assert self.displayed_structure is not None
 
         operandsdict = {
             "x": self.displayed_structure.positions[:, 0],

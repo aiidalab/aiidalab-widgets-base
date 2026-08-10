@@ -44,7 +44,7 @@ target-version = "py39"
 [tool.ruff.lint]
 ignore = ["RUF012"]
 
-# Temporarily disable ty type checking on this file
+# Temporarily disable ty type checking on these files
 [[tool.ty.overrides]]
 include = [
   "aiidalab_widgets_base/viewers.py",
@@ -52,4 +52,7 @@ include = [
 ]
 
 [tool.ty.overrides.rules]
-all = "ignore"
+not-subscriptable = "ignore"
+invalid-assignment = "ignore"
+unresolved-attribute = "ignore"
+invalid-argument-type = "ignore"
