@@ -122,12 +122,14 @@ class NodesTreeWidget(ipw.Output):
 
     @tl.observe("nodes")
     def _observe_nodes(self, change):
-        self._tree.nodes = sorted(
-            self._convert_to_tree_nodes(
-                old_nodes=self._tree.nodes, new_nodes=change["new"]
-            ),
-            key=lambda node: node.pk,
-        )  # ty: ignore[invalid-assignment]
+        self._tree.nodes = tuple(
+            sorted(
+                self._convert_to_tree_nodes(
+                    old_nodes=self._tree.nodes, new_nodes=change["new"]
+                ),
+                key=lambda node: node.pk,
+            )
+        )
         self.update()
         self._refresh_output()
 
