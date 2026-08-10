@@ -1,5 +1,7 @@
 """Some utility functions used acrross the repository."""
 
+from __future__ import annotations
+
 import itertools
 import operator
 import threading
@@ -39,7 +41,9 @@ def predefine_settings(obj, **kwargs):
             raise AttributeError(f"{obj!r} object has no attribute {key!r}")
 
 
-def get_ase_from_file(fname, file_format=None):
+def get_ase_from_file(
+    fname, file_format: str | None = None
+) -> ase.Atoms | list[ase.Atoms]:
     """Get ASE structure object from file or file object.
 
     raises: ValueError if a structure cannot be read

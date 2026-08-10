@@ -99,6 +99,7 @@ class SubmitButtonWidget(ipw.VBox):
             else:
                 self.process = engine.submit(self._process_class, **inputs)
 
+            assert self.process is not None
             if self.append_output:
                 self.submit_out.value += f"""Submitted process {self.process}. Click
                 <a href={self.path_to_root}home/process.ipynb?id={self.process.pk}
@@ -295,7 +296,7 @@ class ProcessNodesTreeWidget(ipw.VBox):
         process_uuid = change["new"]
         if process_uuid:
             process = orm.load_node(process_uuid)
-            self._tree.nodes = [process]
+            self._tree.nodes = (process,)
             self._tree.find_node(process.pk).selected = True
         else:
-            self._tree.nodes = []
+            self._tree.nodes = ()

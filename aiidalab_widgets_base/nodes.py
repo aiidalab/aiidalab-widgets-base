@@ -122,11 +122,13 @@ class NodesTreeWidget(ipw.Output):
 
     @tl.observe("nodes")
     def _observe_nodes(self, change):
-        self._tree.nodes = sorted(
-            self._convert_to_tree_nodes(
-                old_nodes=self._tree.nodes, new_nodes=change["new"]
-            ),
-            key=lambda node: node.pk,
+        self._tree.nodes = tuple(
+            sorted(
+                self._convert_to_tree_nodes(
+                    old_nodes=self._tree.nodes, new_nodes=change["new"]
+                ),
+                key=lambda node: node.pk,
+            )
         )
         self.update()
         self._refresh_output()
@@ -234,6 +236,7 @@ class NodesTreeWidget(ipw.Output):
     def _update_tree_node(self, tree_node):
         if isinstance(tree_node, AiidaProcessNodeTreeNode):
             process_node = orm.load_node(tree_node.pk)
+            assert isinstance(process_node, orm.ProcessNode)
             if process_node.process_state is None:
                 return
             tree_node.name = calc_info(process_node)

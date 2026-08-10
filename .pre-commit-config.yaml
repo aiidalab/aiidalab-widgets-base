@@ -1,6 +1,7 @@
 ---
 ci:
     autoupdate_schedule: quarterly
+    skip: [ty]
 
 repos:
     - repo: https://github.com/pre-commit/pre-commit-hooks
@@ -35,3 +36,16 @@ repos:
       rev: 0.9.1
       hooks:
           - id: nbstripout
+
+    - repo: local
+
+      hooks:
+
+          - id: ty
+            name: ty
+            entry: ty check
+            args: [aiidalab_widgets_base/, notebooks/, tests_notebooks/]
+            language: system
+            types: [python]
+            require_serial: true
+            pass_filenames: false

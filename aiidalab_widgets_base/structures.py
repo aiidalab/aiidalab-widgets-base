@@ -7,6 +7,9 @@ import pathlib
 import tempfile
 
 import ase
+import ase.cell
+import ase.data
+import ase.io
 import ipywidgets as ipw
 import numpy as np
 import spglib
@@ -448,7 +451,7 @@ class StructureUploadWidget(ipw.VBox):
             temp_file.flush()
             try:
                 if suffix == ".cif":
-                    structures = get_ase_from_file(temp_file.name, format="cif")
+                    structures = get_ase_from_file(temp_file.name, file_format="cif")
                 else:
                     structures = get_ase_from_file(temp_file.name)
             except ValueError as e:
@@ -1083,10 +1086,11 @@ class BasicCellEditor(ipw.VBox):
 
         cell = (lattice, positions, numbers)
 
-        # operation
-        lattice, positions, numbers = spglib.standardize_cell(
+        standard_cell = spglib.standardize_cell(
             cell, to_primitive=to_primitive, no_idealize=no_idealize, symprec=symprec
         )
+        if standard_cell is not None:
+            lattice, positions, numbers = standard_cell
 
         return ase.Atoms(
             cell=lattice,

@@ -251,7 +251,12 @@ class WizardAppWidget(ipw.VBox):
         self.reset()
 
     def _on_click_back_button(self, _):
+        if self.accordion.selected_index is None:
+            return
         self.accordion.selected_index -= 1
 
     def _on_click_next_button(self, _):
+        if self.accordion.selected_index is None:
+            # TODO: Should we set it to 0?
+            return
         self.accordion.selected_index += 1

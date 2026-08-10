@@ -360,7 +360,7 @@ class ComputationalResourcesDatabaseWidget(ipw.VBox):
 
         return database
 
-    def _domain_changed(self, change=None):
+    def _domain_changed(self, change):
         """callback when new domain selected"""
         with self.hold_trait_notifications():  # To prevent multiple calls to callbacks
             if change["new"] is None:
@@ -382,7 +382,7 @@ class ComputationalResourcesDatabaseWidget(ipw.VBox):
                     selected_domain, {}
                 ).get("default")
 
-    def _computer_changed(self, change=None):
+    def _computer_changed(self, change):
         """callback when new computer selected"""
         with self.hold_trait_notifications():
             if change["new"] is None:
@@ -416,7 +416,7 @@ class ComputationalResourcesDatabaseWidget(ipw.VBox):
 
         self._set_configured()
 
-    def _code_changed(self, change=None):
+    def _code_changed(self, change):
         """Update code settings."""
         if change["new"] is None:
             self.code_setup = {}
