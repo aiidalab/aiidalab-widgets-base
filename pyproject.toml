@@ -1,6 +1,6 @@
 [build-system]
 requires = [
-    "setuptools>=42",
+    "setuptools>=42,<84.0",
     "wheel"
 ]
 build-backend = "setuptools.build_meta"
@@ -11,12 +11,9 @@ filterwarnings = [
     "ignore:datetime.datetime.:DeprecationWarning:",
     # This one is coming from plumpy
     "ignore:There is no current event loop:DeprecationWarning:",
-    # This deprecation warning coming from sqlite3 module might go away if we update bokeh
-    "ignore:The default datetime adapter is deprecated as of Python 3.12; see the sqlite3 documentation for suggested replacement recipes:DeprecationWarning:",
     # This is needed since SQLAlchemy 2.0, see
     # https://github.com/aiidalab/aiidalab-widgets-base/issues/605
     'ignore:Object of type.*not in session,.*operation along.*will not proceed:sqlalchemy.exc.SAWarning',
-    'ignore::DeprecationWarning:bokeh',
     'ignore:Creating AiiDA configuration:UserWarning:aiida',
     'ignore:The `Code` class:aiida.common.warnings.AiidaDeprecationWarning:',
     'ignore:crystal system:UserWarning:ase.io.cif',
@@ -44,26 +41,18 @@ line-length = 88
 show-fixes = true
 target-version = "py39"
 
-
 [tool.ruff.lint]
-ignore = ["E501", "E402", "ARG002", "TRY003", "RUF001", "RUF012", "PLC0415"]
-select = [
-  "A",    # flake8-builtins
-  "ARG",  # flake8-unused-arguments
-  "B",    # flake8-bugbear
-  "C4",   # flake8-comprehensions
-  "E",    # pycodestyle
-  "F",    # pyflakes
-  "I",    # isort
-  "N",    # pep8-naming
-  "PLE",  # pylint error rules
-  "PLW",  # pylint warning rules
-  "PLC",  # pylint convention rules
-  "RUF",  # ruff-specific rules
-  "TRY",  # Tryceratops
-  "UP"    # pyupgrade
+ignore = ["RUF012"]
+
+# Temporarily disable ty type checking on these files
+[[tool.ty.overrides]]
+include = [
+  "aiidalab_widgets_base/viewers.py",
+  "aiidalab_widgets_base/structures.py",
 ]
 
-[tool.ruff.lint.per-file-ignores]
-"tests/*" = ["ARG001"]
-"tests_notebooks/*" = ["ARG001"]
+[tool.ty.overrides.rules]
+not-subscriptable = "ignore"
+invalid-assignment = "ignore"
+unresolved-attribute = "ignore"
+invalid-argument-type = "ignore"

@@ -4,12 +4,16 @@ from __future__ import annotations
 
 import base64
 import copy
+import csv
+import io
 import os
 import pathlib
 import re
 import warnings
+from html import escape
 
 import ase
+import ase.cell
 import ipywidgets as ipw
 import nglview
 import numpy as np
@@ -30,6 +34,45 @@ from .misc import CopyToClipboardButton, ReversePolishNotation
 from .utils import ase2spglib, list_to_string_range, string_range_to_list
 
 AIIDA_VIEWER_MAPPING = {}
+DICT_VIEWER_HEADERS = ("Key", "Value")
+DICT_VIEWER_TABLE_STYLE = """
+<style>
+    .df { border: none; }
+    .df tbody tr:nth-child(odd) { background-color: #e5e7e9; }
+    .df tbody tr:nth-child(odd):hover { background-color: #f5b7b1; }
+    .df tbody tr:nth-child(even):hover { background-color: #f5b7b1; }
+    .df tbody td { min-width: 300px; text-align: center; border: none; white-space: pre-wrap; word-break: break-word; }
+    .df th { text-align: center; border: none; border-bottom: 1px solid black; }
+</style>
+"""
+
+
+def _normalize_dict_viewer_rows(data):
+    return [(str(key), str(value)) for key, value in sorted(data.items())]
+
+
+def _render_dict_viewer_table(rows):
+    headers = "".join(f"<th>{escape(header)}</th>" for header in DICT_VIEWER_HEADERS)
+    body = "".join(
+        (f"<tr><td>{escape(key)}</td><td>{escape(value)}</td></tr>")
+        for key, value in rows
+    )
+    return (
+        DICT_VIEWER_TABLE_STYLE
+        + '<table class="df"><thead><tr>'
+        + headers
+        + "</tr></thead><tbody>"
+        + body
+        + "</tbody></table>"
+    )
+
+
+def _prepare_dict_viewer_csv_payload(rows):
+    handle = io.StringIO(newline="")
+    writer = csv.writer(handle, lineterminator="\n")
+    writer.writerow(DICT_VIEWER_HEADERS)
+    writer.writerows(rows)
+    return base64.b64encode(handle.getvalue().encode()).decode()
 
 
 def register_viewer_widget(key):
@@ -76,8 +119,15 @@ class AiidaNodeViewWidget(ipw.VBox):
 
     @tl.observe("node")
     def _observe_node(self, change):
-        if not ((node := change["new"]) and node != change["old"]):
+        node = change["new"]
+        if node == change["old"]:
             return
+        if not node:
+            with self._output:
+                clear_output()
+            self.children = []
+            return
+
         if node.uuid in self.node_views:
             self.children = [self.node_views[node.uuid]]
             return
@@ -105,38 +155,12 @@ class DictViewer(ipw.VBox):
     :type downloadable: bool"""
 
     def __init__(self, parameter, downloadable=True, **kwargs):
-        import pandas as pd
-
-        # Here we are defining properties of 'df' class (specified while exporting pandas table into html).
-        # Since the exported object is nothing more than HTML table, all 'standard' HTML table settings
-        # can be applied to it as well.
-        # For more information on how to controle the table appearance please visit:
-        # https://css-tricks.com/complete-guide-table-element/
         self.widget = ipw.HTML()
         ipw.dlink((self, "value"), (self.widget, "value"))
-
-        self.value += """
-        <style>
-            .df { border: none; }
-            .df tbody tr:nth-child(odd) { background-color: #e5e7e9; }
-            .df tbody tr:nth-child(odd):hover { background-color:   #f5b7b1; }
-            .df tbody tr:nth-child(even):hover { background-color:  #f5b7b1; }
-            .df tbody td { min-width: 300px; text-align: center; border: none }
-            .df th { text-align: center; border: none;  border-bottom: 1px solid black;}
-        </style>
-        """
-
-        pd.set_option("max_colwidth", 40)
-        dataf = pd.DataFrame(
-            sorted(parameter.get_dict().items()),
-            columns=["Key", "Value"],
-        )
-        self.value += dataf.to_html(
-            classes="df", index=False
-        )  # specify that exported table belongs to 'df' class
-        # this is used to setup table's appearance using CSS
+        rows = _normalize_dict_viewer_rows(parameter.get_dict())
+        self.value = _render_dict_viewer_table(rows)
         if downloadable:
-            payload = base64.b64encode(dataf.to_csv(index=False).encode()).decode()
+            payload = _prepare_dict_viewer_csv_payload(rows)
             fname = f"{parameter.pk}.csv"
             self.value += f"""Download table in csv format: <a download="{fname}"
             href="data:text/csv;base64,{payload}" target="_blank">{fname}</a>"""
@@ -229,11 +253,10 @@ class NglViewerRepresentation(ipw.HBox):
 
     def sync_myself_to_array_from_atoms_object(self, structure: ase.Atoms | None):
         """Update representation from the structure object."""
-        if structure:
-            if self.style_id in structure.arrays:
-                self.selection.value = list_to_string_range(
-                    np.where(self.atoms_in_representation(structure))[0], shift=1
-                )
+        if structure and self.style_id in structure.arrays:
+            self.selection.value = list_to_string_range(
+                np.where(self.atoms_in_representation(structure))[0], shift=1
+            )
 
     def add_myself_to_atoms_object(self, structure: ase.Atoms | None):
         """Add representation array to the structure object. If the array already exists, update it."""
@@ -296,11 +319,31 @@ class _StructureDataBaseViewer(ipw.VBox):
     DEFAULT_SELECTION_COLOR = "green"
     REPRESENTATION_PREFIX = "_aiidalab_viewer_representation_"
     DEFAULT_REPRESENTATION = "_aiidalab_viewer_representation_default"
+    DEFAULT_VIEW_ORIENTATION = [
+        -1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        -1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0,
+    ]
     _CELL_LABELS = {
         1: ["length", "Å"],
         2: ["area", "Å²"],
         3: ["volume", "Å³"],
     }
+
+    show_axes = tl.Bool(False)
 
     def __init__(
         self,
@@ -316,6 +359,8 @@ class _StructureDataBaseViewer(ipw.VBox):
         :param default_camera: default camera (orthographic|perspective), can be changed in the Appearance tab.
         """
         # Defining viewer box.
+        self.show_axes = kwargs.pop("show_axes", self.show_axes)
+        self._axes_component = None
 
         # Nglviwer
         self._viewer = nglview.NGLWidget()
@@ -470,7 +515,20 @@ class _StructureDataBaseViewer(ipw.VBox):
         center_button = ipw.Button(description="Center molecule")
         center_button.on_click(lambda _: self._viewer.center())
 
-        # 5. representations buttons
+        # 5. Default orientation button.
+        default_view_button = ipw.Button(description="Default view", icon="refresh")
+        default_view_button.on_click(self.set_default_view)
+
+        # 6. Axes control.
+        show_axes = ipw.Checkbox(
+            description="Show axes",
+            value=self.show_axes,
+            indent=False,
+            style={"description_width": "initial"},
+        )
+        tl.link((show_axes, "value"), (self, "show_axes"))
+
+        # 7. representations buttons
         self.representations_header = ipw.HBox(
             [
                 ipw.HTML(
@@ -551,6 +609,8 @@ class _StructureDataBaseViewer(ipw.VBox):
                 background_color,
                 camera_type,
                 center_button,
+                default_view_button,
+                show_axes,
                 representation_accordion,
             ]
         )
@@ -735,8 +795,12 @@ class _StructureDataBaseViewer(ipw.VBox):
                 (False, True, True): "yz",
                 (False, False, False): "-",
             }
-            self.cell_spacegroup.value = f"Spacegroup: {symmetry_dataset['international']} (No.{symmetry_dataset['number']})"
-            self.cell_hall.value = f"Hall: {symmetry_dataset['hall']} (No.{symmetry_dataset['hall_number']})"
+            if symmetry_dataset is not None:
+                self.cell_spacegroup.value = f"Spacegroup: {symmetry_dataset['international']} (No.{symmetry_dataset['number']})"
+                self.cell_hall.value = f"Hall: {symmetry_dataset['hall']} (No.{symmetry_dataset['hall_number']})"
+            else:
+                self.cell_spacegroup.value = "Spacegroup: -"
+                self.cell_hall.value = "Hall: -"
             self.periodicity.value = (
                 f"Periodicity: {periodicity_map[tuple(self.structure.pbc)]}"
             )
@@ -996,7 +1060,7 @@ class _StructureDataBaseViewer(ipw.VBox):
         """Update selection when clicked on atom."""
         if hasattr(self._viewer, "component_0"):
             # Did not click on atom:
-            if "atom1" not in self._viewer.picked.keys():
+            if "atom1" not in self._viewer.picked:
                 return
 
             index = self._viewer.picked["atom1"]["index"]
@@ -1052,6 +1116,78 @@ class _StructureDataBaseViewer(ipw.VBox):
         """Remove all components from the viewer."""
         for cid in list(self._viewer._ngl_component_ids):
             self._viewer.remove_component(cid)
+        self._axes_component = None
+
+    def _default_view_orientation(self):
+        """Return a default rotation while preserving the current camera scale."""
+        if len(self._viewer._camera_orientation) != 16:
+            return None
+
+        orientation = np.array(self._viewer._camera_orientation).reshape(4, 4)
+        scale = np.linalg.norm(orientation[0, :3])
+        if scale == 0:
+            return None
+
+        default_orientation = np.array(self.DEFAULT_VIEW_ORIENTATION).reshape(4, 4)
+        default_orientation[:3, :3] *= scale
+        return default_orientation.ravel().tolist()
+
+    def set_default_view(self, _=None):
+        """Orient the viewer with x horizontal, y vertical, and z out of screen.
+
+        If the live camera matrix is not yet available (e.g. nothing rendered),
+        ``_default_view_orientation`` returns None; we then only re-center.
+        """
+        orientation = self._default_view_orientation()
+        if orientation is not None:
+            self._viewer.control.orient(orientation)
+        self._viewer.center()
+
+    @tl.observe("show_axes")
+    def _observe_show_axes(self, _=None):
+        if isinstance(self.displayed_structure, ase.Atoms):
+            self._update_axes()
+
+    def _remove_axes(self):
+        if getattr(self._axes_component, "id", None) in self._viewer._ngl_component_ids:
+            self._viewer.remove_component(self._axes_component)
+        self._axes_component = None
+
+    def _update_axes(self):
+        self._remove_axes()
+        if not self.show_axes or not isinstance(self.displayed_structure, ase.Atoms):
+            return
+
+        positions = self.displayed_structure.get_positions()
+        cell_lengths = self.displayed_structure.cell.lengths()
+        structure_extent = np.ptp(positions, axis=0) if len(positions) else [0, 0, 0]
+        # Axis arrows are sized relative to the structure/cell, with a floor
+        # so axes stay visible for very small molecules.
+        min_extent = 5.0  # Å
+        extent = max(np.max(cell_lengths), np.max(structure_extent), min_extent)
+        length = 0.2 * extent  # arrow length as a fraction of the extent
+        radius = 0.06 * length  # arrow shaft radius
+        label_size = 0.35 * length  # axis-label text height
+        label_offset = 0.12 * length  # gap between arrow tip and its label
+        origin = np.zeros(3)
+
+        # RGB ~ XYZ convention; green/blue darkened for contrast on a light background.
+        axes = [
+            ("x", np.array([length, 0.0, 0.0]), [1.0, 0.0, 0.0]),  # red (R, G, B)
+            (
+                "y",
+                np.array([0.0, length, 0.0]),
+                [0.0, 0.6, 0.0],
+            ),  # dark green (R, G, B)
+            ("z", np.array([0.0, 0.0, length]), [0.0, 0.2, 1.0]),  # blue-cyan (R, G, B)
+        ]
+        shapes = []
+        for label, vector, color in axes:
+            end = origin + vector
+            label_position = end + label_offset * vector / np.linalg.norm(vector)
+            shapes.append(("arrow", origin.tolist(), end.tolist(), color, radius))
+            shapes.append(("text", label_position.tolist(), color, label_size, label))
+        self._axes_component = self._viewer._add_shape(shapes, name="axes")
 
     @tl.default("supercell")
     def _default_supercell(self):
@@ -1138,10 +1274,10 @@ class _StructureDataBaseViewer(ipw.VBox):
             return None
 
         file_format = file_format if file_format else self.file_format.value["format"]
-        tmp = NamedTemporaryFile()
-        self.structure.write(tmp.name, format=file_format)
-        with open(tmp.name, "rb") as raw:
-            return base64.b64encode(raw.read()).decode()
+        with NamedTemporaryFile() as tmp:
+            self.structure.write(tmp.name, format=file_format)
+            with open(tmp.name, "rb") as raw:
+                return base64.b64encode(raw.read()).decode()
 
     @property
     def thumbnail(self):
@@ -1296,6 +1432,7 @@ class StructureDataViewer(_StructureDataBaseViewer):
                 self._viewer.set_representations(nglview_params, component=0)
                 self._viewer.add_unitcell()
                 self._viewer._add_shape(set(bonds), name="bonds")
+                self._update_axes()
                 self._viewer.center()
                 # In case of a structure with only one atom, the `center()` method will show a black sphere.
                 if len(self.displayed_structure) == 1:
@@ -1381,6 +1518,8 @@ class StructureDataViewer(_StructureDataBaseViewer):
 
         def union(opa, opb):
             return np.union1d(opa, opb)
+
+        assert self.displayed_structure is not None
 
         operandsdict = {
             "x": self.displayed_structure.positions[:, 0],
@@ -1621,52 +1760,6 @@ class FolderDataViewer(ipw.VBox):
             """
         )
         display(javas)
-
-
-@register_viewer_widget("data.core.array.bands.BandsData.")
-class BandsDataViewer(ipw.VBox):
-    """Viewer class for BandsData object.
-
-    :param bands: BandsData object to be viewed
-    :type bands: BandsData"""
-
-    def __init__(self, bands, **kwargs):
-        from bokeh.io import output_notebook, show
-        from bokeh.models import Span
-        from bokeh.plotting import figure
-
-        output_notebook(hide_banner=True)
-        out = ipw.Output()
-        with out:
-            plot_info = bands._get_bandplot_data(cartesian=True, join_symbol="|")
-            # Extract relevant data
-            y_data = plot_info["y"].transpose().tolist()
-            x_data = [plot_info["x"] for i in range(len(y_data))]
-            labels = plot_info["labels"]
-            # Create the figure
-            plot = figure(y_axis_label=f"Dispersion ({bands.units})")
-            plot.multi_line(x_data, y_data, line_width=2, line_color="red")
-            plot.xaxis.ticker = [label[0] for label in labels]
-            # This trick was suggested here: https://github.com/bokeh/bokeh/issues/8166#issuecomment-426124290
-            plot.xaxis.major_label_overrides = {
-                int(label[0]) if label[0].is_integer() else label[0]: label[1]
-                for label in labels
-            }
-            # Add vertical lines
-            plot.renderers.extend(
-                [
-                    Span(
-                        location=label[0],
-                        dimension="height",
-                        line_color="black",
-                        line_width=3,
-                    )
-                    for label in labels
-                ]
-            )
-            show(plot)
-        children = [out]
-        super().__init__(children, **kwargs)
 
 
 @register_viewer_widget("process.calculation.calcfunction.CalcFunctionNode.")

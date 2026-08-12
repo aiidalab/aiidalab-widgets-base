@@ -15,5 +15,3 @@ See also the `corresponding git repository <https://github.com/aiidalab/aiidalab
     notebooks/computational_resources
     notebooks/structures
     notebooks/wizard_apps
-    notebooks/eln_configure
-    notebooks/eln_import

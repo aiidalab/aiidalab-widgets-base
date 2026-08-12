@@ -25,9 +25,3 @@ Developers may want to clone the git repository containing the app and the noteb
     git clone https://github.com/aiidalab/aiidalab-widgets-base.git
     cd aiidalab-widgets-base
     pip install -e .
-
-
-Optional dependencies
----------------------
-
-The `SmilesWidget` widget requires the `OpenBabel <http://openbabel.org/>`_ library.

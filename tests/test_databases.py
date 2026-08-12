@@ -11,7 +11,8 @@ from aiidalab_widgets_base.databases import ComputationalResourcesDatabaseWidget
 def test_cod_query_widget():
     """Test the COD query widget."""
 
-    widget = awb.CodQueryWidget()
+    widget = awb.CodQueryWidget(title="CODTitle")
+    assert widget.title == "CODTitle"
 
     # Enter the query string.
     widget.inp_elements.value = "Ni Ti"
@@ -33,11 +34,12 @@ def test_cod_query_widget():
 def test_optimade_query_widget():
     """Test the OPTIMADE query widget."""
 
-    widget = awb.OptimadeQueryWidget()
+    widget = awb.OptimadeQueryWidget(title="OptimadeTitle")
 
     # At the present state I cannot check much. Most of the variables are locals of the  __init__ method.
 
     assert widget.structure is None
+    assert widget.title == "OptimadeTitle"
 
 
 def test_computational_resources_database_widget():

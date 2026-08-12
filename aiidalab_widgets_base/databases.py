@@ -18,7 +18,9 @@ class CodQueryWidget(ipw.VBox):
 
     structure = tl.Instance(ase.Atoms, allow_none=True)
 
-    def __init__(self, title="", **kwargs):
+    def __init__(self, title="COD", **kwargs):
+        self.title = title
+
         description = ipw.HTML(
             """<h3>Get crystal structures from
     <a href="http://www.crystallography.net">Crystallography Open Database</a></h3>
@@ -39,7 +41,7 @@ class CodQueryWidget(ipw.VBox):
     For the queries by structure id, plese provide the database id number. Example: <i>1008786</i>
     """
         )
-        self.title = title
+
         layout = ipw.Layout(width="400px")
         style = {"description_width": "initial"}
         self.inp_elements = ipw.Text(
@@ -49,6 +51,7 @@ class CodQueryWidget(ipw.VBox):
             layout=layout,
             style=style,
         )
+
         self.btn_query = ipw.Button(description="Query")
         self.query_message = ipw.HTML("Waiting for input...")
         self.drop_structure = ipw.Dropdown(
@@ -96,7 +99,7 @@ class CodQueryWidget(ipw.VBox):
             try:
                 entry_cif = entry.get_cif_node()
                 formula = entry_cif.get_ase().get_chemical_formula()
-            except Exception:
+            except Exception:  # noqa: BLE001, S112
                 continue
             entry_add = (
                 f"{formula} (id: {entry.source['id']})",
@@ -154,9 +157,10 @@ class OptimadeQueryWidget(ipw.VBox):
     def __init__(
         self,
         embedded=True,
-        title=None,
+        title="OPTIMADE",
         **kwargs,
     ) -> None:
+        self.title = title
         try:
             from ipyoptimade import default_parameters, query_filter, query_provider
         except ImportError:
@@ -201,7 +205,6 @@ class OptimadeQueryWidget(ipw.VBox):
 
         filters.observe(self._update_structure, names="structure")
 
-        self.title = title or "OPTIMADE"
         layout = kwargs.pop("layout", {"width": "auto", "height": "auto"})
 
         super().__init__(
@@ -319,7 +322,7 @@ class ComputationalResourcesDatabaseWidget(ipw.VBox):
         """From database source JSON and default calc job plugin, generate resource database"""
         try:
             database = requests.get(database_source).json()
-        except Exception:
+        except Exception:  # ruff: ignore[BLE001]
             database = {}
 
         if default_calc_job_plugin is None:
@@ -353,11 +356,11 @@ class ComputationalResourcesDatabaseWidget(ipw.VBox):
                 del database[domain]
             elif domain_value.get("default") not in domain_value:
                 # make sure default computer is still points to existing computer
-                domain_value["default"] = sorted(domain_value.keys() - {"default"})[0]
+                domain_value["default"] = min(domain_value.keys() - {"default"})
 
         return database
 
-    def _domain_changed(self, change=None):
+    def _domain_changed(self, change):
         """callback when new domain selected"""
         with self.hold_trait_notifications():  # To prevent multiple calls to callbacks
             if change["new"] is None:
@@ -372,14 +375,14 @@ class ComputationalResourcesDatabaseWidget(ipw.VBox):
             with self.hold_trait_notifications():
                 self.computer_selector.options = tuple(
                     key
-                    for key in self.database.get(selected_domain, {}).keys()
+                    for key in self.database.get(selected_domain, {})
                     if key != "default"
                 )
                 self.computer_selector.value = self.database.get(
                     selected_domain, {}
                 ).get("default")
 
-    def _computer_changed(self, change=None):
+    def _computer_changed(self, change):
         """callback when new computer selected"""
         with self.hold_trait_notifications():
             if change["new"] is None:
@@ -413,7 +416,7 @@ class ComputationalResourcesDatabaseWidget(ipw.VBox):
 
         self._set_configured()
 
-    def _code_changed(self, change=None):
+    def _code_changed(self, change):
         """Update code settings."""
         if change["new"] is None:
             self.code_setup = {}

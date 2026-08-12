@@ -203,10 +203,9 @@ class WizardAppWidget(ipw.VBox):
         if not all(step.can_reset() for step in steps):
             return False
 
-        if any(step.state is not WizardAppWidgetStep.State.INIT for step in steps):
-            return True
-
-        return False
+        return bool(
+            any(step.state is not WizardAppWidgetStep.State.INIT for step in steps)
+        )
 
     def _update_buttons(self):
         with self.hold_trait_notifications():
@@ -252,7 +251,12 @@ class WizardAppWidget(ipw.VBox):
         self.reset()
 
     def _on_click_back_button(self, _):
+        if self.accordion.selected_index is None:
+            return
         self.accordion.selected_index -= 1
 
     def _on_click_next_button(self, _):
+        if self.accordion.selected_index is None:
+            # TODO: Should we set it to 0?
+            return
         self.accordion.selected_index += 1

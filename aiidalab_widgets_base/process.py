@@ -16,7 +16,6 @@ from aiida import engine, orm
 
 # Local imports.
 from .nodes import NodesTreeWidget
-from .utils import exceptions
 
 
 class SubmitButtonWidget(ipw.VBox):
@@ -100,6 +99,7 @@ class SubmitButtonWidget(ipw.VBox):
             else:
                 self.process = engine.submit(self._process_class, **inputs)
 
+            assert self.process is not None
             if self.append_output:
                 self.submit_out.value += f"""Submitted process {self.process}. Click
                 <a href={self.path_to_root}home/process.ipynb?id={self.process.pk}
@@ -181,7 +181,8 @@ class ProcessFollowerWidget(ipw.VBox):
     def on_completed(self, function):
         """Run functions after a process has been completed."""
         if self._monitor is not None:
-            raise exceptions.CantRegisterCallbackError(function)
+            msg = "Can't register new on_completed callback functions, process following has already been initiated."
+            raise RuntimeError(msg)
         self._run_after_completed.append(function)
 
 
@@ -242,7 +243,7 @@ class ProcessMonitor(tl.HasTraits):
                         func(process_uuid)
                     else:
                         func()
-                except Exception:
+                except Exception:  # ruff: ignore[BLE001]
                     if self.log_widget:
                         with self.log_widget:
                             traceback.print_exc(file=sys.stdout)
@@ -295,7 +296,7 @@ class ProcessNodesTreeWidget(ipw.VBox):
         process_uuid = change["new"]
         if process_uuid:
             process = orm.load_node(process_uuid)
-            self._tree.nodes = [process]
+            self._tree.nodes = (process,)
             self._tree.find_node(process.pk).selected = True
         else:
-            self._tree.nodes = []
+            self._tree.nodes = ()

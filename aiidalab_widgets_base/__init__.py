@@ -31,10 +31,7 @@ def is_running_in_jupyter():
     try:
         from IPython import get_ipython
 
-        if get_ipython() is not None:
-            return True
-        else:
-            return False
+        return get_ipython() is not None
     except NameError:
         return False
 
@@ -61,10 +58,9 @@ from .computational_resources import (
     ComputerDropdownWidget,
 )
 from .databases import CodQueryWidget, OptimadeQueryWidget
-from .elns import ElnConfigureWidget, ElnExportWidget, ElnImportWidget
 from .export import ExportButtonWidget
 from .loaders import LoadingWidget
-from .nodes import NodesTreeWidget, OpenAiidaNodeInAppWidget
+from .nodes import NodesTreeWidget
 from .process import (
     ProcessFollowerWidget,
     ProcessMonitor,
@@ -93,14 +89,10 @@ __all__ = [
     "ComputationalResourcesWidget",
     "ComputerDatabaseWidget",
     "ComputerDropdownWidget",
-    "ElnConfigureWidget",
-    "ElnExportWidget",
-    "ElnImportWidget",
     "ExportButtonWidget",
     "LoadingWidget",
     "MultiStructureUploadWidget",
     "NodesTreeWidget",
-    "OpenAiidaNodeInAppWidget",
     "OptimadeQueryWidget",
     "ProcessFollowerWidget",
     "ProcessMonitor",
@@ -117,4 +109,4 @@ __all__ = [
     "viewer",
 ]
 
-__version__ = "3.0.0a1"
+__version__ = "3.0.0a3"

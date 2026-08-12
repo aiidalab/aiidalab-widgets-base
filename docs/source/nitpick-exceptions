@@ -1,6 +1,5 @@
 
 # AiiDA.
-py:class BandsData
 py:class Dict
 py:class FolderData
 

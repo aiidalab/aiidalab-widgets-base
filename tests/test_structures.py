@@ -1,4 +1,5 @@
 from pathlib import Path
+from textwrap import dedent
 
 import ase
 import numpy as np
@@ -6,7 +7,24 @@ import pytest
 from aiida import common, orm
 
 import aiidalab_widgets_base as awb
-import aiidalab_widgets_base.structures as structures
+from aiidalab_widgets_base import structures
+
+
+@pytest.fixture
+def file_upload_change():
+    """Simulate a payload when uploading a file"""
+
+    def _file_upload(fname: str, content_string: str) -> dict:
+        return {
+            "new": (
+                {
+                    "name": fname,
+                    "content": content_string.encode("utf-8"),
+                },
+            )
+        }
+
+    return _file_upload
 
 
 @pytest.mark.usefixtures("aiida_profile_clean")
@@ -181,30 +199,59 @@ def test_structure_browser_widget(structure_data_object, monkeypatch):
     )
 
 
+@pytest.mark.parametrize("add_auxiliary_cell", (False, True))
 @pytest.mark.usefixtures("aiida_profile_clean")
-def test_structure_upload_widget():
+def test_structure_upload_widget(add_auxiliary_cell, file_upload_change):
     """Test the `StructureUploadWidget`."""
-    widget = awb.StructureUploadWidget()
+    widget = awb.StructureUploadWidget(add_auxiliary_cell=add_auxiliary_cell)
     assert widget.structure is None
 
     # Simulate the structure upload.
-    widget._on_file_upload(
-        change={
-            "new": (
-                {
-                    "name": "test.xyz",
-                    "content": b"""2
+    fname = "test.xyz"
+    fcontent = dedent("""\
+        2
 
-                Si 0.0 0.0 0.0
-                Si 0.5 0.5 0.5
-                """,
-                },
-            )
-        }
-    )
+        Si 0.0 0.0 0.0
+        Si 0.5 0.5 0.5""")
+
+    change = file_upload_change(fname, fcontent)
+    widget._on_file_upload(change)
+
     assert isinstance(widget.structure, ase.Atoms)
     assert widget.structure.get_chemical_formula() == "Si2"
     assert np.all(widget.structure[0].position == [0, 0, 0])
+
+    if add_auxiliary_cell:
+        cell = widget.structure.cell
+        assert all(np.greater(np.diag(cell), [10, 10, 10]))
+        assert np.array_equal(cell.angles(), [90.0, 90.0, 90.0])
+    else:
+        # There should be no cell, which ASE represents with a zero cell
+        assert not any(widget.structure.pbc)
+        assert not np.any(widget.structure.cell)
+        assert not widget.structure.cell.volume
+
+
+@pytest.mark.parametrize(
+    ("fname", "fcontent", "errmsg"),
+    (
+        ("test.xyz", "2\n\nC 0.0 0.0 0.0", "Frame has 1 atoms, expected 2"),
+        ("data.txt", "WTH?", "txt"),
+        ("datafile", "WTH?", "Could not guess file type"),
+    ),
+    ids=["invalid_xyz", "random_txt", "no_extension"],
+)
+@pytest.mark.usefixtures("aiida_profile_clean")
+def test_structure_upload_invalid_file(file_upload_change, fname, fcontent, errmsg):
+    """Test that `StructureUploadWidget` does not crash
+    when invalid files are uploaded.
+    """
+    widget = awb.StructureUploadWidget()
+    change = file_upload_change(fname, fcontent)
+    widget._on_file_upload(change=change)
+    assert widget.structure is None
+    assert f"ERROR: Could not parse file '{fname}'" in widget._status_message.value
+    assert errmsg in widget._status_message.value
 
 
 @pytest.mark.usefixtures("aiida_profile_clean")
@@ -239,6 +286,16 @@ def test_smiles_widget():
     widget._on_button_pressed()
     assert isinstance(widget.structure, ase.Atoms)
     assert widget.structure.get_chemical_formula() == "CH4"
+    # By default, a rectangular cell is added (10 angstroms in each direction)
+    # but PBC is False
+    assert not any(widget.structure.pbc)
+    cell = widget.structure.cell
+    assert all(np.greater(np.diag(cell), [10, 10, 10]))
+    assert np.array_equal(cell.angles(), [90.0, 90.0, 90.0])
+    molecule_center = (
+        widget.structure.positions.min(axis=0) + widget.structure.positions.max(axis=0)
+    ) / 2
+    assert np.allclose(molecule_center, np.diag(cell) / 2)
 
     # Regression test that we can generate 1-atom and 2-atom molecules
     widget.smiles.value = "[O]"
@@ -255,6 +312,35 @@ def test_smiles_widget():
     widget.smiles.value = "invalid"
     widget._on_button_pressed()
     assert widget.structure is None
+
+
+@pytest.mark.usefixtures("aiida_profile_clean")
+def test_smiles_widget_without_cell():
+    """Test the `SmilesWidget`."""
+    widget = awb.SmilesWidget(add_auxiliary_cell=False)
+    assert widget.structure is None
+
+    # Simulate the structure generation.
+    widget.smiles.value = "C"
+    widget._on_button_pressed()
+    assert isinstance(widget.structure, ase.Atoms)
+    assert widget.structure.get_chemical_formula() == "CH4"
+    # There should be no cell, which ASE represents with a zero cell
+    assert not any(widget.structure.pbc)
+    assert not np.any(widget.structure.cell)
+    assert not widget.structure.cell.volume
+
+
+@pytest.mark.usefixtures("aiida_profile_clean")
+def test_smiles_widget_make_ase_preserves_positions():
+    """Test that raw SMILES coordinates are not centered before adding a cell."""
+    widget = awb.SmilesWidget(add_auxiliary_cell=False)
+    positions = np.array([[10.0, 0.0, 0.0], [11.0, 0.0, 0.0]])
+
+    atoms = widget._make_ase(["H", "H"], positions, "[H][H]")
+
+    assert np.allclose(atoms.positions, positions)
+    assert not np.any(atoms.cell)
 
 
 @pytest.mark.usefixtures("aiida_profile_clean")

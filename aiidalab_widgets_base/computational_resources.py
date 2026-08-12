@@ -96,7 +96,9 @@ class ComputationalResourcesWidget(ipw.VBox):
             self.refresh, names=["allow_disabled_computers", "allow_hidden_codes"]
         )
 
-        self._default_user_email = orm.User.collection.get_default().email
+        default_user = orm.User.collection.get_default()
+        assert default_user is not None
+        self._default_user_email = default_user.email
 
         selection_row = ipw.HBox(
             children=[
@@ -441,9 +443,7 @@ class SshComputerSetup(ipw.VBox):
         # NOTE: parse_sshconfig returns a dict with a hostname
         # even if it is not in the config file.
         # We require at least the user to be specified.
-        if "user" not in sshcfg:
-            return False
-        return True
+        return "user" in sshcfg
 
     def _write_ssh_config(self):
         """Put host information into the config file."""
@@ -547,6 +547,7 @@ class SshComputerSetup(ipw.VBox):
 
     def _send_password(self, _=None):
         self._continue_with_password_button.disabled = True
+        assert self._ssh_connection_process is not None
         self._ssh_connection_process.sendline(self._ssh_password.value)
 
     @tl.observe("ssh_connection_state")
@@ -581,21 +582,31 @@ class SshComputerSetup(ipw.VBox):
         if self.ssh_connection_state is SshConnectionState.enter_password:
             self._handle_ssh_password()
         elif self.ssh_connection_state is SshConnectionState.do_you_want_to_continue:
+            assert self._ssh_connection_process is not None
             self._ssh_connection_process.sendline("yes")
 
     def _handle_ssh_password(self):
         """Send a password to a remote computer."""
-        message = (
-            self._ssh_connection_process.before.splitlines()[-1]
-            + self._ssh_connection_process.after
-        )
+        assert self._ssh_connection_process is not None
+
+        if self._ssh_connection_process.before:
+            message = (
+                self._ssh_connection_process.before.splitlines()[-1]
+                + self._ssh_connection_process.after
+            )
+        else:
+            message = self._ssh_connection_process.after
+
         if self._ssh_connection_message == message:
             self._ssh_connection_process.sendline(self._ssh_password.value)
         else:
+            # TODO: Resolve this ty: ignore, the error is:
+            # error[unresolved-attribute]: Attribute `decode` is not defined on
+            # `type[EOF]`, `type[TIMEOUT]`, `None` in union `(Unknown & ~Literal[b"Password:"]) | type[EOF | TIMEOUT] | None`
             self.password_message = (
                 f"Please enter {self.username.value}@{self.hostname.value}'s password:"
                 if message == b"Password:"
-                else f"Please enter {message.decode('utf-8')}"
+                else f"Please enter {message.decode('utf-8')}"  # ty: ignore[unresolved-attribute]
             )
             self._ssh_password.disabled = False
             self._continue_with_password_button.disabled = False
@@ -662,7 +673,9 @@ class AiidaComputerSetup(ipw.VBox):
 
     def __init__(self, **kwargs):
         self._on_setup_computer_success = []
-        self._default_user_email = orm.User.collection.get_default().email
+        default_user = orm.User.collection.get_default()
+        assert default_user is not None
+        self._default_user_email = default_user.email
 
         # List of widgets to be displayed.
         self.label = ipw.Text(
@@ -1212,7 +1225,7 @@ class AiidaCodeSetup(ipw.VBox):
 
             # Check for additional keys needed for orm.ContainerizedCode
             for container_key in containerized_code_additional_items:
-                if container_key in self.code_setup.keys():
+                if container_key in self.code_setup:
                     kwargs[container_key] = self.code_setup[container_key]
 
             # set computer from its widget value the UUID of the computer.
@@ -1240,7 +1253,7 @@ class AiidaCodeSetup(ipw.VBox):
                 return False
 
             try:
-                if "image_name" in kwargs.keys():
+                if "image_name" in kwargs:
                     code = orm.ContainerizedCode(computer=computer, **kwargs)
                 else:
                     code = orm.InstalledCode(computer=computer, **kwargs)
@@ -1337,7 +1350,9 @@ class ComputerDropdownWidget(ipw.VBox):
 
         description (str): Text to display before dropdown.
         """
-        self._default_user_email = orm.User.collection.get_default().email
+        default_user = orm.User.collection.get_default()
+        assert default_user is not None
+        self._default_user_email = default_user.email
 
         self.output = ipw.HTML()
         self._dropdown = ipw.Dropdown(
@@ -1418,7 +1433,7 @@ class ComputerDropdownWidget(ipw.VBox):
         """Select computer by computer label."""
         self.output.value = ""
         if not label:
-            return None
+            return
 
         try:
             computer_uuid = self.computers[label]

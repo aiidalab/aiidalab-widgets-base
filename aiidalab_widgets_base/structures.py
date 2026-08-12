@@ -7,6 +7,9 @@ import pathlib
 import tempfile
 
 import ase
+import ase.cell
+import ase.data
+import ase.io
 import ipywidgets as ipw
 import numpy as np
 import spglib
@@ -232,7 +235,7 @@ class StructureManagerWidget(ipw.VBox):
         ):
             # Make a link between self.input_structure and self.structure_node
             @engine.calcfunction
-            def user_modifications(source_structure):  # noqa F841
+            def user_modifications(source_structure):
                 return self.structure_node
 
             structure_node = user_modifications(self.input_structure)
@@ -289,7 +292,7 @@ class StructureManagerWidget(ipw.VBox):
             return structure_node
 
         # If the input_structure trait is set to AiiDA node, check what type
-        if isinstance(structure, orm.Data):
+        if isinstance(structure, orm.Data):  # noqa: SIM102
             # Transform the structure to the structure_node_type if needed.
             if isinstance(structure, structure_node_type):
                 return structure
@@ -375,9 +378,14 @@ class StructureUploadWidget(ipw.VBox):
     )
 
     def __init__(
-        self, title="", description="Upload Structure", allow_trajectories=False
+        self,
+        title="",
+        description="Upload Structure",
+        allow_trajectories=False,
+        add_auxiliary_cell=True,
     ):
         self.title = title
+        self.add_auxiliary_cell = add_auxiliary_cell
         self.file_upload = ipw.FileUpload(
             description=description, multiple=False, layout={"width": "initial"}
         )
@@ -403,11 +411,11 @@ class StructureUploadWidget(ipw.VBox):
         if not ase_structure:
             return None
 
+        if not self.add_auxiliary_cell:
+            return ase_structure
+
         cell = ase_structure.cell
 
-        # TODO: Since AiiDA 2.0, zero cell is possible if PBC=false
-        # so we should honor that here and do not put artificial cell
-        # around gas phase molecules.
         if (
             np.linalg.norm(cell[0]) < 0.1
             or np.linalg.norm(cell[1]) < 0.1
@@ -432,7 +440,7 @@ class StructureUploadWidget(ipw.VBox):
         if suffix == ".cif":
             try:
                 return CifData(file=io.BytesIO(content))
-            except Exception as e:
+            except Exception as e:  # noqa: BLE001
                 self._status_message.message = f"""
                     <div class="alert alert-warning">Could not parse CIF file {fname}: {e}
                     Trying ASE reader...</div>
@@ -443,17 +451,12 @@ class StructureUploadWidget(ipw.VBox):
             temp_file.flush()
             try:
                 if suffix == ".cif":
-                    structures = get_ase_from_file(temp_file.name, format="cif")
+                    structures = get_ase_from_file(temp_file.name, file_format="cif")
                 else:
                     structures = get_ase_from_file(temp_file.name)
             except ValueError as e:
                 self._status_message.message = f"""
-                    <div class="alert alert-danger">ERROR: {e}</div>
-                    """
-                return None
-            except KeyError:
-                self._status_message.message = f"""
-                    <div class="alert alert-danger">ERROR: Could not parse file {fname}</div>
+                    <div class="alert alert-danger">ERROR: Could not parse file '{fname}': {e}</div>
                     """
                 return None
 
@@ -551,7 +554,7 @@ class StructureBrowserWidget(ipw.VBox):
 
         # Disable process labels selection if we are not looking for the calculated structures.
         def disable_drop_label(change):
-            self.drop_label.disabled = not change["new"] == "calculated"
+            self.drop_label.disabled = change["new"] != "calculated"
 
         # Select structures kind.
         self.mode = ipw.RadioButtons(
@@ -633,17 +636,17 @@ class StructureBrowserWidget(ipw.VBox):
 
         # If the date range is valid, use it for the search
         try:
-            start_date = datetime.datetime.strptime(
+            start_date = datetime.datetime.strptime(  # noqa: DTZ007
                 self.start_date_widget.value, "%Y-%m-%d"
             )
-            end_date = datetime.datetime.strptime(
+            end_date = datetime.datetime.strptime(  # noqa: DTZ007
                 self.end_date_widget.value, "%Y-%m-%d"
             ) + datetime.timedelta(hours=24)
 
         # Otherwise revert to the standard (i.e. last 7 days)
         except ValueError:
-            start_date = datetime.datetime.now() - datetime.timedelta(days=7)
-            end_date = datetime.datetime.now() + datetime.timedelta(hours=24)
+            start_date = datetime.datetime.now() - datetime.timedelta(days=7)  # noqa: DTZ005
+            end_date = datetime.datetime.now() + datetime.timedelta(hours=24)  # noqa: DTZ005
 
             self.start_date_widget.value = start_date.strftime("%Y-%m-%d")
             self.end_date_widget.value = end_date.strftime("%Y-%m-%d")
@@ -763,8 +766,9 @@ class SmilesWidget(ipw.VBox):
 
     SPINNER = """<i class="fa fa-spinner fa-pulse" style="color:red;" ></i>"""
 
-    def __init__(self, title=""):
+    def __init__(self, title="", add_auxiliary_cell=True):
         self.title = title
+        self.add_auxiliary_cell = add_auxiliary_cell
         try:
             from rdkit import Chem  # noqa: F401
             from rdkit.Chem import AllChem  # noqa: F401
@@ -795,12 +799,9 @@ class SmilesWidget(ipw.VBox):
     def _make_ase(self, species, positions, smiles):
         """Create ase Atoms object."""
         atoms = ase.Atoms(species, positions=positions, pbc=False)
-        atoms.cell = np.ptp(atoms.positions, axis=0) + 10
-        atoms.center()
         # We're attaching this info so that it
         # can be later stored as an extra on AiiDA Structure node.
         atoms.info["smiles"] = smiles
-
         return atoms
 
     def _rdkit_opt(self, smiles, steps):
@@ -840,7 +841,11 @@ class SmilesWidget(ipw.VBox):
         positions = mol.GetConformer().GetPositions()
         natoms = mol.GetNumAtoms()
         species = [mol.GetAtomWithIdx(j).GetSymbol() for j in range(natoms)]
-        return self._make_ase(species, positions, smiles)
+        ase_mol = self._make_ase(species, positions, smiles)
+        if self.add_auxiliary_cell:
+            ase_mol.cell = np.ptp(ase_mol.positions, axis=0) + 10
+            ase_mol.center()
+        return ase_mol
 
     def _mol_from_smiles(self, smiles, steps=1000):
         """Convert SMILES to ASE structure using RDKit"""
@@ -1085,10 +1090,11 @@ class BasicCellEditor(ipw.VBox):
 
         cell = (lattice, positions, numbers)
 
-        # operation
-        lattice, positions, numbers = spglib.standardize_cell(
+        standard_cell = spglib.standardize_cell(
             cell, to_primitive=to_primitive, no_idealize=no_idealize, symprec=symprec
         )
+        if standard_cell is not None:
+            lattice, positions, numbers = standard_cell
 
         return ase.Atoms(
             cell=lattice,
@@ -1141,7 +1147,7 @@ class BasicCellEditor(ipw.VBox):
             # the number of generated atoms is not correct
             try:
                 atoms = make_supercell(atoms, mat)
-            except Exception as e:
+            except Exception as e:  # noqa: BLE001
                 self._status_message.message = f"""
             <div class="alert alert-info">
             <strong>The transformation matrix is wrong! {e}</strong>
