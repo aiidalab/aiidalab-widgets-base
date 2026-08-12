@@ -830,13 +830,36 @@ class SmilesWidget(ipw.VBox):
             msg = "RDKit could not generate conformer"
             raise ValueError(msg)
 
+        mmff_status = None
         if AllChem.MMFFHasAllMoleculeParams(mol):
-            # TODO: Check the return value!
-            AllChem.MMFFOptimizeMolecule(mol, maxIters=steps)
-        elif AllChem.UFFHasAllMoleculeParams(mol):
-            AllChem.UFFOptimizeMolecule(mol, maxIters=steps)
-        else:
-            self.output.value = "RDKit WARNING: Missing MMFF/UFF parameters"
+            mmff_status = AllChem.MMFFOptimizeMolecule(mol, maxIters=steps)
+            if mmff_status == 1:
+                self.output.value = (
+                    "RDKit WARNING: MMFF94 optimization did not converge "
+                    f"after {steps} iterations"
+                )
+            elif mmff_status not in (-1, 0):
+                msg = f"RDKit MMFF94 optimizer returned unexpected status {mmff_status}"
+                raise ValueError(msg)
+
+        if mmff_status == -1 or mmff_status is None:
+            if AllChem.UFFHasAllMoleculeParams(mol):
+                uff_status = AllChem.UFFOptimizeMolecule(mol, maxIters=steps)
+                if uff_status == 1:
+                    self.output.value = (
+                        "RDKit WARNING: UFF optimization did not converge "
+                        f"after {steps} iterations"
+                    )
+                elif uff_status != 0:
+                    msg = f"RDKit UFF optimizer returned unexpected status {uff_status}"
+                    raise ValueError(msg)
+            elif mmff_status == -1:
+                self.output.value = (
+                    "RDKit WARNING: MMFF94 force field could not be set up and "
+                    "UFF parameters are unavailable"
+                )
+            else:
+                self.output.value = "RDKit WARNING: Missing MMFF94/UFF parameters"
 
         positions = mol.GetConformer().GetPositions()
         natoms = mol.GetNumAtoms()
@@ -857,7 +880,10 @@ class SmilesWidget(ipw.VBox):
             return None
         else:
             if canonical_smiles != smiles:
-                self.output.value = f"Canonical SMILES: {canonical_smiles}"
+                message = f"Canonical SMILES: {canonical_smiles}"
+                if self.output.value.startswith("RDKit WARNING"):
+                    message += f"<br>{self.output.value}"
+                self.output.value = message
             return ase
 
     def _on_button_pressed(self, change=None):
