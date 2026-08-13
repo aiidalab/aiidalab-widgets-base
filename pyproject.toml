@@ -7,33 +7,21 @@ build-backend = "setuptools.build_meta"
 
 [tool.pytest.ini_options]
 filterwarnings = [
-    # The following deprecation warnings come from Python 3.12 stdlib modules
-    "ignore:datetime.datetime.:DeprecationWarning:",
+    # We can remove this once aiida-core drops dependency on pytz
+    # https://github.com/aiidateam/aiida-core/issues/7544
+    "ignore:datetime.datetime.:DeprecationWarning:pytz",
     # This one is coming from plumpy
     "ignore:There is no current event loop:DeprecationWarning:",
     # This is needed since SQLAlchemy 2.0, see
     # https://github.com/aiidalab/aiidalab-widgets-base/issues/605
     'ignore:Object of type.*not in session,.*operation along.*will not proceed:sqlalchemy.exc.SAWarning',
     'ignore:Creating AiiDA configuration:UserWarning:aiida',
-    'ignore:The `Code` class:aiida.common.warnings.AiidaDeprecationWarning:',
-    'ignore:crystal system:UserWarning:ase.io.cif',
-    'ignore::DeprecationWarning:ase.atoms',
+    "ignore:crystal system 'cubic' is not interpreted for space group:UserWarning:ase.io.cif",
     # This popped up in spglib 2.5. Since we still try to support spglib v1,
     # it's not clear if we can get rid of it.
     "ignore:dict interface is deprecated. Use attribute interface instead:DeprecationWarning:spglib|aiidalab_widgets_base",
-    # TODO: This comes from a transitive dependency of ipyoptimade
-    # Remove this when this issue is addressed:
-    # https://github.com/CasperWA/ipywidgets-extended/issues/85
-    'ignore::DeprecationWarning:ipywidgets_extended',
-    'ignore:metadata.*traitlets.traitlets.Unicode object:DeprecationWarning:traitlets',
-    # For some reason we get this error, see
-    # https://github.com/aiidalab/aiidalab-widgets-base/issues/551
-    'ignore:Exception ignored in:pytest.PytestUnraisableExceptionWarning:_pytest',
-    'ignore::DeprecationWarning:jupyter_client',
-    # This warning is coming from circus (aiida-core dependency):
-    # https://github.com/circus-tent/circus/issues/1215
-    "ignore:'pipes' is deprecated and slated for removal in Python 3.13:DeprecationWarning:",
-    "ignore::cryptography.utils.CryptographyDeprecationWarning:",
+    "ignore:Set OLD_ERROR_HANDLING to false and catch the errors directly:DeprecationWarning:spglib",
+    "ignore:Setting the shape on a NumPy array has been deprecated in NumPy 2.5:DeprecationWarning:ase"
 ]
 
 [tool.ruff]
