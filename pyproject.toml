@@ -30,7 +30,7 @@ dependencies = [
     "ipywidgets~=8.1",
     "pymysql~=0.9",
     "nglview>=3.0.8,<5",
-    "spglib~=2.5",
+    "spglib~=2.0",
     "vapory~=0.1.2",
     "ipython>=7.33,<9.0",
     "pip>=25",
@@ -86,6 +86,10 @@ filterwarnings = [
     'ignore:Object of type.*not in session,.*operation along.*will not proceed:sqlalchemy.exc.SAWarning',
     'ignore:Creating AiiDA configuration:UserWarning:aiida',
     "ignore:crystal system 'cubic' is not interpreted for space group:UserWarning:ase.io.cif",
+    # This popped up in spglib 2.5. We can migrate to the new dataclass interface
+    # once we set v2.5 as our minimum spglib version.
+    # https://spglib.readthedocs.io/en/stable/releases.html#v2-5-0-9-jul-2024
+    "ignore:dict interface is deprecated. Use attribute interface instead:DeprecationWarning:spglib|aiidalab_widgets_base",
     # https://spglib.readthedocs.io/en/stable/exceptions/python.html
     "ignore:Set OLD_ERROR_HANDLING to false and catch the errors directly:DeprecationWarning:spglib",
     "ignore:Setting the shape on a NumPy array has been deprecated in NumPy 2.5:DeprecationWarning:ase"
