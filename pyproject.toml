@@ -6,7 +6,7 @@ build-backend = "hatchling.build"
 path = "aiidalab_widgets_base/__init__.py"
 
 [tool.hatch.build.targets.sdist]
-only-include = ["aiidalab_widgets_base"]
+only-include = ["aiidalab_widgets_base", "tests"]
 
 [project]
 name = "aiidalab-widgets-base"
