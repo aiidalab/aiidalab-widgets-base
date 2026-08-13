@@ -830,34 +830,31 @@ class SmilesWidget(ipw.VBox):
             msg = "RDKit could not generate conformer"
             raise ValueError(msg)
 
+        def _check_optimization_status(status: int, ff: str) -> None:
+            if status == 0:
+                return
+            elif status == 1:
+                self.output.value = (
+                    f"RDKit WARNING: {ff} optimization did not converge "
+                    f"after {steps} iterations"
+                )
+            elif status == -1:
+                self.output.value = (
+                    f"RDKit WARNING: {ff} force field could not be set up"
+                )
+            else:
+                msg = f"RDKit {ff} optimizer returned unexpected status {status}"
+                raise ValueError(msg)
+
         mmff_status = None
         if AllChem.MMFFHasAllMoleculeParams(mol):
             mmff_status = AllChem.MMFFOptimizeMolecule(mol, maxIters=steps)
-            if mmff_status == 1:
-                self.output.value = (
-                    "RDKit WARNING: MMFF94 optimization did not converge "
-                    f"after {steps} iterations"
-                )
-            elif mmff_status not in (-1, 0):
-                msg = f"RDKit MMFF94 optimizer returned unexpected status {mmff_status}"
-                raise ValueError(msg)
+            _check_optimization_status(mmff_status, "MMFF94")
 
         if mmff_status == -1 or mmff_status is None:
             if AllChem.UFFHasAllMoleculeParams(mol):
                 uff_status = AllChem.UFFOptimizeMolecule(mol, maxIters=steps)
-                if uff_status == 1:
-                    self.output.value = (
-                        "RDKit WARNING: UFF optimization did not converge "
-                        f"after {steps} iterations"
-                    )
-                elif uff_status != 0:
-                    msg = f"RDKit UFF optimizer returned unexpected status {uff_status}"
-                    raise ValueError(msg)
-            elif mmff_status == -1:
-                self.output.value = (
-                    "RDKit WARNING: MMFF94 force field could not be set up and "
-                    "UFF parameters are unavailable"
-                )
+                _check_optimization_status(uff_status, "UFF")
             else:
                 self.output.value = "RDKit WARNING: Missing MMFF94/UFF parameters"
 

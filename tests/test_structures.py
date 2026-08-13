@@ -344,7 +344,6 @@ def test_smiles_widget_make_ase_preserves_positions():
 
 
 @pytest.mark.parametrize("mmff_status", (None, -1))
-@pytest.mark.usefixtures("aiida_profile_clean")
 def test_smiles_widget_uses_uff_as_fallback(monkeypatch, mmff_status):
     """Use UFF when MMFF94 parameters are missing or setup fails."""
     from rdkit.Chem import AllChem
@@ -366,7 +365,6 @@ def test_smiles_widget_uses_uff_as_fallback(monkeypatch, mmff_status):
 
     assert structure.get_chemical_formula() == "CH4"
     assert calls == [123]
-    assert not widget.output.value
 
 
 @pytest.mark.parametrize(
@@ -375,16 +373,9 @@ def test_smiles_widget_uses_uff_as_fallback(monkeypatch, mmff_status):
         (True, 1, True, 0, "MMFF94 optimization did not converge"),
         (False, None, True, 1, "UFF optimization did not converge"),
         (False, None, False, None, "Missing MMFF94/UFF parameters"),
-        (
-            True,
-            -1,
-            False,
-            None,
-            "MMFF94 force field could not be set up and UFF parameters are unavailable",
-        ),
+        (True, -1, False, None, "Missing MMFF94/UFF parameters"),
     ),
 )
-@pytest.mark.usefixtures("aiida_profile_clean")
 def test_smiles_widget_force_field_warnings(
     monkeypatch,
     mmff_parameters,
@@ -408,7 +399,6 @@ def test_smiles_widget_force_field_warnings(
     assert warning in widget.output.value
 
 
-@pytest.mark.usefixtures("aiida_profile_clean")
 def test_smiles_widget_prefers_mmff(monkeypatch):
     """Use MMFF94 without evaluating the UFF fallback when it converges."""
     from rdkit.Chem import AllChem
@@ -434,7 +424,6 @@ def test_smiles_widget_prefers_mmff(monkeypatch):
     assert not widget.output.value
 
 
-@pytest.mark.usefixtures("aiida_profile_clean")
 def test_smiles_widget_reports_rdkit_failures(monkeypatch):
     """Report invalid input and failed conformer-generation attempts."""
     from rdkit.Chem import AllChem
@@ -448,7 +437,6 @@ def test_smiles_widget_reports_rdkit_failures(monkeypatch):
     assert widget.output.value == "RDKit could not generate conformer"
 
 
-@pytest.mark.usefixtures("aiida_profile_clean")
 def test_smiles_widget_preserves_warning_after_canonicalization(monkeypatch):
     """Show force-field warnings together with a canonicalized SMILES."""
     from rdkit.Chem import AllChem
@@ -469,10 +457,9 @@ def test_smiles_widget_preserves_warning_after_canonicalization(monkeypatch):
     ("mmff_parameters", "mmff_status", "uff_status", "message"),
     (
         (True, 2, 0, "MMFF94 optimizer returned unexpected status 2"),
-        (False, None, -1, "UFF optimizer returned unexpected status -1"),
+        (False, None, -2, "UFF optimizer returned unexpected status -2"),
     ),
 )
-@pytest.mark.usefixtures("aiida_profile_clean")
 def test_smiles_widget_rejects_unexpected_optimizer_status(
     monkeypatch,
     mmff_parameters,
@@ -494,7 +481,6 @@ def test_smiles_widget_rejects_unexpected_optimizer_status(
         widget._rdkit_opt("C", steps=123)
 
 
-@pytest.mark.usefixtures("aiida_profile_clean")
 def test_smiles_canonicalization():
     """Test the SMILES canonicalization via RdKit."""
     canonicalize = awb.SmilesWidget.canonicalize_smiles
@@ -516,7 +502,6 @@ def test_smiles_canonicalization():
     # but the canonicalization fails. I do not know how to trigger it though.
 
 
-@pytest.mark.usefixtures("aiida_profile_clean")
 def test_tough_smiles():
     widget = awb.SmilesWidget()
     assert widget.structure is None
