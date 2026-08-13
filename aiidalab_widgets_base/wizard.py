@@ -95,6 +95,7 @@ class WizardAppWidget(ipw.VBox):
         self,
         steps: Sequence[tuple[str, WizardAppWidgetStep]],
         show_header: bool = True,
+        selected_index: int | None = 0,
         **kwargs,
     ):
         # The number of steps must be greater than one
@@ -106,7 +107,7 @@ class WizardAppWidget(ipw.VBox):
 
         self.titles, widgets = zip(*steps)
 
-        self.accordion = ipw.Accordion(children=widgets)
+        self.accordion = ipw.Accordion(children=widgets, selected_index=selected_index)
         self._update_titles()
 
         # Watch for changes to each step's state
