@@ -12,13 +12,19 @@ import ase.data
 import ase.io
 import ipywidgets as ipw
 import numpy as np
-import spglib
 import traitlets as tl
 from aiida import common, engine, orm, plugins
 
 # Local imports
 from .data import FunctionalGroupSelectorWidget
-from .utils import StatusHTML, exceptions, get_ase_from_file, get_formula
+from .utils import (
+    StatusHTML,
+    _restore_spglib_old_error_handling,
+    _set_spglib_old_error_handling,
+    exceptions,
+    get_ase_from_file,
+    get_formula,
+)
 from .viewers import StructureDataViewer
 
 CifData = plugins.DataFactory("core.cif")
@@ -1107,15 +1113,19 @@ class BasicCellEditor(ipw.VBox):
         structure: ase.Atoms, to_primitive=False, no_idealize=False, symprec=1e-5
     ):
         """The `standardize_cell` method from spglib and apply to ase.Atoms"""
+        import spglib
+
         lattice = structure.get_cell()
         positions = structure.get_scaled_positions()
         numbers = structure.get_atomic_numbers()
 
         cell = (lattice, positions, numbers)
 
+        old_error_handling = _set_spglib_old_error_handling()
         standard_cell = spglib.standardize_cell(
             cell, to_primitive=to_primitive, no_idealize=no_idealize, symprec=symprec
         )
+        _restore_spglib_old_error_handling(old_error_handling)
         if standard_cell is not None:
             lattice, positions, numbers = standard_cell
 

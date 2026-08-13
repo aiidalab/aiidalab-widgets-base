@@ -86,6 +86,7 @@ filterwarnings = [
     'ignore:Object of type.*not in session,.*operation along.*will not proceed:sqlalchemy.exc.SAWarning',
     'ignore:Creating AiiDA configuration:UserWarning:aiida',
     "ignore:crystal system 'cubic' is not interpreted for space group:UserWarning:ase.io.cif",
+    # https://spglib.readthedocs.io/en/stable/exceptions/python.html
     "ignore:Set OLD_ERROR_HANDLING to false and catch the errors directly:DeprecationWarning:spglib",
     "ignore:Setting the shape on a NumPy array has been deprecated in NumPy 2.5:DeprecationWarning:ase"
 ]
