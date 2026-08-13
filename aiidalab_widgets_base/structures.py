@@ -813,8 +813,8 @@ class SmilesWidget(ipw.VBox):
         if mol is None:
             # Something is seriously wrong with the SMILES code,
             # just return None and don't attempt anything else.
-            self.output.value = "RDKit ERROR: Invalid SMILES string"
-            return None
+            msg = "Invalid SMILES"
+            raise ValueError(msg)
         mol = Chem.AddHs(mol)
 
         conf_id = AllChem.EmbedMolecule(mol, maxAttempts=20, randomSeed=42)
@@ -827,12 +827,36 @@ class SmilesWidget(ipw.VBox):
                 mol, maxAttempts=20, useRandomCoords=True, randomSeed=422
             )
         if conf_id < 0:
-            self.output.value = "RDKit ERROR: Could not generate conformer"
-            return None
-        if AllChem.UFFHasAllMoleculeParams(mol):
-            AllChem.UFFOptimizeMolecule(mol, maxIters=steps)
-        else:
-            self.output.value = "RDKit WARNING: Missing UFF parameters"
+            msg = "RDKit could not generate conformer"
+            raise ValueError(msg)
+
+        def _check_optimization_status(status: int, ff: str) -> None:
+            if status == 0:
+                return
+            elif status == 1:
+                self.output.value = (
+                    f"RDKit WARNING: {ff} optimization did not converge "
+                    f"after {steps} iterations"
+                )
+            elif status == -1:
+                self.output.value = (
+                    f"RDKit WARNING: {ff} force field could not be set up"
+                )
+            else:
+                msg = f"RDKit {ff} optimizer returned unexpected status {status}"
+                raise ValueError(msg)
+
+        mmff_status = None
+        if AllChem.MMFFHasAllMoleculeParams(mol):
+            mmff_status = AllChem.MMFFOptimizeMolecule(mol, maxIters=steps)
+            _check_optimization_status(mmff_status, "MMFF94")
+
+        if mmff_status == -1 or mmff_status is None:
+            if AllChem.UFFHasAllMoleculeParams(mol):
+                uff_status = AllChem.UFFOptimizeMolecule(mol, maxIters=steps)
+                _check_optimization_status(uff_status, "UFF")
+            else:
+                self.output.value = "RDKit WARNING: Missing MMFF94/UFF parameters"
 
         positions = mol.GetConformer().GetPositions()
         natoms = mol.GetNumAtoms()
@@ -853,7 +877,10 @@ class SmilesWidget(ipw.VBox):
             return None
         else:
             if canonical_smiles != smiles:
-                self.output.value = f"Canonical SMILES: {canonical_smiles}"
+                message = f"Canonical SMILES: {canonical_smiles}"
+                if self.output.value.startswith("RDKit WARNING"):
+                    message += f"<br>{self.output.value}"
+                self.output.value = message
             return ase
 
     def _on_button_pressed(self, change=None):
