@@ -5,3 +5,11 @@
   height: auto;
   width: auto;
 }
+
+/*
+  Override Jupyter width limitation to
+  make apps take full notebook width
+*/
+.output_subarea {
+  max-width: none !important;
+}
