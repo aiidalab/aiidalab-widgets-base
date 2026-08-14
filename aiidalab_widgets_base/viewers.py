@@ -730,7 +730,7 @@ class _StructureDataBaseViewer(ipw.VBox):
             representation_ids.append(representation.style_id)
 
         # Remove missing representations from the structure.
-        for array in self.structure.arrays:
+        for array in list(self.structure.arrays):
             if (
                 array.startswith(self.REPRESENTATION_PREFIX)
                 and array not in representation_ids
@@ -1387,7 +1387,7 @@ class StructureDataViewer(_StructureDataBaseViewer):
             except ValueError:
                 self._add_representation(
                     style_id=style_id,
-                    indices=np.where(structure.arrays[self.style_id] >= 1)[0],
+                    indices=np.where(structure.arrays[style_id] >= 1)[0],
                 )
         # Empty atoms selection for the representations that are not present in the structure.
         # Typically this happens when a new structure is imported.
