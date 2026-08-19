@@ -806,8 +806,10 @@ class _StructureDataBaseViewer(ipw.VBox):
                 (False, False, False): "-",
             }
             if symmetry_dataset is not None:
-                self.cell_spacegroup.value = f"Spacegroup: {symmetry_dataset['international']} (No.{symmetry_dataset['number']})"
-                self.cell_hall.value = f"Hall: {symmetry_dataset['hall']} (No.{symmetry_dataset['hall_number']})"
+                self.cell_spacegroup.value = f"Spacegroup: {symmetry_dataset.international} (No.{symmetry_dataset.number})"
+                self.cell_hall.value = (
+                    f"Hall: {symmetry_dataset.hall} (No.{symmetry_dataset.hall_number})"
+                )
             else:
                 self.cell_spacegroup.value = "Spacegroup: -"
                 self.cell_hall.value = "Hall: -"
