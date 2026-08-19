@@ -265,7 +265,7 @@ def _restore_spglib_old_error_handling(old_error_handling: bool) -> None:
     """Restore the previous value of spglib.error.OLD_ERROR_HANDLING
 
     We do this so that other libraries can choose their own handling of errors.
-    (Yes, I know, this is a huge mess
+    Yes, I know, this is a huge mess :-(
     """
 
     import spglib
