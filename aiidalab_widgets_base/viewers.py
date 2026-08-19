@@ -18,7 +18,6 @@ import ipywidgets as ipw
 import nglview
 import numpy as np
 import shortuuid
-import spglib
 import traitlets as tl
 import vapory
 from aiida import cmdline, orm
@@ -31,7 +30,13 @@ from matplotlib.colors import to_rgb
 from .dicts import RGB_COLORS, Colors, Radius
 from .loaders import LoadingWidget
 from .misc import CopyToClipboardButton, ReversePolishNotation
-from .utils import ase2spglib, list_to_string_range, string_range_to_list
+from .utils import (
+    _restore_spglib_old_error_handling,
+    _set_spglib_old_error_handling,
+    ase2spglib,
+    list_to_string_range,
+    string_range_to_list,
+)
 
 AIIDA_VIEWER_MAPPING = {}
 DICT_VIEWER_HEADERS = ("Key", "Value")
@@ -754,6 +759,8 @@ class _StructureDataBaseViewer(ipw.VBox):
 
     @tl.observe("cell")
     def _observe_cell(self, _=None):
+        import spglib
+
         # Updtate the Cell and Periodicity.
         if self.cell:
             self.cell_a.value = "<i><b>a</b></i>: {:.4f} {:.4f} {:.4f}".format(
@@ -781,9 +788,12 @@ class _StructureDataBaseViewer(ipw.VBox):
             self.cell_gamma.value = f"&gamma;: {self.cell.angles()[2]:.4f}"
 
             spglib_structure = ase2spglib(self.structure)
+
+            old_error_handling = _set_spglib_old_error_handling()
             symmetry_dataset = spglib.get_symmetry_dataset(
                 spglib_structure, symprec=1e-5, angle_tolerance=1.0
             )
+            _restore_spglib_old_error_handling(old_error_handling)
 
             periodicity_map = {
                 (True, True, True): "xyz",
@@ -796,8 +806,10 @@ class _StructureDataBaseViewer(ipw.VBox):
                 (False, False, False): "-",
             }
             if symmetry_dataset is not None:
-                self.cell_spacegroup.value = f"Spacegroup: {symmetry_dataset['international']} (No.{symmetry_dataset['number']})"
-                self.cell_hall.value = f"Hall: {symmetry_dataset['hall']} (No.{symmetry_dataset['hall_number']})"
+                self.cell_spacegroup.value = f"Spacegroup: {symmetry_dataset.international} (No.{symmetry_dataset.number})"
+                self.cell_hall.value = (
+                    f"Hall: {symmetry_dataset.hall} (No.{symmetry_dataset.hall_number})"
+                )
             else:
                 self.cell_spacegroup.value = "Spacegroup: -"
                 self.cell_hall.value = "Hall: -"

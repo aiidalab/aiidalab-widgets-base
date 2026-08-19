@@ -241,3 +241,36 @@ def ase2spglib(ase_structure: ase.Atoms) -> tuple[Any, Any, Any]:
     numbers = ase_structure.get_atomic_numbers()
 
     return (lattice, positions, numbers)
+
+
+def _set_spglib_old_error_handling() -> bool:
+    """Set old spglib error handling that does not rely on exceptions.
+
+    returns: previous value of OLD_ERROR_HANDLING to be restored by calling `_restore_spglib_old_error_handling`.
+
+    https://spglib.readthedocs.io/en/stable/exceptions/python.html
+    """
+    import spglib
+
+    old_value = True
+    try:
+        old_value = spglib.error.OLD_ERROR_HANDLING
+        spglib.error.OLD_ERROR_HANDLING = True
+    except AttributeError:
+        pass
+    return old_value
+
+
+def _restore_spglib_old_error_handling(old_error_handling: bool) -> None:
+    """Restore the previous value of spglib.error.OLD_ERROR_HANDLING
+
+    We do this so that other libraries can choose their own handling of errors.
+    Yes, I know, this is a huge mess :-(
+    """
+
+    import spglib
+
+    try:
+        spglib.error.OLD_ERROR_HANDLING = old_error_handling
+    except AttributeError:
+        pass
