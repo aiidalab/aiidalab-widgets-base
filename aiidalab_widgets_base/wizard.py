@@ -104,10 +104,8 @@ class WizardAppWidget(ipw.VBox):
 
         self.steps = steps
 
-        # Unzip the steps to titles and widgets.
         self.titles, widgets = zip(*steps)
 
-        # Initialize the accordion with the widgets ...
         self.accordion = ipw.Accordion(children=widgets)
         self._update_titles()
 
@@ -129,7 +127,6 @@ class WizardAppWidget(ipw.VBox):
         )
         self.reset_button.on_click(self._on_click_reset_button)
 
-        # Create a back-button, to switch to the previous step when possible:
         self.back_button = ipw.Button(
             description="Previous step",
             icon="step-backward",
@@ -139,7 +136,6 @@ class WizardAppWidget(ipw.VBox):
         )
         self.back_button.on_click(self._on_click_back_button)
 
-        # Create a next-button, to switch to the next step when appropriate:
         self.next_button = ipw.Button(
             description="Next step",
             icon="step-forward",
