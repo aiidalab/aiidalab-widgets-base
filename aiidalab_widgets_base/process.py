@@ -5,10 +5,10 @@
 from __future__ import annotations
 
 import inspect
-import sys
 import threading
 import traceback
 import warnings
+from html import escape
 
 import ipywidgets as ipw
 import traitlets as tl
@@ -200,7 +200,7 @@ class ProcessMonitor(tl.HasTraits):
         self._monitor_thread_stop = threading.Event()
         self._monitor_thread_lock = threading.Lock()
 
-        self.log_widget: ipw.Output | None = kwargs.pop("log_widget", None)
+        self.log_widget: ipw.VBox | None = kwargs.pop("log_widget", None)
 
         super().__init__(**kwargs)
 
@@ -244,11 +244,13 @@ class ProcessMonitor(tl.HasTraits):
                     else:
                         func()
                 except Exception:  # ruff: ignore[BLE001]
+                    formatted = traceback.format_exc()
                     if self.log_widget:
-                        with self.log_widget:
-                            traceback.print_exc(file=sys.stdout)
+                        self.log_widget.children += (
+                            ipw.HTML(f"<pre>{escape(formatted)}</pre>"),
+                        )
                     warnings.warn(
-                        f"WARNING: The callback function {func.__name__!r} was disabled due to an error:\n{traceback.format_exc()}",
+                        f"WARNING: The callback function {func.__name__!r} was disabled due to an error:\n{formatted}",
                         stacklevel=2,
                     )
                     disabled_funcs.add(func)
