@@ -1,56 +1,60 @@
 import ipywidgets as ipw
+import pytest
 import traitlets as tl
 
 from aiidalab_widgets_base import WizardAppWidget, WizardAppWidgetStep
+from aiidalab_widgets_base.wizard import AtLeastTwoStepsWizardError
+
+
+class Step1(ipw.HBox, WizardAppWidgetStep):
+    config = tl.Bool()
+
+    def __init__(self, **kwargs):
+        self.order_button = ipw.Button(description="Submit order", disabled=False)
+        self.order_button.on_click(self.submit_order)
+        super().__init__(children=[self.order_button], **kwargs)
+
+    def submit_order(self, _=None):
+        self.config = True
+
+    @tl.default("config")
+    def _default_config(self):
+        return False
+
+    def reset(self):
+        self.config = False
+
+    @tl.observe("config")
+    def _observe_config(self, _=None):
+        self.state = self.State.SUCCESS if self.config else self.State.INIT
+
+
+class Step2(ipw.HBox, WizardAppWidgetStep):
+    config = tl.Bool()
+
+    def __init__(self, **kwargs):
+        self.results = ipw.HTML("Results")
+        super().__init__(children=[self.results], **kwargs)
+
+    def submit_order(self, _=None):
+        pass
+
+    def reset(self):
+        pass
+
+    @tl.default("config")
+    def _default_config(self):
+        return False
+
+    @tl.observe("config")
+    def _observe_config(self, change):
+        if self.config:
+            self.state = self.State.READY
+        else:
+            self.state = self.State.INIT
 
 
 def test_wizard_app_widget():
-    class Step1(ipw.HBox, WizardAppWidgetStep):
-        config = tl.Bool()
-
-        def __init__(self, **kwargs):
-            self.order_button = ipw.Button(description="Submit order", disabled=False)
-            self.order_button.on_click(self.submit_order)
-            super().__init__(children=[self.order_button], **kwargs)
-
-        def submit_order(self, _=None):
-            self.config = True
-
-        @tl.default("config")
-        def _default_config(self):
-            return False
-
-        def reset(self):
-            self.config = False
-
-        @tl.observe("config")
-        def _observe_config(self, _=None):
-            self.state = self.State.SUCCESS if self.config else self.State.INIT
-
-    class Step2(ipw.HBox, WizardAppWidgetStep):
-        config = tl.Bool()
-
-        def __init__(self, **kwargs):
-            self.results = ipw.HTML("Results")
-            super().__init__(children=[self.results], **kwargs)
-
-        def submit_order(self, _=None):
-            pass
-
-        def reset(self):
-            pass
-
-        @tl.default("config")
-        def _default_config(self):
-            return False
-
-        @tl.observe("config")
-        def _observe_config(self, change):
-            if self.config:
-                self.state = self.State.READY
-            else:
-                self.state = self.State.INIT
-
     s1 = Step1(auto_advance=True)
     s2 = Step2(auto_advance=True)
     tl.dlink((s1, "config"), (s2, "config"))
@@ -70,13 +74,18 @@ def test_wizard_app_widget():
     assert widget.accordion.get_title(0) == "○ Step 1: Setup"
     assert widget.accordion.get_title(1) == "○ Step 2: View results"
     assert not widget.can_reset()
-    widget.accordion.selected_index = 0  # Ensure first step is selected.
+
+    # First step should be opened by default
+    assert widget.accordion.selected_index == 0
+    # widget.selected_index should be synced with widget.accordion.selected_index
+    assert widget.selected_index == 0
 
     # Check state after finishing the first step.
     s1.order_button.click()
     assert s1.state == s1.State.SUCCESS
     assert s2.state == s2.State.READY
     assert widget.accordion.selected_index == 1
+    assert widget.selected_index == 1
     assert widget.next_button.disabled is True
     assert widget.back_button.disabled is False
     assert widget.accordion.get_title(0) == "✓ Step 1: Setup"
@@ -118,3 +127,72 @@ def test_wizard_app_widget():
     assert widget.accordion.selected_index == 1
     assert widget.next_button.disabled is True
     assert widget.back_button.disabled is False
+
+
+def test_closed_first_step():
+    s1 = Step1()
+    s2 = Step2()
+
+    widget = WizardAppWidget(
+        steps=[
+            ("Setup", s1),
+            ("View results", s2),
+        ],
+        selected_index=None,
+    )
+
+    # All steps should be closed
+    assert widget.accordion.selected_index is None
+
+    # With no step selected, all header buttons should be disabled.
+    assert widget.back_button.disabled is True
+    assert widget.next_button.disabled is True
+    assert widget.reset_button.disabled is True
+
+
+def test_selected_index_at_construction():
+    widget = WizardAppWidget(
+        steps=[
+            ("Setup", Step1()),
+            ("View results", Step2()),
+        ],
+        selected_index=1,
+    )
+
+    # The widget should open directly on the requested step
+    assert widget.accordion.selected_index == 1
+    assert widget.selected_index == 1
+    # Buttons should reflect that step's state immediately,
+    # without requiring any further interaction.
+    assert widget.back_button.disabled is False  # this is NOT the case atm
+    assert widget.next_button.disabled is True  # s2 is still in State.INIT
+
+
+def test_at_least_two_steps():
+    with pytest.raises(AtLeastTwoStepsWizardError):
+        WizardAppWidget(
+            steps=[
+                ("Setup", Step1()),
+            ],
+        )
+
+
+def test_invalid_selected_index():
+    with pytest.raises(tl.TraitError, match="Invalid selection: index out of bounds"):
+        WizardAppWidget(
+            steps=[
+                ("Setup", Step1()),
+                ("View results", Step2()),
+            ],
+            selected_index=-1,
+        )
+
+    # Test that index greater than number of steps raises
+    with pytest.raises(tl.TraitError, match="Invalid selection: index out of bounds"):
+        WizardAppWidget(
+            steps=[
+                ("Setup", Step1()),
+                ("View results", Step2()),
+            ],
+            selected_index=2,
+        )
