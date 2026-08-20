@@ -53,52 +53,6 @@ class Step2(ipw.HBox, WizardAppWidgetStep):
 
 
 def test_wizard_app_widget():
-    class Step1(ipw.HBox, WizardAppWidgetStep):
-        config = tl.Bool()
-
-        def __init__(self, **kwargs):
-            self.order_button = ipw.Button(description="Submit order", disabled=False)
-            self.order_button.on_click(self.submit_order)
-            super().__init__(children=[self.order_button], **kwargs)
-
-        def submit_order(self, _=None):
-            self.config = True
-
-        @tl.default("config")
-        def _default_config(self):
-            return False
-
-        def reset(self):
-            self.config = False
-
-        @tl.observe("config")
-        def _observe_config(self, _=None):
-            self.state = self.State.SUCCESS if self.config else self.State.INIT
-
-    class Step2(ipw.HBox, WizardAppWidgetStep):
-        config = tl.Bool()
-
-        def __init__(self, **kwargs):
-            self.results = ipw.HTML("Results")
-            super().__init__(children=[self.results], **kwargs)
-
-        def submit_order(self, _=None):
-            pass
-
-        def reset(self):
-            pass
-
-        @tl.default("config")
-        def _default_config(self):
-            return False
-
-        @tl.observe("config")
-        def _observe_config(self, change):
-            if self.config:
-                self.state = self.State.READY
-            else:
-                self.state = self.State.INIT
-
     s1 = Step1(auto_advance=True)
     s2 = Step2(auto_advance=True)
     tl.dlink((s1, "config"), (s2, "config"))
