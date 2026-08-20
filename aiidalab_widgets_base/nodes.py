@@ -7,7 +7,6 @@ import ipywidgets as ipw
 import traitlets as tl
 from aiida import common, engine, orm
 from aiida.cmdline.utils.ascii_vis import calc_info
-from IPython.display import clear_output, display
 
 
 class AiidaNodeTreeNode(ipytree.Node):
@@ -54,7 +53,7 @@ class UnknownTypeTreeNode(AiidaNodeTreeNode):
     icon = tl.Unicode("file").tag(sync=True)
 
 
-class NodesTreeWidget(ipw.Output):
+class NodesTreeWidget(ipw.VBox):
     """A tree widget for the structured representation of a nodes graph."""
 
     nodes = tl.Tuple().tag(trait=tl.Instance(orm.Node))
@@ -80,15 +79,7 @@ class NodesTreeWidget(ipw.Output):
         self._tree = ipytree.Tree()
         self._tree.observe(self._observe_tree_selected_nodes, ["selected_nodes"])
 
-        super().__init__(**kwargs)
-
-    def _refresh_output(self):
-        # There appears to be a bug in the ipytree implementation that sometimes
-        # causes the output to not be properly cleared. We therefore refresh the
-        # displayed tree upon change of the process trait.
-        with self:
-            clear_output()
-            display(self._tree)
+        super().__init__(children=[self._tree], **kwargs)
 
     def _observe_tree_selected_nodes(self, change):
         for node in change["new"]:
@@ -131,7 +122,6 @@ class NodesTreeWidget(ipw.Output):
             )
         )
         self.update()
-        self._refresh_output()
 
     @classmethod
     def _to_tree_node(cls, node, name=None, **kwargs):
