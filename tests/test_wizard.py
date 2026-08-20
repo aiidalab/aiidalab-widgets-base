@@ -1,7 +1,9 @@
 import ipywidgets as ipw
+import pytest
 import traitlets as tl
 
 from aiidalab_widgets_base import WizardAppWidget, WizardAppWidgetStep
+from aiidalab_widgets_base.wizard import AtLeastTwoStepsWizardError
 
 
 class Step1(ipw.HBox, WizardAppWidgetStep):
@@ -142,3 +144,33 @@ def test_closed_first_step():
     # All steps should be closed initially
     # First step should be opened by default
     assert widget.accordion.selected_index is None
+
+
+def test_at_least_two_steps():
+    with pytest.raises(AtLeastTwoStepsWizardError):
+        WizardAppWidget(
+            steps=[
+                ("Setup", Step1()),
+            ],
+        )
+
+
+def test_invalid_selected_index():
+    with pytest.raises(tl.TraitError, match="Invalid selection: index out of bounds"):
+        WizardAppWidget(
+            steps=[
+                ("Setup", Step1()),
+                ("View results", Step2()),
+            ],
+            selected_index=-1,
+        )
+
+    # Test that index greater than number of steps raises
+    with pytest.raises(tl.TraitError, match="Invalid selection: index out of bounds"):
+        WizardAppWidget(
+            steps=[
+                ("Setup", Step1()),
+                ("View results", Step2()),
+            ],
+            selected_index=2,
+        )
