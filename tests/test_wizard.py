@@ -150,6 +150,24 @@ def test_closed_first_step():
     assert widget.reset_button.disabled is True
 
 
+def test_selected_index_at_construction():
+    widget = WizardAppWidget(
+        steps=[
+            ("Setup", Step1()),
+            ("View results", Step2()),
+        ],
+        selected_index=1,
+    )
+
+    # The widget should open directly on the requested step
+    assert widget.accordion.selected_index == 1
+    assert widget.selected_index == 1
+    # Buttons should reflect that step's state immediately,
+    # without requiring any further interaction.
+    assert widget.back_button.disabled is False  # this is NOT the case atm
+    assert widget.next_button.disabled is True  # s2 is still in State.INIT
+
+
 def test_at_least_two_steps():
     with pytest.raises(AtLeastTwoStepsWizardError):
         WizardAppWidget(
