@@ -141,9 +141,13 @@ def test_closed_first_step():
         selected_index=None,
     )
 
-    # All steps should be closed initially
-    # First step should be opened by default
+    # All steps should be closed
     assert widget.accordion.selected_index is None
+
+    # With no step selected, all header buttons should be disabled.
+    assert widget.back_button.disabled is True
+    assert widget.next_button.disabled is True
+    assert widget.reset_button.disabled is True
 
 
 def test_at_least_two_steps():
