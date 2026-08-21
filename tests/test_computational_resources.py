@@ -283,6 +283,39 @@ def test_aiida_code_setup(aiida_localhost):
 
 
 @pytest.mark.usefixtures("aiida_profile_clean")
+def test_aiida_code_setup_containerized_code(aiida_localhost):
+    """Test that a `ContainerizedCode` is created when `image_name` is present in code_setup.
+
+    `image_name`/`engine_command` are not backed by widget fields; they only ever come from
+    `code_setup` directly, which is what routes `on_setup_code` into the ContainerizedCode
+    branch instead of InstalledCode.
+    """
+    widget = computational_resources.AiidaCodeSetup()
+
+    computer_label = aiida_localhost.label
+    code_label = "containerized-bash-test"
+    code_setup = {
+        "label": code_label,
+        "computer": computer_label,
+        "description": "Containerized bash interpreter",
+        "filepath_executable": "/bin/bash",
+        "prepend_text": "",
+        "append_text": "",
+        "default_calc_job_plugin": "core.arithmetic.add",
+        "image_name": "docker://alpine",
+        "engine_command": "singularity exec --bind $PWD:$PWD {image_name}",
+    }
+
+    widget.code_setup = code_setup
+    assert widget.on_setup_code(), f"ERROR: Code setup failed! {widget.message}"
+
+    code = orm.load_code(f"{code_label}@{computer_label}")
+    assert isinstance(code, orm.ContainerizedCode)
+    assert code.image_name == "docker://alpine"
+    assert code.engine_command == "singularity exec --bind $PWD:$PWD {image_name}"
+
+
+@pytest.mark.usefixtures("aiida_profile_clean")
 def test_aiida_code_setup_message_branches(aiida_localhost, monkeypatch):
     """Test the warning/error/info branches of AiidaCodeSetup.on_setup_code."""
     widget = computational_resources.AiidaCodeSetup()
