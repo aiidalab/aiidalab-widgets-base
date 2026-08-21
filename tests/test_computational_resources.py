@@ -2,7 +2,7 @@ import re
 from pathlib import Path
 
 import pytest
-from aiida import orm
+from aiida import common, orm
 
 from aiidalab_widgets_base import computational_resources
 from aiidalab_widgets_base.computational_resources import (
@@ -280,6 +280,62 @@ def test_aiida_code_setup(aiida_localhost):
     assert widget.filepath_executable.value == ""
     assert widget.prepend_text.value == ""
     assert widget.append_text.value == ""
+
+
+@pytest.mark.usefixtures("aiida_profile_clean")
+def test_aiida_code_setup_message_branches(aiida_localhost, monkeypatch):
+    """Test the warning/error/info branches of AiidaCodeSetup.on_setup_code."""
+    widget = computational_resources.AiidaCodeSetup()
+
+    computer_label = aiida_localhost.label
+    code_setup = {
+        "label": "bash-test-2",
+        "computer": computer_label,
+        "description": "Bash interpreter",
+        "filepath_executable": "/bin/bash",
+        "prepend_text": "",
+        "append_text": "",
+        "default_calc_job_plugin": "core.arithmetic.add",
+    }
+    widget.code_setup = code_setup
+
+    # Missing label.
+    widget.label.value = ""
+    assert not widget.on_setup_code()
+    assert "Please provide a code label" in widget.message
+    widget.label.value = code_setup["label"]
+
+    # Missing computer.
+    widget.computer.value = None
+    assert not widget.on_setup_code()
+    assert "Please select an existing computer" in widget.message
+    widget.computer.value = orm.load_computer(computer_label).uuid
+
+    # Code already exists: succeed once, then fail on the second attempt.
+    assert widget.on_setup_code()
+    assert not widget.on_setup_code()
+    assert "already exists, skipping creation" in widget.message
+
+    # Invalid input for code creation: the constructor call itself fails.
+    widget.label.value = "bash-test-invalid"
+
+    def _raise_input_validation_error(**_):
+        raise common.exceptions.InputValidationError("bad input")
+
+    monkeypatch.setattr(orm, "InstalledCode", _raise_input_validation_error)
+    assert not widget.on_setup_code()
+    assert "Invalid input for code creation" in widget.message
+    monkeypatch.undo()
+
+    # Storing the code fails after successful construction.
+    widget.label.value = "bash-test-store-fail"
+
+    def _raise_store_error(self):
+        raise common.exceptions.ValidationError("cannot store")
+
+    monkeypatch.setattr(orm.InstalledCode, "store", _raise_store_error)
+    assert not widget.on_setup_code()
+    assert "Unable to store the code" in widget.message
 
 
 @pytest.mark.usefixtures("aiida_profile_clean")
