@@ -814,3 +814,52 @@ def test_optional_code_fetching(pw_code):
     assert len(widget.code_select_dropdown.options) != 0
     widget = ComputationalResourcesWidget(fetch_codes=False)
     assert len(widget.code_select_dropdown.options) == 0
+
+
+@pytest.mark.usefixtures("aiida_profile_clean")
+def test_setup_new_code_toggle():
+    """Test that toggling 'Setup new code' shows/hides the setup panel."""
+    widget = ComputationalResourcesWidget(fetch_codes=False)
+
+    assert list(widget._setup_new_code_output.children) == []
+    assert widget._setup_new_code_output.layout.border == "none"
+
+    widget.btn_setup_new_code.value = True
+    assert list(widget._setup_new_code_output.children) == [
+        widget.resource_setup,
+        widget.setup_message,
+    ]
+    assert widget._setup_new_code_output.layout.border == "1px solid gray"
+
+    widget.btn_setup_new_code.value = False
+    assert list(widget._setup_new_code_output.children) == []
+    assert widget._setup_new_code_output.layout.border == "none"
+
+
+@pytest.mark.usefixtures("aiida_profile_clean")
+def test_ssh_verification_mode_public_key(tmp_path):
+    """Test that switching to 'public_key' verification mode renders the key once available."""
+    widget = computational_resources.SshComputerSetup(ssh_folder=tmp_path)
+
+    # No key on disk yet: switching to public_key hides the password box but shows nothing else.
+    widget._verification_mode.value = "public_key"
+    assert widget.password_box.layout.display == "none"
+    assert list(widget._verification_mode_output.children) == []
+
+    # Once a key is written, re-selecting public_key mode displays it.
+    (tmp_path / "id_rsa.pub").write_text("ssh-rsa AAAAtest key-comment")
+    widget._verification_mode.value = "password"
+    widget._verification_mode.value = "public_key"
+    children = widget._verification_mode_output.children
+    assert len(children) == 1
+    assert "ssh-rsa AAAAtest key-comment" in children[0].value
+
+    # Switching back to password mode shows the password box and clears the panel.
+    widget._verification_mode.value = "password"
+    assert widget.password_box.layout.display == "block"
+    assert list(widget._verification_mode_output.children) == []
+
+    # mfa mode: neither the password box nor the key panel is shown.
+    widget._verification_mode.value = "mfa"
+    assert widget.password_box.layout.display == "none"
+    assert list(widget._verification_mode_output.children) == []
