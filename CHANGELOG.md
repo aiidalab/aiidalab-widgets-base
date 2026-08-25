@@ -1,9 +1,5 @@
 # CHANGELOG
 
-
-## Unreleased
-
-
 ## v2.5.1 - 2026-06-03
 
 ### Bug fixes 🐛
