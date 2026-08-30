@@ -1,4 +1,4 @@
-"""Some useful classes used acrross the repository."""
+"""Some useful classes used across the repository."""
 
 import io
 import tokenize
