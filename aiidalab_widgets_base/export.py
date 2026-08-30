@@ -18,7 +18,7 @@ class ExportButtonWidget(ipw.Button):
         super().__init__(**kwargs)
         self.on_click(self.export_aiida_subgraph)
 
-    def export_aiida_subgraph(self, change=None):  # pylint: disable=unused-argument
+    def export_aiida_subgraph(self, change=None):
         """Perform export when the button is pressed"""
         import base64
         import subprocess
