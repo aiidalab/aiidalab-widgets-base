@@ -1,7 +1,5 @@
 """Widgets to work with processes."""
 
-# pylint: disable=no-self-use
-# Built-in imports
 from __future__ import annotations
 
 import inspect
@@ -23,7 +21,7 @@ class SubmitButtonWidget(ipw.VBox):
 
     process = tl.Instance(orm.ProcessNode, allow_none=True)
 
-    def __init__(  # pylint: disable=too-many-arguments
+    def __init__(
         self,
         process_class,
         inputs_generator,

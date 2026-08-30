@@ -16,7 +16,7 @@ class CopyToClipboardButton(ipw.Button):
         super().__init__(*args, **kwargs)
         super().on_click(self.copy_to_clipboard)
 
-    def copy_to_clipboard(self, change=None):  # pylint:disable=unused-argument
+    def copy_to_clipboard(self, change=None):
         """Copy text to clipboard."""
         from IPython.display import Javascript, display
 
