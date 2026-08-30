@@ -11,34 +11,12 @@ from typing import Any
 import ase
 import ase.io
 import ipywidgets as ipw
-import numpy as np
 import traitlets as tl
 from aiida.plugins import DataFactory
 
 CifData = DataFactory("core.cif")
 StructureData = DataFactory("core.structure")
 TrajectoryData = DataFactory("core.array.trajectory")
-
-
-def valid_arguments(arguments, valid_args):
-    """Check whether provided arguments are valid."""
-    result = {}
-    for key, value in arguments.items():
-        if key in valid_args:
-            if isinstance(value, (tuple, list)):
-                result[key] = "\n".join(value)
-            else:
-                result[key] = value
-    return result
-
-
-def predefine_settings(obj, **kwargs):
-    """Specify some pre-defined settings."""
-    for key, value in kwargs.items():
-        if hasattr(obj, key):
-            setattr(obj, key, value)
-        else:
-            raise AttributeError(f"{obj!r} object has no attribute {key!r}")
 
 
 def get_ase_from_file(
@@ -135,23 +113,6 @@ def get_formula(data_node):
         return data_node.get_ase().get_chemical_formula()
     else:
         raise TypeError(f"Cannot get formula from node {type(data_node)}")
-
-
-class PinholeCamera:
-    def __init__(self, matrix):
-        self.matrix = np.reshape(matrix, (4, 4)).transpose()
-
-    def screen_to_vector(self, move_vector):
-        """Converts vector from the screen coordinates to the normalized vector in 3D."""
-        move_vector[0] = -move_vector[0]  # the x axis seem to be reverted in nglview.
-        res = np.append(np.array(move_vector), [0])
-        res = self.inverse_matrix.dot(res)
-        res /= np.linalg.norm(res)
-        return res[0:3]
-
-    @property
-    def inverse_matrix(self):
-        return np.linalg.inv(self.matrix)
 
 
 class _StatusWidgetMixin(tl.HasTraits):
