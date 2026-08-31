@@ -342,6 +342,7 @@ def test_structure_data_viewer_imports_unknown_representation_array(ch_structure
     assert representation.size.value == 4
     assert representation.color.value == "red"
 
+
 def test_structure_data_viewer_apply_representations_removes_stale_arrays(
     ch_structure,
 ):
@@ -358,6 +359,7 @@ def test_structure_data_viewer_apply_representations_removes_stale_arrays(
     remaining = [a for a in viewer.structure.arrays if a.startswith(prefix)]
     assert f"{prefix}stale_a" not in remaining
     assert f"{prefix}stale_b" not in remaining
+
 
 def test_structure_data_viewer_imports_multiple_encoded_representation_arrays():
     structure = ase.Atoms(
