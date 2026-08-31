@@ -41,9 +41,8 @@ def test_install_create_github_issue_exception_handler(monkeypatch):
     )
 
     # Installing the handler replaces IPython's traceback display with a
-    # callable closure, not just some other placeholder value.
+    # callable closure.
     assert callable(fake_ipython._showtraceback)
-    assert fake_ipython._showtraceback != "original-handler"
 
     traceback_lines = [
         "Traceback (most recent call last):\n",
