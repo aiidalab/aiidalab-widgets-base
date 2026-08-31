@@ -5,7 +5,10 @@ Authors:
     * Carl Simon Adorf <simon.adorf@epfl.ch>
 """
 
+from __future__ import annotations
+
 import enum
+from collections.abc import Sequence
 
 import ipywidgets as ipw
 import traitlets as tl
@@ -14,7 +17,7 @@ import traitlets as tl
 class AtLeastTwoStepsWizardError(ValueError):
     """Using WizardAppWidget only makes sense if the number of setps is at least two."""
 
-    def __init__(self, steps):
+    def __init__(self, steps: Sequence):
         super().__init__(
             f"The number of steps of a WizardAppWidget must be at least two, but {len(steps)} were provided."
         )
@@ -70,7 +73,7 @@ class WizardAppWidgetStep(tl.HasTraits):
     state = tl.UseEnum(State)
     auto_advance = tl.Bool()
 
-    def can_reset(self):
+    def can_reset(self) -> bool:
         return hasattr(self, "reset")
 
 
@@ -88,7 +91,12 @@ class WizardAppWidget(ipw.VBox):
 
     selected_index = tl.Int(allow_none=True)
 
-    def __init__(self, steps, show_header=True, **kwargs):
+    def __init__(
+        self,
+        steps: Sequence[tuple[str, WizardAppWidgetStep]],
+        show_header: bool = True,
+        **kwargs,
+    ):
         # The number of steps must be greater than one
         # for this app's logic to make sense.
         if len(steps) < 2:
@@ -96,10 +104,8 @@ class WizardAppWidget(ipw.VBox):
 
         self.steps = steps
 
-        # Unzip the steps to titles and widgets.
         self.titles, widgets = zip(*steps)
 
-        # Initialize the accordion with the widgets ...
         self.accordion = ipw.Accordion(children=widgets)
         self._update_titles()
 
@@ -121,7 +127,6 @@ class WizardAppWidget(ipw.VBox):
         )
         self.reset_button.on_click(self._on_click_reset_button)
 
-        # Create a back-button, to switch to the previous step when possible:
         self.back_button = ipw.Button(
             description="Previous step",
             icon="step-backward",
@@ -131,7 +136,6 @@ class WizardAppWidget(ipw.VBox):
         )
         self.back_button.on_click(self._on_click_back_button)
 
-        # Create a next-button, to switch to the next step when appropriate:
         self.next_button = ipw.Button(
             description="Next step",
             icon="step-forward",
@@ -152,14 +156,14 @@ class WizardAppWidget(ipw.VBox):
         super().__init__(children=[self.header, self.accordion], **kwargs)
 
     @property
-    def show_header(self):
+    def show_header(self) -> bool:
         return self.header.layout.display != "none"
 
     @show_header.setter
-    def show_header(self, value):
+    def show_header(self, value: bool) -> None:
         self.header.layout.display = "flex" if value else "none"
 
-    def _update_titles(self):
+    def _update_titles(self) -> None:
         for i, (title, widget) in enumerate(zip(self.titles, self.accordion.children)):
             icon = self.ICONS.get(widget.state, str(widget.state).upper())
             self.accordion.set_title(i, f"{icon} Step {i + 1}: {title}")
@@ -195,7 +199,7 @@ class WizardAppWidget(ipw.VBox):
         "Activate/deactivate the next-button based on which step is selected."
         self._update_buttons()
 
-    def can_reset(self):
+    def can_reset(self) -> bool:
         steps = [
             self.accordion.children[idx] for idx in range(len(self.accordion.children))
         ]
@@ -203,10 +207,9 @@ class WizardAppWidget(ipw.VBox):
         if not all(step.can_reset() for step in steps):
             return False
 
-        if any(step.state is not WizardAppWidgetStep.State.INIT for step in steps):
-            return True
-
-        return False
+        return bool(
+            any(step.state is not WizardAppWidgetStep.State.INIT for step in steps)
+        )
 
     def _update_buttons(self):
         with self.hold_trait_notifications():
@@ -236,7 +239,7 @@ class WizardAppWidget(ipw.VBox):
 
                 self.reset_button.disabled = not self.can_reset()
 
-    def reset(self, step=0):
+    def reset(self, step: int = 0) -> None:
         """Reset the app up to the given step.
 
         For example, with step=0 (the default), the whole app is reset.
@@ -252,7 +255,12 @@ class WizardAppWidget(ipw.VBox):
         self.reset()
 
     def _on_click_back_button(self, _):
+        if self.accordion.selected_index is None:
+            return
         self.accordion.selected_index -= 1
 
     def _on_click_next_button(self, _):
+        if self.accordion.selected_index is None:
+            # TODO: Should we set it to 0?
+            return
         self.accordion.selected_index += 1

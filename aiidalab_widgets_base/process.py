@@ -1,14 +1,12 @@
 """Widgets to work with processes."""
 
-# pylint: disable=no-self-use
-# Built-in imports
 from __future__ import annotations
 
 import inspect
-import sys
 import threading
 import traceback
 import warnings
+from html import escape
 
 import ipywidgets as ipw
 import traitlets as tl
@@ -16,7 +14,6 @@ from aiida import engine, orm
 
 # Local imports.
 from .nodes import NodesTreeWidget
-from .utils import exceptions
 
 
 class SubmitButtonWidget(ipw.VBox):
@@ -24,7 +21,7 @@ class SubmitButtonWidget(ipw.VBox):
 
     process = tl.Instance(orm.ProcessNode, allow_none=True)
 
-    def __init__(  # pylint: disable=too-many-arguments
+    def __init__(
         self,
         process_class,
         inputs_generator,
@@ -100,6 +97,7 @@ class SubmitButtonWidget(ipw.VBox):
             else:
                 self.process = engine.submit(self._process_class, **inputs)
 
+            assert self.process is not None
             if self.append_output:
                 self.submit_out.value += f"""Submitted process {self.process}. Click
                 <a href={self.path_to_root}home/process.ipynb?id={self.process.pk}
@@ -181,7 +179,8 @@ class ProcessFollowerWidget(ipw.VBox):
     def on_completed(self, function):
         """Run functions after a process has been completed."""
         if self._monitor is not None:
-            raise exceptions.CantRegisterCallbackError(function)
+            msg = "Can't register new on_completed callback functions, process following has already been initiated."
+            raise RuntimeError(msg)
         self._run_after_completed.append(function)
 
 
@@ -199,7 +198,7 @@ class ProcessMonitor(tl.HasTraits):
         self._monitor_thread_stop = threading.Event()
         self._monitor_thread_lock = threading.Lock()
 
-        self.log_widget: ipw.Output | None = kwargs.pop("log_widget", None)
+        self.log_widget: ipw.VBox | None = kwargs.pop("log_widget", None)
 
         super().__init__(**kwargs)
 
@@ -242,12 +241,14 @@ class ProcessMonitor(tl.HasTraits):
                         func(process_uuid)
                     else:
                         func()
-                except Exception:
+                except Exception:  # ruff: ignore[BLE001]
+                    formatted = traceback.format_exc()
                     if self.log_widget:
-                        with self.log_widget:
-                            traceback.print_exc(file=sys.stdout)
+                        self.log_widget.children += (
+                            ipw.HTML(f"<pre>{escape(formatted)}</pre>"),
+                        )
                     warnings.warn(
-                        f"WARNING: The callback function {func.__name__!r} was disabled due to an error:\n{traceback.format_exc()}",
+                        f"WARNING: The callback function {func.__name__!r} was disabled due to an error:\n{formatted}",
                         stacklevel=2,
                     )
                     disabled_funcs.add(func)
@@ -295,7 +296,7 @@ class ProcessNodesTreeWidget(ipw.VBox):
         process_uuid = change["new"]
         if process_uuid:
             process = orm.load_node(process_uuid)
-            self._tree.nodes = [process]
+            self._tree.nodes = (process,)
             self._tree.find_node(process.pk).selected = True
         else:
-            self._tree.nodes = []
+            self._tree.nodes = ()

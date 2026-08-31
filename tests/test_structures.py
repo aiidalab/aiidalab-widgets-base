@@ -7,7 +7,7 @@ import pytest
 from aiida import common, orm
 
 import aiidalab_widgets_base as awb
-import aiidalab_widgets_base.structures as structures
+from aiidalab_widgets_base import structures
 
 
 @pytest.fixture
@@ -292,6 +292,10 @@ def test_smiles_widget():
     cell = widget.structure.cell
     assert all(np.greater(np.diag(cell), [10, 10, 10]))
     assert np.array_equal(cell.angles(), [90.0, 90.0, 90.0])
+    molecule_center = (
+        widget.structure.positions.min(axis=0) + widget.structure.positions.max(axis=0)
+    ) / 2
+    assert np.allclose(molecule_center, np.diag(cell) / 2)
 
     # Regression test that we can generate 1-atom and 2-atom molecules
     widget.smiles.value = "[O]"
@@ -328,6 +332,155 @@ def test_smiles_widget_without_cell():
 
 
 @pytest.mark.usefixtures("aiida_profile_clean")
+def test_smiles_widget_make_ase_preserves_positions():
+    """Test that raw SMILES coordinates are not centered before adding a cell."""
+    widget = awb.SmilesWidget(add_auxiliary_cell=False)
+    positions = np.array([[10.0, 0.0, 0.0], [11.0, 0.0, 0.0]])
+
+    atoms = widget._make_ase(["H", "H"], positions, "[H][H]")
+
+    assert np.allclose(atoms.positions, positions)
+    assert not np.any(atoms.cell)
+
+
+@pytest.mark.parametrize("mmff_status", (None, -1))
+def test_smiles_widget_uses_uff_as_fallback(monkeypatch, mmff_status):
+    """Use UFF when MMFF94 parameters are missing or setup fails."""
+    from rdkit.Chem import AllChem
+
+    calls = []
+    monkeypatch.setattr(
+        AllChem, "MMFFHasAllMoleculeParams", lambda _: mmff_status is not None
+    )
+    monkeypatch.setattr(AllChem, "MMFFOptimizeMolecule", lambda *_, **__: mmff_status)
+    monkeypatch.setattr(AllChem, "UFFHasAllMoleculeParams", lambda _: True)
+    monkeypatch.setattr(
+        AllChem,
+        "UFFOptimizeMolecule",
+        lambda *_, **kwargs: calls.append(kwargs["maxIters"]) or 0,
+    )
+
+    widget = awb.SmilesWidget(add_auxiliary_cell=False)
+    structure = widget._rdkit_opt("C", steps=123)
+
+    assert structure.get_chemical_formula() == "CH4"
+    assert calls == [123]
+
+
+@pytest.mark.parametrize(
+    ("mmff_parameters", "mmff_status", "uff_parameters", "uff_status", "warning"),
+    (
+        (True, 1, True, 0, "MMFF94 optimization did not converge"),
+        (False, None, True, 1, "UFF optimization did not converge"),
+        (False, None, False, None, "Missing MMFF94/UFF parameters"),
+        (True, -1, False, None, "Missing MMFF94/UFF parameters"),
+    ),
+)
+def test_smiles_widget_force_field_warnings(
+    monkeypatch,
+    mmff_parameters,
+    mmff_status,
+    uff_parameters,
+    uff_status,
+    warning,
+):
+    """Report missing force fields and optimizations that did not converge."""
+    from rdkit.Chem import AllChem
+
+    monkeypatch.setattr(AllChem, "MMFFHasAllMoleculeParams", lambda _: mmff_parameters)
+    monkeypatch.setattr(AllChem, "MMFFOptimizeMolecule", lambda *_, **__: mmff_status)
+    monkeypatch.setattr(AllChem, "UFFHasAllMoleculeParams", lambda _: uff_parameters)
+    monkeypatch.setattr(AllChem, "UFFOptimizeMolecule", lambda *_, **__: uff_status)
+
+    widget = awb.SmilesWidget(add_auxiliary_cell=False)
+    structure = widget._rdkit_opt("C", steps=123)
+
+    assert structure.get_chemical_formula() == "CH4"
+    assert warning in widget.output.value
+
+
+def test_smiles_widget_prefers_mmff(monkeypatch):
+    """Use MMFF94 without evaluating the UFF fallback when it converges."""
+    from rdkit.Chem import AllChem
+
+    calls = []
+    monkeypatch.setattr(AllChem, "MMFFHasAllMoleculeParams", lambda _: True)
+    monkeypatch.setattr(
+        AllChem,
+        "MMFFOptimizeMolecule",
+        lambda *_, **kwargs: calls.append(kwargs["maxIters"]) or 0,
+    )
+
+    def fail_if_called(_):
+        raise AssertionError("UFF should not be evaluated after MMFF94 converges")
+
+    monkeypatch.setattr(AllChem, "UFFHasAllMoleculeParams", fail_if_called)
+
+    widget = awb.SmilesWidget(add_auxiliary_cell=False)
+    structure = widget._rdkit_opt("C", steps=123)
+
+    assert structure.get_chemical_formula() == "CH4"
+    assert calls == [123]
+    assert not widget.output.value
+
+
+def test_smiles_widget_reports_rdkit_failures(monkeypatch):
+    """Report invalid input and failed conformer-generation attempts."""
+    from rdkit.Chem import AllChem
+
+    widget = awb.SmilesWidget()
+    with pytest.raises(ValueError, match="Invalid SMILES"):
+        widget._rdkit_opt("invalid", steps=123)
+
+    monkeypatch.setattr(AllChem, "EmbedMolecule", lambda *_, **__: -1)
+    assert widget._mol_from_smiles("C") is None
+    assert widget.output.value == "RDKit could not generate conformer"
+
+
+def test_smiles_widget_preserves_warning_after_canonicalization(monkeypatch):
+    """Show force-field warnings together with a canonicalized SMILES."""
+    from rdkit.Chem import AllChem
+
+    monkeypatch.setattr(AllChem, "MMFFHasAllMoleculeParams", lambda _: False)
+    monkeypatch.setattr(AllChem, "UFFHasAllMoleculeParams", lambda _: False)
+    widget = awb.SmilesWidget(add_auxiliary_cell=False)
+
+    structure = widget._mol_from_smiles("O=CC=C")
+
+    assert structure.get_chemical_formula() == "C3H4O"
+    assert widget.output.value == (
+        "Canonical SMILES: C=CC=O<br>RDKit WARNING: Missing MMFF94/UFF parameters"
+    )
+
+
+@pytest.mark.parametrize(
+    ("mmff_parameters", "mmff_status", "uff_status", "message"),
+    (
+        (True, 2, 0, "MMFF94 optimizer returned unexpected status 2"),
+        (False, None, -2, "UFF optimizer returned unexpected status -2"),
+    ),
+)
+def test_smiles_widget_rejects_unexpected_optimizer_status(
+    monkeypatch,
+    mmff_parameters,
+    mmff_status,
+    uff_status,
+    message,
+):
+    """Reject undocumented optimizer statuses instead of silently continuing."""
+    from rdkit.Chem import AllChem
+
+    monkeypatch.setattr(AllChem, "MMFFHasAllMoleculeParams", lambda _: mmff_parameters)
+    monkeypatch.setattr(AllChem, "MMFFOptimizeMolecule", lambda *_, **__: mmff_status)
+    monkeypatch.setattr(AllChem, "UFFHasAllMoleculeParams", lambda _: True)
+    monkeypatch.setattr(AllChem, "UFFOptimizeMolecule", lambda *_, **__: uff_status)
+
+    widget = awb.SmilesWidget(add_auxiliary_cell=False)
+
+    with pytest.raises(ValueError, match=message):
+        widget._rdkit_opt("C", steps=123)
+
+
 def test_smiles_canonicalization():
     """Test the SMILES canonicalization via RdKit."""
     canonicalize = awb.SmilesWidget.canonicalize_smiles
@@ -349,7 +502,6 @@ def test_smiles_canonicalization():
     # but the canonicalization fails. I do not know how to trigger it though.
 
 
-@pytest.mark.usefixtures("aiida_profile_clean")
 def test_tough_smiles():
     widget = awb.SmilesWidget()
     assert widget.structure is None

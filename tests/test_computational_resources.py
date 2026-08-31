@@ -2,7 +2,7 @@ import re
 from pathlib import Path
 
 import pytest
-from aiida import orm
+from aiida import common, orm
 
 from aiidalab_widgets_base import computational_resources
 from aiidalab_widgets_base.computational_resources import (
@@ -246,10 +246,12 @@ def test_aiida_code_setup(aiida_localhost):
     # At the beginning, the code_name should be an empty string.
     assert widget.label.value == ""
 
+    computer_label = aiida_localhost.label
+    code_label = "bash-test"
     # Preparing the code setup.
     code_setup = {
-        "label": "bash",
-        "computer": "localhost",
+        "label": code_label,
+        "computer": computer_label,
         "description": "Bash interpreter",
         "filepath_executable": "/bin/bash",
         "prepend_text": "",
@@ -261,11 +263,11 @@ def test_aiida_code_setup(aiida_localhost):
     # Make sure no warning message is displayed.
     assert widget.message == ""
 
-    assert widget.on_setup_code()
+    assert widget.on_setup_code(), f"ERROR: Code setup failed! {widget.message}"
 
     # Check that the code is created.
-    code = orm.load_code("bash@localhost")
-    assert code.label == "bash"
+    code = orm.load_code(f"{code_label}@{computer_label}")
+    assert code.label == code_label
     assert code.description == "Bash interpreter"
     assert str(code.filepath_executable) == "/bin/bash"
     assert code.default_calc_job_plugin == "core.arithmetic.add"
@@ -281,14 +283,105 @@ def test_aiida_code_setup(aiida_localhost):
 
 
 @pytest.mark.usefixtures("aiida_profile_clean")
+def test_aiida_code_setup_containerized_code(aiida_localhost):
+    """Test that a `ContainerizedCode` is created when `image_name` is present in code_setup.
+
+    `image_name`/`engine_command` are not backed by widget fields; they only ever come from
+    `code_setup` directly, which is what routes `on_setup_code` into the ContainerizedCode
+    branch instead of InstalledCode.
+    """
+    widget = computational_resources.AiidaCodeSetup()
+
+    computer_label = aiida_localhost.label
+    code_label = "containerized-bash-test"
+    code_setup = {
+        "label": code_label,
+        "computer": computer_label,
+        "description": "Containerized bash interpreter",
+        "filepath_executable": "/bin/bash",
+        "prepend_text": "",
+        "append_text": "",
+        "default_calc_job_plugin": "core.arithmetic.add",
+        "image_name": "docker://alpine",
+        "engine_command": "singularity exec --bind $PWD:$PWD {image_name}",
+    }
+
+    widget.code_setup = code_setup
+    assert widget.on_setup_code(), f"ERROR: Code setup failed! {widget.message}"
+
+    code = orm.load_code(f"{code_label}@{computer_label}")
+    assert isinstance(code, orm.ContainerizedCode)
+    assert code.image_name == "docker://alpine"
+    assert code.engine_command == "singularity exec --bind $PWD:$PWD {image_name}"
+
+
+@pytest.mark.usefixtures("aiida_profile_clean")
+def test_aiida_code_setup_message_branches(aiida_localhost, monkeypatch):
+    """Test the warning/error/info branches of AiidaCodeSetup.on_setup_code."""
+    widget = computational_resources.AiidaCodeSetup()
+
+    computer_label = aiida_localhost.label
+    code_setup = {
+        "label": "bash-test-2",
+        "computer": computer_label,
+        "description": "Bash interpreter",
+        "filepath_executable": "/bin/bash",
+        "prepend_text": "",
+        "append_text": "",
+        "default_calc_job_plugin": "core.arithmetic.add",
+    }
+    widget.code_setup = code_setup
+
+    # Missing label.
+    widget.label.value = ""
+    assert not widget.on_setup_code()
+    assert "Please provide a code label" in widget.message
+    widget.label.value = code_setup["label"]
+
+    # Missing computer.
+    widget.computer.value = None
+    assert not widget.on_setup_code()
+    assert "Please select an existing computer" in widget.message
+    widget.computer.value = orm.load_computer(computer_label).uuid
+
+    # Code already exists: succeed once, then fail on the second attempt.
+    assert widget.on_setup_code()
+    assert not widget.on_setup_code()
+    assert "already exists, skipping creation" in widget.message
+
+    # Invalid input for code creation: the constructor call itself fails.
+    widget.label.value = "bash-test-invalid"
+
+    def _raise_input_validation_error(**_):
+        raise common.exceptions.InputValidationError("bad input")
+
+    monkeypatch.setattr(orm, "InstalledCode", _raise_input_validation_error)
+    assert not widget.on_setup_code()
+    assert "Invalid input for code creation" in widget.message
+    monkeypatch.undo()
+
+    # Storing the code fails after successful construction.
+    widget.label.value = "bash-test-store-fail"
+
+    def _raise_store_error(self):
+        raise common.exceptions.ValidationError("cannot store")
+
+    monkeypatch.setattr(orm.InstalledCode, "store", _raise_store_error)
+    assert not widget.on_setup_code()
+    assert "Unable to store the code" in widget.message
+
+
+@pytest.mark.usefixtures("aiida_profile_clean")
 def test_computer_dropdown_widget(aiida_localhost):
     """Test the ComputerDropdownWidget."""
     widget = computational_resources.ComputerDropdownWidget()
 
-    assert "localhost" in widget.computers
+    computer_label = aiida_localhost.label
+
+    assert computer_label in widget.computers
 
     # Simulate selecting "localhost" in the dropdown menu.
-    widget._dropdown.label = "localhost"
+    widget._dropdown.label = computer_label
     assert widget.value == aiida_localhost.uuid
 
     # Trying to set the dropdown value to None
@@ -810,3 +903,52 @@ def test_optional_code_fetching(pw_code):
     assert len(widget.code_select_dropdown.options) != 0
     widget = ComputationalResourcesWidget(fetch_codes=False)
     assert len(widget.code_select_dropdown.options) == 0
+
+
+@pytest.mark.usefixtures("aiida_profile_clean")
+def test_setup_new_code_toggle():
+    """Test that toggling 'Setup new code' shows/hides the setup panel."""
+    widget = ComputationalResourcesWidget(fetch_codes=False)
+
+    assert list(widget._setup_new_code_output.children) == []
+    assert widget._setup_new_code_output.layout.border == "none"
+
+    widget.btn_setup_new_code.value = True
+    assert list(widget._setup_new_code_output.children) == [
+        widget.resource_setup,
+        widget.setup_message,
+    ]
+    assert widget._setup_new_code_output.layout.border == "1px solid gray"
+
+    widget.btn_setup_new_code.value = False
+    assert list(widget._setup_new_code_output.children) == []
+    assert widget._setup_new_code_output.layout.border == "none"
+
+
+@pytest.mark.usefixtures("aiida_profile_clean")
+def test_ssh_verification_mode_public_key(tmp_path):
+    """Test that switching to 'public_key' verification mode renders the key once available."""
+    widget = computational_resources.SshComputerSetup(ssh_folder=tmp_path)
+
+    # No key on disk yet: switching to public_key hides the password box but shows nothing else.
+    widget._verification_mode.value = "public_key"
+    assert widget.password_box.layout.display == "none"
+    assert list(widget._verification_mode_output.children) == []
+
+    # Once a key is written, re-selecting public_key mode displays it.
+    (tmp_path / "id_rsa.pub").write_text("ssh-rsa AAAAtest key-comment")
+    widget._verification_mode.value = "password"
+    widget._verification_mode.value = "public_key"
+    children = widget._verification_mode_output.children
+    assert len(children) == 1
+    assert "ssh-rsa AAAAtest key-comment" in children[0].value
+
+    # Switching back to password mode shows the password box and clears the panel.
+    widget._verification_mode.value = "password"
+    assert widget.password_box.layout.display == "block"
+    assert list(widget._verification_mode_output.children) == []
+
+    # mfa mode: neither the password box nor the key panel is shown.
+    widget._verification_mode.value = "mfa"
+    assert widget.password_box.layout.display == "none"
+    assert list(widget._verification_mode_output.children) == []

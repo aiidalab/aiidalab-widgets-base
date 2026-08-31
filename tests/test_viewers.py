@@ -1,7 +1,5 @@
 import base64
 import re
-import sys
-from io import StringIO
 from pathlib import Path
 
 import ase
@@ -375,6 +373,136 @@ def test_compute_bonds_in_structure_data_viewer():
     assert len(bonds) == 4
 
 
+def test_structure_data_viewer_default_view_button():
+    viewer = viewers.StructureDataViewer()
+    viewer.structure = ase.Atoms("H", positions=[(0.0, 0.0, 0.0)])
+    viewer._viewer._camera_orientation = [
+        0.0,
+        12.0,
+        0.0,
+        0.0,
+        -12.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        12.0,
+        0.0,
+        1.0,
+        2.0,
+        3.0,
+        1.0,
+    ]
+
+    before = len(viewer._viewer._ngl_msg_archive)
+    viewer.set_default_view()
+    messages = viewer._viewer._ngl_msg_archive[before:]
+
+    expected_orientation = [
+        -12.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        12.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        -12.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0,
+    ]
+    assert any(
+        message.get("methodName") == "orient"
+        and message.get("args") == (expected_orientation,)
+        for message in messages
+    )
+
+    appearance_tab = viewer.configuration_box.children[1]
+    assert any(
+        getattr(child, "description", None) == "Default view"
+        for child in appearance_tab.children
+    )
+
+
+def test_default_view_without_camera_orientation():
+    """With no valid 16-element camera matrix, set_default_view must not emit `orient`."""
+    viewer = viewers.StructureDataViewer()
+    viewer.structure = ase.Atoms("H", positions=[(0.0, 0.0, 0.0)])
+    viewer._viewer._camera_orientation = []  # malformed / unset
+
+    before = len(viewer._viewer._ngl_msg_archive)
+    viewer.set_default_view()
+    messages = viewer._viewer._ngl_msg_archive[before:]
+
+    # With no valid camera matrix, the viewer should not be reoriented at all.
+    assert not any(message.get("methodName") == "orient" for message in messages)
+
+
+def test_show_axes_via_constructor_kwarg():
+    """Axes can be enabled at construction time via the show_axes kwarg."""
+    viewer = viewers.StructureDataViewer(show_axes=True)
+    assert viewer.show_axes is True
+    viewer.structure = ase.Atoms(
+        symbols="H2", positions=[(0.0, 0.0, 0.0), (0.0, 0.0, 0.7)]
+    )
+    assert any(
+        message.get("methodName") == "addShape"
+        and message.get("args", [None])[0] == "axes"
+        for message in viewer._viewer._ngl_msg_archive
+    )
+
+
+def test_structure_data_viewer_axes_are_optional():
+    viewer = viewers.StructureDataViewer()
+    viewer.structure = ase.Atoms(
+        symbols="H2",
+        positions=[(0.0, 0.0, 0.0), (0.0, 0.0, 0.7)],
+        cell=[3.0, 3.0, 3.0],
+        pbc=True,
+    )
+
+    assert viewer.show_axes is False
+    assert not any(
+        message.get("methodName") == "addShape"
+        and message.get("args", [None])[0] == "axes"
+        for message in viewer._viewer._ngl_msg_archive
+    )
+
+    viewer.show_axes = True
+    axes_messages = [
+        message
+        for message in viewer._viewer._ngl_msg_archive
+        if message.get("methodName") == "addShape"
+        and message.get("args", [None])[0] == "axes"
+    ]
+    assert axes_messages
+    axes_shapes = axes_messages[-1]["args"][1]
+    assert [shape[-1] for shape in axes_shapes if shape[0] == "text"] == [
+        "x",
+        "y",
+        "z",
+    ]
+
+    viewer.show_axes = False
+    assert viewer._axes_component is None
+    assert "axes" not in viewer._viewer._ngl_component_names
+
+    appearance_tab = viewer.configuration_box.children[1]
+    axes_controls = [
+        child
+        for child in appearance_tab.children
+        if getattr(child, "description", None) == "Show axes"
+    ]
+    assert len(axes_controls) == 1
+    assert axes_controls[0].value is False
+
+
 @pytest.mark.usefixtures("aiida_profile_clean")
 def test_loading_viewer_using_process_type(generate_calc_job_node):
     """Test loading a viewer widget based on the process type of the process node."""
@@ -398,18 +526,12 @@ def test_loading_viewer_using_process_type(generate_calc_job_node):
 
 
 def test_node_view_for_non_widget_viewer():
-    """Test that a node with no registered viewer is displayed in an output widget"""
-
-    # Intercepting stdout because `ipw.Output` does not
-    # store outputs in non-interactive environments.
-    captured = StringIO()
-    sys.stdout = captured
-
+    """Test that a node with no registered viewer is rendered as text."""
     node_view = viewers.AiidaNodeViewWidget()
     node = orm.Int(1)
     node_view.node = node
     assert node_view.children[0] is node_view._output
-    assert str(node) in sys.stdout.getvalue()
+    assert str(node) in node_view._output.value
 
 
 def test_node_view_caching():
@@ -422,12 +544,7 @@ def test_node_view_caching():
 
     # orm.Int doesn't have a dedicated viewer
     # so it will not be cached.
-    stdout = sys.stdout
-    with StringIO() as captured:
-        sys.stdout = captured
-        node_view.node = orm.Int(2)
-    sys.stdout = stdout
-
+    node_view.node = orm.Int(2)
     assert len(node_view.node_views) == 1
 
     node_view.node = None
