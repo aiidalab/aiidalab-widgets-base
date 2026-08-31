@@ -328,7 +328,13 @@ def test_structure_data_viewer_representation(structure_data_object):
 
 
 def test_structure_data_viewer_imports_unknown_representation_array(ch_structure):
-    style_id = f"{viewers.StructureDataViewer.REPRESENTATION_PREFIX}custom"
+    style_id = viewers.encode_representation_style_id(
+        viewers.StructureDataViewer.REPRESENTATION_PREFIX,
+        representation_type="spacefill",
+        size=4,
+        color="red",
+        token="custom",
+    )
     ch_structure.set_array(style_id, np.array([1, -1], dtype=int))
 
     viewer = viewers.StructureDataViewer()

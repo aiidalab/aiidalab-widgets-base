@@ -1504,6 +1504,7 @@ class StructureDataViewer(_StructureDataBaseViewer):
                 self._add_representation(
                     style_id=style_id,
                     indices=np.where(structure.arrays[style_id] >= 1)[0],
+                    apply=False,
                 )
         # Empty atoms selection for the representations that are not present in the structure.
         # Typically this happens when a new structure is imported.
