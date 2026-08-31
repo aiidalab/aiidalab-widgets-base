@@ -182,7 +182,7 @@ _REPRESENTATION_TOKEN_TO_TYPE = {
 _REPRESENTATION_STYLE_PATTERN = re.compile(
     rf"^{REPRESENTATION_PREFIX}"
     r"(?P<representation_type>ballstick|spacefill)_"
-    r"r(?P<size>[0-9.]+)_"
+    r"r(?P<size>\d+(?:\.\d+)?)_"
     r"(?P<color>[A-Za-z0-9]+)_"
     r"(?P<token>[A-Za-z0-9]+)$"
 )
