@@ -169,8 +169,8 @@ class DictViewer(ipw.VBox):
         super().__init__([self.widget], **kwargs)
 
 
-REPRESENTATION_PREFIX = "_aiidalab_viewer_representation_"
-DEFAULT_REPRESENTATION = f"{REPRESENTATION_PREFIX}default"
+_DEFAULT_REPRESENTATION_PREFIX = "_aiidalab_viewer_representation_"
+_DEFAULT_REPRESENTATION_STYLE_ID = f"{_DEFAULT_REPRESENTATION_PREFIX}default"
 _REPRESENTATION_TYPE_TO_TOKEN = {
     "ball+stick": "ballstick",
     "spacefill": "spacefill",
@@ -180,7 +180,7 @@ _REPRESENTATION_TOKEN_TO_TYPE = {
     for representation_type, token in _REPRESENTATION_TYPE_TO_TOKEN.items()
 }
 _REPRESENTATION_STYLE_PATTERN = re.compile(
-    rf"^{REPRESENTATION_PREFIX}"
+    rf"^{_DEFAULT_REPRESENTATION_PREFIX}"
     r"(?P<representation_type>ballstick|spacefill)_"
     r"r(?P<size>\d+(?:\.\d+)?)_"
     r"(?P<color>[A-Za-z0-9]+)_"
@@ -189,7 +189,7 @@ _REPRESENTATION_STYLE_PATTERN = re.compile(
 
 
 def encode_representation_style_id(
-    prefix=REPRESENTATION_PREFIX,
+    prefix=_DEFAULT_REPRESENTATION_PREFIX,
     *,
     representation_type="ball+stick",
     size=3,
@@ -252,7 +252,7 @@ class NglViewerRepresentation(ipw.HBox):
             style_metadata["token"] if style_metadata is not None else shortuuid.uuid()
         )
         self._sync_style_id_with_settings = (
-            style_id != DEFAULT_REPRESENTATION and style_metadata is not None
+            style_id != _DEFAULT_REPRESENTATION_STYLE_ID and style_metadata is not None
         )
 
         self.show = ipw.Checkbox(
@@ -404,8 +404,8 @@ class _StructureDataBaseViewer(ipw.VBox):
     DEFAULT_SELECTION_OPACITY = 0.2
     DEFAULT_SELECTION_RADIUS = 6
     DEFAULT_SELECTION_COLOR = "green"
-    REPRESENTATION_PREFIX = REPRESENTATION_PREFIX
-    DEFAULT_REPRESENTATION = DEFAULT_REPRESENTATION
+    REPRESENTATION_PREFIX = _DEFAULT_REPRESENTATION_PREFIX
+    DEFAULT_REPRESENTATION = _DEFAULT_REPRESENTATION_STYLE_ID
     DEFAULT_VIEW_ORIENTATION = [
         -1.0,
         0.0,
