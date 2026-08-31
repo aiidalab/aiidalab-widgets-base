@@ -15,9 +15,9 @@ import numpy as np
 import traitlets as tl
 from aiida.plugins import DataFactory
 
-CifData = DataFactory("core.cif")  # pylint: disable=invalid-name
-StructureData = DataFactory("core.structure")  # pylint: disable=invalid-name
-TrajectoryData = DataFactory("core.array.trajectory")  # pylint: disable=invalid-name
+CifData = DataFactory("core.cif")
+StructureData = DataFactory("core.structure")
+TrajectoryData = DataFactory("core.array.trajectory")
 
 
 def valid_arguments(arguments, valid_args):

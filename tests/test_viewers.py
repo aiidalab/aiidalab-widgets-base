@@ -1,7 +1,5 @@
 import base64
 import re
-import sys
-from io import StringIO
 from pathlib import Path
 
 import ase
@@ -510,18 +508,12 @@ def test_loading_viewer_using_process_type(generate_calc_job_node):
 
 
 def test_node_view_for_non_widget_viewer():
-    """Test that a node with no registered viewer is displayed in an output widget"""
-
-    # Intercepting stdout because `ipw.Output` does not
-    # store outputs in non-interactive environments.
-    captured = StringIO()
-    sys.stdout = captured
-
+    """Test that a node with no registered viewer is rendered as text."""
     node_view = viewers.AiidaNodeViewWidget()
     node = orm.Int(1)
     node_view.node = node
     assert node_view.children[0] is node_view._output
-    assert str(node) in sys.stdout.getvalue()
+    assert str(node) in node_view._output.value
 
 
 def test_node_view_caching():
@@ -534,12 +526,7 @@ def test_node_view_caching():
 
     # orm.Int doesn't have a dedicated viewer
     # so it will not be cached.
-    stdout = sys.stdout
-    with StringIO() as captured:
-        sys.stdout = captured
-        node_view.node = orm.Int(2)
-    sys.stdout = stdout
-
+    node_view.node = orm.Int(2)
     assert len(node_view.node_views) == 1
 
     node_view.node = None
