@@ -188,12 +188,6 @@ _REPRESENTATION_STYLE_PATTERN = re.compile(
 )
 
 
-def _safe_representation_token(token, fallback="style"):
-    """Return a compact extxyz-safe token for a representation style id."""
-    token = re.sub(r"[^A-Za-z0-9]", "", str(token))
-    return token or fallback
-
-
 def encode_representation_style_id(
     prefix=REPRESENTATION_PREFIX,
     *,
@@ -207,11 +201,8 @@ def encode_representation_style_id(
         representation_type, "ballstick"
     )
     size_token = f"{float(size):g}"
-    color_token = _safe_representation_token(color, fallback="element")
-    unique_token = _safe_representation_token(
-        token if token is not None else shortuuid.uuid(), fallback=shortuuid.uuid()
-    )
-    return f"{prefix}{representation_token}_r{size_token}_{color_token}_{unique_token}"
+    unique_token = token if token is not None else shortuuid.uuid()
+    return f"{prefix}{representation_token}_r{size_token}_{color}_{unique_token}"
 
 
 def parse_representation_style_id(style_id):
