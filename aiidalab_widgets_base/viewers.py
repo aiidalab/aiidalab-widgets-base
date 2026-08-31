@@ -182,20 +182,10 @@ _REPRESENTATION_TOKEN_TO_TYPE = {
 _REPRESENTATION_STYLE_PATTERN = re.compile(
     rf"^{REPRESENTATION_PREFIX}"
     r"(?P<representation_type>ballstick|spacefill)_"
-    r"r(?P<size>[0-9mp]+)_"
+    r"r(?P<size>[0-9.]+)_"
     r"(?P<color>[A-Za-z0-9]+)_"
     r"(?P<token>[A-Za-z0-9]+)$"
 )
-
-
-def _encode_representation_size(size):
-    """Encode a representation size as an extxyz-safe token."""
-    return f"{float(size):g}".replace("-", "m").replace(".", "p")
-
-
-def _decode_representation_size(size):
-    """Decode a representation size token."""
-    return float(size.replace("m", "-").replace("p", "."))
 
 
 def _safe_representation_token(token, fallback="style"):
@@ -216,7 +206,7 @@ def encode_representation_style_id(
     representation_token = _REPRESENTATION_TYPE_TO_TOKEN.get(
         representation_type, "ballstick"
     )
-    size_token = _encode_representation_size(size)
+    size_token = f"{float(size):g}"
     color_token = _safe_representation_token(color, fallback="element")
     unique_token = _safe_representation_token(
         token if token is not None else shortuuid.uuid(), fallback=shortuuid.uuid()
@@ -238,7 +228,7 @@ def parse_representation_style_id(style_id):
     ]
     return {
         "representation_type": representation_type,
-        "size": _decode_representation_size(match.group("size")),
+        "size": float(match.group("size")),
         "color": match.group("color"),
         "token": match.group("token"),
     }
@@ -295,8 +285,9 @@ class NglViewerRepresentation(ipw.HBox):
             layout={"width": "100px"},
             style={"description_width": "0px"},
         )
-        self.size = ipw.FloatText(
+        self.size = ipw.BoundedFloatText(
             value=3,
+            min=0,
             layout={"width": "40px"},
             style={"description_width": "0px"},
         )
