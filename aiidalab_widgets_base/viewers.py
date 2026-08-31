@@ -197,9 +197,7 @@ def encode_representation_style_id(
     token=None,
 ):
     """Build an extxyz-safe representation array name with style metadata."""
-    representation_token = _REPRESENTATION_TYPE_TO_TOKEN.get(
-        representation_type, "ballstick"
-    )
+    representation_token = _REPRESENTATION_TYPE_TO_TOKEN[representation_type]
     size_token = f"{float(size):g}"
     unique_token = token if token is not None else shortuuid.uuid()
     return f"{prefix}{representation_token}_r{size_token}_{color}_{unique_token}"
