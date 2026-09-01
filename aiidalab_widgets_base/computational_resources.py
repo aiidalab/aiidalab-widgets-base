@@ -17,7 +17,6 @@ from aiida import common, orm, plugins
 from aiida.orm.utils.builders.computer import ComputerBuilder
 from aiida.transports.plugins import ssh as aiida_ssh_plugin
 from humanfriendly import InvalidSize, parse_size
-from IPython.display import clear_output, display
 from jinja2 import meta as jinja2_meta
 
 from .databases import ComputationalResourcesDatabaseWidget
@@ -114,8 +113,8 @@ class ComputationalResourcesWidget(ipw.VBox):
 
             selection_row.children += (self.btn_setup_new_code,)
 
-            self._setup_new_code_output = ipw.Output(
-                layout={"width": self._output_width}
+            self._setup_new_code_output = ipw.VBox(
+                layout={"width": self._output_width, "border": "none"}
             )
             children.append(self._setup_new_code_output)
 
@@ -200,24 +199,15 @@ class ComputationalResourcesWidget(ipw.VBox):
             return code_uuid
 
     def _setup_new_code(self, _=None):
-        with self._setup_new_code_output:
-            clear_output()
-            if self.btn_setup_new_code.value:
-                self._setup_new_code_output.layout = {
-                    "width": self._output_width,
-                    "border": "1px solid gray",
-                }
-
-                children = [
-                    self.resource_setup,
-                    self.setup_message,
-                ]
-                display(*children)
-            else:
-                self._setup_new_code_output.layout = {
-                    "width": self._output_width,
-                    "border": "none",
-                }
+        if self.btn_setup_new_code.value:
+            self._setup_new_code_output.layout.border = "1px solid gray"
+            self._setup_new_code_output.children = [
+                self.resource_setup,
+                self.setup_message,
+            ]
+        else:
+            self._setup_new_code_output.layout.border = "none"
+            self._setup_new_code_output.children = []
 
 
 class SshConnectionState(enum.Enum):
@@ -353,7 +343,7 @@ class SshComputerSetup(ipw.VBox):
         self._verification_mode.observe(
             self._on_verification_mode_change, names="value"
         )
-        self._verification_mode_output = ipw.Output()
+        self._verification_mode_output = ipw.VBox()
 
         self._continue_button = ipw.ToggleButton(
             description="Continue", layout={"width": "100px"}, value=False
@@ -622,22 +612,21 @@ class SshComputerSetup(ipw.VBox):
 
     def _on_verification_mode_change(self, change):
         """which verification mode is chosen."""
-        with self._verification_mode_output:
-            clear_output()
-            if self._verification_mode.value == "password":
-                self.password_box.layout.display = "block"
-            elif self._verification_mode.value == "public_key":
-                self.password_box.layout.display = "none"
-                public_key = self._ssh_folder / "id_rsa.pub"
-                if public_key.exists():
-                    display(
-                        ipw.HTML(
-                            f"""<pre style="background-color: #253239; color: #cdd3df; line-height: normal; custom=test">{public_key.read_text()}</pre>""",
-                            layout={"width": "100%"},
-                        )
+        self._verification_mode_output.children = []
+        if self._verification_mode.value == "password":
+            self.password_box.layout.display = "block"
+        elif self._verification_mode.value == "public_key":
+            self.password_box.layout.display = "none"
+            public_key = self._ssh_folder / "id_rsa.pub"
+            if public_key.exists():
+                self._verification_mode_output.children = [
+                    ipw.HTML(
+                        f"""<pre style="background-color: #253239; color: #cdd3df; line-height: normal; custom=test">{public_key.read_text()}</pre>""",
+                        layout={"width": "100%"},
                     )
-            else:
-                self.password_box.layout.display = "none"
+                ]
+        else:
+            self.password_box.layout.display = "none"
 
     def _reset(self):
         self.hostname.value = ""
@@ -1166,7 +1155,6 @@ class AiidaCodeSetup(ipw.VBox):
 
         btn_setup_code = ipw.Button(description="Setup code")
         btn_setup_code.on_click(self.on_setup_code)
-        self.setup_code_out = ipw.Output()
 
         children = [
             self.label,
@@ -1178,7 +1166,6 @@ class AiidaCodeSetup(ipw.VBox):
             self.prepend_text,
             self.append_text,
             btn_setup_code,
-            self.setup_code_out,
         ]
         super().__init__(children, **kwargs)
 
@@ -1189,100 +1176,97 @@ class AiidaCodeSetup(ipw.VBox):
 
     def on_setup_code(self, _=None):
         """Setup an AiiDA code."""
-        with self.setup_code_out:
-            clear_output()
-
-            if not self.label.value:
-                self.message = wrap_message(
-                    "Please provide a code label.",
-                    MessageLevel.WARNING,
-                )
-                return False
-
-            if not self.computer.value:
-                self.message = wrap_message(
-                    "Please select an existing computer.",
-                    MessageLevel.WARNING,
-                )
-                return False
-
-            items_to_configure = [
-                "label",
-                "description",
-                "default_calc_job_plugin",
-                "filepath_executable",
-                "use_double_quotes",
-                "prepend_text",
-                "append_text",
-            ]
-
-            containerized_code_additional_items = [
-                "image_name",
-                "engine_command",
-            ]
-
-            kwargs = {key: getattr(self, key).value for key in items_to_configure}
-
-            # Check for additional keys needed for orm.ContainerizedCode
-            for container_key in containerized_code_additional_items:
-                if container_key in self.code_setup:
-                    kwargs[container_key] = self.code_setup[container_key]
-
-            # set computer from its widget value the UUID of the computer.
-            computer = orm.load_computer(self.computer.value)
-
-            # Checking if the code with this name already exists
-            qb = orm.QueryBuilder()
-            qb.append(orm.Computer, filters={"uuid": computer.uuid}, tag="computer")
-            qb.append(
-                orm.Code,
-                with_computer="computer",
-                filters={"label": kwargs["label"]},
-            )
-            if qb.count() > 0:
-                self.message = wrap_message(
-                    f"Code {kwargs['label']}@{computer.label} already exists, skipping creation.",
-                    MessageLevel.INFO,
-                )
-                # TODO: (unkcpz) as callback function this return value not actually used
-                # meanwhile if the code already exists we still want to regard it as success (TBD).
-                # and the `_on_setup_code_success` callback functions will run.
-                # The return will break the flow and handle back the control to the caller.
-                # The proper way is to not return but raise an exception and handle it in the caller function
-                # for the afterward process.
-                return False
-
-            try:
-                if "image_name" in kwargs:
-                    code = orm.ContainerizedCode(computer=computer, **kwargs)
-                else:
-                    code = orm.InstalledCode(computer=computer, **kwargs)
-            except (common.exceptions.InputValidationError, KeyError) as exception:
-                self.message = wrap_message(
-                    f"Invalid input for code creation: <code>{exception}</code>",
-                    MessageLevel.ERROR,
-                )
-                return False
-
-            try:
-                code.store()
-                code.is_hidden = False
-            except common.exceptions.ValidationError as exception:
-                self.message = wrap_message(
-                    f"Unable to store the code: <code>{exception}</code>",
-                    MessageLevel.ERROR,
-                )
-                return False
-
-            for function in self._on_setup_code_success:
-                function()
-
+        if not self.label.value:
             self.message = wrap_message(
-                f"Code<{code.pk}> {code.full_label} created",
-                MessageLevel.SUCCESS,
+                "Please provide a code label.",
+                MessageLevel.WARNING,
             )
+            return False
 
-            return True
+        if not self.computer.value:
+            self.message = wrap_message(
+                "Please select an existing computer.",
+                MessageLevel.WARNING,
+            )
+            return False
+
+        items_to_configure = [
+            "label",
+            "description",
+            "default_calc_job_plugin",
+            "filepath_executable",
+            "use_double_quotes",
+            "prepend_text",
+            "append_text",
+        ]
+
+        containerized_code_additional_items = [
+            "image_name",
+            "engine_command",
+        ]
+
+        kwargs = {key: getattr(self, key).value for key in items_to_configure}
+
+        # Check for additional keys needed for orm.ContainerizedCode
+        for container_key in containerized_code_additional_items:
+            if container_key in self.code_setup:
+                kwargs[container_key] = self.code_setup[container_key]
+
+        # set computer from its widget value the UUID of the computer.
+        computer = orm.load_computer(self.computer.value)
+
+        # Checking if the code with this name already exists
+        qb = orm.QueryBuilder()
+        qb.append(orm.Computer, filters={"uuid": computer.uuid}, tag="computer")
+        qb.append(
+            orm.Code,
+            with_computer="computer",
+            filters={"label": kwargs["label"]},
+        )
+        if qb.count() > 0:
+            self.message = wrap_message(
+                f"Code {kwargs['label']}@{computer.label} already exists, skipping creation.",
+                MessageLevel.INFO,
+            )
+            # TODO: (unkcpz) as callback function this return value not actually used
+            # meanwhile if the code already exists we still want to regard it as success (TBD).
+            # and the `_on_setup_code_success` callback functions will run.
+            # The return will break the flow and handle back the control to the caller.
+            # The proper way is to not return but raise an exception and handle it in the caller function
+            # for the afterward process.
+            return False
+
+        try:
+            if "image_name" in kwargs:
+                code = orm.ContainerizedCode(computer=computer, **kwargs)
+            else:
+                code = orm.InstalledCode(computer=computer, **kwargs)
+        except (common.exceptions.InputValidationError, KeyError) as exception:
+            self.message = wrap_message(
+                f"Invalid input for code creation: <code>{exception}</code>",
+                MessageLevel.ERROR,
+            )
+            return False
+
+        try:
+            code.store()
+            code.is_hidden = False
+        except common.exceptions.ValidationError as exception:
+            self.message = wrap_message(
+                f"Unable to store the code: <code>{exception}</code>",
+                MessageLevel.ERROR,
+            )
+            return False
+
+        for function in self._on_setup_code_success:
+            function()
+
+        self.message = wrap_message(
+            f"Code<{code.pk}> {code.full_label} created",
+            MessageLevel.SUCCESS,
+        )
+
+        return True
 
     def on_setup_code_success(self, function):
         self._on_setup_code_success.append(function)

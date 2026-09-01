@@ -152,14 +152,13 @@ def install_create_github_issue_exception_handler(output, url, labels=None):
     .. highlight:: python
     .. code-block:: python
 
-        output = ipw.Output()
+        output = ipw.VBox()
         install_create_github_issue_exception_handler(
             output,
             url='https://github.com/aiidalab/aiidalab-qe/issues/new',
             labels=('bug', 'automated-report'))
 
-        with output:
-            display(welcome_message, app_with_work_chain_selector, footer)
+        output.children = [welcome_message, app_with_work_chain_selector, footer]
 
     """
     from IPython import get_ipython
@@ -174,7 +173,7 @@ def install_create_github_issue_exception_handler(output, url, labels=None):
 
     def create_github_issue_exception_handler(exception_type, exception, traceback):
         try:
-            output.clear_output()
+            output.children = ()
 
             bug_report_query = {
                 "title": BUG_REPORT_TITLE.format(
@@ -198,15 +197,14 @@ def install_create_github_issue_exception_handler(output, url, labels=None):
                 parse.urlsplit(url)._replace(query=parse.urlencode(bug_report_query))
             )
 
-            with output:
-                msg = ipw.HTML(
-                    ERROR_MESSAGE.format(
-                        issue_url=issue_url,
-                        traceback=_convert_ansi_codes_to_html("\n".join(traceback)),
-                        len_url=len(issue_url),
-                    )
+            msg = ipw.HTML(
+                ERROR_MESSAGE.format(
+                    issue_url=issue_url,
+                    traceback=_convert_ansi_codes_to_html("\n".join(traceback)),
+                    len_url=len(issue_url),
                 )
-                display(msg)  # noqa
+            )
+            output.children = (msg,)
         except Exception as error:  # ruff: ignore[BLE001]
             print(f"Error while generating bug report: {error}", file=sys.stderr)
             _ORIGINAL_EXCEPTION_HANDLER(exception_type, exception, traceback)

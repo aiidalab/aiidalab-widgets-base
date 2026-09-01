@@ -24,7 +24,7 @@ from aiida import cmdline, orm
 from aiida.orm.nodes.data.structure import _get_dimensionality
 from aiida.tools.query.formatting import format_process_state, format_relative_time
 from ase.data import colors
-from IPython.display import clear_output, display
+from IPython.display import display
 from matplotlib.colors import to_rgb
 
 from .dicts import RGB_COLORS, Colors, Radius
@@ -116,7 +116,7 @@ class AiidaNodeViewWidget(ipw.VBox):
     node = tl.Instance(orm.Node, allow_none=True)
 
     def __init__(self, **kwargs):
-        self._output = ipw.Output()
+        self._output = ipw.HTML()
         self.node_views = {}
         self.node_view_loading_message = LoadingWidget("Loading node view")
         super().__init__(**kwargs)
@@ -128,8 +128,7 @@ class AiidaNodeViewWidget(ipw.VBox):
         if node == change["old"]:
             return
         if not node:
-            with self._output:
-                clear_output()
+            self._output.value = ""
             self.children = []
             return
 
@@ -142,10 +141,7 @@ class AiidaNodeViewWidget(ipw.VBox):
             self.node_views[node.uuid] = node_view
             self.children = [node_view]
         else:
-            with self._output:
-                clear_output()
-                if change["new"]:
-                    display(node_view)
+            self._output.value = f"<pre>{escape(str(node_view))}</pre>"
             self.children = [self._output]
 
 
@@ -735,7 +731,7 @@ class _StructureDataBaseViewer(ipw.VBox):
             representation_ids.append(representation.style_id)
 
         # Remove missing representations from the structure.
-        for array in self.structure.arrays:
+        for array in list(self.structure.arrays):
             if (
                 array.startswith(self.REPRESENTATION_PREFIX)
                 and array not in representation_ids
@@ -1399,7 +1395,7 @@ class StructureDataViewer(_StructureDataBaseViewer):
             except ValueError:
                 self._add_representation(
                     style_id=style_id,
-                    indices=np.where(structure.arrays[self.style_id] >= 1)[0],
+                    indices=np.where(structure.arrays[style_id] >= 1)[0],
                 )
         # Empty atoms selection for the representations that are not present in the structure.
         # Typically this happens when a new structure is imported.
