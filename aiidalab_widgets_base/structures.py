@@ -5,6 +5,7 @@ import functools
 import io
 import pathlib
 import tempfile
+from collections.abc import Sequence
 
 import ase
 import ase.cell
@@ -21,7 +22,6 @@ from .utils import (
     StatusHTML,
     _restore_spglib_old_error_handling,
     _set_spglib_old_error_handling,
-    exceptions,
     get_ase_from_file,
     get_formula,
 )
@@ -181,11 +181,13 @@ class StructureManagerWidget(ipw.VBox):
 
     def _structure_importers(self, importers):
         """Preparing structure importers."""
-        if not isinstance(importers, (list, tuple)):
-            raise exceptions.ListOrTuppleError(importers)
-
         if not importers:
             return []
+
+        if not isinstance(importers, Sequence):
+            raise TypeError(
+                f"`importers` argument should be a Sequence, got {type(importers)}."
+            )
 
         # Otherwise making one tab per importer.
         importers_tab = ipw.Tab()
