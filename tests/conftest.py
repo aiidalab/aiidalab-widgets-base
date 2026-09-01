@@ -3,7 +3,7 @@ import time
 from collections.abc import Mapping
 
 import pytest
-from aiida import engine, orm, plugins
+from aiida import engine, orm
 
 # Load aiida-core's sqlite-based pytest fixtures
 pytest_plugins = ["aiida.tools.pytest_fixtures"]
@@ -111,7 +111,7 @@ def multiply_add_completed_workchain(aiida_local_code_bash):
         "z": orm.Int(3),
         "code": aiida_local_code_bash,
     }
-    _, process = engine.run_get_node(MultiplyAddWorkChain, **inputs)
+    _, process = engine.run_get_node(MultiplyAddWorkChain, inputs=inputs)
     return process
 
 
@@ -129,10 +129,9 @@ def multiply_add_process_builder_ready(aiida_local_code_bash):
 
 
 @pytest.fixture
-def structure_data_object():
+def structure_data_object() -> orm.StructureData:
     """Return a `StructureData` object."""
-    StructureData = plugins.DataFactory("core.structure")
-    structure = StructureData(
+    structure = orm.StructureData(
         cell=[
             [3.84737, 0.0, 0.0],
             [1.923685, 3.331920, 0.0],
@@ -145,19 +144,18 @@ def structure_data_object():
 
 
 @pytest.fixture
-def folder_data_object():
+def folder_data_object() -> orm.FolderData:
     """Return a `FolderData` object."""
-    FolderData = plugins.DataFactory("core.folder")
-    folder_data = FolderData()
+    folder_data = orm.FolderData()
     with io.StringIO("content of test1.txt") as fobj:
-        folder_data.put_object_from_filelike(fobj, path="test1.txt")
+        folder_data.put_object_from_filelike(fobj, path="test1.txt")  # ty: ignore[invalid-argument-type]
     with io.StringIO("content of test2.txt") as fobj:
-        folder_data.put_object_from_filelike(fobj, path="test2.txt")
+        folder_data.put_object_from_filelike(fobj, path="test2.txt")  # ty: ignore[invalid-argument-type]
     with io.StringIO("content of test_long.txt" * 1000) as fobj:
-        folder_data.put_object_from_filelike(fobj, path="test_long.txt")
+        folder_data.put_object_from_filelike(fobj, path="test_long.txt")  # ty: ignore[invalid-argument-type]
     # NOTE: The byte-sequence is chosen so that it is not valid UTF-8
     with io.BytesIO(b"\xf8\x01") as fobj:
-        folder_data.put_object_from_filelike(fobj, path="test.bin")
+        folder_data.put_object_from_filelike(fobj, path="test.bin")  # ty: ignore[invalid-argument-type]
 
     return folder_data
 

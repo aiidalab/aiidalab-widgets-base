@@ -27,11 +27,16 @@ def test_install_create_github_issue_exception_handler(monkeypatch):
     """Test that the installed exception handler renders a bug-report link into `output`."""
 
     class FakeIPython:
-        _showtraceback = "original-handler"
+        _showtraceback = lambda self, _exc_type, _exc, _traceback: "original-handler"
 
     fake_ipython = FakeIPython()
     monkeypatch.setattr(bug_report, "_ORIGINAL_EXCEPTION_HANDLER", None)
     monkeypatch.setattr("IPython.get_ipython", lambda: fake_ipython)
+
+    assert (
+        fake_ipython._showtraceback(ValueError, ValueError("boom"), [])
+        == "original-handler"
+    )
 
     output = ipw.VBox()
     restore = bug_report.install_create_github_issue_exception_handler(
@@ -39,10 +44,6 @@ def test_install_create_github_issue_exception_handler(monkeypatch):
         url="https://github.com/aiidalab/aiidalab-qe/issues/new",
         labels=("bug", "automated-report"),
     )
-
-    # Installing the handler replaces IPython's traceback display with a
-    # callable closure.
-    assert callable(fake_ipython._showtraceback)
 
     traceback_lines = [
         "Traceback (most recent call last):\n",
@@ -58,7 +59,10 @@ def test_install_create_github_issue_exception_handler(monkeypatch):
 
     # Restoring puts the original handler back.
     restore()
-    assert fake_ipython._showtraceback == "original-handler"
+    assert (
+        fake_ipython._showtraceback(ValueError, ValueError("boom"), [])
+        == "original-handler"
+    )
 
 
 def test_install_create_github_issue_exception_handler_fallback_on_error(monkeypatch):
