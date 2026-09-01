@@ -3,11 +3,20 @@ import re
 from pathlib import Path
 
 import ase
+import numpy as np
 import pytest
 import traitlets as tl
 from aiida import orm
 
 from aiidalab_widgets_base import viewers
+
+
+@pytest.fixture
+def ch_structure():
+    return ase.Atoms(
+        symbols=["C", "H"],
+        positions=[(0.0, 0.0, 0.0), (0.0, 0.0, 1.1)],
+    )
 
 
 @pytest.mark.usefixtures("aiida_profile_clean")
@@ -316,6 +325,37 @@ def test_structure_data_viewer_representation(structure_data_object):
 
     with pytest.raises(tl.TraitError):
         v.structure = orm.Int(1)
+
+
+def test_structure_data_viewer_imports_unknown_representation_array(ch_structure):
+    style_id = f"{viewers.StructureDataViewer.REPRESENTATION_PREFIX}custom"
+    ch_structure.set_array(style_id, np.array([1, -1], dtype=int))
+
+    viewer = viewers.StructureDataViewer()
+    viewer.structure = ch_structure
+
+    representation_ids = [rep.style_id for rep in viewer._all_representations]
+    assert style_id in representation_ids
+    representation = viewer._all_representations[representation_ids.index(style_id)]
+    assert representation.selection.value == "1"
+
+
+def test_structure_data_viewer_apply_representations_removes_stale_arrays(
+    ch_structure,
+):
+    viewer = viewers.StructureDataViewer()
+    viewer.structure = ch_structure
+
+    prefix = viewers.StructureDataViewer.REPRESENTATION_PREFIX
+    # Two arrays not backed by any current representation widget.
+    viewer.structure.set_array(f"{prefix}stale_a", np.array([1, 0], dtype=int))
+    viewer.structure.set_array(f"{prefix}stale_b", np.array([0, 1], dtype=int))
+
+    viewer._apply_representations()  # should not raise RuntimeError
+
+    remaining = [a for a in viewer.structure.arrays if a.startswith(prefix)]
+    assert f"{prefix}stale_a" not in remaining
+    assert f"{prefix}stale_b" not in remaining
 
 
 def test_structure_data_viewer_clears_bond_shape_components():
