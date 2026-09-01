@@ -28,6 +28,18 @@ def file_upload_change():
 
 
 @pytest.mark.usefixtures("aiida_profile_clean")
+def test_structure_manager_invalid_importers_type(
+    structure_data_object,
+):
+    """Test the `StructureManagerWidget` raises TypeError for invalid importers argument."""
+
+    with pytest.raises(TypeError, match="`importers` argument should be a Sequence"):
+        awb.StructureManagerWidget(
+            importers=1,
+        )
+
+
+@pytest.mark.usefixtures("aiida_profile_clean")
 def test_structure_manager_widget_different_number_of_importers_or_editors(
     structure_data_object,
 ):
