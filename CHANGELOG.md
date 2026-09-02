@@ -1,5 +1,148 @@
 # CHANGELOG
 
+## v3.0.0 - 2026-09-04
+
+This major version consolidates a few breaking changes,
+most notably a migration to ipywidgets v8 and python 3.12.
+You will not be able to install this version on the python 3.9 based AiiDAlab image.
+See the guide below to help with App migration.
+
+### Migration guide from AWB v2
+
+#### Migration to ipywidgets 8
+
+This should be mostly straightforward, see [ipywidgets' changelog](https://ipywidgets.readthedocs.io/en/8.1.0/migration_guides.html#migrating-from-7-x-to-8-0)
+
+#### Removed widgets
+
+Several widgets have been removed:
+ - OpenAiidaNodeInAppWidget
+ - BandsDataViewer
+ - ProcessCallStackWidget, ProcessInputsWidget, ProcessListWidget, ProcessOutputsWidget, ProcessReportWidget, ProgressBarWidget, RunningCalcJobOutputWidget
+
+If your application relied on these widgets, consider vendoring their code.
+In the case of BandsDataViewer, you might find a more advanced alternative in `BandsPdosPlotly` widget in QeApp:
+https://github.com/aiidalab/aiidalab-qe/tree/main/src/aiidalab_qe/common/bands_pdos
+
+#### Removed ELN functionality
+
+Electronic Lab Notebook functionality has been completely moved into the [aiidalab-eln package](https://github.com/aiidalab/aiidalab-eln)
+
+
+#### bug_report.py now uses ipywidgets.Box instead of ipywidgets.Output
+
+`install_create_github_issue_exception_handler` now takes `ipywidgets.Box (or its subclasses)
+as its first argument, into which it renders its output when it catches an uncaught exception.
+
+Simply change a code like this:
+
+```python
+exception_output = ipw.Output()
+install_create_github_issue_exception_handler(
+    exception_output,
+    url="https://github.com/your-org/your-app/issues/new",
+    labels=("bug", "automated-report"),
+)
+display(exception_output, your_app, footer)
+```
+
+Into
+
+```python
+exception_output = ipw.VBox()
+install_create_github_issue_exception_handler(
+    exception_output,
+    url="https://github.com/your-org/your-app/issues/new",
+    labels=("bug", "automated-report"),
+)
+display(exception_output, your_app, footer)
+```
+
+
+#### Other dependency updates
+Most dependencies have had their minimum versions updated.
+For example, a minimum supported spglib version is now 2.5.
+
+
+## What's Changed
+
+### Breaking Changes 🛠
+* Migrate to ipywidgets 8.x (reapply #644) by @yakutovicha in https://github.com/aiidalab/aiidalab-widgets-base/pull/725
+* Drop python 3.9 support by @danielhollas in https://github.com/aiidalab/aiidalab-widgets-base/pull/809
+* CI: Test python 3.12, bump minimum aiida-core version by @danielhollas in https://github.com/aiidalab/aiidalab-widgets-base/pull/730
+* Remove process notebooks by @yakutovicha in https://github.com/aiidalab/aiidalab-widgets-base/pull/720
+* Remove OpenAiidaNodeInAppWidget by @danielhollas in https://github.com/aiidalab/aiidalab-widgets-base/pull/761
+* Remove BandsDataViewer and bokeh dependency by @danielhollas in https://github.com/aiidalab/aiidalab-widgets-base/pull/734
+* SmilesWidget: Use MMFF94 to optimize generated structures by @danielhollas in https://github.com/aiidalab/aiidalab-widgets-base/pull/525
+* Replace `ipw.Output` with `ipw.VBox` across the codebase by @yakutovicha in https://github.com/aiidalab/aiidalab-widgets-base/pull/797
+* Migrate bug report module: `Output` to `VBox` by @yakutovicha in https://github.com/aiidalab/aiidalab-widgets-base/pull/798
+* Move all eln-related tools to aiidalab-eln by @yakutovicha in https://github.com/aiidalab/aiidalab-widgets-base/pull/774
+* Drop support for spglib v1 by @danielhollas in https://github.com/aiidalab/aiidalab-widgets-base/pull/791
+
+### New Features 🎉
+* added PK structure uploader by @cpignedoli in https://github.com/aiidalab/aiidalab-widgets-base/pull/712
+* Do not add auxiliary cell to uploaded/generated gas phase structures  by @danielhollas in https://github.com/aiidalab/aiidalab-widgets-base/pull/592
+* `WizardAppWidget`: add `open_first_step` parameter, True by default by @danielhollas in https://github.com/aiidalab/aiidalab-widgets-base/pull/792
+* Add optional NGL viewer axes and default view control by @cpignedoli in https://github.com/aiidalab/aiidalab-widgets-base/pull/765
+* Fix gap on the right in global.css by @danielhollas in https://github.com/aiidalab/aiidalab-widgets-base/pull/790
+
+### Bug fixes 🐛
+* Use widget's `message` as the child by @edan-bainglass in https://github.com/aiidalab/aiidalab-widgets-base/pull/708
+* Clear stale bond shapes from structure viewer by @cpignedoli in https://github.com/aiidalab/aiidalab-widgets-base/pull/746
+* fix bug if No symmetry from spglib by @cpignedoli in https://github.com/aiidalab/aiidalab-widgets-base/pull/713
+* Fix AiidaNodeViewer not resetting when assigned None by @danielhollas in https://github.com/aiidalab/aiidalab-widgets-base/pull/754
+* Fix OptimadeQueryWidget crash by @danielhollas in https://github.com/aiidalab/aiidalab-widgets-base/pull/759
+* Make StructureUploadWidget resilient towards invalid files by @danielhollas in https://github.com/aiidalab/aiidalab-widgets-base/pull/756
+* Remove reference to non-existent exception class by @danielhollas in https://github.com/aiidalab/aiidalab-widgets-base/pull/780
+* Fix imported viewer representation arrays by @cpignedoli in https://github.com/aiidalab/aiidalab-widgets-base/pull/766
+* Center SMILES molecules after adding auxiliary cell by @cpignedoli in https://github.com/aiidalab/aiidalab-widgets-base/pull/767
+
+### Type checking
+* Add ty type-checker by @danielhollas in https://github.com/aiidalab/aiidalab-widgets-base/pull/781
+* Add pre-commit job to run ty by @danielhollas in https://github.com/aiidalab/aiidalab-widgets-base/pull/804
+* Run type-checking in tests/ by @danielhollas in https://github.com/aiidalab/aiidalab-widgets-base/pull/806
+* Add more typing to utils module by @danielhollas in https://github.com/aiidalab/aiidalab-widgets-base/pull/803
+* Add typing to bug_report.py by @danielhollas in https://github.com/aiidalab/aiidalab-widgets-base/pull/805
+* Add more typing to wizard.py by @danielhollas in https://github.com/aiidalab/aiidalab-widgets-base/pull/796
+* More type-checking for structures.py and viewers.py by @danielhollas in https://github.com/aiidalab/aiidalab-widgets-base/pull/810
+
+### CI
+* Don't test with Python 3.11 by @danielhollas in https://github.com/aiidalab/aiidalab-widgets-base/pull/739
+* Fix CI: Pin RabbitMQ version and update requests-cache by @danielhollas in https://github.com/aiidalab/aiidalab-widgets-base/pull/743
+* Bump the gha-dependencies group across 1 directory with 3 updates by @dependabot[bot] in https://github.com/aiidalab/aiidalab-widgets-base/pull/744
+* Bump the gha-dependencies group with 2 updates by @dependabot[bot] in https://github.com/aiidalab/aiidalab-widgets-base/pull/771
+* Remove failing CI job by @danielhollas in https://github.com/aiidalab/aiidalab-widgets-base/pull/776
+* Bump actions/setup-python from 6 to 7 in the gha-dependencies group by @dependabot[bot] in https://github.com/aiidalab/aiidalab-widgets-base/pull/778
+
+### Testing
+* Temporarily skip `test_cod_query_widget` if it fails by @danielhollas in https://github.com/aiidalab/aiidalab-widgets-base/pull/723
+* Reenable Optimade widget in tests by @danielhollas in https://github.com/aiidalab/aiidalab-widgets-base/pull/735
+* tests: use sqlite-based test fixtures from aiida-core by @danielhollas in https://github.com/aiidalab/aiidalab-widgets-base/pull/748
+* tests: Simplify generate_calc_job_node fixture by @danielhollas in https://github.com/aiidalab/aiidalab-widgets-base/pull/752
+* Run selenium tests on python 3.12 nbclassic image by @danielhollas in https://github.com/aiidalab/aiidalab-widgets-base/pull/749
+* Cleanup test_aiida_code_setup by @danielhollas in https://github.com/aiidalab/aiidalab-widgets-base/pull/773
+* Update ignored DeprecationWarnings list by @danielhollas in https://github.com/aiidalab/aiidalab-widgets-base/pull/789
+* Pin setuptools version to fix notebook tests by @danielhollas in https://github.com/aiidalab/aiidalab-widgets-base/pull/784
+
+### Other Changes
+
+#### Type checking
+* Pin numpy to 1.x due to bokeh incompatibility by @danielhollas in https://github.com/aiidalab/aiidalab-widgets-base/pull/740
+* Bump nglview version by @danielhollas in https://github.com/aiidalab/aiidalab-widgets-base/pull/742
+* Remove requests-cache hack in elns.py by @danielhollas in https://github.com/aiidalab/aiidalab-widgets-base/pull/751
+* Add 2026 paper citation by @edan-bainglass in https://github.com/aiidalab/aiidalab-widgets-base/pull/753
+* Get rid of pandas dependency by @yakutovicha in https://github.com/aiidalab/aiidalab-widgets-base/pull/737
+* Update ruff to 0.16.1 and adopt its new default ruleset by @danielhollas in https://github.com/aiidalab/aiidalab-widgets-base/pull/777
+* Remove pgtest dev dependency by @danielhollas in https://github.com/aiidalab/aiidalab-widgets-base/pull/783
+* Migrate to pyproject.toml and hatchling by @danielhollas in https://github.com/aiidalab/aiidalab-widgets-base/pull/788
+* Remove pylint pragmas by @danielhollas in https://github.com/aiidalab/aiidalab-widgets-base/pull/800
+* Remove unused code from utils module by @danielhollas in https://github.com/aiidalab/aiidalab-widgets-base/pull/801
+* Add CHANGELOG.md from past release notes by @danielhollas in https://github.com/aiidalab/aiidalab-widgets-base/pull/799
+* Remove custom ListOrTuppleError by @danielhollas in https://github.com/aiidalab/aiidalab-widgets-base/pull/807
+
+**Full Changelog**: https://github.com/aiidalab/aiidalab-widgets-base/compare/v2.5.1...v3.0.0
+
+
 ## v2.5.1 - 2026-06-03
 
 ### Bug fixes 🐛
