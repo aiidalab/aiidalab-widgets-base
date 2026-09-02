@@ -21,7 +21,7 @@ classifiers = [
 
 dependencies = [
     "PyCifRW~=4.4",
-    "aiida-core>=2.7,<3",
+    "aiida-core>=2.8,<3",
     "ansi2html~=1.7",
     "ase~=3.18",
     "humanfriendly~=10.0",
@@ -39,7 +39,7 @@ dependencies = [
 description = "Reusable widgets for AiiDAlab applications."
 license = {file = 'LICENSE.txt'}
 readme = 'README.md'
-requires-python = '>=3.9'
+requires-python = '>=3.12'
 
 [project.optional-dependencies]
 dev = [
@@ -94,7 +94,6 @@ filterwarnings = [
 [tool.ruff]
 line-length = 88
 show-fixes = true
-target-version = "py39"
 
 [tool.ruff.lint]
 ignore = ["RUF012"]

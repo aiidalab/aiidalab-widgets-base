@@ -57,14 +57,10 @@ jobs:
             - name: Check out app
               uses: actions/checkout@v7
 
-            - name: Set up Python
-              uses: actions/setup-python@v7
+            - name: Setup uv
+              uses: astral-sh/setup-uv@v10.0.1
               with:
                   python-version: '3.12'
-
-            - name: Setup uv
-              uses: astral-sh/setup-uv@v7
-              with:
                   activate-environment: true
 
             - name: Install package test dependencies
@@ -107,7 +103,7 @@ jobs:
 
         strategy:
             matrix:
-                python-version: ['3.9', '3.12']
+                python-version: ['3.12', '3.13']
                 uv-resolution: ['highest']
                 include:
                   # Make sure lowest-support package versions work
@@ -127,14 +123,10 @@ jobs:
             - name: Check out app
               uses: actions/checkout@v7
 
-            - name: Set up Python
-              uses: actions/setup-python@v7
+            - name: Setup uv
+              uses: astral-sh/setup-uv@v10.0.1
               with:
                   python-version: ${{ matrix.python-version }}
-
-            - name: Setup uv
-              uses: astral-sh/setup-uv@v7
-              with:
                   activate-environment: true
 
             - name: Install package
