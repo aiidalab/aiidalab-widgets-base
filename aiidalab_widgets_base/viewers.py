@@ -1367,7 +1367,7 @@ class StructureDataViewer(_StructureDataBaseViewer):
         return structure  # This also includes the case when the structure is None.
 
     @tl.observe("structure")
-    def _observe_structure(self, change=None):
+    def _observe_structure(self, change):
         """Update displayed_structure trait after the structure trait has been modified."""
         structure = change["new"]
 
@@ -1412,6 +1412,8 @@ class StructureDataViewer(_StructureDataBaseViewer):
         with self.hold_trait_notifications():
             self.remove_viewer_components()
             if change["new"]:
+                assert self.displayed_structure
+
                 self._viewer.add_component(
                     nglview.ASEStructure(self.displayed_structure),
                     default_representation=False,
@@ -1624,8 +1626,11 @@ class StructureDataViewer(_StructureDataBaseViewer):
         )
         return list(rpn.execute(expression=condition))
 
-    def create_selection_info(self):
+    def create_selection_info(self) -> str:
         """Create information to be displayed with selected atoms"""
+
+        if not self.displayed_structure:
+            return ""
 
         if not self.displayed_selection:
             return ""

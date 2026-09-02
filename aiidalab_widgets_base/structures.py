@@ -357,7 +357,7 @@ class StructureManagerWidget(ipw.VBox):
             self.structure = None
 
     @tl.observe("structure")
-    def _structure_changed(self, change=None):
+    def _structure_changed(self, change):
         """Perform some operations that depend on the value of `structure` trait.
 
         This function enables/disables `btn_store` widget if structure is provided/set to None.
@@ -437,7 +437,7 @@ class StructureUploadWidget(ipw.VBox):
             return new_structure
         return ase_structure
 
-    def _on_file_upload(self, change=None):
+    def _on_file_upload(self, change):
         """When file upload button is pressed."""
         assert len(change["new"]) == 1, "Only single file upload is supported."
         file = change["new"][0]
@@ -1100,12 +1100,14 @@ class BasicCellEditor(ipw.VBox):
 
     @_register_structure
     def _to_primitive_cell(self, _=None, atoms=None):
+        assert atoms
         atoms = self._to_standard_cell(atoms, to_primitive=True)
 
         self.structure = atoms
 
     @_register_structure
     def _to_conventional_cell(self, _=None, atoms=None):
+        assert atoms
         atoms = self._to_standard_cell(atoms, to_primitive=False)
 
         self.structure = atoms
@@ -1456,6 +1458,7 @@ class BasicStructureEditor(ipw.VBox):
     def sel2com(self):
         """Get center of mass of the selection."""
         if self.selection:
+            assert self.structure
             com = np.average(self.structure[self.selection].get_positions(), axis=0)
         else:
             com = [0, 0, 0]
@@ -1491,6 +1494,7 @@ class BasicStructureEditor(ipw.VBox):
             </div>
             """
         else:
+            assert self.structure
             com = (
                 np.average(self.structure[self.selection].get_positions(), axis=0)
                 if self.selection
@@ -1622,6 +1626,7 @@ class BasicStructureEditor(ipw.VBox):
     @_register_selection
     def mod_element(self, _=None, atoms=None, selection=None):
         """Modify selected atoms into the given element."""
+        assert selection
         last_atom = atoms.get_global_number_of_atoms()
 
         if self.ligand.value == 0:
@@ -1655,6 +1660,8 @@ class BasicStructureEditor(ipw.VBox):
     def copy_sel(self, _=None, atoms=None, selection=None):
         """Copy selected atoms and shift by 1.0 A along X-axis."""
 
+        assert selection
+
         last_atom = atoms.get_global_number_of_atoms()
 
         # The action
@@ -1671,6 +1678,7 @@ class BasicStructureEditor(ipw.VBox):
     @_register_selection
     def add(self, _=None, atoms=None, selection=None):
         """Add atoms."""
+        assert selection
         last_atom = atoms.get_global_number_of_atoms()
         if self.ligand.value == 0:
             initial_ligand = ase.Atoms([ase.Atom(self.element.value, [0, 0, 0])])
