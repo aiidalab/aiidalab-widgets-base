@@ -15,7 +15,7 @@ import subprocess
 import sys
 import textwrap
 import zlib
-from typing import Callable
+from collections.abc import Callable
 from urllib import parse
 
 import ipywidgets as ipw

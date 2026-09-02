@@ -21,9 +21,9 @@ classifiers = [
 
 dependencies = [
     "PyCifRW~=4.4",
-    "aiida-core>=2.7,<3",
+    "aiida-core>=2.8,<3",
     "ansi2html~=1.7",
-    "ase~=3.18",
+    "ase~=3.23",
     "humanfriendly~=10.0",
     "ipytree~=0.2",
     "traitlets~=5.4",
@@ -39,14 +39,14 @@ dependencies = [
 description = "Reusable widgets for AiiDAlab applications."
 license = {file = 'LICENSE.txt'}
 readme = 'README.md'
-requires-python = '>=3.9'
+requires-python = '>=3.12'
 
 [project.optional-dependencies]
 dev = [
     "bumpver>=2023.1129",
     "pre-commit>=4.0",
     "ty==0.0.77",
-    "pytest~=8.3.0",
+    "pytest~=8.4.0",
     "pytest-cov~=5.0",
     "pytest-docker~=3.1.0",
     "pytest-selenium~=4.1.0",
@@ -54,7 +54,7 @@ dev = [
     "selenium~=4.23.0",
 ]
 optimade = ["ipyoptimade>=1.2.1,<2"]
-smiles = ["rdkit>=2021.09.2"]
+smiles = ["rdkit>=2024.9.6"]
 docs = [
     "sphinx~=7.3",
     "sphinx-design~=0.5",
@@ -94,7 +94,6 @@ filterwarnings = [
 [tool.ruff]
 line-length = 88
 show-fixes = true
-target-version = "py39"
 
 [tool.ruff.lint]
 ignore = ["RUF012"]
