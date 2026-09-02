@@ -117,6 +117,7 @@ def test_structure_manager_widget(structure_data_object):
 
     # Store structure and check that it is stored.
     structure_manager_widget.btn_store.click()
+    assert structure_manager_widget.structure_node is not None
     assert structure_manager_widget.structure_node.is_stored
     assert structure_manager_widget.structure_node.pk is not None
 
@@ -539,6 +540,8 @@ def test_basic_cell_editor_widget(structure_data_object):
 
     # Set the structure.
     widget.structure = structure_data_object.get_ase()
+    assert widget.structure is not None
+
     assert widget.structure.get_chemical_formula() == "Si2"
 
     # Convert to conventional cell.
@@ -571,6 +574,7 @@ def test_basic_structure_editor(structure_data_object):
 
     # Set the structure.
     widget.structure = structure_data_object.get_ase()
+    assert widget.structure is not None
 
     # Set first vector point vector to the first atom.
     widget.selection = [0]

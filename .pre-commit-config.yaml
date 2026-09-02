@@ -44,7 +44,6 @@ repos:
           - id: ty
             name: ty
             entry: ty check
-            args: [aiidalab_widgets_base/, notebooks/, tests_notebooks/]
             language: system
             types: [python]
             require_serial: true

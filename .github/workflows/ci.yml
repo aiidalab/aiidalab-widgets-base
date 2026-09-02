@@ -36,7 +36,7 @@ jobs:
                   activate-environment: true
 
             - name: Install dependencies
-              run: uv pip install -e .[dev,optimade,smiles]
+              run: uv pip install -e .[dev,optimade,smiles,docs]
 
             - uses: j178/prek-action@v3.0.0
 

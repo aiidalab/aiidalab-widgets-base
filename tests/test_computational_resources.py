@@ -893,7 +893,7 @@ def test_optional_new_code_setup_widget():
     assert not hasattr(widget, "btn_setup_new_code")
     assert not hasattr(widget, "_setup_new_code_output")
     assert not hasattr(widget, "resource_setup")
-    selection_row = widget.children[0]  # type: ignore
+    selection_row = widget.children[0]
     assert len(selection_row.children) == 1  # no new code setup button
 
 
