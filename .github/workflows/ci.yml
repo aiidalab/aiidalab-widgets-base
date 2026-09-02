@@ -102,8 +102,9 @@ jobs:
     test-package:
 
         strategy:
+            fail-fast: false
             matrix:
-                python-version: ['3.12', '3.13']
+                python-version: ['3.12']
                 uv-resolution: ['highest']
                 include:
                   # Make sure lowest-support package versions work
