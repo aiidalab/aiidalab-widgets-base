@@ -9,7 +9,7 @@ def test_nodes_tree_widget(multiply_add_completed_workchain):
 
     process = multiply_add_completed_workchain
     tree = nodes.NodesTreeWidget()
-    tree.nodes = [process]
+    tree.nodes = (process,)
 
     # main node is selected
     assert tree.find_node(process.pk).selected is False

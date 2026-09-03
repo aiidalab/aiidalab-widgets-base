@@ -15,6 +15,7 @@ import subprocess
 import sys
 import textwrap
 import zlib
+from collections.abc import Callable
 from urllib import parse
 
 import ipywidgets as ipw
@@ -35,7 +36,7 @@ def find_installed_packages(python_bin: str | None = None) -> dict[str, str]:
     return {package["name"]: package["version"] for package in json.loads(output)}
 
 
-def get_environment_fingerprint(encoding="utf-8"):
+def get_environment_fingerprint(encoding: str = "utf-8"):
     data = {
         "version": 1,
         "platform": {
@@ -49,7 +50,7 @@ def get_environment_fingerprint(encoding="utf-8"):
     return base64.urlsafe_b64encode(zlib.compress(json_data.encode(encoding), level=9))
 
 
-def parse_environment_fingerprint(fingerprint, encoding="utf-8"):
+def parse_environment_fingerprint(fingerprint: str, encoding="utf-8"):
     """decode the environment fingerprint and return the data as a dictionary."""
     data = json.loads(
         zlib.decompress(base64.urlsafe_b64decode(fingerprint)).decode(encoding)
@@ -114,7 +115,7 @@ time of error.**
 """
 
 
-def _strip_ansi_codes(msg):
+def _strip_ansi_codes(msg: str):
     """Remove any ANSI codes (e.g. color codes)."""
     return re.sub(r"\x1B(?:[@-Z\\-_]|\[[0-?]*[ -/]*[@-~])", "", msg)
 
@@ -125,7 +126,7 @@ def _convert_ansi_codes_to_html(msg):
     return converter.produce_headers().strip() + converter.convert(msg, full=False)
 
 
-def _format_truncated_traceback(traceback, max_num_chars=2000):
+def _format_truncated_traceback(traceback: list[str], max_num_chars: int = 2000):
     """Truncate the traceback to the given character length."""
     n = 0
     for _i, line in enumerate(reversed(traceback)):
@@ -138,7 +139,9 @@ def _format_truncated_traceback(traceback, max_num_chars=2000):
 _ORIGINAL_EXCEPTION_HANDLER = None
 
 
-def install_create_github_issue_exception_handler(output, url, labels=None):
+def install_create_github_issue_exception_handler(
+    output: ipw.Box, url: str, labels: tuple[str, ...] | None = None
+) -> Callable[[], None]:
     """Install a GitHub bug report exception handler.
 
     After installing this handler, kernel exception will show a generic error
@@ -152,14 +155,13 @@ def install_create_github_issue_exception_handler(output, url, labels=None):
     .. highlight:: python
     .. code-block:: python
 
-        output = ipw.Output()
+        output = ipw.VBox()
         install_create_github_issue_exception_handler(
             output,
             url='https://github.com/aiidalab/aiidalab-qe/issues/new',
             labels=('bug', 'automated-report'))
 
-        with output:
-            display(welcome_message, app_with_work_chain_selector, footer)
+        output.children = [welcome_message, app_with_work_chain_selector, footer]
 
     """
     from IPython import get_ipython
@@ -167,14 +169,18 @@ def install_create_github_issue_exception_handler(output, url, labels=None):
     global _ORIGINAL_EXCEPTION_HANDLER
 
     if labels is None:
-        labels = []
+        labels = ()
 
     ipython = get_ipython()
     _ORIGINAL_EXCEPTION_HANDLER = _ORIGINAL_EXCEPTION_HANDLER or ipython._showtraceback
 
-    def create_github_issue_exception_handler(exception_type, exception, traceback):
+    def create_github_issue_exception_handler(
+        exception_type: type[BaseException],
+        exception: BaseException,
+        traceback: list[str],
+    ) -> None:
         try:
-            output.clear_output()
+            output.children = ()
 
             bug_report_query = {
                 "title": BUG_REPORT_TITLE.format(
@@ -198,20 +204,19 @@ def install_create_github_issue_exception_handler(output, url, labels=None):
                 parse.urlsplit(url)._replace(query=parse.urlencode(bug_report_query))
             )
 
-            with output:
-                msg = ipw.HTML(
-                    ERROR_MESSAGE.format(
-                        issue_url=issue_url,
-                        traceback=_convert_ansi_codes_to_html("\n".join(traceback)),
-                        len_url=len(issue_url),
-                    )
+            msg = ipw.HTML(
+                ERROR_MESSAGE.format(
+                    issue_url=issue_url,
+                    traceback=_convert_ansi_codes_to_html("\n".join(traceback)),
+                    len_url=len(issue_url),
                 )
-                display(msg)  # noqa
+            )
+            output.children = (msg,)
         except Exception as error:  # ruff: ignore[BLE001]
             print(f"Error while generating bug report: {error}", file=sys.stderr)
             _ORIGINAL_EXCEPTION_HANDLER(exception_type, exception, traceback)
 
-    def restore_original_exception_handler():
+    def restore_original_exception_handler() -> None:
         ipython._showtraceback = _ORIGINAL_EXCEPTION_HANDLER
 
     ipython._showtraceback = create_github_issue_exception_handler

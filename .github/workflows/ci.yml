@@ -36,7 +36,7 @@ jobs:
                   activate-environment: true
 
             - name: Install dependencies
-              run: uv pip install -e .[dev,optimade,smiles]
+              run: uv pip install -e .[dev,optimade,smiles,docs]
 
             - uses: j178/prek-action@v3.0.0
 
@@ -57,14 +57,10 @@ jobs:
             - name: Check out app
               uses: actions/checkout@v7
 
-            - name: Set up Python
-              uses: actions/setup-python@v7
+            - name: Setup uv
+              uses: astral-sh/setup-uv@v10.0.1
               with:
                   python-version: '3.12'
-
-            - name: Setup uv
-              uses: astral-sh/setup-uv@v7
-              with:
                   activate-environment: true
 
             - name: Install package test dependencies
@@ -106,8 +102,9 @@ jobs:
     test-package:
 
         strategy:
+            fail-fast: false
             matrix:
-                python-version: ['3.9', '3.12']
+                python-version: ['3.12']
                 uv-resolution: ['highest']
                 include:
                   # Make sure lowest-support package versions work
@@ -127,14 +124,10 @@ jobs:
             - name: Check out app
               uses: actions/checkout@v7
 
-            - name: Set up Python
-              uses: actions/setup-python@v7
+            - name: Setup uv
+              uses: astral-sh/setup-uv@v10.0.1
               with:
                   python-version: ${{ matrix.python-version }}
-
-            - name: Setup uv
-              uses: astral-sh/setup-uv@v7
-              with:
                   activate-environment: true
 
             - name: Install package
