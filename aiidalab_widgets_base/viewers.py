@@ -189,13 +189,13 @@ _REPRESENTATION_STYLE_PATTERN = re.compile(
 
 
 def encode_representation_style_id(
-    prefix=_DEFAULT_REPRESENTATION_PREFIX,
+    prefix: str = _DEFAULT_REPRESENTATION_PREFIX,
     *,
-    representation_type="ball+stick",
-    size=3,
-    color="element",
-    token=None,
-):
+    representation_type: str = "ball+stick",
+    size: float = 3,
+    color: str = "element",
+    token: str | None = None,
+) -> str:
     """Build an extxyz-safe representation array name with style metadata."""
     representation_token = _REPRESENTATION_TYPE_TO_TOKEN[representation_type]
     size_token = f"{float(size):g}"
@@ -203,7 +203,7 @@ def encode_representation_style_id(
     return f"{prefix}{representation_token}_r{size_token}_{color}_{unique_token}"
 
 
-def parse_representation_style_id(style_id):
+def parse_representation_style_id(style_id: str) -> dict | None:
     """Parse style metadata encoded in a representation array name.
 
     Old opaque representation ids intentionally return ``None`` so they keep the
@@ -702,7 +702,9 @@ class _StructureDataBaseViewer(ipw.VBox):
             ]
         )
 
-    def _add_representation(self, _=None, style_id=None, indices=None, apply=True):
+    def _add_representation(
+        self, _=None, style_id=None, indices=None, apply: bool = True
+    ):
         """Add a representation to the list of representations."""
         self._all_representations = [
             *self._all_representations,
