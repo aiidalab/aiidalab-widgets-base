@@ -169,6 +169,60 @@ class DictViewer(ipw.VBox):
         super().__init__([self.widget], **kwargs)
 
 
+_DEFAULT_REPRESENTATION_PREFIX = "_aiidalab_viewer_representation_"
+_DEFAULT_REPRESENTATION_STYLE_ID = f"{_DEFAULT_REPRESENTATION_PREFIX}default"
+_REPRESENTATION_TYPE_TO_TOKEN = {
+    "ball+stick": "ballstick",
+    "spacefill": "spacefill",
+}
+_REPRESENTATION_TOKEN_TO_TYPE = {
+    token: representation_type
+    for representation_type, token in _REPRESENTATION_TYPE_TO_TOKEN.items()
+}
+_REPRESENTATION_STYLE_PATTERN = re.compile(
+    rf"^{_DEFAULT_REPRESENTATION_PREFIX}"
+    r"(?P<representation_type>ballstick|spacefill)_"
+    r"r(?P<size>\d+(?:\.\d+)?(?:e[+-]?\d+)?)_"
+    r"(?P<color>[A-Za-z0-9]+)_"
+    r"(?P<token>[A-Za-z0-9]+)$"
+)
+
+
+def encode_representation_style_id(
+    prefix: str = _DEFAULT_REPRESENTATION_PREFIX,
+    *,
+    representation_type: str = "ball+stick",
+    size: float = 3,
+    color: str = "element",
+    token: str | None = None,
+) -> str:
+    """Build an extxyz-safe representation array name with style metadata."""
+    representation_token = _REPRESENTATION_TYPE_TO_TOKEN[representation_type]
+    size_token = f"{float(size):g}"
+    unique_token = token if token is not None else shortuuid.uuid()
+    return f"{prefix}{representation_token}_r{size_token}_{color}_{unique_token}"
+
+
+def parse_representation_style_id(style_id: str) -> dict | None:
+    """Parse style metadata encoded in a representation array name.
+
+    Old opaque representation ids intentionally return ``None`` so they keep the
+    historical default display settings.
+    """
+    match = _REPRESENTATION_STYLE_PATTERN.match(style_id)
+    if match is None:
+        return None
+    representation_type = _REPRESENTATION_TOKEN_TO_TYPE[
+        match.group("representation_type")
+    ]
+    return {
+        "representation_type": representation_type,
+        "size": float(match.group("size")),
+        "color": match.group("color"),
+        "token": match.group("token"),
+    }
+
+
 class NglViewerRepresentation(ipw.HBox):
     """This class represents the parameters for displaying a structure in NGLViewer.
 
@@ -193,6 +247,13 @@ class NglViewerRepresentation(ipw.HBox):
 
         self.atom_show_threshold = atom_show_threshold
         self.style_id = style_id
+        style_metadata = parse_representation_style_id(style_id)
+        self._style_token = (
+            style_metadata["token"] if style_metadata is not None else shortuuid.uuid()
+        )
+        self._sync_style_id_with_settings = (
+            style_id != _DEFAULT_REPRESENTATION_STYLE_ID and style_metadata is not None
+        )
 
         self.show = ipw.Checkbox(
             value=True,
@@ -213,8 +274,9 @@ class NglViewerRepresentation(ipw.HBox):
             layout={"width": "100px"},
             style={"description_width": "0px"},
         )
-        self.size = ipw.FloatText(
+        self.size = ipw.BoundedFloatText(
             value=3,
+            min=0,
             layout={"width": "40px"},
             style={"description_width": "0px"},
         )
@@ -225,6 +287,11 @@ class NglViewerRepresentation(ipw.HBox):
             layout={"width": "80px"},
             style={"description_width": "initial"},
         )
+        if style_metadata is not None:
+            self.type.value = style_metadata["representation_type"]
+            self.size.value = style_metadata["size"]
+            if style_metadata["color"] in self.color.options:
+                self.color.value = style_metadata["color"]
 
         # Delete button.
         self.delete_button = ipw.Button(
@@ -259,9 +326,28 @@ class NglViewerRepresentation(ipw.HBox):
                 np.where(self.atoms_in_representation(structure))[0], shift=1
             )
 
+    def _refresh_style_id_from_widget_values(self, structure: ase.Atoms | None):
+        """Keep encoded style ids aligned with the current representation widgets."""
+        if not self._sync_style_id_with_settings or self.viewer_class is None:
+            return
+        new_style_id = encode_representation_style_id(
+            self.viewer_class.REPRESENTATION_PREFIX,
+            representation_type=self.type.value,
+            size=self.size.value,
+            color=self.color.value,
+            token=self._style_token,
+        )
+        if new_style_id == self.style_id:
+            return
+        old_style_id = self.style_id
+        self.style_id = new_style_id
+        if structure and old_style_id in structure.arrays:
+            del structure.arrays[old_style_id]
+
     def add_myself_to_atoms_object(self, structure: ase.Atoms | None):
         """Add representation array to the structure object. If the array already exists, update it."""
         if structure:
+            self._refresh_style_id_from_widget_values(structure)
             array_representation = np.full(len(structure), -1, dtype=int)
             selection = np.array(
                 string_range_to_list(self.selection.value, shift=-1)[0], dtype=int
@@ -318,8 +404,8 @@ class _StructureDataBaseViewer(ipw.VBox):
     DEFAULT_SELECTION_OPACITY = 0.2
     DEFAULT_SELECTION_RADIUS = 6
     DEFAULT_SELECTION_COLOR = "green"
-    REPRESENTATION_PREFIX = "_aiidalab_viewer_representation_"
-    DEFAULT_REPRESENTATION = "_aiidalab_viewer_representation_default"
+    REPRESENTATION_PREFIX = _DEFAULT_REPRESENTATION_PREFIX
+    DEFAULT_REPRESENTATION = _DEFAULT_REPRESENTATION_STYLE_ID
     DEFAULT_VIEW_ORIENTATION = [
         -1.0,
         0.0,
@@ -616,16 +702,20 @@ class _StructureDataBaseViewer(ipw.VBox):
             ]
         )
 
-    def _add_representation(self, _=None, style_id=None, indices=None):
+    def _add_representation(
+        self, _=None, style_id=None, indices=None, apply: bool = True
+    ):
         """Add a representation to the list of representations."""
         self._all_representations = [
             *self._all_representations,
             NglViewerRepresentation(
-                style_id=style_id or f"{self.REPRESENTATION_PREFIX}{shortuuid.uuid()}",
+                style_id=style_id
+                or encode_representation_style_id(self.REPRESENTATION_PREFIX),
                 indices=indices,
             ),
         ]
-        self._apply_representations()
+        if apply:
+            self._apply_representations()
 
     def delete_representation(self, representation: NglViewerRepresentation):
         try:
@@ -1396,6 +1486,7 @@ class StructureDataViewer(_StructureDataBaseViewer):
                 self._add_representation(
                     style_id=style_id,
                     indices=np.where(structure.arrays[style_id] >= 1)[0],
+                    apply=False,
                 )
         # Empty atoms selection for the representations that are not present in the structure.
         # Typically this happens when a new structure is imported.

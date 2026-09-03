@@ -328,7 +328,13 @@ def test_structure_data_viewer_representation(structure_data_object):
 
 
 def test_structure_data_viewer_imports_unknown_representation_array(ch_structure):
-    style_id = f"{viewers.StructureDataViewer.REPRESENTATION_PREFIX}custom"
+    style_id = viewers.encode_representation_style_id(
+        viewers.StructureDataViewer.REPRESENTATION_PREFIX,
+        representation_type="spacefill",
+        size=4,
+        color="red",
+        token="custom",
+    )
     ch_structure.set_array(style_id, np.array([1, -1], dtype=int))
 
     viewer = viewers.StructureDataViewer()
@@ -338,6 +344,9 @@ def test_structure_data_viewer_imports_unknown_representation_array(ch_structure
     assert style_id in representation_ids
     representation = viewer._all_representations[representation_ids.index(style_id)]
     assert representation.selection.value == "1"
+    assert representation.type.value == "spacefill"
+    assert representation.size.value == 4
+    assert representation.color.value == "red"
 
 
 def test_structure_data_viewer_apply_representations_removes_stale_arrays(
@@ -356,6 +365,71 @@ def test_structure_data_viewer_apply_representations_removes_stale_arrays(
     remaining = [a for a in viewer.structure.arrays if a.startswith(prefix)]
     assert f"{prefix}stale_a" not in remaining
     assert f"{prefix}stale_b" not in remaining
+
+
+def test_structure_data_viewer_imports_multiple_encoded_representation_arrays():
+    structure = ase.Atoms(
+        symbols=["C", "H", "H"],
+        positions=[(0.0, 0.0, 0.0), (0.0, 0.0, 1.1), (0.0, 1.0, 0.0)],
+    )
+    style_id_1 = viewers.encode_representation_style_id(
+        viewers.StructureDataViewer.REPRESENTATION_PREFIX,
+        representation_type="spacefill",
+        size=2,
+        color="element",
+        token="surface",
+    )
+    style_id_2 = viewers.encode_representation_style_id(
+        viewers.StructureDataViewer.REPRESENTATION_PREFIX,
+        representation_type="ball+stick",
+        size=4,
+        color="red",
+        token="molecule",
+    )
+    structure.set_array(style_id_1, np.array([1, -1, -1], dtype=int))
+    structure.set_array(style_id_2, np.array([-1, 1, 1], dtype=int))
+
+    viewer = viewers.StructureDataViewer()
+    viewer.structure = structure
+
+    representation_ids = [rep.style_id for rep in viewer._all_representations]
+    assert style_id_1 in representation_ids
+    assert style_id_2 in representation_ids
+    representation_1 = viewer._all_representations[representation_ids.index(style_id_1)]
+    representation_2 = viewer._all_representations[representation_ids.index(style_id_2)]
+    assert representation_1.selection.value == "1"
+    assert representation_1.type.value == "spacefill"
+    assert representation_1.size.value == 2
+    assert representation_2.selection.value == "2..3"
+    assert representation_2.type.value == "ball+stick"
+    assert representation_2.size.value == 4
+    assert representation_2.color.value == "red"
+
+
+def test_structure_data_viewer_updates_encoded_representation_array_name():
+    structure = ase.Atoms(
+        symbols=["C", "H"],
+        positions=[(0.0, 0.0, 0.0), (0.0, 0.0, 1.1)],
+    )
+    viewer = viewers.StructureDataViewer()
+    viewer.structure = structure
+
+    viewer._add_representation()
+    representation = viewer._all_representations[-1]
+    old_style_id = representation.style_id
+    representation.selection.value = "2"
+    representation.type.value = "spacefill"
+    representation.size.value = 4
+    representation.color.value = "red"
+
+    viewer._apply_representations()
+
+    assert old_style_id not in viewer.structure.arrays
+    assert representation.style_id in viewer.structure.arrays
+    assert representation.style_id.startswith(
+        f"{viewer.REPRESENTATION_PREFIX}spacefill_r4_red_"
+    )
+    assert viewer.structure.arrays[representation.style_id].tolist() == [-1, 1]
 
 
 def test_structure_data_viewer_clears_bond_shape_components():
