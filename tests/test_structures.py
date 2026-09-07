@@ -8,6 +8,7 @@ from aiida import common, orm
 
 import aiidalab_widgets_base as awb
 
+
 @pytest.fixture
 def file_upload_change():
     """Simulate a payload when uploading a file"""

@@ -353,6 +353,7 @@ def test_structure_data_viewer_restores_representation_arrays_from_extras():
     assert representation.size.value == 2
     assert representation.color.value == "red"
 
+
 def test_structure_data_viewer_drops_stale_representations_on_structure_change():
     structure = ase.Atoms(
         symbols=["C", "H"],

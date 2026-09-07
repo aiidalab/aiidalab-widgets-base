@@ -168,6 +168,7 @@ class DictViewer(ipw.VBox):
 
         super().__init__([self.widget], **kwargs)
 
+
 _DEFAULT_REPRESENTATION_PREFIX = "_aiidalab_viewer_representation_"
 _DEFAULT_REPRESENTATION_STYLE_ID = f"{_DEFAULT_REPRESENTATION_PREFIX}default"
 _REPRESENTATION_TYPE_TO_TOKEN = {
@@ -202,6 +203,7 @@ def restore_viewer_representations_from_extras(node, structure):
             continue
         structure.set_array(key, values)
     return structure
+
 
 def encode_representation_style_id(
     prefix: str = _DEFAULT_REPRESENTATION_PREFIX,
