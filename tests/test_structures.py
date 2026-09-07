@@ -239,6 +239,7 @@ def test_structure_manager_widget_stores_representations_via_calcfunction():
         importers=[], input_structure=node, node_class="StructureData"
     )
 
+    assert structure_manager_widget.structure is not None
     edited = structure_manager_widget.structure.copy()
     edited.positions[1][2] = 1.3
     structure_manager_widget.structure = edited
