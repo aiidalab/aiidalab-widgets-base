@@ -354,8 +354,12 @@ def test_structure_data_viewer_restores_representation_arrays_from_extras():
     assert representation.color.value == "red"
 
 
+def test_viewer_representation_arrays_to_dict_with_no_structure():
+    assert viewers.viewer_representation_arrays_to_dict(None) == {}
+
+
 @pytest.mark.usefixtures("aiida_profile_clean")
-def test_store_representations_in_extras_noop_without_representation_arrays():
+def test_store_representations_in_extras_noop_cases():
     structure = ase.Atoms(
         symbols=["C", "H"],
         positions=[(0.0, 0.0, 0.0), (0.0, 0.0, 1.1)],
@@ -363,14 +367,24 @@ def test_store_representations_in_extras_noop_without_representation_arrays():
     node = orm.StructureData(ase=structure).store()
     viewer = viewers.StructureDataViewer(node)
 
-    # Strip every representation array, simulating a structure with none.
+    # No structure_node bound -> no-op.
+    viewer.structure_node = None
+    viewer.store_representations_in_extras()
+    assert node.base.extras.get(viewers.VIEWER_REPRESENTATIONS_EXTRA, None) is None
+
+    # structure_node bound again, but no structure -> no-op.
+    viewer.structure_node = node
+    viewer.structure = None
+    viewer.store_representations_in_extras()
+    assert node.base.extras.get(viewers.VIEWER_REPRESENTATIONS_EXTRA, None) is None
+
+    # structure bound again, but with no representation arrays -> no-op.
+    viewer.structure = structure
     for key in list(viewer.structure.arrays):
         if key.startswith(viewers._DEFAULT_REPRESENTATION_PREFIX):
             del viewer.structure.arrays[key]
     assert viewers.viewer_representation_arrays_to_dict(viewer.structure) == {}
-
     viewer.store_representations_in_extras()
-
     assert node.base.extras.get(viewers.VIEWER_REPRESENTATIONS_EXTRA, None) is None
 
 
@@ -400,14 +414,41 @@ def test_restore_representations_from_extras_warns_on_length_mismatch():
     node = orm.StructureData(ase=structure)
     node.base.extras.set(
         viewers.VIEWER_REPRESENTATIONS_EXTRA,
-        {viewers._DEFAULT_REPRESENTATION_STYLE_ID: [1, 1, 1]},  # 3 values, 2 atoms
+        {
+            viewers._DEFAULT_REPRESENTATION_STYLE_ID: [1, 1, 1],  # 3 values, 2 atoms
+            "unrelated_key": "unrelated_value",  # not a representation array
+        },
     )
 
     viewer = viewers.StructureDataViewer()
     with pytest.warns(UserWarning, match="atoms, but the structure has"):
         restored = viewer.restore_representations_from_extras(node, structure.copy())
 
+    # The mismatched array is ignored, and so is the unrelated, non-representation key.
     assert viewers._DEFAULT_REPRESENTATION_STYLE_ID not in restored.arrays
+    assert "unrelated_key" not in restored.arrays
+
+
+@pytest.mark.usefixtures("aiida_profile_clean")
+def test_restore_representations_from_extras_noop_when_node_or_structure_is_none():
+    structure = ase.Atoms(
+        symbols=["C", "H"],
+        positions=[(0.0, 0.0, 0.0), (0.0, 0.0, 1.1)],
+    )
+    node = orm.StructureData(ase=structure).store()
+    node.base.extras.set(
+        viewers.VIEWER_REPRESENTATIONS_EXTRA,
+        {viewers._DEFAULT_REPRESENTATION_STYLE_ID: [1, 1]},
+    )
+
+    viewer = viewers.StructureDataViewer()
+
+    # node is None -> structure passed through untouched.
+    result = viewer.restore_representations_from_extras(None, structure.copy())
+    assert viewers._DEFAULT_REPRESENTATION_STYLE_ID not in result.arrays
+
+    # structure is None -> returned untouched (i.e. still None).
+    assert viewer.restore_representations_from_extras(node, None) is None
 
 
 @pytest.mark.usefixtures("aiida_profile_clean")

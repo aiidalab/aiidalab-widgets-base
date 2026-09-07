@@ -4,7 +4,7 @@ from textwrap import dedent
 import ase
 import numpy as np
 import pytest
-from aiida import common, orm
+from aiida import common, orm, plugins
 
 import aiidalab_widgets_base as awb
 
@@ -237,6 +237,20 @@ def test_structure_manager_widget_restores_viewer_representations_from_extras():
         rep.style_id for rep in structure_manager_widget.viewer._all_representations
     ]
     assert style_id in representation_ids
+
+    # The CifData branch of `_observe_input_structure` restores representations
+    # through a different code path (manual CIF parsing) -- exercise it too.
+    cif_node = plugins.DataFactory("core.cif")(ase=structure).store()
+    cif_node.base.extras.set(
+        awb.viewers.VIEWER_REPRESENTATIONS_EXTRA, {style_id: [1, -1]}
+    )
+    cif_structure_manager_widget = awb.StructureManagerWidget(
+        importers=[], input_structure=cif_node
+    )
+    cif_representation_ids = [
+        rep.style_id for rep in cif_structure_manager_widget.viewer._all_representations
+    ]
+    assert style_id in cif_representation_ids
 
 
 @pytest.mark.usefixtures("aiida_profile_clean")
