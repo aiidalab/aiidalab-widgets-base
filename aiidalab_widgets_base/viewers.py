@@ -661,7 +661,7 @@ class _StructureDataBaseViewer(ipw.VBox):
         self.btn_store_representations = ipw.Button(
             description="Store representations", disabled=True
         )
-        self.btn_store_representations.on_click(self._on_store_representations_click)
+        self.btn_store_representations.on_click(self.apply_and_store_representations)
 
         self.representation_output = ipw.VBox()
 
@@ -850,7 +850,7 @@ class _StructureDataBaseViewer(ipw.VBox):
 
         No-op if `structure_node` is unset. Persistence is intentionally not
         automatic on every representation change (see
-        `_on_store_representations_click`), so a user's saved representation
+        `apply_and_store_representations`), so a user's saved representation
         isn't silently overwritten by an experimental one they don't end up
         keeping.
         """
@@ -901,7 +901,12 @@ class _StructureDataBaseViewer(ipw.VBox):
             structure.set_array(key, values)
         return structure
 
-    def _on_store_representations_click(self, _=None):
+    def apply_and_store_representations(self, _=None):
+        """Apply any pending representation edits, then persist them to the node.
+
+        This is the single entry point for "save what I see": the button uses
+        it, and so does `StructureManagerWidget.store_structure`.
+        """
         self._apply_representations()
         self.store_representations_in_extras()
 
