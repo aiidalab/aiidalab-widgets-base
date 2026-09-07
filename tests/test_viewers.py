@@ -354,6 +354,79 @@ def test_structure_data_viewer_restores_representation_arrays_from_extras():
     assert representation.color.value == "red"
 
 
+@pytest.mark.usefixtures("aiida_profile_clean")
+def test_store_representations_in_extras_noop_without_representation_arrays():
+    structure = ase.Atoms(
+        symbols=["C", "H"],
+        positions=[(0.0, 0.0, 0.0), (0.0, 0.0, 1.1)],
+    )
+    node = orm.StructureData(ase=structure).store()
+    viewer = viewers.StructureDataViewer(node)
+
+    # Strip every representation array, simulating a structure with none.
+    for key in list(viewer.structure.arrays):
+        if key.startswith(viewers._DEFAULT_REPRESENTATION_PREFIX):
+            del viewer.structure.arrays[key]
+    assert viewers.viewer_representation_arrays_to_dict(viewer.structure) == {}
+
+    viewer.store_representations_in_extras()
+
+    assert node.base.extras.get(viewers.VIEWER_REPRESENTATIONS_EXTRA, None) is None
+
+
+@pytest.mark.usefixtures("aiida_profile_clean")
+def test_restore_representations_from_extras_warns_on_non_dict_extra():
+    structure = ase.Atoms(
+        symbols=["C", "H"],
+        positions=[(0.0, 0.0, 0.0), (0.0, 0.0, 1.1)],
+    )
+    node = orm.StructureData(ase=structure)
+    node.base.extras.set(viewers.VIEWER_REPRESENTATIONS_EXTRA, "not-a-dict")
+
+    viewer = viewers.StructureDataViewer()
+    with pytest.warns(UserWarning, match="expected a dict"):
+        restored = viewer.restore_representations_from_extras(node, structure.copy())
+
+    # Structure is returned unmodified, and the default array isn't set from extras.
+    assert viewers._DEFAULT_REPRESENTATION_STYLE_ID not in restored.arrays
+
+
+@pytest.mark.usefixtures("aiida_profile_clean")
+def test_restore_representations_from_extras_warns_on_length_mismatch():
+    structure = ase.Atoms(
+        symbols=["C", "H"],
+        positions=[(0.0, 0.0, 0.0), (0.0, 0.0, 1.1)],
+    )
+    node = orm.StructureData(ase=structure)
+    node.base.extras.set(
+        viewers.VIEWER_REPRESENTATIONS_EXTRA,
+        {viewers._DEFAULT_REPRESENTATION_STYLE_ID: [1, 1, 1]},  # 3 values, 2 atoms
+    )
+
+    viewer = viewers.StructureDataViewer()
+    with pytest.warns(UserWarning, match="atoms, but the structure has"):
+        restored = viewer.restore_representations_from_extras(node, structure.copy())
+
+    assert viewers._DEFAULT_REPRESENTATION_STYLE_ID not in restored.arrays
+
+
+@pytest.mark.usefixtures("aiida_profile_clean")
+def test_apply_representations_does_not_auto_persist_to_extras():
+    structure = ase.Atoms(
+        symbols=["C", "H"],
+        positions=[(0.0, 0.0, 0.0), (0.0, 0.0, 1.1)],
+    )
+    node = orm.StructureData(ase=structure).store()
+    viewer = viewers.StructureDataViewer(node)
+
+    viewer._all_representations[0].selection.value = "1"
+    viewer._apply_representations()
+    assert node.base.extras.get(viewers.VIEWER_REPRESENTATIONS_EXTRA, None) is None
+
+    viewer.store_representations_in_extras()
+    assert node.base.extras.get(viewers.VIEWER_REPRESENTATIONS_EXTRA, None) is not None
+
+
 def test_structure_data_viewer_drops_stale_representations_on_structure_change():
     structure = ase.Atoms(
         symbols=["C", "H"],
