@@ -168,6 +168,7 @@ def test_structure_manager_widget_stores_viewer_representations_in_extras():
 
     structure_manager_widget.btn_store.click()
     stored = structure_manager_widget.structure_node
+    assert stored is not None
 
     assert stored.base.extras.get(awb.viewers.VIEWER_REPRESENTATIONS_EXTRA) == {
         # Applying the default representation turns its unapplied placeholder
@@ -327,7 +328,6 @@ def test_structure_browser_widget(structure_data_object, monkeypatch):
 
     # Loading by PK should respect the configured query types.
     int_node = orm.Int(1).store()
-    assert int_node.pk is not None
     structure_browser_widget.pk_input.value = str(int_node.pk)
     structure_browser_widget._on_load_button_clicked()
 
