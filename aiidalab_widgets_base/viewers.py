@@ -189,17 +189,6 @@ _REPRESENTATION_STYLE_PATTERN = re.compile(
 )
 
 
-def viewer_representation_arrays_to_dict(structure):
-    """Return viewer representation arrays as JSON-serializable masks."""
-    if structure is None:
-        return {}
-    return {
-        key: np.asarray(value, dtype=int).tolist()
-        for key, value in structure.arrays.items()
-        if key.startswith(_DEFAULT_REPRESENTATION_PREFIX)
-    }
-
-
 def encode_representation_style_id(
     prefix: str = _DEFAULT_REPRESENTATION_PREFIX,
     *,
@@ -867,7 +856,11 @@ class _StructureDataBaseViewer(ipw.VBox):
         """
         if self.structure_node is None or self.structure is None:
             return
-        representations = viewer_representation_arrays_to_dict(self.structure)
+        representations = {
+            key: np.asarray(value, dtype=int).tolist()
+            for key, value in self.structure.arrays.items()
+            if key.startswith(_DEFAULT_REPRESENTATION_PREFIX)
+        }
         if representations:
             self.structure_node.base.extras.set(
                 VIEWER_REPRESENTATIONS_EXTRA, representations

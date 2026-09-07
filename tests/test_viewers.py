@@ -354,10 +354,6 @@ def test_structure_data_viewer_restores_representation_arrays_from_extras():
     assert representation.color.value == "red"
 
 
-def test_viewer_representation_arrays_to_dict_with_no_structure():
-    assert viewers.viewer_representation_arrays_to_dict(None) == {}
-
-
 @pytest.mark.usefixtures("aiida_profile_clean")
 def test_store_representations_in_extras_noop_cases():
     structure = ase.Atoms(
@@ -383,7 +379,6 @@ def test_store_representations_in_extras_noop_cases():
     for key in list(viewer.structure.arrays):
         if key.startswith(viewers._DEFAULT_REPRESENTATION_PREFIX):
             del viewer.structure.arrays[key]
-    assert viewers.viewer_representation_arrays_to_dict(viewer.structure) == {}
     viewer.store_representations_in_extras()
     assert node.base.extras.get(viewers.VIEWER_REPRESENTATIONS_EXTRA, None) is None
 
