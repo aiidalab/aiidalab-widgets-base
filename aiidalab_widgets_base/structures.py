@@ -236,6 +236,7 @@ class StructureManagerWidget(ipw.VBox):
             )
             return
         self.btn_store.disabled = True
+        self.viewer._apply_representations()
         self.viewer.store_representations_in_extras()
         self.structure_node.label = self.structure_label.value
         self.structure_label.disabled = True
