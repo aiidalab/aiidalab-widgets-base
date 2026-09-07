@@ -215,12 +215,22 @@ def restore_viewer_representations_from_extras(node, structure):
         return structure
     representations = node.base.extras.get(VIEWER_REPRESENTATIONS_EXTRA, {})
     if not isinstance(representations, dict):
+        warnings.warn(
+            f"Ignoring '{VIEWER_REPRESENTATIONS_EXTRA}' extra on <{node}>: "
+            f"expected a dict, got {type(representations)}.",
+            stacklevel=2,
+        )
         return structure
     for key, values in representations.items():
         if not str(key).startswith(_DEFAULT_REPRESENTATION_PREFIX):
             continue
         values = np.asarray(values, dtype=int)
         if len(values) != len(structure):
+            warnings.warn(
+                f"Ignoring stored viewer representation '{key}' on <{node}>: "
+                f"it has {len(values)} atoms, but the structure has {len(structure)}.",
+                stacklevel=2,
+            )
             continue
         structure.set_array(key, values)
     return structure
@@ -431,6 +441,9 @@ class _StructureDataBaseViewer(ipw.VBox):
         displayed_selection: list of currently displayed atoms in the displayed structure, which also includes super-cell.
         supercell: list of supercell dimensions.
         cell: ase.cell.Cell object.
+        structure_node: the AiiDA node backing the displayed structure, if any. Kept in sync
+            by the owner (e.g. `StructureManagerWidget`) or auto-populated when an AiiDA node
+            is assigned directly to `structure`.
     """
 
     _all_representations = tl.List()
@@ -439,6 +452,7 @@ class _StructureDataBaseViewer(ipw.VBox):
     displayed_selection = tl.List(tl.Int())
     supercell = tl.List(tl.Int())
     cell = tl.Instance(ase.cell.Cell, allow_none=True)
+    structure_node = tl.Instance(orm.Data, allow_none=True, default_value=None)
     DEFAULT_SELECTION_OPACITY = 0.2
     DEFAULT_SELECTION_RADIUS = 6
     DEFAULT_SELECTION_COLOR = "green"
@@ -865,9 +879,19 @@ class _StructureDataBaseViewer(ipw.VBox):
                 and array not in representation_ids
             ):
                 del self.structure.arrays[array]
-        store_viewer_representations_in_extras(self._structure_node, self.structure)
         self._observe_structure({"new": self.structure})
         self._check_missing_atoms_in_representations()
+
+    def store_representations_in_extras(self):
+        """Persist the current viewer representations to `structure_node`'s extras.
+
+        No-op if `structure_node` is unset or not yet stored. Persistence is
+        intentionally not automatic on every representation change, so that a
+        user's saved representation isn't silently overwritten by an
+        experimental one they don't end up keeping.
+        """
+        if self.structure_node is not None and self.structure_node.is_stored:
+            store_viewer_representations_in_extras(self.structure_node, self.structure)
 
     def _check_missing_atoms_in_representations(self):
         missing_atoms = np.zeros(self.natoms)
@@ -1454,7 +1478,6 @@ class StructureDataViewer(_StructureDataBaseViewer):
 
     def __init__(self, structure=None, **kwargs):
         super().__init__(**kwargs)
-        self._structure_node = None
         self.add_class("structure-viewer")
         self.structure = structure
 
@@ -1483,10 +1506,9 @@ class StructureDataViewer(_StructureDataBaseViewer):
         structure = change["value"]
         if isinstance(structure, ase.Atoms):
             self.pk = None
-            self._structure_node = None
         elif isinstance(structure, (orm.StructureData, orm.CifData)):
             self.pk = structure.pk
-            self._structure_node = structure
+            self.structure_node = structure
             structure = restore_viewer_representations_from_extras(
                 structure, structure.get_ase()
             )

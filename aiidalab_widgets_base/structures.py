@@ -240,7 +240,7 @@ class StructureManagerWidget(ipw.VBox):
         if self.structure_node is None or not self.structure_node.is_stored:
             return
         self.viewer._apply_representations()
-        store_viewer_representations_in_extras(self.structure_node, self.structure)
+        self.viewer.store_representations_in_extras()
         self.output.value = (
             f"Viewer representations updated in AiiDA [{self.structure_node}]."
         )
@@ -341,8 +341,8 @@ class StructureManagerWidget(ipw.VBox):
     def _observe_structure_node(self, change):
         """Modify structure label and description when a new structure is provided."""
         struct = change["new"]
-        if hasattr(self.viewer, "_structure_node"):
-            self.viewer._structure_node = struct
+        if hasattr(self.viewer, "structure_node"):
+            self.viewer.structure_node = struct
         if struct is None:
             self.btn_store.disabled = True
             self.btn_store_representations.disabled = True
