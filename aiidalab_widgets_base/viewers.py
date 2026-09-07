@@ -859,7 +859,7 @@ class _StructureDataBaseViewer(ipw.VBox):
         representations = {
             key: np.asarray(value, dtype=int).tolist()
             for key, value in self.structure.arrays.items()
-            if key.startswith(_DEFAULT_REPRESENTATION_PREFIX)
+            if key.startswith(self.REPRESENTATION_PREFIX)
         }
         if representations:
             self.structure_node.base.extras.set(
@@ -880,7 +880,7 @@ class _StructureDataBaseViewer(ipw.VBox):
             )
             return structure
         for key, values in representations.items():
-            if not str(key).startswith(_DEFAULT_REPRESENTATION_PREFIX):
+            if not str(key).startswith(self.REPRESENTATION_PREFIX):
                 continue
             try:
                 values = np.asarray(values, dtype=int)
