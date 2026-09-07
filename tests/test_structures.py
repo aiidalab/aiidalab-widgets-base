@@ -149,6 +149,33 @@ def test_structure_manager_widget(structure_data_object):
 
 
 @pytest.mark.usefixtures("aiida_profile_clean")
+def test_structure_manager_widget_defaults_to_structure_data(structure_data_object):
+    """The declared traitlets default must survive the RadioButtons link.
+
+    The trait is only half of it: what matters downstream is that a structure
+    stored without an explicit `node_class` really is a `StructureData`.
+    """
+    widget = awb.StructureManagerWidget(importers=[])
+    assert widget.node_class == "StructureData"
+
+    widget.input_structure = structure_data_object.get_ase()
+    widget.btn_store.click()
+    assert isinstance(widget.structure_node, orm.StructureData)
+
+
+@pytest.mark.parametrize("node_class", ["StructureData", "CifData"])
+def test_structure_manager_widget_honours_explicit_node_class(node_class):
+    """An explicit node_class is reflected in the trait."""
+    widget = awb.StructureManagerWidget(importers=[], node_class=node_class)
+    assert widget.node_class == node_class
+
+
+def test_structure_manager_widget_rejects_unknown_node_class():
+    with pytest.raises(ValueError, match="Unknown data format"):
+        awb.StructureManagerWidget(importers=[], node_class="NotAFormat")
+
+
+@pytest.mark.usefixtures("aiida_profile_clean")
 def test_structure_browser_widget(structure_data_object, monkeypatch):
     """Test the `StructureBrowserWidget`."""
     structure_browser_widget = awb.StructureBrowserWidget()
@@ -193,6 +220,8 @@ def test_structure_browser_widget(structure_data_object, monkeypatch):
 
     # Loading by PK should respect the configured query types.
     int_node = orm.Int(1).store()
+    # `pk` is typed `int | None`; a stored node always has one.
+    assert int_node.pk is not None
     structure_browser_widget.pk_input.value = str(int_node.pk)
     structure_browser_widget._on_load_button_clicked()
 
