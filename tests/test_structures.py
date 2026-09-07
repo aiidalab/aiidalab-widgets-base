@@ -4,10 +4,9 @@ from textwrap import dedent
 import ase
 import numpy as np
 import pytest
-from aiida import common, orm
+from aiida import common, orm, plugins
 
 import aiidalab_widgets_base as awb
-from aiidalab_widgets_base import structures
 
 
 @pytest.fixture
@@ -149,6 +148,187 @@ def test_structure_manager_widget(structure_data_object):
 
 
 @pytest.mark.usefixtures("aiida_profile_clean")
+def test_structure_manager_widget_stores_viewer_representations_in_extras():
+    style_id = awb.viewers.encode_representation_style_id(
+        representation_type="spacefill",
+        size=2,
+        color="red",
+        token="stored",
+    )
+    structure = ase.Atoms(
+        symbols=["C", "H"],
+        positions=[(0.0, 0.0, 0.0), (0.0, 0.0, 1.1)],
+        cell=[5.0, 5.0, 5.0],
+        pbc=True,
+    )
+    structure.set_array(style_id, np.array([1, -1], dtype=int))
+    structure_manager_widget = awb.StructureManagerWidget(
+        importers=[], input_structure=structure
+    )
+
+    # Storing a node mutates it in place, so traitlets sees no change on
+    # `structure_node` and the button must be refreshed explicitly.
+    assert structure_manager_widget.viewer.btn_store_representations.disabled is True
+    structure_manager_widget.btn_store.click()
+    assert structure_manager_widget.viewer.btn_store_representations.disabled is False
+
+    stored = structure_manager_widget.structure_node
+    assert stored is not None
+
+    assert stored.base.extras.get(awb.viewers.VIEWER_REPRESENTATIONS_EXTRA) == {
+        # Applying the default representation turns its unapplied placeholder
+        # array (`[0, 0]`, "included" only via the default's atom_show_threshold=0)
+        # into the canonical "explicitly included" encoding used everywhere else.
+        awb.viewers._DEFAULT_REPRESENTATION_STYLE_ID: [1, 1],
+        style_id: [1, -1],
+    }
+
+    reloaded_widget = awb.StructureManagerWidget(importers=[], input_structure=stored)
+    representation_ids = [
+        rep.style_id for rep in reloaded_widget.viewer._all_representations
+    ]
+    assert style_id in representation_ids
+    representation = reloaded_widget.viewer._all_representations[
+        representation_ids.index(style_id)
+    ]
+    assert representation.selection.value == "1"
+    assert representation.type.value == "spacefill"
+    assert representation.size.value == 2
+    assert representation.color.value == "red"
+
+
+@pytest.mark.usefixtures("aiida_profile_clean")
+def test_structure_manager_widget_store_structure_applies_pending_selection_edit():
+    structure = ase.Atoms(
+        symbols=["C", "H"],
+        positions=[(0.0, 0.0, 0.0), (0.0, 0.0, 1.1)],
+        cell=[5.0, 5.0, 5.0],
+        pbc=True,
+    )
+    structure_manager_widget = awb.StructureManagerWidget(
+        importers=[], input_structure=structure
+    )
+
+    # Edit the selection widget directly, without clicking "Apply representations".
+    structure_manager_widget.viewer._all_representations[0].selection.value = "1"
+    structure_manager_widget.btn_store.click()
+
+    stored = structure_manager_widget.structure_node
+    assert stored is not None
+    assert stored.base.extras.get(awb.viewers.VIEWER_REPRESENTATIONS_EXTRA) == {
+        awb.viewers._DEFAULT_REPRESENTATION_STYLE_ID: [1, -1]
+    }
+
+
+@pytest.mark.usefixtures("aiida_profile_clean")
+def test_structure_manager_widget_stores_representations_via_calcfunction():
+    """Editing a stored input node stores the result through `user_modifications`.
+
+    Representations are written to the extras *before* that calcfunction runs,
+    i.e. while the node is still unstored, so pin that they survive it -- and
+    that the input node is left untouched.
+    """
+    structure = ase.Atoms(
+        symbols=["C", "H"],
+        positions=[(0.0, 0.0, 0.0), (0.0, 0.0, 1.1)],
+        cell=[5.0, 5.0, 5.0],
+        pbc=True,
+    )
+    node = orm.StructureData(ase=structure).store()
+    structure_manager_widget = awb.StructureManagerWidget(
+        importers=[], input_structure=node, node_class="StructureData"
+    )
+
+    assert structure_manager_widget.structure is not None
+    edited = structure_manager_widget.structure.copy()
+    edited.positions[1][2] = 1.3
+    structure_manager_widget.structure = edited
+    structure_manager_widget.viewer._all_representations[0].selection.value = "1"
+    structure_manager_widget.btn_store.click()
+
+    stored = structure_manager_widget.structure_node
+    assert stored is not None
+    # Assert the store actually completed: `ipw.Button.click()` swallows
+    # exceptions, so the extras alone would look right even if it had not.
+    assert stored.is_stored
+    assert stored.creator is not None
+    assert "user_modifications" in stored.creator.process_label
+
+    assert stored.base.extras.get(awb.viewers.VIEWER_REPRESENTATIONS_EXTRA) == {
+        awb.viewers._DEFAULT_REPRESENTATION_STYLE_ID: [1, -1]
+    }
+    assert node.base.extras.get(awb.viewers.VIEWER_REPRESENTATIONS_EXTRA, None) is None
+
+
+@pytest.mark.usefixtures("aiida_profile_clean")
+def test_structure_manager_widget_updates_stored_representations_extra():
+    structure = ase.Atoms(
+        symbols=["C", "H"],
+        positions=[(0.0, 0.0, 0.0), (0.0, 0.0, 1.1)],
+        cell=[5.0, 5.0, 5.0],
+        pbc=True,
+    )
+    node = orm.StructureData(ase=structure).store()
+    # `node_class` is explicit: this test is about representation extras, not
+    # about which data format the widget defaults to. Without it, the widget
+    # would convert `node` into a fresh, unstored node of the default format.
+    structure_manager_widget = awb.StructureManagerWidget(
+        importers=[], input_structure=node, node_class="StructureData"
+    )
+
+    assert structure_manager_widget.btn_store.disabled is True
+    assert structure_manager_widget.viewer.btn_store_representations.disabled is False
+
+    structure_manager_widget.viewer._all_representations[0].selection.value = "1"
+    structure_manager_widget.viewer.btn_store_representations.click()
+
+    assert node.base.extras.get(awb.viewers.VIEWER_REPRESENTATIONS_EXTRA) == {
+        awb.viewers._DEFAULT_REPRESENTATION_STYLE_ID: [1, -1]
+    }
+
+
+@pytest.mark.usefixtures("aiida_profile_clean")
+def test_structure_manager_widget_restores_viewer_representations_from_extras():
+    style_id = awb.viewers.encode_representation_style_id(
+        representation_type="spacefill",
+        size=2,
+        color="red",
+        token="stored",
+    )
+    structure = ase.Atoms(
+        symbols=["C", "H"],
+        positions=[(0.0, 0.0, 0.0), (0.0, 0.0, 1.1)],
+        cell=[5.0, 5.0, 5.0],
+        pbc=True,
+    )
+    node = orm.StructureData(ase=structure).store()
+    node.base.extras.set(awb.viewers.VIEWER_REPRESENTATIONS_EXTRA, {style_id: [1, -1]})
+
+    structure_manager_widget = awb.StructureManagerWidget(
+        importers=[], input_structure=node
+    )
+
+    representation_ids = [
+        rep.style_id for rep in structure_manager_widget.viewer._all_representations
+    ]
+    assert style_id in representation_ids
+
+    # The CifData branch of `_observe_input_structure` restores representations
+    # through a different code path (manual CIF parsing) -- exercise it too.
+    cif_node = plugins.DataFactory("core.cif")(ase=structure).store()
+    cif_node.base.extras.set(
+        awb.viewers.VIEWER_REPRESENTATIONS_EXTRA, {style_id: [1, -1]}
+    )
+    cif_structure_manager_widget = awb.StructureManagerWidget(
+        importers=[], input_structure=cif_node
+    )
+    cif_representation_ids = [
+        rep.style_id for rep in cif_structure_manager_widget.viewer._all_representations
+    ]
+    assert style_id in cif_representation_ids
+
+
+@pytest.mark.usefixtures("aiida_profile_clean")
 def test_structure_browser_widget(structure_data_object, monkeypatch):
     """Test the `StructureBrowserWidget`."""
     structure_browser_widget = awb.StructureBrowserWidget()
@@ -202,7 +382,7 @@ def test_structure_browser_widget(structure_data_object, monkeypatch):
     def raise_not_existent(pk):
         raise common.NotExistent(f"No node with PK={pk}.")
 
-    monkeypatch.setattr(structures.orm, "load_node", raise_not_existent)
+    monkeypatch.setattr(awb.structures.orm, "load_node", raise_not_existent)
     structure_browser_widget.pk_input.value = str(int_node.pk + 1)
     structure_browser_widget._on_load_button_clicked()
 
