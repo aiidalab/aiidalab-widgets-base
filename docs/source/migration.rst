@@ -1,13 +1,18 @@
-*******************************
-Migrating from 2.5.x to 3.0
-*******************************
+*********
+Migration
+*********
 
-Version 3.0 removes a number of legacy widgets and tightens the package's dependency floors.
-This page lists the changes that can break code written against ``aiidalab-widgets-base`` 2.5.x, and what to do about each of them.
+This page lists breaking changes between releases and what to do about them.
 Purely additive changes (new widgets, new parameters) are not listed here — see the `CHANGELOG <https://github.com/aiidalab/aiidalab-widgets-base/blob/master/CHANGELOG.md>`_ for the full list of changes.
 
+2.5.x to 3.0
+============
+
+Version 3.0 removes a number of legacy widgets and tightens the package's dependency floors.
+This section lists the changes that can break code written against ``aiidalab-widgets-base`` 2.5.x, and what to do about each of them.
+
 Dependency floors raised
-=========================
+-------------------------
 
 * **Python**: the minimum supported version is now 3.12 (was 3.9).
   Python 3.9, 3.10 and 3.11 are no longer supported.
@@ -25,7 +30,7 @@ Dependency floors raised
 Update your own package's dependency constraints accordingly before upgrading.
 
 ``ipywidgets`` 8 is now required
-=================================
+----------------------------------
 
 The package now depends on ``ipywidgets~=8.1`` (was ``~=7.7``), and the ``widgetsnbextension`` pin has been dropped.
 (`#725 <https://github.com/aiidalab/aiidalab-widgets-base/pull/725>`__)
@@ -56,10 +61,10 @@ No action is required unless you want the wizard to start fully collapsed, in wh
 (`#792 <https://github.com/aiidalab/aiidalab-widgets-base/pull/792>`__)
 
 Widgets removed
-================
+----------------
 
 ``ElnConfigureWidget``, ``ElnExportWidget``, ``ElnImportWidget``
------------------------------------------------------------------
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 All ELN-related widgets and the ``elns.py`` module have moved to the `aiidalab-eln <https://github.com/aiidalab/aiidalab-eln>`_ package, and the ``eln`` extra (``pip install aiidalab-widgets-base[eln]``) no longer exists.
 (`#774 <https://github.com/aiidalab/aiidalab-widgets-base/pull/774>`__)
@@ -77,13 +82,13 @@ All ELN-related widgets and the ``elns.py`` module have moved to the `aiidalab-e
     from aiidalab_eln import ElnConfigureWidget, ElnExportWidget, ElnImportWidget
 
 ``OpenAiidaNodeInAppWidget``
-------------------------------
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 Removed with no replacement, along with the runtime dependency on the ``aiidalab`` package itself (this package no longer requires ``aiidalab`` to be installed).
 (`#761 <https://github.com/aiidalab/aiidalab-widgets-base/pull/761>`__)
 
 ``BandsDataViewer``
-----------------------
+^^^^^^^^^^^^^^^^^^^^^^
 
 Removed along with the ``bokeh`` dependency.
 ``viewer(node)`` no longer renders an interactive band-structure plot for ``BandsData`` nodes — it now falls back to the generic/no-op behavior for node types without a registered viewer.
@@ -91,14 +96,14 @@ If you need band-structure plotting, use another plotting library directly (e.g.
 (`#734 <https://github.com/aiidalab/aiidalab-widgets-base/pull/734>`__)
 
 ``pandas`` is no longer a dependency
-=======================================
+--------------------------------------
 
 ``DictViewer`` used to build its HTML table via ``pandas``; it now uses a small built-in HTML renderer with equivalent output.
 If your code (or environment pinning) relied on ``aiidalab-widgets-base`` pulling in ``pandas`` transitively, add ``pandas`` to your own dependencies explicitly.
 (`#737 <https://github.com/aiidalab/aiidalab-widgets-base/pull/737>`__)
 
 ``ipw.Output``-based widgets replaced with ``ipw.VBox``/``ipw.HTML``
-========================================================================
+-------------------------------------------------------------------------
 
 ``ipw.Output`` has a history of display bugs in AiiDAlab, so it has been replaced across the codebase.
 Two public APIs are affected:
@@ -123,7 +128,7 @@ Two public APIs are affected:
       output.children = [welcome_message, app_with_work_chain_selector, footer]
 
 Custom exceptions removed
-============================
+---------------------------
 
 The ``aiidalab_widgets_base.utils.exceptions`` module has been removed entirely.
 
