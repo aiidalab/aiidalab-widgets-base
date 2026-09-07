@@ -237,6 +237,7 @@ class StructureManagerWidget(ipw.VBox):
             )
             return
         self.btn_store.disabled = True
+        self.viewer.apply_and_store_representations()
         self.structure_node.label = self.structure_label.value
         self.structure_label.disabled = True
         self.structure_node.description = self.structure_description.value
@@ -255,6 +256,7 @@ class StructureManagerWidget(ipw.VBox):
 
         else:
             structure_node = self.structure_node.store()
+        self.viewer.refresh_store_representations_button()
         self.output.value = f"Stored in AiiDA [{structure_node}]"
 
     def undo(self, _=None):
@@ -317,6 +319,7 @@ class StructureManagerWidget(ipw.VBox):
     def _observe_structure_node(self, change):
         """Modify structure label and description when a new structure is provided."""
         struct = change["new"]
+        self.viewer.structure_node = struct
         if struct is None:
             self.btn_store.disabled = True
             self.structure_label.value = ""
@@ -352,11 +355,14 @@ class StructureManagerWidget(ipw.VBox):
             change["new"], CifData
         ):  # Special treatement of the CifData object
             str_io = io.StringIO(change["new"].get_content())
-            self.structure = ase.io.read(
-                str_io, format="cif", reader="ase", store_tags=True
+            structure = ase.io.read(str_io, format="cif", reader="ase", store_tags=True)
+            self.structure = self.viewer.restore_representations_from_extras(
+                change["new"], structure
             )
         elif isinstance(change["new"], StructureData):
-            self.structure = change["new"].get_ase()
+            self.structure = self.viewer.restore_representations_from_extras(
+                change["new"], change["new"].get_ase()
+            )
 
         else:
             self.structure = None
