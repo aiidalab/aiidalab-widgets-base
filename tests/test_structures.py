@@ -223,8 +223,11 @@ def test_structure_manager_widget_updates_stored_representations_extra():
         pbc=True,
     )
     node = orm.StructureData(ase=structure).store()
+    # `node_class` is explicit: this test is about representation extras, not
+    # about which data format the widget defaults to. Without it, the widget
+    # would convert `node` into a fresh, unstored node of the default format.
     structure_manager_widget = awb.StructureManagerWidget(
-        importers=[], input_structure=node
+        importers=[], input_structure=node, node_class="StructureData"
     )
 
     assert structure_manager_widget.btn_store.disabled is True
