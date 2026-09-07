@@ -889,7 +889,15 @@ class _StructureDataBaseViewer(ipw.VBox):
         for key, values in representations.items():
             if not str(key).startswith(_DEFAULT_REPRESENTATION_PREFIX):
                 continue
-            values = np.asarray(values, dtype=int)
+            try:
+                values = np.asarray(values, dtype=int)
+            except (TypeError, ValueError) as exc:
+                warnings.warn(
+                    f"Ignoring stored viewer representation '{key}' on <{node}>: "
+                    f"expected an array of integers, got {values!r} ({exc}).",
+                    stacklevel=2,
+                )
+                continue
             if len(values) != len(structure):
                 warnings.warn(
                     f"Ignoring stored viewer representation '{key}' on <{node}>: "

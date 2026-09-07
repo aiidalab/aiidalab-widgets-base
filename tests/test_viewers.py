@@ -406,6 +406,25 @@ def test_restore_representations_from_extras_warns_on_non_dict_extra():
 
 
 @pytest.mark.usefixtures("aiida_profile_clean")
+def test_restore_representations_from_extras_warns_on_non_numeric_values():
+    structure = ase.Atoms(
+        symbols=["C", "H"],
+        positions=[(0.0, 0.0, 0.0), (0.0, 0.0, 1.1)],
+    )
+    node = orm.StructureData(ase=structure)
+    node.base.extras.set(
+        viewers.VIEWER_REPRESENTATIONS_EXTRA,
+        {viewers._DEFAULT_REPRESENTATION_STYLE_ID: ["not", "numbers"]},
+    )
+
+    viewer = viewers.StructureDataViewer()
+    with pytest.warns(UserWarning, match="expected an array of integers"):
+        restored = viewer.restore_representations_from_extras(node, structure.copy())
+
+    assert viewers._DEFAULT_REPRESENTATION_STYLE_ID not in restored.arrays
+
+
+@pytest.mark.usefixtures("aiida_profile_clean")
 def test_restore_representations_from_extras_warns_on_length_mismatch():
     structure = ase.Atoms(
         symbols=["C", "H"],
