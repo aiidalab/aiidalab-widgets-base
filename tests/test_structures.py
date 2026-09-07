@@ -172,6 +172,8 @@ def test_structure_manager_widget_honours_explicit_node_class(node_class):
 def test_structure_manager_widget_rejects_unknown_node_class():
     with pytest.raises(ValueError, match="Unknown data format"):
         awb.StructureManagerWidget(importers=[], node_class="NotAFormat")
+
+
 def test_structure_manager_widget_stores_viewer_representations_in_extras():
     style_id = awb.viewers.encode_representation_style_id(
         representation_type="spacefill",
