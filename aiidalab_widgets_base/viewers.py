@@ -200,42 +200,6 @@ def viewer_representation_arrays_to_dict(structure):
     }
 
 
-def store_viewer_representations_in_extras(node, structure):
-    """Store viewer representation masks in mutable AiiDA node extras."""
-    if node is None or structure is None:
-        return
-    representations = viewer_representation_arrays_to_dict(structure)
-    if representations:
-        node.base.extras.set(VIEWER_REPRESENTATIONS_EXTRA, representations)
-
-
-def restore_viewer_representations_from_extras(node, structure):
-    """Restore viewer representation masks from AiiDA node extras into ASE arrays."""
-    if node is None or structure is None:
-        return structure
-    representations = node.base.extras.get(VIEWER_REPRESENTATIONS_EXTRA, {})
-    if not isinstance(representations, dict):
-        warnings.warn(
-            f"Ignoring '{VIEWER_REPRESENTATIONS_EXTRA}' extra on <{node}>: "
-            f"expected a dict, got {type(representations)}.",
-            stacklevel=2,
-        )
-        return structure
-    for key, values in representations.items():
-        if not str(key).startswith(_DEFAULT_REPRESENTATION_PREFIX):
-            continue
-        values = np.asarray(values, dtype=int)
-        if len(values) != len(structure):
-            warnings.warn(
-                f"Ignoring stored viewer representation '{key}' on <{node}>: "
-                f"it has {len(values)} atoms, but the structure has {len(structure)}.",
-                stacklevel=2,
-            )
-            continue
-        structure.set_array(key, values)
-    return structure
-
-
 def encode_representation_style_id(
     prefix: str = _DEFAULT_REPRESENTATION_PREFIX,
     *,
@@ -704,6 +668,12 @@ class _StructureDataBaseViewer(ipw.VBox):
 
         apply_representations = ipw.Button(description="Apply representations")
         apply_representations.on_click(self._apply_representations)
+
+        self.btn_store_representations = ipw.Button(
+            description="Store representations", disabled=True
+        )
+        self.btn_store_representations.on_click(self._on_store_representations_click)
+
         self.representation_output = ipw.VBox()
 
         # The default representation is always present and cannot be deleted.
@@ -723,7 +693,11 @@ class _StructureDataBaseViewer(ipw.VBox):
                         self.representation_output,
                         self.atoms_not_represented,
                         ipw.HBox(
-                            [apply_representations, add_new_representation_button]
+                            [
+                                apply_representations,
+                                add_new_representation_button,
+                                self.btn_store_representations,
+                            ]
                         ),
                     ]
                 )
@@ -885,13 +859,61 @@ class _StructureDataBaseViewer(ipw.VBox):
     def store_representations_in_extras(self):
         """Persist the current viewer representations to `structure_node`'s extras.
 
-        No-op if `structure_node` is unset or not yet stored. Persistence is
-        intentionally not automatic on every representation change, so that a
-        user's saved representation isn't silently overwritten by an
-        experimental one they don't end up keeping.
+        No-op if `structure_node` is unset. Persistence is intentionally not
+        automatic on every representation change (see
+        `_on_store_representations_click`), so a user's saved representation
+        isn't silently overwritten by an experimental one they don't end up
+        keeping.
         """
-        if self.structure_node is not None and self.structure_node.is_stored:
-            store_viewer_representations_in_extras(self.structure_node, self.structure)
+        if self.structure_node is None or self.structure is None:
+            return
+        representations = viewer_representation_arrays_to_dict(self.structure)
+        if representations:
+            self.structure_node.base.extras.set(
+                VIEWER_REPRESENTATIONS_EXTRA, representations
+            )
+
+    def restore_representations_from_extras(self, node, structure):
+        """Bind `structure_node` to `node` and restore its saved representations onto `structure`."""
+        self.structure_node = node
+        if node is None or structure is None:
+            return structure
+        representations = node.base.extras.get(VIEWER_REPRESENTATIONS_EXTRA, {})
+        if not isinstance(representations, dict):
+            warnings.warn(
+                f"Ignoring '{VIEWER_REPRESENTATIONS_EXTRA}' extra on <{node}>: "
+                f"expected a dict, got {type(representations)}.",
+                stacklevel=2,
+            )
+            return structure
+        for key, values in representations.items():
+            if not str(key).startswith(_DEFAULT_REPRESENTATION_PREFIX):
+                continue
+            values = np.asarray(values, dtype=int)
+            if len(values) != len(structure):
+                warnings.warn(
+                    f"Ignoring stored viewer representation '{key}' on <{node}>: "
+                    f"it has {len(values)} atoms, but the structure has {len(structure)}.",
+                    stacklevel=2,
+                )
+                continue
+            structure.set_array(key, values)
+        return structure
+
+    def _on_store_representations_click(self, _=None):
+        self._apply_representations()
+        self.store_representations_in_extras()
+
+    def refresh_store_representations_button(self):
+        """Enable "Store representations" only once `structure_node` is stored."""
+        node = self.structure_node
+        self.btn_store_representations.disabled = not (
+            node is not None and node.is_stored
+        )
+
+    @tl.observe("structure_node")
+    def _observe_structure_node_for_store_button(self, change):
+        self.refresh_store_representations_button()
 
     def _check_missing_atoms_in_representations(self):
         missing_atoms = np.zeros(self.natoms)
@@ -1508,8 +1530,7 @@ class StructureDataViewer(_StructureDataBaseViewer):
             self.pk = None
         elif isinstance(structure, (orm.StructureData, orm.CifData)):
             self.pk = structure.pk
-            self.structure_node = structure
-            structure = restore_viewer_representations_from_extras(
+            structure = self.restore_representations_from_extras(
                 structure, structure.get_ase()
             )
 

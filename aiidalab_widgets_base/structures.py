@@ -25,11 +25,7 @@ from .utils import (
     get_ase_from_file,
     get_formula,
 )
-from .viewers import (
-    StructureDataViewer,
-    restore_viewer_representations_from_extras,
-    store_viewer_representations_in_extras,
-)
+from .viewers import StructureDataViewer
 
 CifData = plugins.DataFactory("core.cif")
 StructureData = plugins.DataFactory("core.structure")
@@ -98,13 +94,9 @@ class StructureManagerWidget(ipw.VBox):
             self.viewer = StructureDataViewer()
         tl.dlink((self, "structure"), (self.viewer, "structure"))
 
-        # Store buttons.
+        # Store button.
         self.btn_store = ipw.Button(description="Store in AiiDA", disabled=True)
         self.btn_store.on_click(self.store_structure)
-        self.btn_store_representations = ipw.Button(
-            description="Store representations", disabled=True
-        )
-        self.btn_store_representations.on_click(self.store_representations)
 
         # Label and description that are stored along with the new structure.
         self.structure_label = ipw.Text(description="Label")
@@ -123,10 +115,8 @@ class StructureManagerWidget(ipw.VBox):
         )
         tl.link((data_format, "label"), (self, "node_class"))
 
-        # Store buttons, store class selector, description.
-        store_and_description = (
-            [self.btn_store, self.btn_store_representations] if storable else []
-        )
+        # Store button, store class selector, description.
+        store_and_description = [self.btn_store] if storable else []
 
         if node_class is None:
             store_and_description.append(data_format)
@@ -235,16 +225,6 @@ class StructureManagerWidget(ipw.VBox):
 
         return [editors_tab]
 
-    def store_representations(self, _=None):
-        """Store only viewer representations in AiiDA node extras."""
-        if self.structure_node is None or not self.structure_node.is_stored:
-            return
-        self.viewer._apply_representations()
-        self.viewer.store_representations_in_extras()
-        self.output.value = (
-            f"Viewer representations updated in AiiDA [{self.structure_node}]."
-        )
-
     def store_structure(self, _=None):
         """Stores the structure in AiiDA database."""
 
@@ -256,8 +236,7 @@ class StructureManagerWidget(ipw.VBox):
             )
             return
         self.btn_store.disabled = True
-        self.btn_store_representations.disabled = False
-        store_viewer_representations_in_extras(self.structure_node, self.structure)
+        self.viewer.store_representations_in_extras()
         self.structure_node.label = self.structure_label.value
         self.structure_label.disabled = True
         self.structure_node.description = self.structure_description.value
@@ -276,6 +255,7 @@ class StructureManagerWidget(ipw.VBox):
 
         else:
             structure_node = self.structure_node.store()
+        self.viewer.refresh_store_representations_button()
         self.output.value = f"Stored in AiiDA [{structure_node}]"
 
     def undo(self, _=None):
@@ -323,7 +303,6 @@ class StructureManagerWidget(ipw.VBox):
             structure_node = structure_node_type(ase=structure)
             if "smiles" in structure.info:
                 structure_node.base.extras.set("smiles", structure.info["smiles"])
-            store_viewer_representations_in_extras(structure_node, structure)
             return structure_node
 
         # If the input_structure trait is set to AiiDA node, check what type
@@ -333,19 +312,15 @@ class StructureManagerWidget(ipw.VBox):
                 return structure
 
         # Using self.structure, as it was already converted to the ASE Atoms object.
-        structure_node = structure_node_type(ase=self.structure)
-        store_viewer_representations_in_extras(structure_node, self.structure)
-        return structure_node
+        return structure_node_type(ase=self.structure)
 
     @tl.observe("structure_node")
     def _observe_structure_node(self, change):
         """Modify structure label and description when a new structure is provided."""
         struct = change["new"]
-        if hasattr(self.viewer, "structure_node"):
-            self.viewer.structure_node = struct
+        self.viewer.structure_node = struct
         if struct is None:
             self.btn_store.disabled = True
-            self.btn_store_representations.disabled = True
             self.structure_label.value = ""
             self.structure_label.disabled = True
             self.structure_description.value = ""
@@ -353,14 +328,12 @@ class StructureManagerWidget(ipw.VBox):
             return
         if struct.is_stored:
             self.btn_store.disabled = True
-            self.btn_store_representations.disabled = False
             self.structure_label.value = struct.label
             self.structure_label.disabled = True
             self.structure_description.value = struct.description
             self.structure_description.disabled = True
         else:
             self.btn_store.disabled = False
-            self.btn_store_representations.disabled = True
             self.structure_label.value = self.structure.get_chemical_formula()
             self.structure_label.disabled = False
             self.structure_description.value = ""
@@ -382,11 +355,11 @@ class StructureManagerWidget(ipw.VBox):
         ):  # Special treatement of the CifData object
             str_io = io.StringIO(change["new"].get_content())
             structure = ase.io.read(str_io, format="cif", reader="ase", store_tags=True)
-            self.structure = restore_viewer_representations_from_extras(
+            self.structure = self.viewer.restore_representations_from_extras(
                 change["new"], structure
             )
         elif isinstance(change["new"], StructureData):
-            self.structure = restore_viewer_representations_from_extras(
+            self.structure = self.viewer.restore_representations_from_extras(
                 change["new"], change["new"].get_ase()
             )
 

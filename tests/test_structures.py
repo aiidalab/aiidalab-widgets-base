@@ -202,10 +202,10 @@ def test_structure_manager_widget_updates_stored_representations_extra():
     )
 
     assert structure_manager_widget.btn_store.disabled is True
-    assert structure_manager_widget.btn_store_representations.disabled is False
+    assert structure_manager_widget.viewer.btn_store_representations.disabled is False
 
     structure_manager_widget.viewer._all_representations[0].selection.value = "1"
-    structure_manager_widget.btn_store_representations.click()
+    structure_manager_widget.viewer.btn_store_representations.click()
 
     assert node.base.extras.get(awb.viewers.VIEWER_REPRESENTATIONS_EXTRA) == {
         awb.viewers._DEFAULT_REPRESENTATION_STYLE_ID: [1, -1]
