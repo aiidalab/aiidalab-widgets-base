@@ -166,7 +166,12 @@ def test_structure_manager_widget_stores_viewer_representations_in_extras():
         importers=[], input_structure=structure
     )
 
+    # Storing a node mutates it in place, so traitlets sees no change on
+    # `structure_node` and the button must be refreshed explicitly.
+    assert structure_manager_widget.viewer.btn_store_representations.disabled is True
     structure_manager_widget.btn_store.click()
+    assert structure_manager_widget.viewer.btn_store_representations.disabled is False
+
     stored = structure_manager_widget.structure_node
     assert stored is not None
 
@@ -213,6 +218,45 @@ def test_structure_manager_widget_store_structure_applies_pending_selection_edit
     assert stored.base.extras.get(awb.viewers.VIEWER_REPRESENTATIONS_EXTRA) == {
         awb.viewers._DEFAULT_REPRESENTATION_STYLE_ID: [1, -1]
     }
+
+
+@pytest.mark.usefixtures("aiida_profile_clean")
+def test_structure_manager_widget_stores_representations_via_calcfunction():
+    """Editing a stored input node stores the result through `user_modifications`.
+
+    Representations are written to the extras *before* that calcfunction runs,
+    i.e. while the node is still unstored, so pin that they survive it -- and
+    that the input node is left untouched.
+    """
+    structure = ase.Atoms(
+        symbols=["C", "H"],
+        positions=[(0.0, 0.0, 0.0), (0.0, 0.0, 1.1)],
+        cell=[5.0, 5.0, 5.0],
+        pbc=True,
+    )
+    node = orm.StructureData(ase=structure).store()
+    structure_manager_widget = awb.StructureManagerWidget(
+        importers=[], input_structure=node, node_class="StructureData"
+    )
+
+    edited = structure_manager_widget.structure.copy()
+    edited.positions[1][2] = 1.3
+    structure_manager_widget.structure = edited
+    structure_manager_widget.viewer._all_representations[0].selection.value = "1"
+    structure_manager_widget.btn_store.click()
+
+    stored = structure_manager_widget.structure_node
+    assert stored is not None
+    # Assert the store actually completed: `ipw.Button.click()` swallows
+    # exceptions, so the extras alone would look right even if it had not.
+    assert stored.is_stored
+    assert stored.creator is not None
+    assert "user_modifications" in stored.creator.process_label
+
+    assert stored.base.extras.get(awb.viewers.VIEWER_REPRESENTATIONS_EXTRA) == {
+        awb.viewers._DEFAULT_REPRESENTATION_STYLE_ID: [1, -1]
+    }
+    assert node.base.extras.get(awb.viewers.VIEWER_REPRESENTATIONS_EXTRA, None) is None
 
 
 @pytest.mark.usefixtures("aiida_profile_clean")
