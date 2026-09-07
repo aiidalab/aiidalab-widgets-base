@@ -1,15 +1,22 @@
 import base64
 import re
-import sys
-from io import StringIO
 from pathlib import Path
 
 import ase
+import numpy as np
 import pytest
 import traitlets as tl
 from aiida import orm
 
 from aiidalab_widgets_base import viewers
+
+
+@pytest.fixture
+def ch_structure():
+    return ase.Atoms(
+        symbols=["C", "H"],
+        positions=[(0.0, 0.0, 0.0), (0.0, 0.0, 1.1)],
+    )
 
 
 @pytest.mark.usefixtures("aiida_profile_clean")
@@ -346,7 +353,6 @@ def test_structure_data_viewer_restores_representation_arrays_from_extras():
     assert representation.size.value == 2
     assert representation.color.value == "red"
 
-
 def test_structure_data_viewer_drops_stale_representations_on_structure_change():
     structure = ase.Atoms(
         symbols=["C", "H"],
@@ -373,6 +379,111 @@ def test_structure_data_viewer_drops_stale_representations_on_structure_change()
         viewers.DEFAULT_REPRESENTATION
     ]
     assert viewer._all_representations[0].selection.value == "1..3"
+
+
+def test_structure_data_viewer_imports_unknown_representation_array(ch_structure):
+    style_id = viewers.encode_representation_style_id(
+        viewers.StructureDataViewer.REPRESENTATION_PREFIX,
+        representation_type="spacefill",
+        size=4,
+        color="red",
+        token="custom",
+    )
+    ch_structure.set_array(style_id, np.array([1, -1], dtype=int))
+
+    viewer = viewers.StructureDataViewer()
+    viewer.structure = ch_structure
+
+    representation_ids = [rep.style_id for rep in viewer._all_representations]
+    assert style_id in representation_ids
+    representation = viewer._all_representations[representation_ids.index(style_id)]
+    assert representation.selection.value == "1"
+    assert representation.type.value == "spacefill"
+    assert representation.size.value == 4
+    assert representation.color.value == "red"
+
+
+def test_structure_data_viewer_apply_representations_removes_stale_arrays(
+    ch_structure,
+):
+    viewer = viewers.StructureDataViewer()
+    viewer.structure = ch_structure
+
+    prefix = viewers.StructureDataViewer.REPRESENTATION_PREFIX
+    # Two arrays not backed by any current representation widget.
+    viewer.structure.set_array(f"{prefix}stale_a", np.array([1, 0], dtype=int))
+    viewer.structure.set_array(f"{prefix}stale_b", np.array([0, 1], dtype=int))
+
+    viewer._apply_representations()  # should not raise RuntimeError
+
+    remaining = [a for a in viewer.structure.arrays if a.startswith(prefix)]
+    assert f"{prefix}stale_a" not in remaining
+    assert f"{prefix}stale_b" not in remaining
+
+
+def test_structure_data_viewer_imports_multiple_encoded_representation_arrays():
+    structure = ase.Atoms(
+        symbols=["C", "H", "H"],
+        positions=[(0.0, 0.0, 0.0), (0.0, 0.0, 1.1), (0.0, 1.0, 0.0)],
+    )
+    style_id_1 = viewers.encode_representation_style_id(
+        viewers.StructureDataViewer.REPRESENTATION_PREFIX,
+        representation_type="spacefill",
+        size=2,
+        color="element",
+        token="surface",
+    )
+    style_id_2 = viewers.encode_representation_style_id(
+        viewers.StructureDataViewer.REPRESENTATION_PREFIX,
+        representation_type="ball+stick",
+        size=4,
+        color="red",
+        token="molecule",
+    )
+    structure.set_array(style_id_1, np.array([1, -1, -1], dtype=int))
+    structure.set_array(style_id_2, np.array([-1, 1, 1], dtype=int))
+
+    viewer = viewers.StructureDataViewer()
+    viewer.structure = structure
+
+    representation_ids = [rep.style_id for rep in viewer._all_representations]
+    assert style_id_1 in representation_ids
+    assert style_id_2 in representation_ids
+    representation_1 = viewer._all_representations[representation_ids.index(style_id_1)]
+    representation_2 = viewer._all_representations[representation_ids.index(style_id_2)]
+    assert representation_1.selection.value == "1"
+    assert representation_1.type.value == "spacefill"
+    assert representation_1.size.value == 2
+    assert representation_2.selection.value == "2..3"
+    assert representation_2.type.value == "ball+stick"
+    assert representation_2.size.value == 4
+    assert representation_2.color.value == "red"
+
+
+def test_structure_data_viewer_updates_encoded_representation_array_name():
+    structure = ase.Atoms(
+        symbols=["C", "H"],
+        positions=[(0.0, 0.0, 0.0), (0.0, 0.0, 1.1)],
+    )
+    viewer = viewers.StructureDataViewer()
+    viewer.structure = structure
+
+    viewer._add_representation()
+    representation = viewer._all_representations[-1]
+    old_style_id = representation.style_id
+    representation.selection.value = "2"
+    representation.type.value = "spacefill"
+    representation.size.value = 4
+    representation.color.value = "red"
+
+    viewer._apply_representations()
+
+    assert old_style_id not in viewer.structure.arrays
+    assert representation.style_id in viewer.structure.arrays
+    assert representation.style_id.startswith(
+        f"{viewer.REPRESENTATION_PREFIX}spacefill_r4_red_"
+    )
+    assert viewer.structure.arrays[representation.style_id].tolist() == [-1, 1]
 
 
 def test_structure_data_viewer_clears_bond_shape_components():
@@ -412,6 +523,136 @@ def test_compute_bonds_in_structure_data_viewer():
     assert len(bonds) == 4
 
 
+def test_structure_data_viewer_default_view_button():
+    viewer = viewers.StructureDataViewer()
+    viewer.structure = ase.Atoms("H", positions=[(0.0, 0.0, 0.0)])
+    viewer._viewer._camera_orientation = [
+        0.0,
+        12.0,
+        0.0,
+        0.0,
+        -12.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        12.0,
+        0.0,
+        1.0,
+        2.0,
+        3.0,
+        1.0,
+    ]
+
+    before = len(viewer._viewer._ngl_msg_archive)
+    viewer.set_default_view()
+    messages = viewer._viewer._ngl_msg_archive[before:]
+
+    expected_orientation = [
+        -12.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        12.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        -12.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0,
+    ]
+    assert any(
+        message.get("methodName") == "orient"
+        and message.get("args") == (expected_orientation,)
+        for message in messages
+    )
+
+    appearance_tab = viewer.configuration_box.children[1]
+    assert any(
+        getattr(child, "description", None) == "Default view"
+        for child in appearance_tab.children
+    )
+
+
+def test_default_view_without_camera_orientation():
+    """With no valid 16-element camera matrix, set_default_view must not emit `orient`."""
+    viewer = viewers.StructureDataViewer()
+    viewer.structure = ase.Atoms("H", positions=[(0.0, 0.0, 0.0)])
+    viewer._viewer._camera_orientation = []  # malformed / unset
+
+    before = len(viewer._viewer._ngl_msg_archive)
+    viewer.set_default_view()
+    messages = viewer._viewer._ngl_msg_archive[before:]
+
+    # With no valid camera matrix, the viewer should not be reoriented at all.
+    assert not any(message.get("methodName") == "orient" for message in messages)
+
+
+def test_show_axes_via_constructor_kwarg():
+    """Axes can be enabled at construction time via the show_axes kwarg."""
+    viewer = viewers.StructureDataViewer(show_axes=True)
+    assert viewer.show_axes is True
+    viewer.structure = ase.Atoms(
+        symbols="H2", positions=[(0.0, 0.0, 0.0), (0.0, 0.0, 0.7)]
+    )
+    assert any(
+        message.get("methodName") == "addShape"
+        and message.get("args", [None])[0] == "axes"
+        for message in viewer._viewer._ngl_msg_archive
+    )
+
+
+def test_structure_data_viewer_axes_are_optional():
+    viewer = viewers.StructureDataViewer()
+    viewer.structure = ase.Atoms(
+        symbols="H2",
+        positions=[(0.0, 0.0, 0.0), (0.0, 0.0, 0.7)],
+        cell=[3.0, 3.0, 3.0],
+        pbc=True,
+    )
+
+    assert viewer.show_axes is False
+    assert not any(
+        message.get("methodName") == "addShape"
+        and message.get("args", [None])[0] == "axes"
+        for message in viewer._viewer._ngl_msg_archive
+    )
+
+    viewer.show_axes = True
+    axes_messages = [
+        message
+        for message in viewer._viewer._ngl_msg_archive
+        if message.get("methodName") == "addShape"
+        and message.get("args", [None])[0] == "axes"
+    ]
+    assert axes_messages
+    axes_shapes = axes_messages[-1]["args"][1]
+    assert [shape[-1] for shape in axes_shapes if shape[0] == "text"] == [
+        "x",
+        "y",
+        "z",
+    ]
+
+    viewer.show_axes = False
+    assert viewer._axes_component is None
+    assert "axes" not in viewer._viewer._ngl_component_names
+
+    appearance_tab = viewer.configuration_box.children[1]
+    axes_controls = [
+        child
+        for child in appearance_tab.children
+        if getattr(child, "description", None) == "Show axes"
+    ]
+    assert len(axes_controls) == 1
+    assert axes_controls[0].value is False
+
+
 @pytest.mark.usefixtures("aiida_profile_clean")
 def test_loading_viewer_using_process_type(generate_calc_job_node):
     """Test loading a viewer widget based on the process type of the process node."""
@@ -435,18 +676,12 @@ def test_loading_viewer_using_process_type(generate_calc_job_node):
 
 
 def test_node_view_for_non_widget_viewer():
-    """Test that a node with no registered viewer is displayed in an output widget"""
-
-    # Intercepting stdout because `ipw.Output` does not
-    # store outputs in non-interactive environments.
-    captured = StringIO()
-    sys.stdout = captured
-
+    """Test that a node with no registered viewer is rendered as text."""
     node_view = viewers.AiidaNodeViewWidget()
     node = orm.Int(1)
     node_view.node = node
     assert node_view.children[0] is node_view._output
-    assert str(node) in sys.stdout.getvalue()
+    assert str(node) in node_view._output.value
 
 
 def test_node_view_caching():
@@ -459,12 +694,7 @@ def test_node_view_caching():
 
     # orm.Int doesn't have a dedicated viewer
     # so it will not be cached.
-    stdout = sys.stdout
-    with StringIO() as captured:
-        sys.stdout = captured
-        node_view.node = orm.Int(2)
-    sys.stdout = stdout
-
+    node_view.node = orm.Int(2)
     assert len(node_view.node_views) == 1
 
     node_view.node = None

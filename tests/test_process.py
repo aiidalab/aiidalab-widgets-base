@@ -1,3 +1,4 @@
+import ipywidgets as ipw
 import pytest
 from aiida import engine, orm
 from aiida.workflows.arithmetic.multiply_add import MultiplyAddWorkChain
@@ -76,3 +77,27 @@ def test_process_monitor(
 def test_process_nodes_tree_widget(multiply_add_completed_workchain):
     """Test ProcessNodesTreeWidget with a simple `WorkChainNode`."""
     awb.ProcessNodesTreeWidget(value=multiply_add_completed_workchain.uuid)
+
+
+@pytest.mark.usefixtures("aiida_profile_clean")
+def test_process_monitor_log_widget(multiply_add_completed_workchain):
+    """Test that a failing callback's traceback is written to `log_widget`."""
+
+    def failing_callback():
+        raise RuntimeError("callback exploded")
+
+    def run_and_join():
+        widget = awb.ProcessMonitor(
+            value=multiply_add_completed_workchain.uuid,
+            callbacks=[failing_callback],
+            log_widget=log_widget,
+        )
+        widget.join()
+
+    log_widget = ipw.VBox()
+    with pytest.warns(UserWarning, match="failing_callback"):
+        run_and_join()
+
+    assert len(log_widget.children) == 1
+    assert isinstance(log_widget.children[0], ipw.HTML)
+    assert "callback exploded" in log_widget.children[0].value

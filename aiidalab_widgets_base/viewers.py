@@ -13,24 +13,30 @@ import warnings
 from html import escape
 
 import ase
+import ase.cell
 import ipywidgets as ipw
 import nglview
 import numpy as np
 import shortuuid
-import spglib
 import traitlets as tl
 import vapory
 from aiida import cmdline, orm
 from aiida.orm.nodes.data.structure import _get_dimensionality
 from aiida.tools.query.formatting import format_process_state, format_relative_time
 from ase.data import colors
-from IPython.display import clear_output, display
+from IPython.display import display
 from matplotlib.colors import to_rgb
 
 from .dicts import RGB_COLORS, Colors, Radius
 from .loaders import LoadingWidget
 from .misc import CopyToClipboardButton, ReversePolishNotation
-from .utils import ase2spglib, list_to_string_range, string_range_to_list
+from .utils import (
+    _restore_spglib_old_error_handling,
+    _set_spglib_old_error_handling,
+    ase2spglib,
+    list_to_string_range,
+    string_range_to_list,
+)
 
 AIIDA_VIEWER_MAPPING = {}
 DICT_VIEWER_HEADERS = ("Key", "Value")
@@ -110,7 +116,7 @@ class AiidaNodeViewWidget(ipw.VBox):
     node = tl.Instance(orm.Node, allow_none=True)
 
     def __init__(self, **kwargs):
-        self._output = ipw.Output()
+        self._output = ipw.HTML()
         self.node_views = {}
         self.node_view_loading_message = LoadingWidget("Loading node view")
         super().__init__(**kwargs)
@@ -122,8 +128,7 @@ class AiidaNodeViewWidget(ipw.VBox):
         if node == change["old"]:
             return
         if not node:
-            with self._output:
-                clear_output()
+            self._output.value = ""
             self.children = []
             return
 
@@ -136,10 +141,7 @@ class AiidaNodeViewWidget(ipw.VBox):
             self.node_views[node.uuid] = node_view
             self.children = [node_view]
         else:
-            with self._output:
-                clear_output()
-                if change["new"]:
-                    display(node_view)
+            self._output.value = f"<pre>{escape(str(node_view))}</pre>"
             self.children = [self._output]
 
 
@@ -166,6 +168,24 @@ class DictViewer(ipw.VBox):
 
         super().__init__([self.widget], **kwargs)
 
+_DEFAULT_REPRESENTATION_PREFIX = "_aiidalab_viewer_representation_"
+_DEFAULT_REPRESENTATION_STYLE_ID = f"{_DEFAULT_REPRESENTATION_PREFIX}default"
+_REPRESENTATION_TYPE_TO_TOKEN = {
+    "ball+stick": "ballstick",
+    "spacefill": "spacefill",
+}
+_REPRESENTATION_TOKEN_TO_TYPE = {
+    token: representation_type
+    for representation_type, token in _REPRESENTATION_TYPE_TO_TOKEN.items()
+}
+_REPRESENTATION_STYLE_PATTERN = re.compile(
+    rf"^{_DEFAULT_REPRESENTATION_PREFIX}"
+    r"(?P<representation_type>ballstick|spacefill)_"
+    r"r(?P<size>\d+(?:\.\d+)?(?:e[+-]?\d+)?)_"
+    r"(?P<color>[A-Za-z0-9]+)_"
+    r"(?P<token>[A-Za-z0-9]+)$"
+)
+
 
 def restore_viewer_representations_from_extras(node, structure):
     """Restore viewer representation masks from AiiDA node extras into ASE arrays."""
@@ -182,6 +202,40 @@ def restore_viewer_representations_from_extras(node, structure):
             continue
         structure.set_array(key, values)
     return structure
+
+def encode_representation_style_id(
+    prefix: str = _DEFAULT_REPRESENTATION_PREFIX,
+    *,
+    representation_type: str = "ball+stick",
+    size: float = 3,
+    color: str = "element",
+    token: str | None = None,
+) -> str:
+    """Build an extxyz-safe representation array name with style metadata."""
+    representation_token = _REPRESENTATION_TYPE_TO_TOKEN[representation_type]
+    size_token = f"{float(size):g}"
+    unique_token = token if token is not None else shortuuid.uuid()
+    return f"{prefix}{representation_token}_r{size_token}_{color}_{unique_token}"
+
+
+def parse_representation_style_id(style_id: str) -> dict | None:
+    """Parse style metadata encoded in a representation array name.
+
+    Old opaque representation ids intentionally return ``None`` so they keep the
+    historical default display settings.
+    """
+    match = _REPRESENTATION_STYLE_PATTERN.match(style_id)
+    if match is None:
+        return None
+    representation_type = _REPRESENTATION_TOKEN_TO_TYPE[
+        match.group("representation_type")
+    ]
+    return {
+        "representation_type": representation_type,
+        "size": float(match.group("size")),
+        "color": match.group("color"),
+        "token": match.group("token"),
+    }
 
 
 class NglViewerRepresentation(ipw.HBox):
@@ -208,6 +262,13 @@ class NglViewerRepresentation(ipw.HBox):
 
         self.atom_show_threshold = atom_show_threshold
         self.style_id = style_id
+        style_metadata = parse_representation_style_id(style_id)
+        self._style_token = (
+            style_metadata["token"] if style_metadata is not None else shortuuid.uuid()
+        )
+        self._sync_style_id_with_settings = (
+            style_id != _DEFAULT_REPRESENTATION_STYLE_ID and style_metadata is not None
+        )
 
         self.show = ipw.Checkbox(
             value=True,
@@ -228,8 +289,9 @@ class NglViewerRepresentation(ipw.HBox):
             layout={"width": "100px"},
             style={"description_width": "0px"},
         )
-        self.size = ipw.FloatText(
+        self.size = ipw.BoundedFloatText(
             value=3,
+            min=0,
             layout={"width": "40px"},
             style={"description_width": "0px"},
         )
@@ -240,6 +302,11 @@ class NglViewerRepresentation(ipw.HBox):
             layout={"width": "80px"},
             style={"description_width": "initial"},
         )
+        if style_metadata is not None:
+            self.type.value = style_metadata["representation_type"]
+            self.size.value = style_metadata["size"]
+            if style_metadata["color"] in self.color.options:
+                self.color.value = style_metadata["color"]
 
         # Delete button.
         self.delete_button = ipw.Button(
@@ -269,15 +336,33 @@ class NglViewerRepresentation(ipw.HBox):
 
     def sync_myself_to_array_from_atoms_object(self, structure: ase.Atoms | None):
         """Update representation from the structure object."""
-        if structure:
-            if self.style_id in structure.arrays:
-                self.selection.value = list_to_string_range(
-                    np.where(self.atoms_in_representation(structure))[0], shift=1
-                )
+        if structure and self.style_id in structure.arrays:
+            self.selection.value = list_to_string_range(
+                np.where(self.atoms_in_representation(structure))[0], shift=1
+            )
+
+    def _refresh_style_id_from_widget_values(self, structure: ase.Atoms | None):
+        """Keep encoded style ids aligned with the current representation widgets."""
+        if not self._sync_style_id_with_settings or self.viewer_class is None:
+            return
+        new_style_id = encode_representation_style_id(
+            self.viewer_class.REPRESENTATION_PREFIX,
+            representation_type=self.type.value,
+            size=self.size.value,
+            color=self.color.value,
+            token=self._style_token,
+        )
+        if new_style_id == self.style_id:
+            return
+        old_style_id = self.style_id
+        self.style_id = new_style_id
+        if structure and old_style_id in structure.arrays:
+            del structure.arrays[old_style_id]
 
     def add_myself_to_atoms_object(self, structure: ase.Atoms | None):
         """Add representation array to the structure object. If the array already exists, update it."""
         if structure:
+            self._refresh_style_id_from_widget_values(structure)
             array_representation = np.full(len(structure), -1, dtype=int)
             selection = np.array(
                 string_range_to_list(self.selection.value, shift=-1)[0], dtype=int
@@ -334,13 +419,33 @@ class _StructureDataBaseViewer(ipw.VBox):
     DEFAULT_SELECTION_OPACITY = 0.2
     DEFAULT_SELECTION_RADIUS = 6
     DEFAULT_SELECTION_COLOR = "green"
-    REPRESENTATION_PREFIX = "_aiidalab_viewer_representation_"
-    DEFAULT_REPRESENTATION = "_aiidalab_viewer_representation_default"
+    REPRESENTATION_PREFIX = _DEFAULT_REPRESENTATION_PREFIX
+    DEFAULT_REPRESENTATION = _DEFAULT_REPRESENTATION_STYLE_ID
+    DEFAULT_VIEW_ORIENTATION = [
+        -1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        -1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0,
+    ]
     _CELL_LABELS = {
         1: ["length", "Å"],
         2: ["area", "Å²"],
         3: ["volume", "Å³"],
     }
+
+    show_axes = tl.Bool(False)
 
     def __init__(
         self,
@@ -356,6 +461,8 @@ class _StructureDataBaseViewer(ipw.VBox):
         :param default_camera: default camera (orthographic|perspective), can be changed in the Appearance tab.
         """
         # Defining viewer box.
+        self.show_axes = kwargs.pop("show_axes", self.show_axes)
+        self._axes_component = None
 
         # Nglviwer
         self._viewer = nglview.NGLWidget()
@@ -510,7 +617,20 @@ class _StructureDataBaseViewer(ipw.VBox):
         center_button = ipw.Button(description="Center molecule")
         center_button.on_click(lambda _: self._viewer.center())
 
-        # 5. representations buttons
+        # 5. Default orientation button.
+        default_view_button = ipw.Button(description="Default view", icon="refresh")
+        default_view_button.on_click(self.set_default_view)
+
+        # 6. Axes control.
+        show_axes = ipw.Checkbox(
+            description="Show axes",
+            value=self.show_axes,
+            indent=False,
+            style={"description_width": "initial"},
+        )
+        tl.link((show_axes, "value"), (self, "show_axes"))
+
+        # 7. representations buttons
         self.representations_header = ipw.HBox(
             [
                 ipw.HTML(
@@ -591,20 +711,26 @@ class _StructureDataBaseViewer(ipw.VBox):
                 background_color,
                 camera_type,
                 center_button,
+                default_view_button,
+                show_axes,
                 representation_accordion,
             ]
         )
 
-    def _add_representation(self, _=None, style_id=None, indices=None):
+    def _add_representation(
+        self, _=None, style_id=None, indices=None, apply: bool = True
+    ):
         """Add a representation to the list of representations."""
         self._all_representations = [
             *self._all_representations,
             NglViewerRepresentation(
-                style_id=style_id or f"{self.REPRESENTATION_PREFIX}{shortuuid.uuid()}",
+                style_id=style_id
+                or encode_representation_style_id(self.REPRESENTATION_PREFIX),
                 indices=indices,
             ),
         ]
-        self._apply_representations()
+        if apply:
+            self._apply_representations()
 
     def delete_representation(self, representation: NglViewerRepresentation):
         try:
@@ -710,7 +836,7 @@ class _StructureDataBaseViewer(ipw.VBox):
             representation_ids.append(representation.style_id)
 
         # Remove missing representations from the structure.
-        for array in self.structure.arrays:
+        for array in list(self.structure.arrays):
             if (
                 array.startswith(self.REPRESENTATION_PREFIX)
                 and array not in representation_ids
@@ -734,6 +860,8 @@ class _StructureDataBaseViewer(ipw.VBox):
 
     @tl.observe("cell")
     def _observe_cell(self, _=None):
+        import spglib
+
         # Updtate the Cell and Periodicity.
         if self.cell:
             self.cell_a.value = "<i><b>a</b></i>: {:.4f} {:.4f} {:.4f}".format(
@@ -761,9 +889,12 @@ class _StructureDataBaseViewer(ipw.VBox):
             self.cell_gamma.value = f"&gamma;: {self.cell.angles()[2]:.4f}"
 
             spglib_structure = ase2spglib(self.structure)
+
+            old_error_handling = _set_spglib_old_error_handling()
             symmetry_dataset = spglib.get_symmetry_dataset(
                 spglib_structure, symprec=1e-5, angle_tolerance=1.0
             )
+            _restore_spglib_old_error_handling(old_error_handling)
 
             periodicity_map = {
                 (True, True, True): "xyz",
@@ -776,8 +907,10 @@ class _StructureDataBaseViewer(ipw.VBox):
                 (False, False, False): "-",
             }
             if symmetry_dataset is not None:
-                self.cell_spacegroup.value = f"Spacegroup: {symmetry_dataset['international']} (No.{symmetry_dataset['number']})"
-                self.cell_hall.value = f"Hall: {symmetry_dataset['hall']} (No.{symmetry_dataset['hall_number']})"
+                self.cell_spacegroup.value = f"Spacegroup: {symmetry_dataset.international} (No.{symmetry_dataset.number})"
+                self.cell_hall.value = (
+                    f"Hall: {symmetry_dataset.hall} (No.{symmetry_dataset.hall_number})"
+                )
             else:
                 self.cell_spacegroup.value = "Spacegroup: -"
                 self.cell_hall.value = "Hall: -"
@@ -1040,7 +1173,7 @@ class _StructureDataBaseViewer(ipw.VBox):
         """Update selection when clicked on atom."""
         if hasattr(self._viewer, "component_0"):
             # Did not click on atom:
-            if "atom1" not in self._viewer.picked.keys():
+            if "atom1" not in self._viewer.picked:
                 return
 
             index = self._viewer.picked["atom1"]["index"]
@@ -1096,6 +1229,78 @@ class _StructureDataBaseViewer(ipw.VBox):
         """Remove all components from the viewer."""
         for cid in list(self._viewer._ngl_component_ids):
             self._viewer.remove_component(cid)
+        self._axes_component = None
+
+    def _default_view_orientation(self):
+        """Return a default rotation while preserving the current camera scale."""
+        if len(self._viewer._camera_orientation) != 16:
+            return None
+
+        orientation = np.array(self._viewer._camera_orientation).reshape(4, 4)
+        scale = np.linalg.norm(orientation[0, :3])
+        if scale == 0:
+            return None
+
+        default_orientation = np.array(self.DEFAULT_VIEW_ORIENTATION).reshape(4, 4)
+        default_orientation[:3, :3] *= scale
+        return default_orientation.ravel().tolist()
+
+    def set_default_view(self, _=None):
+        """Orient the viewer with x horizontal, y vertical, and z out of screen.
+
+        If the live camera matrix is not yet available (e.g. nothing rendered),
+        ``_default_view_orientation`` returns None; we then only re-center.
+        """
+        orientation = self._default_view_orientation()
+        if orientation is not None:
+            self._viewer.control.orient(orientation)
+        self._viewer.center()
+
+    @tl.observe("show_axes")
+    def _observe_show_axes(self, _=None):
+        if isinstance(self.displayed_structure, ase.Atoms):
+            self._update_axes()
+
+    def _remove_axes(self):
+        if getattr(self._axes_component, "id", None) in self._viewer._ngl_component_ids:
+            self._viewer.remove_component(self._axes_component)
+        self._axes_component = None
+
+    def _update_axes(self):
+        self._remove_axes()
+        if not self.show_axes or not isinstance(self.displayed_structure, ase.Atoms):
+            return
+
+        positions = self.displayed_structure.get_positions()
+        cell_lengths = self.displayed_structure.cell.lengths()
+        structure_extent = np.ptp(positions, axis=0) if len(positions) else [0, 0, 0]
+        # Axis arrows are sized relative to the structure/cell, with a floor
+        # so axes stay visible for very small molecules.
+        min_extent = 5.0  # Å
+        extent = max(np.max(cell_lengths), np.max(structure_extent), min_extent)
+        length = 0.2 * extent  # arrow length as a fraction of the extent
+        radius = 0.06 * length  # arrow shaft radius
+        label_size = 0.35 * length  # axis-label text height
+        label_offset = 0.12 * length  # gap between arrow tip and its label
+        origin = np.zeros(3)
+
+        # RGB ~ XYZ convention; green/blue darkened for contrast on a light background.
+        axes = [
+            ("x", np.array([length, 0.0, 0.0]), [1.0, 0.0, 0.0]),  # red (R, G, B)
+            (
+                "y",
+                np.array([0.0, length, 0.0]),
+                [0.0, 0.6, 0.0],
+            ),  # dark green (R, G, B)
+            ("z", np.array([0.0, 0.0, length]), [0.0, 0.2, 1.0]),  # blue-cyan (R, G, B)
+        ]
+        shapes = []
+        for label, vector, color in axes:
+            end = origin + vector
+            label_position = end + label_offset * vector / np.linalg.norm(vector)
+            shapes.append(("arrow", origin.tolist(), end.tolist(), color, radius))
+            shapes.append(("text", label_position.tolist(), color, label_size, label))
+        self._axes_component = self._viewer._add_shape(shapes, name="axes")
 
     @tl.default("supercell")
     def _default_supercell(self):
@@ -1182,10 +1387,10 @@ class _StructureDataBaseViewer(ipw.VBox):
             return None
 
         file_format = file_format if file_format else self.file_format.value["format"]
-        tmp = NamedTemporaryFile()
-        self.structure.write(tmp.name, format=file_format)
-        with open(tmp.name, "rb") as raw:
-            return base64.b64encode(raw.read()).decode()
+        with NamedTemporaryFile() as tmp:
+            self.structure.write(tmp.name, format=file_format)
+            with open(tmp.name, "rb") as raw:
+                return base64.b64encode(raw.read()).decode()
 
     @property
     def thumbnail(self):
@@ -1269,7 +1474,7 @@ class StructureDataViewer(_StructureDataBaseViewer):
         return structure  # This also includes the case when the structure is None.
 
     @tl.observe("structure")
-    def _observe_structure(self, change=None):
+    def _observe_structure(self, change):
         """Update displayed_structure trait after the structure trait has been modified."""
         structure = change["new"]
 
@@ -1297,7 +1502,8 @@ class StructureDataViewer(_StructureDataBaseViewer):
             except ValueError:
                 self._add_representation(
                     style_id=style_id,
-                    indices=np.where(structure.arrays[self.style_id] >= 1)[0],
+                    indices=np.where(structure.arrays[style_id] >= 1)[0],
+                    apply=False,
                 )
         # Drop representations that are not present in the new structure.
         # Typically this happens when a different structure is imported/selected.
@@ -1316,6 +1522,8 @@ class StructureDataViewer(_StructureDataBaseViewer):
         with self.hold_trait_notifications():
             self.remove_viewer_components()
             if change["new"]:
+                assert self.displayed_structure
+
                 self._viewer.add_component(
                     nglview.ASEStructure(self.displayed_structure),
                     default_representation=False,
@@ -1344,6 +1552,7 @@ class StructureDataViewer(_StructureDataBaseViewer):
                 self._viewer.set_representations(nglview_params, component=0)
                 self._viewer.add_unitcell()
                 self._viewer._add_shape(set(bonds), name="bonds")
+                self._update_axes()
                 self._viewer.center()
                 # In case of a structure with only one atom, the `center()` method will show a black sphere.
                 if len(self.displayed_structure) == 1:
@@ -1429,6 +1638,8 @@ class StructureDataViewer(_StructureDataBaseViewer):
 
         def union(opa, opb):
             return np.union1d(opa, opb)
+
+        assert self.displayed_structure is not None
 
         operandsdict = {
             "x": self.displayed_structure.positions[:, 0],
@@ -1525,8 +1736,11 @@ class StructureDataViewer(_StructureDataBaseViewer):
         )
         return list(rpn.execute(expression=condition))
 
-    def create_selection_info(self):
+    def create_selection_info(self) -> str:
         """Create information to be displayed with selected atoms"""
+
+        if not self.displayed_structure:
+            return ""
 
         if not self.displayed_selection:
             return ""

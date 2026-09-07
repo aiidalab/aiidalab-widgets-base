@@ -20,6 +20,26 @@ concurrency:
 
 jobs:
 
+    pre-commit:
+
+        runs-on: ubuntu-latest
+        timeout-minutes: 30
+
+        steps:
+
+            - uses: actions/checkout@v7
+
+            - name: Set up uv
+              uses: astral-sh/setup-uv@v10.0.1
+              with:
+                  python-version: '3.12'
+                  activate-environment: true
+
+            - name: Install dependencies
+              run: uv pip install -e .[dev,optimade,smiles,docs]
+
+            - uses: j178/prek-action@v3.0.0
+
     test-notebooks:
 
         strategy:
@@ -35,16 +55,12 @@ jobs:
         steps:
 
             - name: Check out app
-              uses: actions/checkout@v6
-
-            - name: Set up Python
-              uses: actions/setup-python@v6
-              with:
-                  python-version: '3.12'
+              uses: actions/checkout@v7
 
             - name: Setup uv
-              uses: astral-sh/setup-uv@v7
+              uses: astral-sh/setup-uv@v10.0.1
               with:
+                  python-version: '3.12'
                   activate-environment: true
 
             - name: Install package test dependencies
@@ -86,11 +102,15 @@ jobs:
     test-package:
 
         strategy:
-            matrix:
-                python-version: ['3.9', '3.12']
-                # Test latest and oldest supported package versions
-                uv-resolution: ['lowest-direct', 'highest']
             fail-fast: false
+            matrix:
+                python-version: ['3.12']
+                uv-resolution: ['highest']
+                include:
+                  # Make sure lowest-support package versions work
+                  # https://docs.astral.sh/uv/concepts/resolution/#resolution-strategy
+                    - python-version: '3.12'
+                      uv-resolution: 'lowest-direct'
 
         runs-on: ubuntu-24.04
         timeout-minutes: 30
@@ -102,16 +122,12 @@ jobs:
         steps:
 
             - name: Check out app
-              uses: actions/checkout@v6
-
-            - name: Set up Python
-              uses: actions/setup-python@v6
-              with:
-                  python-version: ${{ matrix.python-version }}
+              uses: actions/checkout@v7
 
             - name: Setup uv
-              uses: astral-sh/setup-uv@v7
+              uses: astral-sh/setup-uv@v10.0.1
               with:
+                  python-version: ${{ matrix.python-version }}
                   activate-environment: true
 
             - name: Install package
@@ -121,7 +137,7 @@ jobs:
             # Ideally, these would be fixed, but vapory is largely unmaintained,
             # so here we simply keep the pip behaviour with the --compile flag.
             # See https://github.com/astral-sh/uv/issues/1928#issuecomment-1968857514
-              run: uv pip install --compile --resolution ${{ matrix.uv-resolution }} -e .[dev,smiles,optimade,eln]
+              run: uv pip install --compile --resolution ${{ matrix.uv-resolution }} -e .[dev,smiles,optimade]
 
             - name: Install povray
               run: sudo apt-get update && sudo apt-get install povray
@@ -130,7 +146,7 @@ jobs:
               run: pytest -v --tb=short tests/ --cov=aiidalab_widgets_base
 
             - name: Upload coverage reports to Codecov
-              uses: codecov/codecov-action@v6
+              uses: codecov/codecov-action@v7
               with:
                   flags: python-${{ matrix.python-version }}
                   token: ${{ secrets.CODECOV_TOKEN }}

@@ -5,17 +5,26 @@ import functools
 import io
 import pathlib
 import tempfile
+from collections.abc import Sequence
 
 import ase
+import ase.cell
+import ase.data
+import ase.io
 import ipywidgets as ipw
 import numpy as np
-import spglib
 import traitlets as tl
 from aiida import common, engine, orm, plugins
 
 # Local imports
 from .data import FunctionalGroupSelectorWidget
-from .utils import StatusHTML, exceptions, get_ase_from_file, get_formula
+from .utils import (
+    StatusHTML,
+    _restore_spglib_old_error_handling,
+    _set_spglib_old_error_handling,
+    get_ase_from_file,
+    get_formula,
+)
 from .viewers import (
     StructureDataViewer,
     restore_viewer_representations_from_extras,
@@ -175,11 +184,13 @@ class StructureManagerWidget(ipw.VBox):
 
     def _structure_importers(self, importers):
         """Preparing structure importers."""
-        if not isinstance(importers, (list, tuple)):
-            raise exceptions.ListOrTuppleError(importers)
-
         if not importers:
             return []
+
+        if not isinstance(importers, Sequence):
+            raise TypeError(
+                f"`importers` argument should be a Sequence, got {type(importers)}."
+            )
 
         # Otherwise making one tab per importer.
         importers_tab = ipw.Tab()
@@ -235,7 +246,7 @@ class StructureManagerWidget(ipw.VBox):
         ):
             # Make a link between self.input_structure and self.structure_node
             @engine.calcfunction
-            def user_modifications(source_structure):  # noqa F841
+            def user_modifications(source_structure):
                 return self.structure_node
 
             structure_node = user_modifications(self.input_structure)
@@ -292,7 +303,7 @@ class StructureManagerWidget(ipw.VBox):
             return structure_node
 
         # If the input_structure trait is set to AiiDA node, check what type
-        if isinstance(structure, orm.Data):
+        if isinstance(structure, orm.Data):  # noqa: SIM102
             # Transform the structure to the structure_node_type if needed.
             if isinstance(structure, structure_node_type):
                 return structure
@@ -352,7 +363,7 @@ class StructureManagerWidget(ipw.VBox):
             self.structure = None
 
     @tl.observe("structure")
-    def _structure_changed(self, change=None):
+    def _structure_changed(self, change):
         """Perform some operations that depend on the value of `structure` trait.
 
         This function enables/disables `btn_store` widget if structure is provided/set to None.
@@ -432,7 +443,7 @@ class StructureUploadWidget(ipw.VBox):
             return new_structure
         return ase_structure
 
-    def _on_file_upload(self, change=None):
+    def _on_file_upload(self, change):
         """When file upload button is pressed."""
         assert len(change["new"]) == 1, "Only single file upload is supported."
         file = change["new"][0]
@@ -443,7 +454,7 @@ class StructureUploadWidget(ipw.VBox):
         if suffix == ".cif":
             try:
                 return CifData(file=io.BytesIO(content))
-            except Exception as e:
+            except Exception as e:  # noqa: BLE001
                 self._status_message.message = f"""
                     <div class="alert alert-warning">Could not parse CIF file {fname}: {e}
                     Trying ASE reader...</div>
@@ -454,7 +465,7 @@ class StructureUploadWidget(ipw.VBox):
             temp_file.flush()
             try:
                 if suffix == ".cif":
-                    structures = get_ase_from_file(temp_file.name, format="cif")
+                    structures = get_ase_from_file(temp_file.name, file_format="cif")
                 else:
                     structures = get_ase_from_file(temp_file.name)
             except ValueError as e:
@@ -557,7 +568,7 @@ class StructureBrowserWidget(ipw.VBox):
 
         # Disable process labels selection if we are not looking for the calculated structures.
         def disable_drop_label(change):
-            self.drop_label.disabled = not change["new"] == "calculated"
+            self.drop_label.disabled = change["new"] != "calculated"
 
         # Select structures kind.
         self.mode = ipw.RadioButtons(
@@ -639,17 +650,17 @@ class StructureBrowserWidget(ipw.VBox):
 
         # If the date range is valid, use it for the search
         try:
-            start_date = datetime.datetime.strptime(
+            start_date = datetime.datetime.strptime(  # noqa: DTZ007
                 self.start_date_widget.value, "%Y-%m-%d"
             )
-            end_date = datetime.datetime.strptime(
+            end_date = datetime.datetime.strptime(  # noqa: DTZ007
                 self.end_date_widget.value, "%Y-%m-%d"
             ) + datetime.timedelta(hours=24)
 
         # Otherwise revert to the standard (i.e. last 7 days)
         except ValueError:
-            start_date = datetime.datetime.now() - datetime.timedelta(days=7)
-            end_date = datetime.datetime.now() + datetime.timedelta(hours=24)
+            start_date = datetime.datetime.now() - datetime.timedelta(days=7)  # noqa: DTZ005
+            end_date = datetime.datetime.now() + datetime.timedelta(hours=24)  # noqa: DTZ005
 
             self.start_date_widget.value = start_date.strftime("%Y-%m-%d")
             self.end_date_widget.value = end_date.strftime("%Y-%m-%d")
@@ -802,7 +813,6 @@ class SmilesWidget(ipw.VBox):
     def _make_ase(self, species, positions, smiles):
         """Create ase Atoms object."""
         atoms = ase.Atoms(species, positions=positions, pbc=False)
-        atoms.center()
         # We're attaching this info so that it
         # can be later stored as an extra on AiiDA Structure node.
         atoms.info["smiles"] = smiles
@@ -817,8 +827,8 @@ class SmilesWidget(ipw.VBox):
         if mol is None:
             # Something is seriously wrong with the SMILES code,
             # just return None and don't attempt anything else.
-            self.output.value = "RDKit ERROR: Invalid SMILES string"
-            return None
+            msg = "Invalid SMILES"
+            raise ValueError(msg)
         mol = Chem.AddHs(mol)
 
         conf_id = AllChem.EmbedMolecule(mol, maxAttempts=20, randomSeed=42)
@@ -831,12 +841,36 @@ class SmilesWidget(ipw.VBox):
                 mol, maxAttempts=20, useRandomCoords=True, randomSeed=422
             )
         if conf_id < 0:
-            self.output.value = "RDKit ERROR: Could not generate conformer"
-            return None
-        if AllChem.UFFHasAllMoleculeParams(mol):
-            AllChem.UFFOptimizeMolecule(mol, maxIters=steps)
-        else:
-            self.output.value = "RDKit WARNING: Missing UFF parameters"
+            msg = "RDKit could not generate conformer"
+            raise ValueError(msg)
+
+        def _check_optimization_status(status: int, ff: str) -> None:
+            if status == 0:
+                return
+            elif status == 1:
+                self.output.value = (
+                    f"RDKit WARNING: {ff} optimization did not converge "
+                    f"after {steps} iterations"
+                )
+            elif status == -1:
+                self.output.value = (
+                    f"RDKit WARNING: {ff} force field could not be set up"
+                )
+            else:
+                msg = f"RDKit {ff} optimizer returned unexpected status {status}"
+                raise ValueError(msg)
+
+        mmff_status = None
+        if AllChem.MMFFHasAllMoleculeParams(mol):
+            mmff_status = AllChem.MMFFOptimizeMolecule(mol, maxIters=steps)
+            _check_optimization_status(mmff_status, "MMFF94")
+
+        if mmff_status == -1 or mmff_status is None:
+            if AllChem.UFFHasAllMoleculeParams(mol):
+                uff_status = AllChem.UFFOptimizeMolecule(mol, maxIters=steps)
+                _check_optimization_status(uff_status, "UFF")
+            else:
+                self.output.value = "RDKit WARNING: Missing MMFF94/UFF parameters"
 
         positions = mol.GetConformer().GetPositions()
         natoms = mol.GetNumAtoms()
@@ -844,6 +878,7 @@ class SmilesWidget(ipw.VBox):
         ase_mol = self._make_ase(species, positions, smiles)
         if self.add_auxiliary_cell:
             ase_mol.cell = np.ptp(ase_mol.positions, axis=0) + 10
+            ase_mol.center()
         return ase_mol
 
     def _mol_from_smiles(self, smiles, steps=1000):
@@ -856,7 +891,10 @@ class SmilesWidget(ipw.VBox):
             return None
         else:
             if canonical_smiles != smiles:
-                self.output.value = f"Canonical SMILES: {canonical_smiles}"
+                message = f"Canonical SMILES: {canonical_smiles}"
+                if self.output.value.startswith("RDKit WARNING"):
+                    message += f"<br>{self.output.value}"
+                self.output.value = message
             return ase
 
     def _on_button_pressed(self, change=None):
@@ -1068,12 +1106,14 @@ class BasicCellEditor(ipw.VBox):
 
     @_register_structure
     def _to_primitive_cell(self, _=None, atoms=None):
+        assert atoms
         atoms = self._to_standard_cell(atoms, to_primitive=True)
 
         self.structure = atoms
 
     @_register_structure
     def _to_conventional_cell(self, _=None, atoms=None):
+        assert atoms
         atoms = self._to_standard_cell(atoms, to_primitive=False)
 
         self.structure = atoms
@@ -1083,16 +1123,21 @@ class BasicCellEditor(ipw.VBox):
         structure: ase.Atoms, to_primitive=False, no_idealize=False, symprec=1e-5
     ):
         """The `standardize_cell` method from spglib and apply to ase.Atoms"""
+        import spglib
+
         lattice = structure.get_cell()
         positions = structure.get_scaled_positions()
         numbers = structure.get_atomic_numbers()
 
         cell = (lattice, positions, numbers)
 
-        # operation
-        lattice, positions, numbers = spglib.standardize_cell(
+        old_error_handling = _set_spglib_old_error_handling()
+        standard_cell = spglib.standardize_cell(
             cell, to_primitive=to_primitive, no_idealize=no_idealize, symprec=symprec
         )
+        _restore_spglib_old_error_handling(old_error_handling)
+        if standard_cell is not None:
+            lattice, positions, numbers = standard_cell
 
         return ase.Atoms(
             cell=lattice,
@@ -1145,7 +1190,7 @@ class BasicCellEditor(ipw.VBox):
             # the number of generated atoms is not correct
             try:
                 atoms = make_supercell(atoms, mat)
-            except Exception as e:
+            except Exception as e:  # noqa: BLE001
                 self._status_message.message = f"""
             <div class="alert alert-info">
             <strong>The transformation matrix is wrong! {e}</strong>
@@ -1419,6 +1464,7 @@ class BasicStructureEditor(ipw.VBox):
     def sel2com(self):
         """Get center of mass of the selection."""
         if self.selection:
+            assert self.structure
             com = np.average(self.structure[self.selection].get_positions(), axis=0)
         else:
             com = [0, 0, 0]
@@ -1454,6 +1500,7 @@ class BasicStructureEditor(ipw.VBox):
             </div>
             """
         else:
+            assert self.structure
             com = (
                 np.average(self.structure[self.selection].get_positions(), axis=0)
                 if self.selection
@@ -1585,6 +1632,7 @@ class BasicStructureEditor(ipw.VBox):
     @_register_selection
     def mod_element(self, _=None, atoms=None, selection=None):
         """Modify selected atoms into the given element."""
+        assert selection
         last_atom = atoms.get_global_number_of_atoms()
 
         if self.ligand.value == 0:
@@ -1618,6 +1666,8 @@ class BasicStructureEditor(ipw.VBox):
     def copy_sel(self, _=None, atoms=None, selection=None):
         """Copy selected atoms and shift by 1.0 A along X-axis."""
 
+        assert selection
+
         last_atom = atoms.get_global_number_of_atoms()
 
         # The action
@@ -1634,6 +1684,7 @@ class BasicStructureEditor(ipw.VBox):
     @_register_selection
     def add(self, _=None, atoms=None, selection=None):
         """Add atoms."""
+        assert selection
         last_atom = atoms.get_global_number_of_atoms()
         if self.ligand.value == 0:
             initial_ligand = ase.Atoms([ase.Atom(self.element.value, [0, 0, 0])])
