@@ -3,7 +3,7 @@ Migration
 *********
 
 This page lists breaking changes between releases and what to do about them.
-Purely additive changes (new widgets, new parameters) are not listed here — see the `CHANGELOG <https://github.com/aiidalab/aiidalab-widgets-base/blob/master/CHANGELOG.md>`_ for the full list of changes.
+Purely additive changes (new widgets, new parameters) are not listed here -- see the `CHANGELOG <https://github.com/aiidalab/aiidalab-widgets-base/blob/master/CHANGELOG.md>`_ for the full list of changes.
 
 2.5.x to 3.0
 ============
@@ -91,7 +91,7 @@ Removed with no replacement, along with the runtime dependency on the ``aiidalab
 ^^^^^^^^^^^^^^^^^^^^^^
 
 Removed along with the ``bokeh`` dependency.
-``viewer(node)`` no longer renders an interactive band-structure plot for ``BandsData`` nodes — it now falls back to the generic/no-op behavior for node types without a registered viewer.
+``viewer(node)`` no longer renders an interactive band-structure plot for ``BandsData`` nodes -- it now falls back to the generic/no-op behavior for node types without a registered viewer.
 If you need band-structure plotting, use another plotting library directly (e.g. matplotlib) or a downstream app's own viewer
 (`#734 <https://github.com/aiidalab/aiidalab-widgets-base/pull/734>`__).
 
