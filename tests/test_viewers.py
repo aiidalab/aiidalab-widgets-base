@@ -377,7 +377,7 @@ def test_structure_data_viewer_drops_stale_representations_on_structure_change()
     )
 
     assert [rep.style_id for rep in viewer._all_representations] == [
-        viewers.DEFAULT_REPRESENTATION
+        viewers.StructureDataViewer.DEFAULT_REPRESENTATION
     ]
     assert viewer._all_representations[0].selection.value == "1..3"
 

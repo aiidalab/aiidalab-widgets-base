@@ -170,6 +170,7 @@ class DictViewer(ipw.VBox):
 
 
 _DEFAULT_REPRESENTATION_PREFIX = "_aiidalab_viewer_representation_"
+VIEWER_REPRESENTATIONS_EXTRA = "aiidalab_viewer_representations"
 _DEFAULT_REPRESENTATION_STYLE_ID = f"{_DEFAULT_REPRESENTATION_PREFIX}default"
 _REPRESENTATION_TYPE_TO_TOKEN = {
     "ball+stick": "ballstick",
@@ -196,7 +197,7 @@ def restore_viewer_representations_from_extras(node, structure):
     if not isinstance(representations, dict):
         return structure
     for key, values in representations.items():
-        if not str(key).startswith(REPRESENTATION_PREFIX):
+        if not str(key).startswith(_DEFAULT_REPRESENTATION_PREFIX):
             continue
         values = np.asarray(values, dtype=int)
         if len(values) != len(structure):

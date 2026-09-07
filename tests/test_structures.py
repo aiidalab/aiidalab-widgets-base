@@ -149,8 +149,7 @@ def test_structure_manager_widget(structure_data_object):
 
 @pytest.mark.usefixtures("aiida_profile_clean")
 def test_structure_manager_widget_restores_viewer_representations_from_extras():
-    style_id = viewers.encode_representation_style_id(
-        viewers.REPRESENTATION_PREFIX,
+    style_id = awb.viewers.encode_representation_style_id(
         representation_type="spacefill",
         size=2,
         color="red",
@@ -163,7 +162,7 @@ def test_structure_manager_widget_restores_viewer_representations_from_extras():
         pbc=True,
     )
     node = orm.StructureData(ase=structure).store()
-    node.base.extras.set(viewers.VIEWER_REPRESENTATIONS_EXTRA, {style_id: [1, -1]})
+    node.base.extras.set(awb.viewers.VIEWER_REPRESENTATIONS_EXTRA, {style_id: [1, -1]})
 
     structure_manager_widget = awb.StructureManagerWidget(
         importers=[], input_structure=node
@@ -220,6 +219,7 @@ def test_structure_browser_widget(structure_data_object, monkeypatch):
 
     # Loading by PK should respect the configured query types.
     int_node = orm.Int(1).store()
+    assert int_node.pk is not None
     structure_browser_widget.pk_input.value = str(int_node.pk)
     structure_browser_widget._on_load_button_clicked()
 
@@ -229,7 +229,7 @@ def test_structure_browser_widget(structure_data_object, monkeypatch):
     def raise_not_existent(pk):
         raise common.NotExistent(f"No node with PK={pk}.")
 
-    monkeypatch.setattr(structures.orm, "load_node", raise_not_existent)
+    monkeypatch.setattr(awb.structures.orm, "load_node", raise_not_existent)
     structure_browser_widget.pk_input.value = str(int_node.pk + 1)
     structure_browser_widget._on_load_button_clicked()
 
