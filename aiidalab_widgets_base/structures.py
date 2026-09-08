@@ -102,11 +102,19 @@ class StructureManagerWidget(ipw.VBox):
         self.structure_label = ipw.Text(description="Label")
         self.structure_description = ipw.Text(description="Description")
 
+        # Validate node_class before it's used to pick the format selector's default.
+        if node_class is not None and node_class not in self.SUPPORTED_DATA_FORMATS:
+            raise ValueError(
+                f"Unknown data format '{node_class}'. Options: {list(self.SUPPORTED_DATA_FORMATS.keys())}"
+            )
+
         # Store format selector.
+        default_node_class = node_class or "StructureData"
         data_format = ipw.RadioButtons(
             options=tuple(
                 (key, value) for key, value in self.SUPPORTED_DATA_FORMATS.items()
             ),
+            value=self.SUPPORTED_DATA_FORMATS[default_node_class],
             description="Data type:",
         )
         tl.link((data_format, "label"), (self, "node_class"))
@@ -114,14 +122,11 @@ class StructureManagerWidget(ipw.VBox):
         # Store button, store class selector, description.
         store_and_description = [self.btn_store] if storable else []
 
+        # `node_class` is already set by the link above, from the selector's
+        # initial value. The selector itself is only shown when the caller left
+        # the choice open.
         if node_class is None:
             store_and_description.append(data_format)
-        elif node_class in self.SUPPORTED_DATA_FORMATS:
-            self.node_class = node_class
-        else:
-            raise ValueError(
-                f"Unknown data format '{node_class}'. Options: {list(self.SUPPORTED_DATA_FORMATS.keys())}"
-            )
 
         select_panel = ipw.Accordion(
             children=self._structure_importers(importers),
