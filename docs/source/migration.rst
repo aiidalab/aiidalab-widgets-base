@@ -93,12 +93,6 @@ Removed along with the ``bokeh`` dependency.
 If you need band-structure plotting, use another plotting library directly (e.g. matplotlib) or a downstream app's own viewer
 (`#734 <https://github.com/aiidalab/aiidalab-widgets-base/pull/734>`__).
 
-``pandas`` is no longer a dependency
---------------------------------------
-
-``DictViewer`` used to build its HTML table via ``pandas``; it now uses a small built-in HTML renderer with equivalent output.
-If your code (or environment pinning) relied on ``aiidalab-widgets-base`` pulling in ``pandas`` transitively, add ``pandas`` to your own dependencies explicitly
-(`#737 <https://github.com/aiidalab/aiidalab-widgets-base/pull/737>`__).
 
 ``ipw.Output``-based widgets replaced with ``ipw.VBox``/``ipw.HTML``
 -------------------------------------------------------------------------
