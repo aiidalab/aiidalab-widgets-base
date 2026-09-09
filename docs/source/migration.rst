@@ -106,9 +106,6 @@ If your code (or environment pinning) relied on ``aiidalab-widgets-base`` pullin
 ``ipw.Output`` has a history of display bugs in AiiDAlab, so it has been replaced across the codebase.
 Two public APIs are affected:
 
-* **``NodesTreeWidget``** is now a subclass of ``ipw.VBox`` instead of ``ipw.Output``.
-  Code that used it as an output context manager (e.g. ``with tree_widget: display(...)``) or otherwise relied on ``Output`` behavior needs to be updated to work with ``VBox``/``.children`` instead
-  (`#797 <https://github.com/aiidalab/aiidalab-widgets-base/pull/797>`__).
 * **``install_create_github_issue_exception_handler(output, ...)``** now expects ``output`` to be a widget with a ``.children`` attribute (e.g. ``ipw.VBox``), not an ``ipw.Output``
   (`#798 <https://github.com/aiidalab/aiidalab-widgets-base/pull/798>`__):
 
