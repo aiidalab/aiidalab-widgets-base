@@ -102,11 +102,19 @@ class StructureManagerWidget(ipw.VBox):
         self.structure_label = ipw.Text(description="Label")
         self.structure_description = ipw.Text(description="Description")
 
+        # Validate node_class before it's used to pick the format selector's default.
+        if node_class is not None and node_class not in self.SUPPORTED_DATA_FORMATS:
+            raise ValueError(
+                f"Unknown data format '{node_class}'. Options: {list(self.SUPPORTED_DATA_FORMATS.keys())}"
+            )
+
         # Store format selector.
+        default_node_class = node_class or "StructureData"
         data_format = ipw.RadioButtons(
             options=tuple(
                 (key, value) for key, value in self.SUPPORTED_DATA_FORMATS.items()
             ),
+            value=self.SUPPORTED_DATA_FORMATS[default_node_class],
             description="Data type:",
         )
         tl.link((data_format, "label"), (self, "node_class"))
@@ -114,14 +122,11 @@ class StructureManagerWidget(ipw.VBox):
         # Store button, store class selector, description.
         store_and_description = [self.btn_store] if storable else []
 
+        # `node_class` is already set by the link above, from the selector's
+        # initial value. The selector itself is only shown when the caller left
+        # the choice open.
         if node_class is None:
             store_and_description.append(data_format)
-        elif node_class in self.SUPPORTED_DATA_FORMATS:
-            self.node_class = node_class
-        else:
-            raise ValueError(
-                f"Unknown data format '{node_class}'. Options: {list(self.SUPPORTED_DATA_FORMATS.keys())}"
-            )
 
         select_panel = ipw.Accordion(
             children=self._structure_importers(importers),
@@ -232,6 +237,7 @@ class StructureManagerWidget(ipw.VBox):
             )
             return
         self.btn_store.disabled = True
+        self.viewer.apply_and_store_representations()
         self.structure_node.label = self.structure_label.value
         self.structure_label.disabled = True
         self.structure_node.description = self.structure_description.value
@@ -250,6 +256,7 @@ class StructureManagerWidget(ipw.VBox):
 
         else:
             structure_node = self.structure_node.store()
+        self.viewer.refresh_store_representations_button()
         self.output.value = f"Stored in AiiDA [{structure_node}]"
 
     def undo(self, _=None):
@@ -312,6 +319,7 @@ class StructureManagerWidget(ipw.VBox):
     def _observe_structure_node(self, change):
         """Modify structure label and description when a new structure is provided."""
         struct = change["new"]
+        self.viewer.structure_node = struct
         if struct is None:
             self.btn_store.disabled = True
             self.structure_label.value = ""
@@ -347,11 +355,14 @@ class StructureManagerWidget(ipw.VBox):
             change["new"], CifData
         ):  # Special treatement of the CifData object
             str_io = io.StringIO(change["new"].get_content())
-            self.structure = ase.io.read(
-                str_io, format="cif", reader="ase", store_tags=True
+            structure = ase.io.read(str_io, format="cif", reader="ase", store_tags=True)
+            self.structure = self.viewer.restore_representations_from_extras(
+                change["new"], structure
             )
         elif isinstance(change["new"], StructureData):
-            self.structure = change["new"].get_ase()
+            self.structure = self.viewer.restore_representations_from_extras(
+                change["new"], change["new"].get_ase()
+            )
 
         else:
             self.structure = None

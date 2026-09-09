@@ -5,6 +5,7 @@ from __future__ import annotations
 import base64
 import copy
 import csv
+import enum
 import io
 import os
 import pathlib
@@ -170,15 +171,16 @@ class DictViewer(ipw.VBox):
 
 
 _DEFAULT_REPRESENTATION_PREFIX = "_aiidalab_viewer_representation_"
+VIEWER_REPRESENTATIONS_EXTRA = "aiidalab_viewer_representations"
 _DEFAULT_REPRESENTATION_STYLE_ID = f"{_DEFAULT_REPRESENTATION_PREFIX}default"
-_REPRESENTATION_TYPE_TO_TOKEN = {
-    "ball+stick": "ballstick",
-    "spacefill": "spacefill",
-}
-_REPRESENTATION_TOKEN_TO_TYPE = {
-    token: representation_type
-    for representation_type, token in _REPRESENTATION_TYPE_TO_TOKEN.items()
-}
+
+
+class _AtomMarker(enum.IntEnum):
+    IN = 1  # Atom is included in the representation.
+    OUT = -1  # Atom is excluded from the representation.
+    UNASSIGNED = 0  # Atom is unassigned to any representation. Temporary state.
+
+
 _REPRESENTATION_STYLE_PATTERN = re.compile(
     rf"^{_DEFAULT_REPRESENTATION_PREFIX}"
     r"(?P<representation_type>ballstick|spacefill)_"
@@ -191,32 +193,29 @@ _REPRESENTATION_STYLE_PATTERN = re.compile(
 def encode_representation_style_id(
     prefix: str = _DEFAULT_REPRESENTATION_PREFIX,
     *,
-    representation_type: str = "ball+stick",
+    representation_type: str = "ballstick",
     size: float = 3,
     color: str = "element",
     token: str | None = None,
 ) -> str:
     """Build an extxyz-safe representation array name with style metadata."""
-    representation_token = _REPRESENTATION_TYPE_TO_TOKEN[representation_type]
     size_token = f"{float(size):g}"
     unique_token = token if token is not None else shortuuid.uuid()
-    return f"{prefix}{representation_token}_r{size_token}_{color}_{unique_token}"
+    return f"{prefix}{representation_type}_r{size_token}_{color}_{unique_token}"
 
 
 def parse_representation_style_id(style_id: str) -> dict | None:
     """Parse style metadata encoded in a representation array name.
 
-    Old opaque representation ids intentionally return ``None`` so they keep the
-    historical default display settings.
+    A name that carries no style metadata returns ``None``: the representation is
+    then displayed with the default settings, and its array is renamed into the
+    encoded form the next time the representation is applied.
     """
     match = _REPRESENTATION_STYLE_PATTERN.match(style_id)
     if match is None:
         return None
-    representation_type = _REPRESENTATION_TOKEN_TO_TYPE[
-        match.group("representation_type")
-    ]
     return {
-        "representation_type": representation_type,
+        "representation_type": match.group("representation_type"),
         "size": float(match.group("size")),
         "color": match.group("color"),
         "token": match.group("token"),
@@ -232,27 +231,19 @@ class NglViewerRepresentation(ipw.HBox):
 
     viewer_class = None  # The structure viewer class that contains this representation.
 
-    def __init__(self, style_id, indices=None, deletable=True, atom_show_threshold=1):
+    def __init__(self, style_id, indices=None):
         """Initialize the representation.
 
         style_id: str
-            Unique identifier for the representation.
+            Unique identifier for the representation, encoding its display style.
         indices: list
             List of indices to be displayed.
-        deletable: bool
-            If True, add a button to delete the representation.
-        atom_show_threshold: int
-            only show the atom if the corresponding value in the representation array is larger or equal than this threshold.
         """
 
-        self.atom_show_threshold = atom_show_threshold
         self.style_id = style_id
         style_metadata = parse_representation_style_id(style_id)
         self._style_token = (
             style_metadata["token"] if style_metadata is not None else shortuuid.uuid()
-        )
-        self._sync_style_id_with_settings = (
-            style_id != _DEFAULT_REPRESENTATION_STYLE_ID and style_metadata is not None
         )
 
         self.show = ipw.Checkbox(
@@ -268,8 +259,8 @@ class NglViewerRepresentation(ipw.HBox):
             style={"description_width": "0px"},
         )
         self.type = ipw.Dropdown(
-            options=["ball+stick", "spacefill"],
-            value="ball+stick",
+            options=["ballstick", "spacefill"],
+            value="ballstick",
             disabled=False,
             layout={"width": "100px"},
             style={"description_width": "0px"},
@@ -300,7 +291,7 @@ class NglViewerRepresentation(ipw.HBox):
             button_style="danger",
             layout={
                 "width": "50px",
-                "visibility": "visible" if deletable else "hidden",
+                "visibility": "hidden",
             },
         )
         self.delete_button.on_click(self.delete_myself)
@@ -328,7 +319,7 @@ class NglViewerRepresentation(ipw.HBox):
 
     def _refresh_style_id_from_widget_values(self, structure: ase.Atoms | None):
         """Keep encoded style ids aligned with the current representation widgets."""
-        if not self._sync_style_id_with_settings or self.viewer_class is None:
+        if self.viewer_class is None:
             return
         new_style_id = encode_representation_style_id(
             self.viewer_class.REPRESENTATION_PREFIX,
@@ -348,18 +339,18 @@ class NglViewerRepresentation(ipw.HBox):
         """Add representation array to the structure object. If the array already exists, update it."""
         if structure:
             self._refresh_style_id_from_widget_values(structure)
-            array_representation = np.full(len(structure), -1, dtype=int)
+            array_representation = np.full(len(structure), _AtomMarker.OUT, dtype=int)
             selection = np.array(
                 string_range_to_list(self.selection.value, shift=-1)[0], dtype=int
             )
             # Only attempt to display the existing atoms.
-            array_representation[selection[selection < len(structure)]] = 1
+            array_representation[selection[selection < len(structure)]] = _AtomMarker.IN
             structure.set_array(self.style_id, array_representation)
 
     def atoms_in_representation(self, structure: ase.Atoms | None = None):
         """Return an array of booleans indicating which atoms are present in the representation."""
         if structure and self.style_id in structure.arrays:
-            return structure.arrays[self.style_id] >= self.atom_show_threshold
+            return structure.arrays[self.style_id] == _AtomMarker.IN
         natoms = 0 if not structure else len(structure)
         return np.zeros(natoms, dtype=bool)
 
@@ -375,7 +366,7 @@ class NglViewerRepresentation(ipw.HBox):
                 "color": self.color.value,
             },
         }
-        if self.type.value == "ball+stick":
+        if self.type.value == "ballstick":
             nglview_parameters_dict["params"]["radiusScale"] = self.size.value * 0.08
         elif self.type.value == "spacefill":
             nglview_parameters_dict["params"]["radiusScale"] = self.size.value * 0.25
@@ -393,6 +384,9 @@ class _StructureDataBaseViewer(ipw.VBox):
         displayed_selection: list of currently displayed atoms in the displayed structure, which also includes super-cell.
         supercell: list of supercell dimensions.
         cell: ase.cell.Cell object.
+        structure_node: the AiiDA node backing the displayed structure, if any. Kept in sync
+            by the owner (e.g. `StructureManagerWidget`) or auto-populated when an AiiDA node
+            is assigned directly to `structure`.
     """
 
     _all_representations = tl.List()
@@ -401,11 +395,11 @@ class _StructureDataBaseViewer(ipw.VBox):
     displayed_selection = tl.List(tl.Int())
     supercell = tl.List(tl.Int())
     cell = tl.Instance(ase.cell.Cell, allow_none=True)
+    structure_node = tl.Instance(orm.Data, allow_none=True, default_value=None)
     DEFAULT_SELECTION_OPACITY = 0.2
     DEFAULT_SELECTION_RADIUS = 6
     DEFAULT_SELECTION_COLOR = "green"
     REPRESENTATION_PREFIX = _DEFAULT_REPRESENTATION_PREFIX
-    DEFAULT_REPRESENTATION = _DEFAULT_REPRESENTATION_STYLE_ID
     DEFAULT_VIEW_ORIENTATION = [
         -1.0,
         0.0,
@@ -652,14 +646,19 @@ class _StructureDataBaseViewer(ipw.VBox):
 
         apply_representations = ipw.Button(description="Apply representations")
         apply_representations.on_click(self._apply_representations)
+
+        self.btn_store_representations = ipw.Button(
+            description="Store representations", disabled=True
+        )
+        self.btn_store_representations.on_click(self.apply_and_store_representations)
+
         self.representation_output = ipw.VBox()
 
-        # The default representation is always present and cannot be deleted.
+        # The viewer always holds at least one representation; the last remaining
+        # one cannot be deleted.
         self._all_representations = [
             NglViewerRepresentation(
-                style_id=self.DEFAULT_REPRESENTATION,
-                deletable=False,
-                atom_show_threshold=0,
+                style_id=encode_representation_style_id(self.REPRESENTATION_PREFIX)
             )
         ]
 
@@ -671,7 +670,11 @@ class _StructureDataBaseViewer(ipw.VBox):
                         self.representation_output,
                         self.atoms_not_represented,
                         ipw.HBox(
-                            [apply_representations, add_new_representation_button]
+                            [
+                                apply_representations,
+                                add_new_representation_button,
+                                self.btn_store_representations,
+                            ]
                         ),
                     ]
                 )
@@ -739,6 +742,12 @@ class _StructureDataBaseViewer(ipw.VBox):
         self.representation_output.children = change["new"]
         if change["new"]:
             self._all_representations[-1].viewer_class = self
+        # Deleting the last representation would leave nothing to display.
+        deletable = len(change["new"]) > 1
+        for representation in change["new"]:
+            representation.delete_button.layout.visibility = (
+                "visible" if deletable else "hidden"
+            )
 
     def _povray_cylinder(self, v1, v2, radius, color):
         """Create a cylinder for POVRAY."""
@@ -829,6 +838,82 @@ class _StructureDataBaseViewer(ipw.VBox):
                 del self.structure.arrays[array]
         self._observe_structure({"new": self.structure})
         self._check_missing_atoms_in_representations()
+
+    def store_representations_in_extras(self):
+        """Persist the current viewer representations to `structure_node`'s extras.
+
+        No-op if `structure_node` is unset. Persistence is intentionally not
+        automatic on every representation change (see
+        `apply_and_store_representations`), so a user's saved representation
+        isn't silently overwritten by an experimental one they don't end up
+        keeping.
+        """
+        if self.structure_node is None or self.structure is None:
+            return
+        representations = {
+            key: np.asarray(value, dtype=int).tolist()
+            for key, value in self.structure.arrays.items()
+            if key.startswith(self.REPRESENTATION_PREFIX)
+        }
+        if representations:
+            self.structure_node.base.extras.set(
+                VIEWER_REPRESENTATIONS_EXTRA, representations
+            )
+
+    def restore_representations_from_extras(self, node, structure):
+        """Bind `structure_node` to `node` and restore its saved representations onto `structure`."""
+        self.structure_node = node
+        if node is None or structure is None:
+            return structure
+        representations = node.base.extras.get(VIEWER_REPRESENTATIONS_EXTRA, {})
+        if not isinstance(representations, dict):
+            warnings.warn(
+                f"Ignoring '{VIEWER_REPRESENTATIONS_EXTRA}' extra on <{node}>: "
+                f"expected a dict, got {type(representations)}.",
+                stacklevel=2,
+            )
+            return structure
+        for key, values in representations.items():
+            if not str(key).startswith(self.REPRESENTATION_PREFIX):
+                continue
+            try:
+                values = np.asarray(values, dtype=int)
+            except (TypeError, ValueError) as exc:
+                warnings.warn(
+                    f"Ignoring stored viewer representation '{key}' on <{node}>: "
+                    f"expected an array of integers, got {values!r} ({exc}).",
+                    stacklevel=2,
+                )
+                continue
+            if len(values) != len(structure):
+                warnings.warn(
+                    f"Ignoring stored viewer representation '{key}' on <{node}>: "
+                    f"it has {len(values)} atoms, but the structure has {len(structure)}.",
+                    stacklevel=2,
+                )
+                continue
+            structure.set_array(key, values)
+        return structure
+
+    def apply_and_store_representations(self, _=None):
+        """Apply any pending representation edits, then persist them to the node.
+
+        This is the single entry point for "save what I see": the button uses
+        it, and so does `StructureManagerWidget.store_structure`.
+        """
+        self._apply_representations()
+        self.store_representations_in_extras()
+
+    def refresh_store_representations_button(self):
+        """Enable "Store representations" only once `structure_node` is stored."""
+        node = self.structure_node
+        self.btn_store_representations.disabled = not (
+            node is not None and node.is_stored
+        )
+
+    @tl.observe("structure_node")
+    def _observe_structure_node_for_store_button(self, change):
+        self.refresh_store_representations_button()
 
     def _check_missing_atoms_in_representations(self):
         missing_atoms = np.zeros(self.natoms)
@@ -1445,14 +1530,29 @@ class StructureDataViewer(_StructureDataBaseViewer):
             self.pk = None
         elif isinstance(structure, (orm.StructureData, orm.CifData)):
             self.pk = structure.pk
-            structure = structure.get_ase()
+            structure = self.restore_representations_from_extras(
+                structure, structure.get_ase()
+            )
 
-        # Add default representation array if it is not present.
-        # This will make sure that the new structure is displayed at the beginning.
-        if self.DEFAULT_REPRESENTATION not in structure.arrays:
+        # Seed a representation array if the structure carries none, so that a
+        # newly loaded structure is displayed in full. It reuses the style of the
+        # first representation, which the viewer always has.
+        style_ids = [
+            style_id
+            for style_id in structure.arrays
+            if style_id.startswith(self.REPRESENTATION_PREFIX)
+        ]
+        if not style_ids:
+            style_ids = [self._all_representations[0].style_id]
             structure.set_array(
-                self.DEFAULT_REPRESENTATION,
-                np.zeros(len(structure), dtype=int),
+                style_ids[0], np.full(len(structure), _AtomMarker.IN, dtype=int)
+            )
+
+        # Only the first representation displays newly loaded atoms (UNASSIGNED).
+        for index, style_id in enumerate(style_ids):
+            array = structure.arrays[style_id]
+            array[array == _AtomMarker.UNASSIGNED] = (
+                _AtomMarker.IN if index == 0 else _AtomMarker.OUT
             )
         return structure  # This also includes the case when the structure is None.
 
@@ -1485,14 +1585,16 @@ class StructureDataViewer(_StructureDataBaseViewer):
             except ValueError:
                 self._add_representation(
                     style_id=style_id,
-                    indices=np.where(structure.arrays[style_id] >= 1)[0],
+                    indices=np.where(structure.arrays[style_id] == _AtomMarker.IN)[0],
                     apply=False,
                 )
-        # Empty atoms selection for the representations that are not present in the structure.
-        # Typically this happens when a new structure is imported.
-        for i, style_id in enumerate(representation_ids):
-            if style_id not in structure_ids:
-                self._all_representations[i].selection.value = ""
+        # Drop representations that are not present in the new structure.
+        # Typically this happens when a different structure is imported/selected.
+        self._all_representations = [
+            representation
+            for representation in self._all_representations
+            if representation.style_id in structure_ids
+        ]
 
         self._observe_supercell()  # To trigger an update of the displayed structure
         self.set_trait("cell", structure.cell)
@@ -1523,8 +1625,8 @@ class StructureDataViewer(_StructureDataBaseViewer):
                             representation.nglview_parameters(indices)
                         )
 
-                        # Add bonds if ball+stick representation is used.
-                        if representation.type.value == "ball+stick":
+                        # Add bonds if ballstick representation is used.
+                        if representation.type.value == "ballstick":
                             bonds += self._compute_bonds(
                                 self.displayed_structure[indices],
                                 representation.size.value,
