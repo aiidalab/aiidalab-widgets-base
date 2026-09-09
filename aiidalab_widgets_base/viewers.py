@@ -172,14 +172,6 @@ class DictViewer(ipw.VBox):
 _DEFAULT_REPRESENTATION_PREFIX = "_aiidalab_viewer_representation_"
 VIEWER_REPRESENTATIONS_EXTRA = "aiidalab_viewer_representations"
 _DEFAULT_REPRESENTATION_STYLE_ID = f"{_DEFAULT_REPRESENTATION_PREFIX}default"
-_REPRESENTATION_TYPE_TO_TOKEN = {
-    "ball+stick": "ballstick",
-    "spacefill": "spacefill",
-}
-_REPRESENTATION_TOKEN_TO_TYPE = {
-    token: representation_type
-    for representation_type, token in _REPRESENTATION_TYPE_TO_TOKEN.items()
-}
 _REPRESENTATION_STYLE_PATTERN = re.compile(
     rf"^{_DEFAULT_REPRESENTATION_PREFIX}"
     r"(?P<representation_type>ballstick|spacefill)_"
@@ -192,16 +184,15 @@ _REPRESENTATION_STYLE_PATTERN = re.compile(
 def encode_representation_style_id(
     prefix: str = _DEFAULT_REPRESENTATION_PREFIX,
     *,
-    representation_type: str = "ball+stick",
+    representation_type: str = "ballstick",
     size: float = 3,
     color: str = "element",
     token: str | None = None,
 ) -> str:
     """Build an extxyz-safe representation array name with style metadata."""
-    representation_token = _REPRESENTATION_TYPE_TO_TOKEN[representation_type]
     size_token = f"{float(size):g}"
     unique_token = token if token is not None else shortuuid.uuid()
-    return f"{prefix}{representation_token}_r{size_token}_{color}_{unique_token}"
+    return f"{prefix}{representation_type}_r{size_token}_{color}_{unique_token}"
 
 
 def parse_representation_style_id(style_id: str) -> dict | None:
@@ -213,11 +204,8 @@ def parse_representation_style_id(style_id: str) -> dict | None:
     match = _REPRESENTATION_STYLE_PATTERN.match(style_id)
     if match is None:
         return None
-    representation_type = _REPRESENTATION_TOKEN_TO_TYPE[
-        match.group("representation_type")
-    ]
     return {
-        "representation_type": representation_type,
+        "representation_type": match.group("representation_type"),
         "size": float(match.group("size")),
         "color": match.group("color"),
         "token": match.group("token"),
@@ -269,8 +257,8 @@ class NglViewerRepresentation(ipw.HBox):
             style={"description_width": "0px"},
         )
         self.type = ipw.Dropdown(
-            options=["ball+stick", "spacefill"],
-            value="ball+stick",
+            options=["ballstick", "spacefill"],
+            value="ballstick",
             disabled=False,
             layout={"width": "100px"},
             style={"description_width": "0px"},
@@ -376,7 +364,7 @@ class NglViewerRepresentation(ipw.HBox):
                 "color": self.color.value,
             },
         }
-        if self.type.value == "ball+stick":
+        if self.type.value == "ballstick":
             nglview_parameters_dict["params"]["radiusScale"] = self.size.value * 0.08
         elif self.type.value == "spacefill":
             nglview_parameters_dict["params"]["radiusScale"] = self.size.value * 0.25
@@ -1618,8 +1606,8 @@ class StructureDataViewer(_StructureDataBaseViewer):
                             representation.nglview_parameters(indices)
                         )
 
-                        # Add bonds if ball+stick representation is used.
-                        if representation.type.value == "ball+stick":
+                        # Add bonds if ballstick representation is used.
+                        if representation.type.value == "ballstick":
                             bonds += self._compute_bonds(
                                 self.displayed_structure[indices],
                                 representation.size.value,
