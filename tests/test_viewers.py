@@ -10,6 +10,9 @@ from aiida import orm
 
 from aiidalab_widgets_base import viewers
 
+# A representation array name that carries no encoded style.
+UNSTYLED_STYLE_ID = f"{viewers._DEFAULT_REPRESENTATION_PREFIX}unstyled"
+
 
 @pytest.fixture
 def ch_structure():
@@ -123,12 +126,16 @@ def test_folder_data_viewer(folder_data_object):
 
 @pytest.mark.usefixtures("aiida_profile_clean")
 def test_structure_data_viewer_storage(monkeypatch, tmp_path, structure_data_object):
+    # The representation array name ends in a random token, and it is written to
+    # the downloaded file as a column header. Pin it so the payload is stable.
+    monkeypatch.setattr(viewers.shortuuid, "uuid", lambda: "teststyletoken")
+
     v = viewers.viewer(structure_data_object)
     assert isinstance(v, viewers.StructureDataViewer)
 
     # Check the `_prepare_payload` function used for downloading.
     format_cases = {
-        "Extended xyz": """MgpMYXR0aWNlPSIzLjg0NzM3IDAuMCAwLjAgMS45MjM2ODUgMy4zMzE5MiAwLjAgMS45MjM2ODUgMS4xMTA2NCAzLjE0MTM2NCIgUHJvcGVydGllcz1zcGVjaWVzOlM6MTpwb3M6UjozOm1hc3NlczpSOjE6X2FpaWRhbGFiX3ZpZXdlcl9yZXByZXNlbnRhdGlvbl9kZWZhdWx0Okk6MSBwYmM9IlQgVCBUIgpTaSAgICAgICAwLjAwMDAwMDAwICAgICAgIDAuMDAwMDAwMDAgICAgICAgMC4wMDAwMDAwMCAgICAgIDI4LjA4NTUwMDAwICAgICAgICAwClNpICAgICAgIDEuOTIzNjg1MDAgICAgICAgMS4xMTA2NDAwMCAgICAgICAwLjc4NTM0MTAwICAgICAgMjguMDg1NTAwMDAgICAgICAgIDAK""",
+        "Extended xyz": """MgpMYXR0aWNlPSIzLjg0NzM3IDAuMCAwLjAgMS45MjM2ODUgMy4zMzE5MiAwLjAgMS45MjM2ODUgMS4xMTA2NCAzLjE0MTM2NCIgUHJvcGVydGllcz1zcGVjaWVzOlM6MTpwb3M6UjozOm1hc3NlczpSOjE6X2FpaWRhbGFiX3ZpZXdlcl9yZXByZXNlbnRhdGlvbl9iYWxsc3RpY2tfcjNfZWxlbWVudF90ZXN0c3R5bGV0b2tlbjpJOjEgcGJjPSJUIFQgVCIKU2kgICAgICAgMC4wMDAwMDAwMCAgICAgICAwLjAwMDAwMDAwICAgICAgIDAuMDAwMDAwMDAgICAgICAyOC4wODU1MDAwMCAgICAgICAgMQpTaSAgICAgICAxLjkyMzY4NTAwICAgICAgIDEuMTEwNjQwMDAgICAgICAgMC43ODUzNDEwMCAgICAgIDI4LjA4NTUwMDAwICAgICAgICAxCg==""",
         "xsf": """Q1JZU1RBTApQUklNVkVDCiAzLjg0NzM3MDAwMDAwMDAwIDAuMDAwMDAwMDAwMDAwMDAgMC4wMDAwMDAwMDAwMDAwMAogMS45MjM2ODUwMDAwMDAwMCAzLjMzMTkyMDAwMDAwMDAwIDAuMDAwMDAwMDAwMDAwMDAKIDEuOTIzNjg1MDAwMDAwMDAgMS4xMTA2NDAwMDAwMDAwMCAzLjE0MTM2NDAwMDAwMDAwClBSSU1DT09SRAogMiAxCiAxNCAgICAgMC4wMDAwMDAwMDAwMDAwMCAgICAgMC4wMDAwMDAwMDAwMDAwMCAgICAgMC4wMDAwMDAwMDAwMDAwMAogMTQgICAgIDEuOTIzNjg1MDAwMDAwMDAgICAgIDEuMTEwNjQwMDAwMDAwMDAgICAgIDAuNzg1MzQxMDAwMDAwMDAK""",
         "cif": """ZGF0YV9pbWFnZTAKX2NoZW1pY2FsX2Zvcm11bGFfc3RydWN0dXJhbCAgICAgICBTaTIKX2NoZW1pY2FsX2Zvcm11bGFfc3VtICAgICAgICAgICAgICAiU2kyIgpfY2VsbF9sZW5ndGhfYSAgICAgICAzLjg0NzM3Cl9jZWxsX2xlbmd0aF9iICAgICAgIDMuODQ3MzY5ODYzMzc3NDQ4Cl9jZWxsX2xlbmd0aF9jICAgICAgIDMuODQ3MzY5NjE2OTM1ODM2Cl9jZWxsX2FuZ2xlX2FscGhhICAgIDU5Ljk5OTk5NzA5Nzk3MDEyCl9jZWxsX2FuZ2xlX2JldGEgICAgIDU5Ljk5OTk5NjcwNjQwOTMwNgpfY2VsbF9hbmdsZV9nYW1tYSAgICA1OS45OTk5OTg4MjUzMTc1OQoKX3NwYWNlX2dyb3VwX25hbWVfSC1NX2FsdCAgICAiUCAxIgpfc3BhY2VfZ3JvdXBfSVRfbnVtYmVyICAgICAgIDEKCmxvb3BfCiAgX3NwYWNlX2dyb3VwX3N5bW9wX29wZXJhdGlvbl94eXoKICAneCwgeSwgeicKCmxvb3BfCiAgX2F0b21fc2l0ZV90eXBlX3N5bWJvbAogIF9hdG9tX3NpdGVfbGFiZWwKICBfYXRvbV9zaXRlX3N5bW1ldHJ5X211bHRpcGxpY2l0eQogIF9hdG9tX3NpdGVfZnJhY3RfeAogIF9hdG9tX3NpdGVfZnJhY3RfeQogIF9hdG9tX3NpdGVfZnJhY3RfegogIF9hdG9tX3NpdGVfb2NjdXBhbmN5CiAgU2kgIFNpMSAgICAgICAxLjAgIDAuMCAgMC4wICAwLjAgIDEuMDAwMAogIFNpICBTaTIgICAgICAgMS4wICAwLjI1MDAwMDAwMDAwMDAwMDA2ICAwLjI1ICAwLjI1ICAxLjAwMDAK""",
     }
@@ -281,10 +288,11 @@ def test_structure_data_viewer_selection(structure_data_object):
 def test_structure_data_viewer_representation(structure_data_object):
     v = viewers.viewer(structure_data_object)
 
-    # By default, there should be one "default" representation.
+    # There is always one representation, covering the whole structure.
     assert len(v._all_representations) == 1
     assert (
-        v._all_representations[0].style_id == "_aiidalab_viewer_representation_default"
+        viewers.parse_representation_style_id(v._all_representations[0].style_id)
+        is not None
     )
     assert v._all_representations[0].selection.value == "1..2"
 
@@ -308,16 +316,19 @@ def test_structure_data_viewer_representation(structure_data_object):
     v.structure = None
     v.structure = new_structure
 
-    # The new atom should appear in the default representation.
+    # The new atom should appear in the first representation.
     assert v._all_representations[0].selection.value == "1 3"
     assert "3" not in v.atoms_not_represented.value
 
-    # Delete the second representation.
-    assert v._all_representations[0].delete_button.layout.visibility == "hidden"
+    # Delete the second representation. With more than one around, either can go.
+    assert v._all_representations[0].delete_button.layout.visibility == "visible"
     assert v._all_representations[1].delete_button.layout.visibility == "visible"
     v._all_representations[1].delete_button.click()
     assert len(v._all_representations) == 1
     assert "2" in v.atoms_not_represented.value
+
+    # The last remaining representation cannot be deleted.
+    assert v._all_representations[0].delete_button.layout.visibility == "hidden"
 
     # Try to provide different object type than the viewer accepts.
     with pytest.raises(tl.TraitError):
@@ -397,7 +408,7 @@ def test_restore_representations_from_extras_warns_on_non_dict_extra():
         restored = viewer.restore_representations_from_extras(node, structure.copy())
 
     # Structure is returned unmodified, and the default array isn't set from extras.
-    assert viewers._DEFAULT_REPRESENTATION_STYLE_ID not in restored.arrays
+    assert UNSTYLED_STYLE_ID not in restored.arrays
 
 
 @pytest.mark.usefixtures("aiida_profile_clean")
@@ -409,14 +420,14 @@ def test_restore_representations_from_extras_warns_on_non_numeric_values():
     node = orm.StructureData(ase=structure)
     node.base.extras.set(
         viewers.VIEWER_REPRESENTATIONS_EXTRA,
-        {viewers._DEFAULT_REPRESENTATION_STYLE_ID: ["not", "numbers"]},
+        {UNSTYLED_STYLE_ID: ["not", "numbers"]},
     )
 
     viewer = viewers.StructureDataViewer()
     with pytest.warns(UserWarning, match="expected an array of integers"):
         restored = viewer.restore_representations_from_extras(node, structure.copy())
 
-    assert viewers._DEFAULT_REPRESENTATION_STYLE_ID not in restored.arrays
+    assert UNSTYLED_STYLE_ID not in restored.arrays
 
 
 @pytest.mark.usefixtures("aiida_profile_clean")
@@ -429,7 +440,7 @@ def test_restore_representations_from_extras_warns_on_length_mismatch():
     node.base.extras.set(
         viewers.VIEWER_REPRESENTATIONS_EXTRA,
         {
-            viewers._DEFAULT_REPRESENTATION_STYLE_ID: [1, 1, 1],  # 3 values, 2 atoms
+            UNSTYLED_STYLE_ID: [1, 1, 1],  # 3 values, 2 atoms
             "unrelated_key": "unrelated_value",  # not a representation array
         },
     )
@@ -439,7 +450,7 @@ def test_restore_representations_from_extras_warns_on_length_mismatch():
         restored = viewer.restore_representations_from_extras(node, structure.copy())
 
     # The mismatched array is ignored, and so is the unrelated, non-representation key.
-    assert viewers._DEFAULT_REPRESENTATION_STYLE_ID not in restored.arrays
+    assert UNSTYLED_STYLE_ID not in restored.arrays
     assert "unrelated_key" not in restored.arrays
 
 
@@ -452,14 +463,14 @@ def test_restore_representations_from_extras_noop_when_node_or_structure_is_none
     node = orm.StructureData(ase=structure).store()
     node.base.extras.set(
         viewers.VIEWER_REPRESENTATIONS_EXTRA,
-        {viewers._DEFAULT_REPRESENTATION_STYLE_ID: [1, 1]},
+        {UNSTYLED_STYLE_ID: [1, 1]},
     )
 
     viewer = viewers.StructureDataViewer()
 
     # node is None -> structure passed through untouched.
     result = viewer.restore_representations_from_extras(None, structure.copy())
-    assert viewers._DEFAULT_REPRESENTATION_STYLE_ID not in result.arrays
+    assert UNSTYLED_STYLE_ID not in result.arrays
 
     # structure is None -> returned untouched (i.e. still None).
     assert viewer.restore_representations_from_extras(node, None) is None
@@ -504,9 +515,10 @@ def test_structure_data_viewer_drops_stale_representations_on_structure_change()
         positions=[(0.0, 0.0, 0.0), (0.0, 0.0, 1.1), (0.0, 1.0, 0.0)],
     )
 
-    assert [rep.style_id for rep in viewer._all_representations] == [
-        viewers.StructureDataViewer.DEFAULT_REPRESENTATION
-    ]
+    # A structure carrying no representation array is seeded with one covering
+    # every atom, keeping the style the viewer is currently set to.
+    assert len(viewer._all_representations) == 1
+    assert viewer._all_representations[0].style_id == style_id
     assert viewer._all_representations[0].selection.value == "1..3"
 
 
@@ -832,3 +844,45 @@ def test_node_view_caching():
     node_view.node = node
     assert node_view.children[0] is viewer
     assert len(node_view.node_views) == 1
+
+
+def test_structure_data_viewer_assigns_appended_atom_to_first_representation():
+    """An atom appended to a structure belongs to exactly one representation.
+
+    ASE pads the representation arrays of a grown structure with the unassigned
+    marker. Such an atom must not be picked up by every representation at once,
+    nor dropped by all of them.
+    """
+    viewer = viewers.StructureDataViewer()
+    viewer.structure = ase.Atoms(
+        symbols=["C", "H"],
+        positions=[(0.0, 0.0, 0.0), (0.0, 0.0, 1.1)],
+    )
+    viewer._all_representations[0].selection.value = "1"
+    viewer._apply_representations()
+    viewer._add_representation(indices=[1])
+    assert [rep.selection.value for rep in viewer._all_representations] == ["1", "2"]
+
+    grown = viewer.structure.copy()
+    grown.append(ase.Atom("C", (0.5, 0.5, 0.5)))
+    viewer.structure = grown
+
+    assert [rep.selection.value for rep in viewer._all_representations] == ["1 3", "2"]
+    assert viewer.atoms_not_represented.value == ""
+
+
+def test_structure_data_viewer_keeps_atoms_excluded_from_every_representation():
+    """Claiming unassigned atoms must not resurrect deliberately hidden ones."""
+    viewer = viewers.StructureDataViewer()
+    viewer.structure = ase.Atoms(
+        symbols=["C", "H"],
+        positions=[(0.0, 0.0, 0.0), (0.0, 0.0, 1.1)],
+    )
+    viewer._all_representations[0].selection.value = "1"
+    viewer._apply_representations()
+
+    # Re-entering the validator must leave the excluded atom excluded.
+    viewer.structure = viewer.structure.copy()
+
+    assert viewer._all_representations[0].selection.value == "1"
+    assert "2" in viewer.atoms_not_represented.value

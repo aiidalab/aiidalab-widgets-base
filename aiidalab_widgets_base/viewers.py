@@ -5,6 +5,7 @@ from __future__ import annotations
 import base64
 import copy
 import csv
+import enum
 import io
 import os
 import pathlib
@@ -172,6 +173,13 @@ class DictViewer(ipw.VBox):
 _DEFAULT_REPRESENTATION_PREFIX = "_aiidalab_viewer_representation_"
 VIEWER_REPRESENTATIONS_EXTRA = "aiidalab_viewer_representations"
 _DEFAULT_REPRESENTATION_STYLE_ID = f"{_DEFAULT_REPRESENTATION_PREFIX}default"
+
+
+class _AtomMarker(enum.IntEnum):
+    IN = 1  # Atom is included in the representation.
+    OUT = -1  # Atom is excluded from the representation.
+    UNASSIGNED = 0  # Atom is unassigned to any representation. Temporary state.
+
 _REPRESENTATION_STYLE_PATTERN = re.compile(
     rf"^{_DEFAULT_REPRESENTATION_PREFIX}"
     r"(?P<representation_type>ballstick|spacefill)_"
@@ -198,8 +206,9 @@ def encode_representation_style_id(
 def parse_representation_style_id(style_id: str) -> dict | None:
     """Parse style metadata encoded in a representation array name.
 
-    Old opaque representation ids intentionally return ``None`` so they keep the
-    historical default display settings.
+    A name that carries no style metadata returns ``None``: the representation is
+    then displayed with the default settings, and its array is renamed into the
+    encoded form the next time the representation is applied.
     """
     match = _REPRESENTATION_STYLE_PATTERN.match(style_id)
     if match is None:
@@ -221,27 +230,19 @@ class NglViewerRepresentation(ipw.HBox):
 
     viewer_class = None  # The structure viewer class that contains this representation.
 
-    def __init__(self, style_id, indices=None, deletable=True, atom_show_threshold=1):
+    def __init__(self, style_id, indices=None):
         """Initialize the representation.
 
         style_id: str
-            Unique identifier for the representation.
+            Unique identifier for the representation, encoding its display style.
         indices: list
             List of indices to be displayed.
-        deletable: bool
-            If True, add a button to delete the representation.
-        atom_show_threshold: int
-            only show the atom if the corresponding value in the representation array is larger or equal than this threshold.
         """
 
-        self.atom_show_threshold = atom_show_threshold
         self.style_id = style_id
         style_metadata = parse_representation_style_id(style_id)
         self._style_token = (
             style_metadata["token"] if style_metadata is not None else shortuuid.uuid()
-        )
-        self._sync_style_id_with_settings = (
-            style_id != _DEFAULT_REPRESENTATION_STYLE_ID and style_metadata is not None
         )
 
         self.show = ipw.Checkbox(
@@ -289,7 +290,7 @@ class NglViewerRepresentation(ipw.HBox):
             button_style="danger",
             layout={
                 "width": "50px",
-                "visibility": "visible" if deletable else "hidden",
+                "visibility": "hidden",
             },
         )
         self.delete_button.on_click(self.delete_myself)
@@ -317,7 +318,7 @@ class NglViewerRepresentation(ipw.HBox):
 
     def _refresh_style_id_from_widget_values(self, structure: ase.Atoms | None):
         """Keep encoded style ids aligned with the current representation widgets."""
-        if not self._sync_style_id_with_settings or self.viewer_class is None:
+        if self.viewer_class is None:
             return
         new_style_id = encode_representation_style_id(
             self.viewer_class.REPRESENTATION_PREFIX,
@@ -337,18 +338,18 @@ class NglViewerRepresentation(ipw.HBox):
         """Add representation array to the structure object. If the array already exists, update it."""
         if structure:
             self._refresh_style_id_from_widget_values(structure)
-            array_representation = np.full(len(structure), -1, dtype=int)
+            array_representation = np.full(len(structure), _AtomMarker.OUT, dtype=int)
             selection = np.array(
                 string_range_to_list(self.selection.value, shift=-1)[0], dtype=int
             )
             # Only attempt to display the existing atoms.
-            array_representation[selection[selection < len(structure)]] = 1
+            array_representation[selection[selection < len(structure)]] = _AtomMarker.IN
             structure.set_array(self.style_id, array_representation)
 
     def atoms_in_representation(self, structure: ase.Atoms | None = None):
         """Return an array of booleans indicating which atoms are present in the representation."""
         if structure and self.style_id in structure.arrays:
-            return structure.arrays[self.style_id] >= self.atom_show_threshold
+            return structure.arrays[self.style_id] == _AtomMarker.IN
         natoms = 0 if not structure else len(structure)
         return np.zeros(natoms, dtype=bool)
 
@@ -398,7 +399,6 @@ class _StructureDataBaseViewer(ipw.VBox):
     DEFAULT_SELECTION_RADIUS = 6
     DEFAULT_SELECTION_COLOR = "green"
     REPRESENTATION_PREFIX = _DEFAULT_REPRESENTATION_PREFIX
-    DEFAULT_REPRESENTATION = _DEFAULT_REPRESENTATION_STYLE_ID
     DEFAULT_VIEW_ORIENTATION = [
         -1.0,
         0.0,
@@ -653,12 +653,11 @@ class _StructureDataBaseViewer(ipw.VBox):
 
         self.representation_output = ipw.VBox()
 
-        # The default representation is always present and cannot be deleted.
+        # The viewer always holds at least one representation; the last remaining
+        # one cannot be deleted.
         self._all_representations = [
             NglViewerRepresentation(
-                style_id=self.DEFAULT_REPRESENTATION,
-                deletable=False,
-                atom_show_threshold=0,
+                style_id=encode_representation_style_id(self.REPRESENTATION_PREFIX)
             )
         ]
 
@@ -742,6 +741,12 @@ class _StructureDataBaseViewer(ipw.VBox):
         self.representation_output.children = change["new"]
         if change["new"]:
             self._all_representations[-1].viewer_class = self
+        # Deleting the last representation would leave nothing to display.
+        deletable = len(change["new"]) > 1
+        for representation in change["new"]:
+            representation.delete_button.layout.visibility = (
+                "visible" if deletable else "hidden"
+            )
 
     def _povray_cylinder(self, v1, v2, radius, color):
         """Create a cylinder for POVRAY."""
@@ -1528,12 +1533,25 @@ class StructureDataViewer(_StructureDataBaseViewer):
                 structure, structure.get_ase()
             )
 
-        # Add default representation array if it is not present.
-        # This will make sure that the new structure is displayed at the beginning.
-        if self.DEFAULT_REPRESENTATION not in structure.arrays:
+        # Seed a representation array if the structure carries none, so that a
+        # newly loaded structure is displayed in full. It reuses the style of the
+        # first representation, which the viewer always has.
+        style_ids = [
+            style_id
+            for style_id in structure.arrays
+            if style_id.startswith(self.REPRESENTATION_PREFIX)
+        ]
+        if not style_ids:
+            style_ids = [self._all_representations[0].style_id]
             structure.set_array(
-                self.DEFAULT_REPRESENTATION,
-                np.zeros(len(structure), dtype=int),
+                style_ids[0], np.full(len(structure), _AtomMarker.IN, dtype=int)
+            )
+
+        # Only the first representation displays newly loaded atoms (UNASSIGNED).
+        for index, style_id in enumerate(style_ids):
+            array = structure.arrays[style_id]
+            array[array == _AtomMarker.UNASSIGNED] = (
+                _AtomMarker.IN if index == 0 else _AtomMarker.OUT
             )
         return structure  # This also includes the case when the structure is None.
 
@@ -1566,7 +1584,7 @@ class StructureDataViewer(_StructureDataBaseViewer):
             except ValueError:
                 self._add_representation(
                     style_id=style_id,
-                    indices=np.where(structure.arrays[style_id] >= 1)[0],
+                    indices=np.where(structure.arrays[style_id] == _AtomMarker.IN)[0],
                     apply=False,
                 )
         # Drop representations that are not present in the new structure.

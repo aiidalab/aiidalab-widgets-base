@@ -202,10 +202,6 @@ def test_structure_manager_widget_stores_viewer_representations_in_extras():
     assert stored is not None
 
     assert stored.base.extras.get(awb.viewers.VIEWER_REPRESENTATIONS_EXTRA) == {
-        # Applying the default representation turns its unapplied placeholder
-        # array (`[0, 0]`, "included" only via the default's atom_show_threshold=0)
-        # into the canonical "explicitly included" encoding used everywhere else.
-        awb.viewers._DEFAULT_REPRESENTATION_STYLE_ID: [1, 1],
         style_id: [1, -1],
     }
 
@@ -242,7 +238,7 @@ def test_structure_manager_widget_store_structure_applies_pending_selection_edit
     stored = structure_manager_widget.structure_node
     assert stored is not None
     assert stored.base.extras.get(awb.viewers.VIEWER_REPRESENTATIONS_EXTRA) == {
-        awb.viewers._DEFAULT_REPRESENTATION_STYLE_ID: [1, -1]
+        structure_manager_widget.viewer._all_representations[0].style_id: [1, -1]
     }
 
 
@@ -281,7 +277,7 @@ def test_structure_manager_widget_stores_representations_via_calcfunction():
     assert "user_modifications" in stored.creator.process_label
 
     assert stored.base.extras.get(awb.viewers.VIEWER_REPRESENTATIONS_EXTRA) == {
-        awb.viewers._DEFAULT_REPRESENTATION_STYLE_ID: [1, -1]
+        structure_manager_widget.viewer._all_representations[0].style_id: [1, -1]
     }
     assert node.base.extras.get(awb.viewers.VIEWER_REPRESENTATIONS_EXTRA, None) is None
 
@@ -309,7 +305,7 @@ def test_structure_manager_widget_updates_stored_representations_extra():
     structure_manager_widget.viewer.btn_store_representations.click()
 
     assert node.base.extras.get(awb.viewers.VIEWER_REPRESENTATIONS_EXTRA) == {
-        awb.viewers._DEFAULT_REPRESENTATION_STYLE_ID: [1, -1]
+        structure_manager_widget.viewer._all_representations[0].style_id: [1, -1]
     }
 
 
