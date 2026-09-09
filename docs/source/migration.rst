@@ -8,10 +8,10 @@ Purely additive changes (new widgets, new parameters) are not listed here -- see
 2.5.x to 3.0
 ============
 
-Version 3.0 removes a number of legacy widgets and tightens the package's dependency floors.
+Version 3.0 removes a number of legacy widgets and updates minimum supported python version to 3.12 and ipywidgets dependency to v8. Number of other dependencies have been also updated as listed below.
 This section lists the changes that can break code written against ``aiidalab-widgets-base`` 2.5.x, and what to do about each of them.
 
-Dependency floors raised
+Updated minimum dependency versions
 -------------------------
 
 * **Python**: the minimum supported version is now 3.12 (was 3.9).
@@ -20,8 +20,6 @@ Dependency floors raised
 * **aiida-core**: the minimum supported version is now ``2.8`` (was ``2.2``)
   (`#730 <https://github.com/aiidalab/aiidalab-widgets-base/pull/730>`__, `#809 <https://github.com/aiidalab/aiidalab-widgets-base/pull/809>`__).
 * **spglib**: only spglib ``>=2.5`` is supported; spglib 1.x no longer works
-  (``BasicCellEditor``'s "standardize cell" action relies on the spglib 2.x dataclass-based interface)
-  (`#791 <https://github.com/aiidalab/aiidalab-widgets-base/pull/791>`__).
 * **ase**: the minimum supported version is now ``3.23`` (was ``3.18``)
   (`#809 <https://github.com/aiidalab/aiidalab-widgets-base/pull/809>`__).
 * **rdkit** (``smiles`` extra): the minimum supported version is now ``2024.9.6`` (was ``2021.09.2``)
