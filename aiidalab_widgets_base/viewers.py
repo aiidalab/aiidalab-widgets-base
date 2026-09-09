@@ -180,6 +180,7 @@ class _AtomMarker(enum.IntEnum):
     OUT = -1  # Atom is excluded from the representation.
     UNASSIGNED = 0  # Atom is unassigned to any representation. Temporary state.
 
+
 _REPRESENTATION_STYLE_PATTERN = re.compile(
     rf"^{_DEFAULT_REPRESENTATION_PREFIX}"
     r"(?P<representation_type>ballstick|spacefill)_"
