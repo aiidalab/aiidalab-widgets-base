@@ -305,7 +305,7 @@ def test_structure_data_viewer_representation(structure_data_object):
     v._add_representation()
     assert "2" in v.atoms_not_represented.value
     v._all_representations[1].selection.value = "2"
-    v._all_representations[0].type.value = "ball+stick"
+    v._all_representations[0].type.value = "ballstick"
     v._all_representations[1].type.value = "spacefill"
     v._apply_representations()
     assert v.atoms_not_represented.value == ""
@@ -576,7 +576,7 @@ def test_structure_data_viewer_imports_multiple_encoded_representation_arrays():
     )
     style_id_2 = viewers.encode_representation_style_id(
         viewers.StructureDataViewer.REPRESENTATION_PREFIX,
-        representation_type="ball+stick",
+        representation_type="ballstick",
         size=4,
         color="red",
         token="molecule",
@@ -596,7 +596,7 @@ def test_structure_data_viewer_imports_multiple_encoded_representation_arrays():
     assert representation_1.type.value == "spacefill"
     assert representation_1.size.value == 2
     assert representation_2.selection.value == "2..3"
-    assert representation_2.type.value == "ball+stick"
+    assert representation_2.type.value == "ballstick"
     assert representation_2.size.value == 4
     assert representation_2.color.value == "red"
 
