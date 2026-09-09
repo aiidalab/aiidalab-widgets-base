@@ -124,15 +124,3 @@ Two public APIs are affected:
       output = ipw.VBox()
       install_create_github_issue_exception_handler(output, url=...)
       output.children = [welcome_message, app_with_work_chain_selector, footer]
-
-Custom exceptions removed
----------------------------
-
-The ``aiidalab_widgets_base.utils.exceptions`` module has been removed entirely.
-
-* ``ListOrTuppleError`` no longer exists.
-  ``StructureManagerWidget`` (and other code that used to raise it) now raises a plain ``TypeError`` with an equivalent message.
-  Since ``ListOrTuppleError`` was itself a ``TypeError`` subclass, code that catches ``TypeError`` is unaffected; code that imports or catches ``ListOrTuppleError`` specifically must be updated to catch ``TypeError``
-  (`#807 <https://github.com/aiidalab/aiidalab-widgets-base/pull/807>`__).
-* ``ProcessFollowerWidget.on_completed()`` now raises a ``RuntimeError`` (instead of referencing a nonexistent ``CantRegisterCallbackError`` class) when called after process-following has already started
-  (`#780 <https://github.com/aiidalab/aiidalab-widgets-base/pull/780>`__).
