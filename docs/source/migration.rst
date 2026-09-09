@@ -30,28 +30,9 @@ Update your own package's dependency constraints accordingly before upgrading.
 ``ipywidgets`` 8 is now required
 ----------------------------------
 
-The package now depends on ``ipywidgets~=8.1`` (was ``~=7.7``).
-This is the change most likely to require code changes downstream:
-
-* **``FileUpload.value`` changed shape.**
-  In ipywidgets 7 it was a ``dict`` keyed by filename; in ipywidgets 8 it is a ``tuple`` of dicts, each with ``name``/``content`` keys.
-  If your code reads ``StructureUploadWidget.file_upload.value`` (or any other ``FileUpload`` widget) directly, update it, e.g.:
-
-  .. code-block:: python
-
-      # Before (ipywidgets 7)
-      for fname, item in change["new"].items():
-          content = item["content"]
-
-      # After (ipywidgets 8)
-      for item in change["new"]:
-          fname, content = item["name"], item["content"]
-
-* **``ipw.Accordion``'s default ``selected_index`` changed from ``0`` to ``None``.**
-  Any accordion you build yourself (including subclasses that compose ``WizardAppWidgetStep``\ s) now opens fully collapsed unless you pass ``selected_index`` explicitly.
-  ``WizardAppWidget`` itself keeps the old behavior by default (see below), but custom accordions do not.
-* More generally, review any code that relies on ipywidgets 7-specific APIs
-  (e.g. ``set_title(index, title)`` on ``Accordion``/``Tab``, which still works but is deprecated in favor of the ``titles=`` constructor argument).
+The package now depends on ``ipywidgets~=8.1`` (was ``~=7.7``)
+(`#725 <https://github.com/aiidalab/aiidalab-widgets-base/pull/725>`__).
+This is the change most likely to require code changes downstream -- see `ipywidgets' migration guide <https://ipywidgets.readthedocs.io/en/8.1.0/migration_guides.html#migrating-from-7-x-to-8-0>`_ for the full list of changes (e.g. ``FileUpload.value`` changed shape, ``Accordion``'s default ``selected_index`` changed from ``0`` to ``None``).
 
 ``WizardAppWidget`` gained an ``open_first_step`` parameter (default ``True``), which was added specifically to preserve the pre-3.0 behavior (first step expanded on load) after the ``ipywidgets`` 8 change above.
 No action is required unless you want the wizard to start fully collapsed, in which case pass ``open_first_step=False``
