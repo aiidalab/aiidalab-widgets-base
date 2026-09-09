@@ -89,7 +89,7 @@ Removed with no replacement, along with the runtime dependency on the ``aiidalab
 
 Removed along with the ``bokeh`` dependency.
 ``viewer(node)`` no longer renders an interactive band-structure plot for ``BandsData`` nodes -- it now falls back to the generic/no-op behavior for node types without a registered viewer.
-If you need band-structure plotting, use another plotting library directly (e.g. matplotlib) or a downstream app's own viewer
+You might find a more advanced alternative in the `BandsPdosPlotly <https://github.com/aiidalab/aiidalab-qe/tree/main/src/aiidalab_qe/common/bands_pdos>`_ widget in QeApp
 (`#734 <https://github.com/aiidalab/aiidalab-widgets-base/pull/734>`__).
 
 
