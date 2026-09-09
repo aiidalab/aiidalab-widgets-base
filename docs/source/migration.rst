@@ -12,7 +12,7 @@ Version 3.0 removes a number of legacy widgets and updates minimum supported pyt
 This section lists the changes that can break code written against ``aiidalab-widgets-base`` 2.5.x, and what to do about each of them.
 
 Updated minimum dependency versions
--------------------------
+------------------------------------
 
 * **Python**: the minimum supported version is now 3.12 (was 3.9).
   Python 3.9, 3.10 and 3.11 are no longer supported
