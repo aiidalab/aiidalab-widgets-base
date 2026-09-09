@@ -11,6 +11,17 @@ Purely additive changes (new widgets, new parameters) are not listed here -- see
 Version 3.0 removes a number of legacy widgets and updates minimum supported python version to 3.12 and ipywidgets dependency to v8. Number of other dependencies have been also updated as listed below.
 This section lists the changes that can break code written against ``aiidalab-widgets-base`` 2.5.x, and what to do about each of them.
 
+``ipywidgets`` 8 is now required
+----------------------------------
+
+The package now depends on ``ipywidgets~=8.1`` (was ``~=7.7``)
+(`#725 <https://github.com/aiidalab/aiidalab-widgets-base/pull/725>`__).
+This is the change most likely to require code changes downstream -- see `ipywidgets' migration guide <https://ipywidgets.readthedocs.io/en/8.1.0/migration_guides.html#migrating-from-7-x-to-8-0>`_ for the full list of changes (e.g. ``FileUpload.value`` changed shape, ``Accordion``'s default ``selected_index`` changed from ``0`` to ``None``).
+
+``WizardAppWidget`` gained an ``open_first_step`` parameter (default ``True``), which was added specifically to preserve the pre-3.0 behavior (first step expanded on load) after the ``ipywidgets`` 8 change above.
+No action is required unless you want the wizard to start fully collapsed, in which case pass ``open_first_step=False``
+(`#792 <https://github.com/aiidalab/aiidalab-widgets-base/pull/792>`__).
+
 Updated minimum dependency versions
 ------------------------------------
 
@@ -26,17 +37,6 @@ Updated minimum dependency versions
   (`#809 <https://github.com/aiidalab/aiidalab-widgets-base/pull/809>`__).
 
 Update your own package's dependency constraints accordingly before upgrading.
-
-``ipywidgets`` 8 is now required
-----------------------------------
-
-The package now depends on ``ipywidgets~=8.1`` (was ``~=7.7``)
-(`#725 <https://github.com/aiidalab/aiidalab-widgets-base/pull/725>`__).
-This is the change most likely to require code changes downstream -- see `ipywidgets' migration guide <https://ipywidgets.readthedocs.io/en/8.1.0/migration_guides.html#migrating-from-7-x-to-8-0>`_ for the full list of changes (e.g. ``FileUpload.value`` changed shape, ``Accordion``'s default ``selected_index`` changed from ``0`` to ``None``).
-
-``WizardAppWidget`` gained an ``open_first_step`` parameter (default ``True``), which was added specifically to preserve the pre-3.0 behavior (first step expanded on load) after the ``ipywidgets`` 8 change above.
-No action is required unless you want the wizard to start fully collapsed, in which case pass ``open_first_step=False``
-(`#792 <https://github.com/aiidalab/aiidalab-widgets-base/pull/792>`__).
 
 Widgets removed
 ----------------
