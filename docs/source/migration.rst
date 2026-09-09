@@ -30,8 +30,7 @@ Update your own package's dependency constraints accordingly before upgrading.
 ``ipywidgets`` 8 is now required
 ----------------------------------
 
-The package now depends on ``ipywidgets~=8.1`` (was ``~=7.7``), and the ``widgetsnbextension`` pin has been dropped
-(`#725 <https://github.com/aiidalab/aiidalab-widgets-base/pull/725>`__).
+The package now depends on ``ipywidgets~=8.1`` (was ``~=7.7``).
 This is the change most likely to require code changes downstream:
 
 * **``FileUpload.value`` changed shape.**
