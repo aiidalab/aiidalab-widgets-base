@@ -15,6 +15,7 @@ The AiiDAlab widgets help with these common tasks.
    :maxdepth: 2
 
    installation
+   migration
    widget-list/index
    contribute/index
 
