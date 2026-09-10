@@ -1,6 +1,6 @@
 # CHANGELOG
 
-## v3.0.0 - 2026-09-04
+## v3.0.0 - 2026-09-10
 
 This major version consolidates a few breaking changes,
 most notably a migration to ipywidgets v8 and python 3.12.
@@ -85,6 +85,8 @@ For example, a minimum supported spglib version is now 2.5.
 * `WizardAppWidget`: add `open_first_step` parameter, True by default by @danielhollas in https://github.com/aiidalab/aiidalab-widgets-base/pull/792
 * Add optional NGL viewer axes and default view control by @cpignedoli in https://github.com/aiidalab/aiidalab-widgets-base/pull/765
 * Fix gap on the right in global.css by @danielhollas in https://github.com/aiidalab/aiidalab-widgets-base/pull/790
+* Encode structure viewer representation styles by @cpignedoli in https://github.com/aiidalab/aiidalab-widgets-base/pull/768
+* Keep viewer representations in node extras by @cpignedoli in https://github.com/aiidalab/aiidalab-widgets-base/pull/769
 
 ### Bug fixes 🐛
 * Use widget's `message` as the child by @edan-bainglass in https://github.com/aiidalab/aiidalab-widgets-base/pull/708
@@ -96,6 +98,7 @@ For example, a minimum supported spglib version is now 2.5.
 * Remove reference to non-existent exception class by @danielhollas in https://github.com/aiidalab/aiidalab-widgets-base/pull/780
 * Fix imported viewer representation arrays by @cpignedoli in https://github.com/aiidalab/aiidalab-widgets-base/pull/766
 * Center SMILES molecules after adding auxiliary cell by @cpignedoli in https://github.com/aiidalab/aiidalab-widgets-base/pull/767
+* Fix: StructureManagerWidget now defaults to StructureData by @yakutovicha in https://github.com/aiidalab/aiidalab-widgets-base/pull/814
 
 ### Type checking
 * Add ty type-checker by @danielhollas in https://github.com/aiidalab/aiidalab-widgets-base/pull/781
@@ -126,7 +129,6 @@ For example, a minimum supported spglib version is now 2.5.
 
 ### Other Changes
 
-#### Type checking
 * Pin numpy to 1.x due to bokeh incompatibility by @danielhollas in https://github.com/aiidalab/aiidalab-widgets-base/pull/740
 * Bump nglview version by @danielhollas in https://github.com/aiidalab/aiidalab-widgets-base/pull/742
 * Remove requests-cache hack in elns.py by @danielhollas in https://github.com/aiidalab/aiidalab-widgets-base/pull/751
@@ -139,6 +141,9 @@ For example, a minimum supported spglib version is now 2.5.
 * Remove unused code from utils module by @danielhollas in https://github.com/aiidalab/aiidalab-widgets-base/pull/801
 * Add CHANGELOG.md from past release notes by @danielhollas in https://github.com/aiidalab/aiidalab-widgets-base/pull/799
 * Remove custom ListOrTuppleError by @danielhollas in https://github.com/aiidalab/aiidalab-widgets-base/pull/807
+* Drop the special-cased default representation by @yakutovicha in https://github.com/aiidalab/aiidalab-widgets-base/pull/815
+* Rename "ball+stick" representation to "ballstick" to make the code simpler by @yakutovicha in https://github.com/aiidalab/aiidalab-widgets-base/pull/816
+* Add migration guide for v3.0 breaking changes by @yakutovicha in https://github.com/aiidalab/aiidalab-widgets-base/pull/812
 
 **Full Changelog**: https://github.com/aiidalab/aiidalab-widgets-base/compare/v2.5.1...v3.0.0
 
