@@ -59,6 +59,13 @@ All ELN-related widgets and the ``elns.py`` module have moved to the `aiidalab-e
     # After
     from aiidalab_eln import ElnConfigureWidget, ElnExportWidget, ElnImportWidget
 
+Process notebook widgets
+^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+``ProcessCallStackWidget``, ``ProcessInputsWidget``, ``ProcessListWidget``, ``ProcessOutputsWidget``, ``ProcessReportWidget``, ``ProgressBarWidget`` and ``RunningCalcJobOutputWidget`` have been removed along with the process notebooks they were used in.
+Their code was moved to `aiidalab-home <https://github.com/aiidalab/aiidalab-home/pull/211>`_
+(`#720 <https://github.com/aiidalab/aiidalab-widgets-base/pull/720>`__).
+
 ``OpenAiidaNodeInAppWidget``
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
