@@ -73,6 +73,9 @@ target/
 .ipynb_checkpoints
 .*.ipynb
 
+# Numbered copies created when AiiDAlab reopens running notebooks
+*-[0-9]*.ipynb
+
 # pyenv
 .python-version
 
