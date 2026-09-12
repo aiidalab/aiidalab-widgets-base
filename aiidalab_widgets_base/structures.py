@@ -35,6 +35,8 @@ SYMBOL_RADIUS = {
     key: ase.data.covalent_radii[i] for i, key in enumerate(ase.data.chemical_symbols)
 }
 
+ASE_IO_URL = "https://ase.gitlab.io/ase/ase/io/io.html#ase.io.write"
+
 
 class StructureManagerWidget(ipw.VBox):
     """Upload a structure and store it in AiiDA database.
@@ -412,9 +414,7 @@ class StructureUploadWidget(ipw.VBox):
         # In this case, we create TrajectoryData node.
         self.allow_trajectories = allow_trajectories
         supported_formats = ipw.HTML(
-            """<a href="https://wiki.fysik.dtu.dk/ase/ase/io/io.html#ase.io.write" target="_blank">
-        Supported structure formats
-        </a>"""
+            f'<a href="{ASE_IO_URL}" target="_blank">Supported structure formats</a>'
         )
         self._status_message = StatusHTML(clear_after=5)
         self.file_upload.observe(self._on_file_upload, names="value")
