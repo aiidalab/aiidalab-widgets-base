@@ -848,3 +848,51 @@ def test_basic_structure_editor(structure_data_object):
     widget.add()
     assert len(widget.structure) == 7
     assert widget.structure.get_chemical_formula() == "C2H3OSi"
+
+
+@pytest.mark.usefixtures("aiida_profile_clean")
+def test_structure_manager_preserves_eln_origin_through_edits():
+    origin = {
+        "eln_instance": "https://openbis.example",
+        "eln_type": "openbis",
+        "sample_uuid": "20260912123456789-1234",
+        "data_type": "MOLECULE",
+        "representation": "smiles",
+        "structure_fingerprint": "original-fingerprint",
+    }
+    source = orm.StructureData(
+        ase=ase.Atoms("CH4", cell=[10, 10, 10], pbc=False)
+    ).store()
+    source.base.extras.set("eln", origin)
+
+    widget = awb.StructureManagerWidget(
+        importers=[], input_structure=source, node_class="StructureData"
+    )
+    assert widget.structure.info["eln"] == origin
+
+    edited = widget.structure.copy()
+    edited.positions[0, 0] += 0.25
+    widget.structure = edited
+
+    assert widget.structure_node.base.extras.get("eln") == origin
+    widget.btn_store.click()
+    assert widget.structure_node.is_stored
+    assert widget.structure_node.base.extras.get("eln") == origin
+    assert source.base.extras.get("eln") == origin
+
+
+@pytest.mark.usefixtures("aiida_profile_clean")
+def test_structure_manager_copies_eln_origin_from_ase_input():
+    origin = {
+        "eln_instance": "https://openbis.example",
+        "sample_uuid": "20260912123456789-1234",
+        "data_type": "ATOMISTIC_MODEL",
+    }
+    structure = ase.Atoms("Au", cell=[5, 5, 5], pbc=True)
+    structure.info["eln"] = origin
+
+    widget = awb.StructureManagerWidget(
+        importers=[], input_structure=structure, node_class="StructureData"
+    )
+
+    assert widget.structure_node.base.extras.get("eln") == origin
