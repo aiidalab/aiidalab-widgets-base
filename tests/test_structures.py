@@ -868,14 +868,17 @@ def test_structure_manager_preserves_eln_origin_through_edits():
     widget = awb.StructureManagerWidget(
         importers=[], input_structure=source, node_class="StructureData"
     )
+    assert widget.structure is not None
     assert widget.structure.info["eln"] == origin
 
     edited = widget.structure.copy()
     edited.positions[0, 0] += 0.25
     widget.structure = edited
 
+    assert widget.structure_node is not None
     assert widget.structure_node.base.extras.get("eln") == origin
     widget.btn_store.click()
+    assert widget.structure_node is not None
     assert widget.structure_node.is_stored
     assert widget.structure_node.base.extras.get("eln") == origin
     assert source.base.extras.get("eln") == origin
@@ -895,4 +898,5 @@ def test_structure_manager_copies_eln_origin_from_ase_input():
         importers=[], input_structure=structure, node_class="StructureData"
     )
 
+    assert widget.structure_node is not None
     assert widget.structure_node.base.extras.get("eln") == origin
