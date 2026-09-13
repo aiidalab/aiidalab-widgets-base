@@ -1,5 +1,6 @@
 """Module to provide functionality to import structures."""
 
+import copy
 import datetime
 import functools
 import io
@@ -36,6 +37,7 @@ SYMBOL_RADIUS = {
 }
 
 ASE_IO_URL = "https://ase.gitlab.io/ase/ase/io/io.html#ase.io.write"
+ELN_ORIGIN_EXTRA = "eln"
 
 
 class StructureManagerWidget(ipw.VBox):
@@ -306,6 +308,11 @@ class StructureManagerWidget(ipw.VBox):
             structure_node = structure_node_type(ase=structure)
             if "smiles" in structure.info:
                 structure_node.base.extras.set("smiles", structure.info["smiles"])
+            origin = structure.info.get(ELN_ORIGIN_EXTRA)
+            if origin is None and isinstance(self.input_structure, orm.Data):
+                origin = self.input_structure.base.extras.get(ELN_ORIGIN_EXTRA, None)
+            if origin is not None:
+                structure_node.base.extras.set(ELN_ORIGIN_EXTRA, copy.deepcopy(origin))
             return structure_node
 
         # If the input_structure trait is set to AiiDA node, check what type
@@ -358,12 +365,19 @@ class StructureManagerWidget(ipw.VBox):
         ):  # Special treatement of the CifData object
             str_io = io.StringIO(change["new"].get_content())
             structure = ase.io.read(str_io, format="cif", reader="ase", store_tags=True)
+            origin = change["new"].base.extras.get(ELN_ORIGIN_EXTRA, None)
+            if origin is not None:
+                structure.info[ELN_ORIGIN_EXTRA] = copy.deepcopy(origin)
             self.structure = self.viewer.restore_representations_from_extras(
                 change["new"], structure
             )
         elif isinstance(change["new"], StructureData):
+            structure = change["new"].get_ase()
+            origin = change["new"].base.extras.get(ELN_ORIGIN_EXTRA, None)
+            if origin is not None:
+                structure.info[ELN_ORIGIN_EXTRA] = copy.deepcopy(origin)
             self.structure = self.viewer.restore_representations_from_extras(
-                change["new"], change["new"].get_ase()
+                change["new"], structure
             )
 
         else:
