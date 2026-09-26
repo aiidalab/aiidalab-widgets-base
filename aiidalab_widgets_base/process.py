@@ -220,7 +220,7 @@ class ProcessMonitor(tl.HasTraits):
         with self._monitor_thread_lock:
             self._monitor_thread_stop.clear()
             self._monitor_thread = threading.Thread(
-                target=self._monitor_process, args=(process_uuid,)
+                target=self._monitor_process, args=(process_uuid,), daemon=True
             )
             self._monitor_thread.start()
 

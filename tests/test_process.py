@@ -1,3 +1,5 @@
+from types import SimpleNamespace
+
 import ipywidgets as ipw
 import pytest
 from aiida import engine, orm
@@ -71,6 +73,24 @@ def test_process_monitor(
 
     assert test_variable
     daemon_client.stop_daemon(wait=True)
+
+
+def test_process_monitor_thread_is_daemon(monkeypatch):
+    process = SimpleNamespace(is_sealed=False)
+    monkeypatch.setattr(
+        "aiidalab_widgets_base.process.orm.load_node", lambda _: process
+    )
+
+    widget = awb.ProcessMonitor(timeout=0.01)
+    widget.value = "process-uuid"
+    thread = widget._monitor_thread
+    assert thread is not None
+    try:
+        assert thread.is_alive()
+        assert thread.daemon
+    finally:
+        widget.value = None
+    assert not thread.is_alive()
 
 
 @pytest.mark.usefixtures("aiida_profile_clean")
