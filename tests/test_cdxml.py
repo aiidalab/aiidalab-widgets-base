@@ -10,6 +10,9 @@ from aiidalab_widgets_base.cdxml import (
     _bounded_faces,
     _has_bond_crossings,
     _signed_area,
+    normalize,
+    rotate_vector,
+    rotation_matrix_from_vectors,
 )
 
 DATA_DIR = Path(__file__).parent / "data" / "cdxml"
@@ -85,6 +88,52 @@ def test_structure_upload_widget(file_upload_change):
     widget.create_button.click()
     assert widget.structure.get_chemical_formula() == "C6H6"
     assert not widget.structure.pbc.any()
+
+
+def test_geometry_transform_helpers():
+    x_axis = np.array([1.0, 0.0, 0.0])
+    y_axis = np.array([0.0, 1.0, 0.0])
+    z_axis = np.array([0.0, 0.0, 1.0])
+
+    assert np.allclose(normalize(3.0 * x_axis), x_axis)
+    assert np.allclose(normalize(np.zeros(3)), np.zeros(3))
+    assert np.allclose(rotation_matrix_from_vectors(x_axis, x_axis), np.eye(3))
+    assert np.allclose(rotation_matrix_from_vectors(x_axis, y_axis) @ x_axis, y_axis)
+    assert np.allclose(rotate_vector(x_axis, z_axis, np.pi / 2), y_axis)
+
+    source = np.array([[0.0, 0.0, 0.0], [1.0, 0.0, 0.0], [0.0, 1.0, 0.0]])
+    rotation = rotation_matrix_from_vectors(x_axis, y_axis)
+    target = 2.0 * np.dot(source, rotation.T) + np.array([4.0, -3.0, 1.0])
+    transformed = awb.CdxmlUploadWidget.transform_points(source, target, source)
+    assert np.allclose(transformed, target)
+
+    horizontal = np.array([[0.0, 0.0, 0.0], [2.0, 1.0, 0.0]])
+    vertical = np.array([[0.0, -2.0, 0.0], [1.0, 3.0, 0.0]])
+    assert np.allclose(
+        awb.CdxmlUploadWidget.max_extension_points(horizontal),
+        [[-7.5, 0.0, 0.0], [9.5, 0.0, 0.0]],
+    )
+    assert np.allclose(
+        awb.CdxmlUploadWidget.max_extension_points(vertical),
+        [[0.0, -9.5, 0.0], [0.0, 10.5, 0.0]],
+    )
+
+
+def test_safe_hydrogenation_handles_bonded_and_isolated_carbons():
+    acetylene_skeleton = ase.Atoms("C2", positions=[[0.0, 0.0, 0.0], [1.42, 0.0, 0.0]])
+    message, hydrogenated = awb.CdxmlUploadWidget.add_safe_hydrogen_atoms(
+        acetylene_skeleton
+    )
+
+    assert hydrogenated.get_chemical_formula() == "C2H2"
+    assert "[0, 1]" in message
+    assert hydrogenated.positions[2, 0] < 0.0
+    assert hydrogenated.positions[3, 0] > 1.42
+
+    isolated = ase.Atoms("C", positions=[[0.0, 0.0, 0.0]])
+    _, isolated_hydrogenated = awb.CdxmlUploadWidget.add_safe_hydrogen_atoms(isolated)
+    assert isolated_hydrogenated.get_chemical_formula() == "CH"
+    assert np.allclose(isolated_hydrogenated.positions[1], [0.0, 0.0, 1.1])
 
 
 def test_planarity_check_rejects_crossing_and_overlapping_bonds():
