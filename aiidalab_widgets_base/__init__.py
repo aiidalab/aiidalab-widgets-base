@@ -53,6 +53,7 @@ if is_running_in_jupyter():
     load_css(css_path=Path(__file__).parent / "static/styles")
 
 
+from .cdxml import CdxmlUploadWidget
 from .computational_resources import (
     ComputationalResourcesWidget,
     ComputerDropdownWidget,
@@ -83,6 +84,7 @@ __all__ = [
     "AiidaNodeViewWidget",
     "BasicCellEditor",
     "BasicStructureEditor",
+    "CdxmlUploadWidget",
     "CodQueryWidget",
     "CodeDatabaseWidget",
     "CodeDropdown",
