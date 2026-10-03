@@ -253,7 +253,9 @@ class CdxmlUploadWidget(ipw.VBox):
             return True
         except ValueError as exc:
             self.output_message.value = f"Error: {html.escape(str(exc))}"
-        except Exception as exc:
+        # A file-upload callback should report unexpected malformed input in the
+        # widget instead of interrupting the notebook event loop.
+        except Exception as exc:  # noqa: BLE001
             self.output_message.value = f"Unexpected error: {html.escape(str(exc))}"
         return False
 
@@ -685,9 +687,11 @@ class CdxmlUploadWidget(ipw.VBox):
             neighbors = [normalize(atoms[n]["pos"] - c) for n, _ in conn[aid]]
             orders = [o for _, o in conn[aid]]
 
-            def add_H(vecs: list[np.ndarray], length: float = 1.09):
+            def add_H(
+                vecs: list[np.ndarray], length: float = 1.09, center: np.ndarray = c
+            ):
                 for v in vecs:
-                    pos.append(c + length * v)
+                    pos.append(center + length * v)
                     sym.append("H")
 
             # --- Oxygen or Nitrogen (improved geometry) ---
