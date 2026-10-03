@@ -44,6 +44,18 @@ def _explicit_edges(content):
     ]
 
 
+def _minimal_cdxml(nodes, bonds):
+    node_xml = "".join(
+        f'<n id="{atom_id}" p="{x} {y}" Element="{element}"{extra}/>'
+        for atom_id, element, x, y, extra in nodes
+    )
+    bond_xml = "".join(
+        f'<b id="b{index}" B="{first}" E="{second}" Order="{order}"/>'
+        for index, (first, second, order) in enumerate(bonds)
+    )
+    return f"<CDXML><page>{node_xml}{bond_xml}</page></CDXML>"
+
+
 def _sp2_angle_error(positions, edges):
     adjacency = [[] for _ in positions]
     for first, second in edges:
@@ -136,6 +148,63 @@ def test_safe_hydrogenation_handles_bonded_and_isolated_carbons():
     assert np.allclose(isolated_hydrogenated.positions[1], [0.0, 0.0, 1.1])
 
 
+def test_widget_reports_missing_and_malformed_cdxml(monkeypatch):
+    widget = awb.CdxmlUploadWidget()
+
+    widget._on_file_upload()
+    widget.create_button.click()
+    assert widget.structure is None
+    assert "No CDXML file has been uploaded" in widget.output_message.value
+
+    widget._cdxml_content = b"<CDXML><broken>"
+    assert not widget._convert_uploaded_cdxml()
+    assert "Unexpected error" in widget.output_message.value
+
+    def reject_cdxml(*args, **kwargs):
+        raise ValueError("invalid <bond>")
+
+    monkeypatch.setattr(widget, "cdxml_to_ase_from_string", reject_cdxml)
+    assert not widget._convert_uploaded_cdxml()
+    assert "invalid &lt;bond&gt;" in widget.output_message.value
+
+
+def test_geometry_cleanup_and_override_validation():
+    unchanged = awb.CdxmlUploadWidget.symmetrize_carbon_network(
+        np.array([[0.0, 0.0, 0.0], [1.4, 0.0, 0.0]]),
+        ["C", "C"],
+        [(0, 1)],
+    )
+    assert np.allclose(unchanged, [[0.0, 0.0, 0.0], [1.4, 0.0, 0.0]])
+
+    crossing_positions = np.array(
+        [[0.0, 0.0, 0.0], [1.0, 1.0, 0.0], [0.0, 1.0, 0.0], [1.0, 0.0, 0.0]]
+    )
+    with pytest.raises(ValueError, match="geometric crossing"):
+        awb.CdxmlUploadWidget.symmetrize_carbon_network(
+            crossing_positions,
+            ["C"] * 4,
+            [(0, 1), (2, 3), (0, 2)],
+        )
+
+    content = (DATA_DIR / "benzene.cdxml").read_bytes()
+    widget = awb.CdxmlUploadWidget()
+    with pytest.raises(ValueError, match="atom count"):
+        widget.extract_crossing_and_atom_positions(
+            content, atom_positions_override=np.zeros((1, 3))
+        )
+    with pytest.raises(ValueError, match="must have shape"):
+        widget.extract_crossing_and_atom_positions(
+            content, atom_positions_override=np.zeros((6, 4))
+        )
+
+    boundaries, positions, is_not_periodic = widget.extract_crossing_and_atom_positions(
+        content, atom_positions_override=np.zeros((6, 2))
+    )
+    assert is_not_periodic
+    assert positions.shape == (6, 3)
+    assert boundaries.shape == (2, 3)
+
+
 def test_planarity_check_rejects_crossing_and_overlapping_bonds():
     crossing_positions = np.array([[0.0, 0.0], [1.0, 1.0], [0.0, 1.0], [1.0, 0.0]])
     overlapping_positions = np.array([[0.0, 0.0], [2.0, 0.0], [0.5, 0.0], [1.5, 0.0]])
@@ -158,6 +227,74 @@ def test_periodic_crossings_are_independent_of_bracket_order():
     assert np.linalg.norm(crossing_points[1] - crossing_points[0]) == pytest.approx(
         42.75, abs=0.05
     )
+
+
+@pytest.mark.parametrize(
+    ("nodes", "bonds", "formula"),
+    [
+        (
+            [("1", "6", 0, 0, ""), ("2", "6", 1, 0, "")],
+            [("1", "2", "1")],
+            "C2H6",
+        ),
+        (
+            [("1", "6", 0, 0, ""), ("2", "6", 1, 0, "")],
+            [("1", "2", "2")],
+            "C2H4",
+        ),
+        (
+            [("1", "6", 0, 0, ' Radical="2"'), ("2", "6", 1, 0, "")],
+            [("1", "2", "1")],
+            "C2H5",
+        ),
+        ([("1", "8", 0, 0, "")], [], "H2O"),
+        (
+            [("1", "6", 0, 0, ""), ("2", "8", 1.4, 0, "")],
+            [("1", "2", "1")],
+            "CH4O",
+        ),
+        (
+            [
+                ("1", "6", -1, 0, ""),
+                ("2", "7", 0, 0, ""),
+                ("3", "6", 0.5, 0.8, ""),
+            ],
+            [("1", "2", "1"), ("2", "3", "1")],
+            "C2H7N",
+        ),
+        (
+            [("1", "6", 0, 0, ""), ("2", "16", 1.8, 0, "")],
+            [("1", "2", "1")],
+            "CH4S",
+        ),
+        (
+            [
+                ("1", "6", -1, 0, ""),
+                ("2", "6", 0, 0, ""),
+                ("3", "6", 0.5, 0.8, ""),
+            ],
+            [("1", "2", "1"), ("2", "3", "1")],
+            "C3H8",
+        ),
+    ],
+    ids=[
+        "ethane",
+        "ethene",
+        "ethyl-radical",
+        "water",
+        "methanol",
+        "dimethylamine",
+        "methanethiol",
+        "propane",
+    ],
+)
+def test_implicit_hydrogen_geometries(nodes, bonds, formula):
+    _, _, atoms = awb.CdxmlUploadWidget.cdxml_to_ase_from_string(
+        _minimal_cdxml(nodes, bonds)
+    )
+
+    assert atoms.get_chemical_formula() == formula
+    assert np.isfinite(atoms.positions).all()
 
 
 def test_cdxml_scaling_uses_explicit_carbon_bonds():
