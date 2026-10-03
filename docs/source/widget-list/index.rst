@@ -14,4 +14,5 @@ See also the `corresponding git repository <https://github.com/aiidalab/aiidalab
     notebooks/viewers
     notebooks/computational_resources
     notebooks/structures
+    cdxml
     notebooks/wizard_apps
