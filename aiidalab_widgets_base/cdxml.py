@@ -5,7 +5,6 @@ from __future__ import annotations
 import html
 import math
 import xml.etree.ElementTree as ET
-from typing import List, Optional, Tuple
 
 import ase
 import ipywidgets as ipw
@@ -60,8 +59,8 @@ def _signed_area(points: np.ndarray) -> float:
 
 
 def _bounded_faces(
-    positions: np.ndarray, edges: List[Tuple[int, int]]
-) -> List[List[int]]:
+    positions: np.ndarray, edges: list[tuple[int, int]]
+) -> list[list[int]]:
     """Find bounded faces in an existing straight-line planar embedding."""
     adjacency = {index: [] for index in range(len(positions))}
     for first, second in edges:
@@ -149,7 +148,7 @@ def _segments_properly_cross(
     )
 
 
-def _has_bond_crossings(positions: np.ndarray, edges: List[Tuple[int, int]]) -> bool:
+def _has_bond_crossings(positions: np.ndarray, edges: list[tuple[int, int]]) -> bool:
     """Check a straight-line graph embedding for non-adjacent bond crossings."""
     for edge_index, (first, second) in enumerate(edges):
         for third, fourth in edges[edge_index + 1 :]:
@@ -168,9 +167,7 @@ class CdxmlUploadWidget(ipw.VBox):
 
     structure = tr.Instance(ase.Atoms, allow_none=True)
 
-    def __init__(
-        self, title: str = "CDXML", description: str = "Upload CDXML"
-    ):
+    def __init__(self, title: str = "CDXML", description: str = "Upload CDXML"):
         self.title = title
 
         # --- File upload widget ---
@@ -222,11 +219,11 @@ class CdxmlUploadWidget(ipw.VBox):
         )
 
         # --- Internal state ---
-        self.structure: Optional[ase.Atoms] = None
-        self.crossing_points: Optional[np.ndarray] = None
-        self.cdxml_atoms: Optional[np.ndarray] = None
-        self.atoms: Optional[ase.Atoms] = None
-        self.whole_atoms: Optional[ase.Atoms] = None
+        self.structure: ase.Atoms | None = None
+        self.crossing_points: np.ndarray | None = None
+        self.cdxml_atoms: np.ndarray | None = None
+        self.atoms: ase.Atoms | None = None
+        self.whole_atoms: ase.Atoms | None = None
         self._cdxml_content = None
         self._geometry_message = ""
 
@@ -257,9 +254,7 @@ class CdxmlUploadWidget(ipw.VBox):
         except ValueError as exc:
             self.output_message.value = f"Error: {html.escape(str(exc))}"
         except Exception as exc:
-            self.output_message.value = (
-                f"Unexpected error: {html.escape(str(exc))}"
-            )
+            self.output_message.value = f"Unexpected error: {html.escape(str(exc))}"
         return False
 
     def _on_file_upload(self, change=None) -> None:
@@ -304,7 +299,9 @@ class CdxmlUploadWidget(ipw.VBox):
 
         if self.crossing_points is not None:
             if self.cdxml_atoms is None:
-                self.output_message.value = "Error: CDXML atom positions are unavailable."
+                self.output_message.value = (
+                    "Error: CDXML atom positions are unavailable."
+                )
                 return
             crossing_points = self.transform_points(
                 self.cdxml_atoms, atoms.positions, self.crossing_points
@@ -343,7 +340,7 @@ class CdxmlUploadWidget(ipw.VBox):
         self.structure = atoms
 
     @staticmethod
-    def add_safe_hydrogen_atoms(atoms: Atoms) -> Tuple[str, Atoms]:
+    def add_safe_hydrogen_atoms(atoms: Atoms) -> tuple[str, Atoms]:
         """Add one H to C atoms with fewer than three neighbors."""
         neighbor_list = NeighborList(
             [covalent_radii[atom.number] for atom in atoms],
@@ -382,8 +379,8 @@ class CdxmlUploadWidget(ipw.VBox):
     @staticmethod
     def symmetrize_carbon_network(
         positions: np.ndarray,
-        symbols: List[str],
-        bonds: List[Tuple[int, int]],
+        symbols: list[str],
+        bonds: list[tuple[int, int]],
         target_cc_length: float = 1.43,
         minimum_cc_length: float = 1.35,
         maximum_cc_length: float = 1.60,
@@ -442,7 +439,10 @@ class CdxmlUploadWidget(ipw.VBox):
             current = flat_positions.reshape((-1, 2))
             values: list[float] = [
                 float(
-                    (np.linalg.norm(current[second] - current[first]) - target_cc_length)
+                    (
+                        np.linalg.norm(current[second] - current[first])
+                        - target_cc_length
+                    )
                     / 0.04
                 )
                 for first, second in carbon_edges
@@ -535,7 +535,7 @@ class CdxmlUploadWidget(ipw.VBox):
         cdxml_content: str | bytes,
         target_cc_length: float = 1.43,
         symmetrize: bool = False,
-    ) -> Tuple[str, Atoms, Atoms]:
+    ) -> tuple[str, Atoms, Atoms]:
         """
         Convert CDXML content (string) into ASE Atoms objects:
         one bare molecule (no hydrogens) and one with hydrogens.
@@ -685,7 +685,7 @@ class CdxmlUploadWidget(ipw.VBox):
             neighbors = [normalize(atoms[n]["pos"] - c) for n, _ in conn[aid]]
             orders = [o for _, o in conn[aid]]
 
-            def add_H(vecs: List[np.ndarray], length: float = 1.09):
+            def add_H(vecs: list[np.ndarray], length: float = 1.09):
                 for v in vecs:
                     pos.append(c + length * v)
                     sym.append("H")
@@ -826,7 +826,7 @@ class CdxmlUploadWidget(ipw.VBox):
     @staticmethod
     def transform_points(
         set1: np.ndarray, set2: np.ndarray, points: np.ndarray
-    ) -> List[List[float]]:
+    ) -> list[list[float]]:
         """Transform points based on scaling and rotation aligning set1→set2."""
         centroid1, centroid2 = np.mean(set1, axis=0), np.mean(set2, axis=0)
         centered1, centered2 = set1 - centroid1, set2 - centroid2
@@ -853,8 +853,8 @@ class CdxmlUploadWidget(ipw.VBox):
     def extract_crossing_and_atom_positions(
         self,
         cdxml_content: str | bytes,
-        atom_positions_override: Optional[np.ndarray] = None,
-    ) -> Tuple[Optional[np.ndarray], np.ndarray, bool]:
+        atom_positions_override: np.ndarray | None = None,
+    ) -> tuple[np.ndarray | None, np.ndarray, bool]:
         """Extract robust periodic boundaries and atom positions from CDXML.
 
         ChemDraw may serialize the right bracket before the left bracket. Crossing
@@ -1042,8 +1042,8 @@ class CdxmlUploadWidget(ipw.VBox):
     def align_and_trim_atoms(
         atoms: Atoms,
         crossing_points: np.ndarray,
-        units: Optional[str] = None,
-        original_atoms: Optional[Atoms] = None,
+        units: str | None = None,
+        original_atoms: Atoms | None = None,
     ) -> Atoms:
         """
         Align, trim, and optionally replicate atoms along the periodic direction.
