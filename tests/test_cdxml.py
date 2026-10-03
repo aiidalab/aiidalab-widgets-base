@@ -202,6 +202,7 @@ def test_geometry_cleanup_and_override_validation():
     )
     assert is_not_periodic
     assert positions.shape == (6, 3)
+    assert boundaries is not None
     assert boundaries.shape == (2, 3)
 
 
