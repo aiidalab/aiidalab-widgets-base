@@ -163,10 +163,12 @@ def test_multi_structure_selector_uses_only_nearby_unique_labels(file_upload_cha
         "Structure 3",
     )
     assert widget.structure_selector.layout.display == "flex"
+    assert widget.atoms is not None
     assert len(widget.atoms) == 2
     assert not widget.nunits.disabled
 
     widget.structure_selector.value = 1
+    assert widget.atoms is not None
     assert len(widget.atoms) == 3
     assert widget.structure is None
     assert not widget.nunits.disabled
@@ -220,6 +222,7 @@ def test_single_structure_keeps_existing_flow(file_upload_change):
 
     assert len(widget.structure_selector.options) == 1
     assert widget.structure_selector.layout.display == "none"
+    assert widget.atoms is not None
     assert len(widget.atoms) == 6
 
 
