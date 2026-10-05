@@ -7,6 +7,12 @@ CDXML structure import
 hydrogens from their explicit bond orders. Square-bracketed repeat units are
 converted to one-dimensional periodic structures.
 
+When a CDXML document contains several chemical fragments, the widget displays
+a structure selector. Each fragment is associated one-to-one with a nearby
+caption, using the local drawing bond length to reject unrelated distant text.
+Fragments without a nearby caption are identified as ``Structure 1``,
+``Structure 2``, and so on.
+
 .. code-block:: python
 
    from aiidalab_widgets_base import CdxmlUploadWidget

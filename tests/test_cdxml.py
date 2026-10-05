@@ -56,6 +56,55 @@ def _minimal_cdxml(nodes, bonds):
     return f"<CDXML><page>{node_xml}{bond_xml}</page></CDXML>"
 
 
+def _multi_structure_cdxml(include_labels=True):
+    labels = ""
+    if include_labels:
+        labels = """
+        <t id="label-1" BoundingBox="2 0 8 4"><s>Alpha</s></t>
+        <t id="label-2" BoundingBox="104 0 116 4"><s>Beta</s></t>
+        <t id="heading" BoundingBox="0 -100 80 -90"><s>Family heading</s></t>
+        """
+    return f"""
+    <CDXML BondLength="10"><page>
+      <fragment id="f1">
+        <n id="1" p="0 10" Element="6"/><n id="2" p="10 10" Element="6"/>
+        <b id="b1" B="1" E="2" Order="1"/>
+      </fragment>
+      <fragment id="f2">
+        <n id="3" p="100 10" Element="6"/><n id="4" p="110 10" Element="6"/>
+        <n id="5" p="120 10" Element="6"/>
+        <b id="b2" B="3" E="4" Order="1"/><b id="b3" B="4" E="5" Order="1"/>
+      </fragment>
+      <fragment id="f3">
+        <n id="6" p="200 10" Element="6"/><n id="7" p="210 10" Element="6"/>
+        <b id="b4" B="6" E="7" Order="2"/>
+      </fragment>
+      {labels}
+      <graphic id="g1-left" BracketType="Square" BoundingBox="2 5 2 15"/>
+      <graphic id="g1-right" BracketType="Square" BoundingBox="8 5 8 15"/>
+      <graphic id="g2-left" BracketType="Square" BoundingBox="104 5 104 15"/>
+      <graphic id="g2-right" BracketType="Square" BoundingBox="116 5 116 15"/>
+      <graphic id="g3-left" BracketType="Square" BoundingBox="202 5 202 15"/>
+      <graphic id="g3-right" BracketType="Square" BoundingBox="208 5 208 15"/>
+      <graphic id="electron-1" SymbolType="Electron"><represent object="1"/></graphic>
+      <graphic id="electron-2" SymbolType="Electron"><represent object="3"/></graphic>
+      <graphic id="electron-3" SymbolType="Electron"><represent object="6"/></graphic>
+      <bracketedgroup id="group-1" BracketedObjectIDs="1 2">
+        <bracketattachment id="attachment-1a" GraphicID="g1-left"/>
+        <bracketattachment id="attachment-1b" GraphicID="g1-right"/>
+      </bracketedgroup>
+      <bracketedgroup id="group-2" BracketedObjectIDs="3 4 5">
+        <bracketattachment id="attachment-2a" GraphicID="g2-left"/>
+        <bracketattachment id="attachment-2b" GraphicID="g2-right"/>
+      </bracketedgroup>
+      <bracketedgroup id="group-3" BracketedObjectIDs="6 7">
+        <bracketattachment id="attachment-3a" GraphicID="g3-left"/>
+        <bracketattachment id="attachment-3b" GraphicID="g3-right"/>
+      </bracketedgroup>
+    </page></CDXML>
+    """
+
+
 def _sp2_angle_error(positions, edges):
     adjacency = [[] for _ in positions]
     for first, second in edges:
@@ -100,6 +149,78 @@ def test_structure_upload_widget(file_upload_change):
     widget.create_button.click()
     assert widget.structure.get_chemical_formula() == "C6H6"
     assert not widget.structure.pbc.any()
+
+
+def test_multi_structure_selector_uses_only_nearby_unique_labels(file_upload_change):
+    widget = awb.CdxmlUploadWidget()
+    widget._on_file_upload(
+        file_upload_change("multiple.cdxml", _multi_structure_cdxml())
+    )
+
+    assert tuple(label for label, _ in widget.structure_selector.options) == (
+        "Alpha",
+        "Beta",
+        "Structure 3",
+    )
+    assert widget.structure_selector.layout.display == "flex"
+    assert len(widget.atoms) == 2
+    assert not widget.nunits.disabled
+
+    widget.structure_selector.value = 1
+    assert len(widget.atoms) == 3
+    assert widget.structure is None
+    assert not widget.nunits.disabled
+
+    selected_root = ET.fromstring(widget._selected_cdxml_content())
+    assert [fragment.get("id") for fragment in selected_root.iter("fragment")] == ["f2"]
+    assert [group.get("id") for group in selected_root.iter("bracketedgroup")] == [
+        "group-2"
+    ]
+    assert {graphic.get("id") for graphic in selected_root.iter("graphic")} == {
+        "g2-left",
+        "g2-right",
+        "electron-2",
+    }
+
+
+def test_multi_structure_selector_numbers_documents_without_labels(
+    file_upload_change,
+):
+    widget = awb.CdxmlUploadWidget()
+    widget._on_file_upload(
+        file_upload_change(
+            "multiple-without-labels.cdxml",
+            _multi_structure_cdxml(include_labels=False),
+        )
+    )
+
+    assert tuple(label for label, _ in widget.structure_selector.options) == (
+        "Structure 1",
+        "Structure 2",
+        "Structure 3",
+    )
+
+
+def test_multi_structure_selector_disambiguates_duplicate_labels():
+    content = _multi_structure_cdxml().replace(">Beta<", ">Alpha<")
+
+    assert tuple(
+        label for label, _ in awb.CdxmlUploadWidget._cdxml_structure_options(content)
+    ) == (
+        "Alpha — Structure 1",
+        "Alpha — Structure 2",
+        "Structure 3",
+    )
+
+
+def test_single_structure_keeps_existing_flow(file_upload_change):
+    widget = awb.CdxmlUploadWidget()
+    content = (DATA_DIR / "benzene.cdxml").read_text()
+    widget._on_file_upload(file_upload_change("benzene.cdxml", content))
+
+    assert len(widget.structure_selector.options) == 1
+    assert widget.structure_selector.layout.display == "none"
+    assert len(widget.atoms) == 6
 
 
 def test_geometry_transform_helpers():
