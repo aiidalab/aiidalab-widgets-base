@@ -10,6 +10,7 @@ only-include = ["aiidalab_widgets_base"]
 
 [project]
 name = "aiidalab-widgets-base"
+description = "Reusable widgets for AiiDAlab applications."
 dynamic = ['version']
 authors = [{name = 'The AiiDAlab team', email = 'aiidalab@materialcloud.org'}]
 classifiers = [
@@ -19,6 +20,7 @@ classifiers = [
     "Programming Language :: Python :: 3 :: Only",
 ]
 
+requires-python = '>=3.12'
 dependencies = [
     "PyCifRW~=4.4",
     "aiida-core>=2.8,<3",
@@ -36,10 +38,16 @@ dependencies = [
     "pip>=25",
 ]
 
-description = "Reusable widgets for AiiDAlab applications."
-license = {file = 'LICENSE.txt'}
+license = 'MIT'
+license-files = ['LICENSE.txt']
 readme = 'README.md'
-requires-python = '>=3.12'
+
+[project.urls]
+documentation = 'https://aiidalab-widgets-base.readthedocs.io/en/latest/'
+homepage = 'https://github.com/aiidalab/aiidalab-widgets-base/'
+issues = 'https://github.com/aiidalab/aiidalab-widgets-base/issues'
+logo = 'https://raw.githubusercontent.com/aiidalab/aiidalab-widgets-base/refs/heads/master/miscellaneous/logos/aiidalab.png'
+
 
 [project.optional-dependencies]
 dev = [
