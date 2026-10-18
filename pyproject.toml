@@ -45,8 +45,9 @@ readme = 'README.md'
 [project.urls]
 documentation = 'https://aiidalab-widgets-base.readthedocs.io/en/latest/'
 homepage = 'https://github.com/aiidalab/aiidalab-widgets-base/'
+source = 'https://github.com/aiidalab/aiidalab-widgets-base/'
 issues = 'https://github.com/aiidalab/aiidalab-widgets-base/issues'
-logo = 'https://raw.githubusercontent.com/aiidalab/aiidalab-widgets-base/refs/heads/master/miscellaneous/logos/aiidalab.png'
+changelog = 'https://raw.githubusercontent.com/aiidalab/aiidalab-widgets-base/refs/heads/master/CHANGELOG.md'
 
 
 [project.optional-dependencies]
