@@ -54,7 +54,7 @@ changelog = 'https://raw.githubusercontent.com/aiidalab/aiidalab-widgets-base/re
 dev = [
     "bumpver>=2023.1129",
     "pre-commit>=4.0",
-    "ty==0.0.77",
+    "ty==0.0.89",
     "pytest~=8.4.0",
     "pytest-cov~=5.0",
     "pytest-docker~=3.1.0",

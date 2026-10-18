@@ -1396,7 +1396,9 @@ class _StructureDataBaseViewer(ipw.VBox):
     def _observe_displayed_selection(self, _=None):
         seen = set()
         seq = [x % self.natoms for x in self.displayed_selection]
-        self.selection = [x for x in seq if not (x in seen or seen.add(x))]
+        # TODO: This logic seems buggy, expression 'not (x in seen or seen.add(x))' is always true
+        # https://github.com/aiidalab/aiidalab-widgets-base/issues/829
+        self.selection = [x for x in seq if not (x in seen or seen.add(x))]  # ty: ignore[redundant-condition]
         self.highlight_atoms(self.displayed_selection)
 
     def apply_displayed_selection(self, _=None):

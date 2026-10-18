@@ -122,7 +122,9 @@ class StructureManagerWidget(ipw.VBox):
         tl.link((data_format, "label"), (self, "node_class"))
 
         # Store button, store class selector, description.
-        store_and_description = [self.btn_store] if storable else []
+        store_and_description = []
+        if storable:
+            store_and_description.append(self.btn_store)
 
         # `node_class` is already set by the link above, from the selector's
         # initial value. The selector itself is only shown when the caller left
@@ -655,17 +657,17 @@ class StructureBrowserWidget(ipw.VBox):
 
         # If the date range is valid, use it for the search
         try:
-            start_date = datetime.datetime.strptime(  # noqa: DTZ007
+            start_date = datetime.datetime.strptime(
                 self.start_date_widget.value, "%Y-%m-%d"
             )
-            end_date = datetime.datetime.strptime(  # noqa: DTZ007
+            end_date = datetime.datetime.strptime(
                 self.end_date_widget.value, "%Y-%m-%d"
             ) + datetime.timedelta(hours=24)
 
         # Otherwise revert to the standard (i.e. last 7 days)
         except ValueError:
-            start_date = datetime.datetime.now() - datetime.timedelta(days=7)  # noqa: DTZ005
-            end_date = datetime.datetime.now() + datetime.timedelta(hours=24)  # noqa: DTZ005
+            start_date = datetime.datetime.now() - datetime.timedelta(days=7)
+            end_date = datetime.datetime.now() + datetime.timedelta(hours=24)
 
             self.start_date_widget.value = start_date.strftime("%Y-%m-%d")
             self.end_date_widget.value = end_date.strftime("%Y-%m-%d")
