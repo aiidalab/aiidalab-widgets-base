@@ -1,5 +1,18 @@
 # CHANGELOG
 
+<!-- Release notes generated using configuration in .github/release.yml at master -->
+## v3.0.1 - 2026-10-26
+
+### Bug fixes 🐛
+* Replace broken ASE IO link with current URL by @edan-bainglass in https://github.com/aiidalab/aiidalab-widgets-base/pull/818
+* Convert process monitor threads to daemon threads by @edan-bainglass in https://github.com/aiidalab/aiidalab-widgets-base/pull/821
+
+### Other Changes
+* Add `project.urls` table to pyproject.toml by @danielhollas in https://github.com/aiidalab/aiidalab-widgets-base/pull/828
+
+**Full Changelog**: https://github.com/aiidalab/aiidalab-widgets-base/compare/v3.0.0...v3.0.1
+
+
 ## v3.0.0 - 2026-09-10
 
 This major version consolidates a few breaking changes,
@@ -63,8 +76,6 @@ display(exception_output, your_app, footer)
 Most dependencies have had their minimum versions updated.
 For example, a minimum supported spglib version is now 2.5.
 
-
-## What's Changed
 
 ### Breaking Changes 🛠
 * Migrate to ipywidgets 8.x (reapply #644) by @yakutovicha in https://github.com/aiidalab/aiidalab-widgets-base/pull/725
