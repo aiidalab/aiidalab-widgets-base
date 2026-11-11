@@ -8,11 +8,16 @@ from aiida import orm
 import aiidalab_widgets_base as awb
 
 
-@pytest.fixture(scope="session", autouse=True)
-def aiida_profile(aiida_config, aiida_profile_factory):
-    """These widget tests need only isolated SQLite storage, never a broker."""
-    with aiida_profile_factory(aiida_config, broker_backend=None) as profile:
-        yield profile
+def current_structure(manager):
+    value = manager.structure
+    assert isinstance(value, ase.Atoms)
+    return value
+
+
+def current_node(widget):
+    value = widget.structure_node
+    assert isinstance(value, orm.Data)
+    return value
 
 
 def make_source(node_class):
@@ -47,7 +52,7 @@ def test_explicit_reload_restores_source_history_and_representations(
         importers=[browser, smiles], node_class=node_class
     )
     load(browser, source)
-    original = manager.structure.copy()
+    original = current_structure(manager).copy()
 
     # Saving without Apply must be honoured on the subsequent explicit reload.
     manager.viewer._all_representations[0].color.value = "green"
@@ -59,35 +64,36 @@ def test_explicit_reload_restores_source_history_and_representations(
     count = orm.QueryBuilder().append(orm.Node).count()
 
     if replacement == "edit":
-        edited = manager.structure.copy()
+        edited = current_structure(manager).copy()
         edited.positions[1, 2] += 0.4
         manager.structure = edited
         assert len(manager.history) == 2
-        assert not manager.structure_node.is_stored
+        assert not current_node(manager).is_stored
     elif replacement == "smiles":
         smiles.smiles.value = "C"
         smiles.create_structure_btn.click()
-        assert len(manager.structure) == 5
-        assert not manager.structure_node.is_stored
+        assert len(current_structure(manager)) == 5
+        assert not current_node(manager).is_stored
 
     # The database selection has not changed, even after another importer runs.
     assert browser.results.value.uuid == source.uuid
     manager.viewer._all_representations[0].color.value = "red"
     load(browser, source)
 
+    assert isinstance(manager.input_structure, orm.Data)
     assert manager.input_structure.uuid == source.uuid
-    assert manager.structure_node.uuid == source.uuid
-    assert manager.viewer.structure_node.uuid == source.uuid
-    assert manager.structure_node.is_stored
+    assert current_node(manager).uuid == source.uuid
+    assert current_node(manager.viewer).uuid == source.uuid
+    assert current_node(manager).is_stored
     assert manager.btn_store.disabled
     assert manager.structure_label.disabled
     assert manager.structure_label.value == source.label
     assert manager.structure_description.value == source.description
     assert manager.viewer.btn_store_representations.disabled is False
-    np.testing.assert_allclose(manager.structure.positions, original.positions)
-    np.testing.assert_allclose(manager.structure.cell, original.cell)
-    np.testing.assert_array_equal(manager.structure.numbers, original.numbers)
-    np.testing.assert_array_equal(manager.structure.pbc, original.pbc)
+    np.testing.assert_allclose(current_structure(manager).positions, original.positions)
+    np.testing.assert_allclose(current_structure(manager).cell, original.cell)
+    np.testing.assert_array_equal(current_structure(manager).numbers, original.numbers)
+    np.testing.assert_array_equal(current_structure(manager).pbc, original.pbc)
     assert len(manager.history) == 1
     representations = manager.viewer._all_representations
     assert len(representations) == 1
@@ -116,7 +122,7 @@ def test_reload_switches_sources_without_style_bleed_and_rejects_invalid_pk():
     manager = awb.StructureManagerWidget(importers=[browser])
     load(browser, source)
     load(browser, bare)
-    assert manager.structure_node.uuid == bare.uuid
+    assert current_node(manager).uuid == bare.uuid
     assert len(manager.history) == 1
     assert manager.viewer._all_representations[0].color.value == "element"
     load(browser, source)
