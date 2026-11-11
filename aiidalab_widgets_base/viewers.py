@@ -865,6 +865,13 @@ class _StructureDataBaseViewer(ipw.VBox):
         self.structure_node = node
         if node is None or structure is None:
             return structure
+        # Loading a stored source discards pending style edits as well as
+        # geometry edits. Rebuild rows from its extras, not cached controls.
+        self._all_representations = [
+            NglViewerRepresentation(
+                style_id=encode_representation_style_id(self.REPRESENTATION_PREFIX)
+            )
+        ]
         representations = node.base.extras.get(VIEWER_REPRESENTATIONS_EXTRA, {})
         if not isinstance(representations, dict):
             warnings.warn(
