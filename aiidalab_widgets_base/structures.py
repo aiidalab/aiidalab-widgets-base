@@ -770,6 +770,9 @@ class StructureBrowserWidget(ipw.VBox):
             self.info.value = f"No AiiDA node found for PK={pk_value}."
         else:
             if isinstance(node, self.query_structure_type):
+                # An explicit reload must reach linked managers even when the
+                # selected node compares equal to the previously loaded source.
+                self.structure = None
                 self.results.options = [(self._format_node_label(node), node)]
                 self.results.value = node
                 self.structure = node
